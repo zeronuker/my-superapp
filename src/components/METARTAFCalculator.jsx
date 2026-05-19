@@ -102,7 +102,9 @@ export default function METARTAFCalculator() {
     add('alt2', s.destAlts.alt2,    'DEST ALT 2')
     for (let i = 0; i < s.enrouteCount; i++)
       add(`era${i + 1}`, s.enrouteAlts[i] || '', `ENROUTE ALT ${i + 1}`)
-    return list
+    // Deduplicate by ICAO — keep first occurrence (pilot order takes priority)
+    const seen = new Set()
+    return list.filter(t => { if (seen.has(t.icao)) return false; seen.add(t.icao); return true })
   }, [])
 
   // ── Fetch ─────────────────────────────────────────────────────────────
