@@ -1,0 +1,252 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Brand token bridge ───────────────────────────────────────────────
+   Maps legacy --cp-* vars to the ClaudeBorne --cb-* design tokens.
+   brand.css (loaded in index.html) defines --cb-* and automatically
+   resets them for light mode via [data-theme="light"] and
+   @media (prefers-color-scheme: light), so the bridge auto-shifts.
+   ───────────────────────────────────────────────────────────────────── */
+:root {
+  --cp-bg:      var(--cb-surface-0);
+  --cp-bg2:     var(--cb-surface-1);
+  --cp-bg3:     var(--cb-surface-2);
+  --cp-bghd:    var(--cb-surface-0);
+  --cp-bgalt:   var(--cb-surface-3);
+  --cp-bginput: var(--cb-surface-1);
+  --cp-acc:     var(--cb-mint);
+  --cp-acc2:    var(--cb-blue);
+  --cp-accdim:  #0d2840;          /* dark-mode tint — overridden below for light */
+  --cp-border:  var(--cb-line-2);
+  --cp-border2: var(--cb-line);
+  --cp-border3: var(--cb-line);
+  --cp-txt:     var(--cb-ink);
+  --cp-muted:   var(--cb-ink-2);
+  --cp-dim:     var(--cb-ink-dim);
+  --cp-hover:   var(--cb-surface-3);
+  /* Status colors — no direct brand token; keep explicit, override for light */
+  --cp-green:   #4ade80;
+  --cp-yellow:  #fcd34d;
+  --cp-orange:  #fdba74;
+  --cp-red:     #f87171;
+  --cp-purple:  var(--cb-violet);
+}
+
+/* Light-mode overrides for values that don't auto-shift through the bridge */
+:root[data-theme="light"] {
+  --cp-accdim:  #d4eaf8;
+  --cp-bginput: #ffffff;
+  --cp-green:   #14522a;
+  --cp-yellow:  #6b3d00;
+  --cp-orange:  #7c2a00;
+  --cp-red:     #8b1212;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --cp-accdim:  #d4eaf8;
+    --cp-bginput: #ffffff;
+    --cp-green:   #14522a;
+    --cp-yellow:  #6b3d00;
+    --cp-orange:  #7c2a00;
+    --cp-red:     #8b1212;
+  }
+}
+
+* { box-sizing: border-box; }
+button { touch-action: manipulation; }
+
+body {
+  margin: 0;
+  font-family: var(--cb-font-body);
+  background: var(--cp-bg);
+  color: var(--cp-txt);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--cp-bg3); }
+::-webkit-scrollbar-thumb { background: var(--cp-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--cp-accdim); }
+
+/* ── Spinner numbers ── */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
+/* ── Cockpit component classes ── */
+
+.cp-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cp-dim);
+  font-family: var(--cb-font-mono);
+}
+
+.cp-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.cp-section-title {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cp-acc);
+  white-space: nowrap;
+  font-family: var(--cb-font-mono);
+}
+
+.cp-divider {
+  flex: 1;
+  height: 1px;
+  background: var(--cp-border2);
+}
+
+.cp-card {
+  background: var(--cp-bg2);
+  border: 1px solid var(--cp-border2);
+  border-radius: 4px;
+  padding: 16px;
+}
+
+.cp-card-accent {
+  background: var(--cp-bg2);
+  border: 1px solid var(--cp-border2);
+  border-left: 3px solid var(--cp-acc);
+  border-radius: 4px;
+  padding: 16px;
+}
+
+.cp-input {
+  background: var(--cp-bginput);
+  border: 1px solid var(--cp-border);
+  border-radius: 4px;
+  color: var(--cp-txt);
+  font-family: var(--cb-font-mono);
+  font-size: 13px;
+  padding: 8px 10px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.cp-input:focus { border-color: var(--cp-acc); }
+.cp-input::placeholder { color: var(--cp-dim); }
+
+.cp-btn {
+  background: transparent;
+  border: 1px solid var(--cp-border);
+  border-radius: 4px;
+  color: var(--cp-dim);
+  font-family: var(--cb-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.cp-btn:hover { border-color: var(--cp-acc2); color: var(--cp-muted); }
+.cp-btn.active {
+  border-color: var(--cp-acc);
+  color: var(--cp-acc);
+  background: var(--cp-accdim);
+}
+
+.cp-btn-danger {
+  border-color: var(--cp-border);
+  color: var(--cp-dim);
+}
+.cp-btn-danger:hover { border-color: var(--cp-red); color: var(--cp-red); }
+
+.cp-result-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--cp-acc);
+  font-family: var(--cb-font-mono);
+  line-height: 1;
+}
+
+.cp-result-unit {
+  font-size: 12px;
+  color: var(--cp-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ── Tab nav ── */
+.cp-tab {
+  background: transparent;
+  border: 1px solid var(--cp-border2);
+  border-bottom: none;
+  color: var(--cp-dim);
+  font-family: var(--cb-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  border-radius: 4px 4px 0 0;
+}
+.cp-tab:hover { color: var(--cp-muted); background: var(--cp-hover); }
+.cp-tab.active {
+  color: var(--cp-acc);
+  background: var(--cp-bg2);
+  border-color: var(--cp-border);
+  border-bottom: 1px solid var(--cp-bg2);
+  box-shadow: inset 0 3px 0 0 var(--cp-acc);
+}
+
+/* ── Table ── */
+.cp-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.cp-table thead tr { background: var(--cp-bghd); }
+.cp-table thead th {
+  color: var(--cp-dim);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--cp-border);
+  text-align: center;
+  font-weight: normal;
+}
+.cp-table tbody tr { background: var(--cp-bg2); border-bottom: 1px solid var(--cp-border3); }
+.cp-table tbody tr:hover { background: var(--cp-hover); }
+.cp-table tbody tr.active { background: var(--cp-hover); }
+.cp-table tbody td { padding: 2px; border-right: 1px solid var(--cp-border3); }
+.cp-table tbody td:last-child { border-right: none; }
+.cp-table input {
+  background: transparent;
+  border: none;
+  color: var(--cp-txt);
+  font-family: var(--cb-font-mono);
+  font-size: 13px;
+  text-align: center;
+  width: 100%;
+  padding: 7px 4px;
+  outline: none;
+}
+.cp-table input::placeholder { color: var(--cp-dim); opacity: 0.5; }
+.cp-table input:focus { background: var(--cp-hover); }
+
+@keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+/* ── Tab bar scrollable ── */
+.cp-tab-bar { scrollbar-width: none; -ms-overflow-style: none; }
+.cp-tab-bar::-webkit-scrollbar { display: none; }
+.cp-tab { white-space: nowrap; flex-shrink: 0; }
+
+/* ── Tab content fade transition ── */
+@keyframes cpFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.cp-calc-fade { animation: cpFadeIn 0.18s ease; }
+
+/* ── Reduce motion ── */
+html[data-reduce-motion="true"] .cp-calc-fade { animation: none; }
+html[data-reduce-motion="true"] * { transition: none !important; }

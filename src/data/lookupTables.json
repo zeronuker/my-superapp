@@ -1,0 +1,164 @@
+{
+  "b737-8": {
+    "displayName": "Boeing 737-8 (MAX)",
+    "variants": {
+      "leap-1b25": {
+        "displayName": "LEAP-1B25",
+        "engine": "LEAP-1B25",
+        "tables": {
+          "kias310": {
+            "name": "310 KIAS Altitude Capability",
+            "unit": "feet",
+            "description": "Pressure altitude for 100 ft/min ROC - MAX CONTINUOUS THRUST at 310 KIAS",
+            "weights": [45, 50, 55, 60, 65, 70, 75, 80],
+            "temperatures": ["ISA+10", "ISA+15", "ISA+20"],
+            "data": {
+              "ISA+10": [16300, 15900, 15500, 15000, 14200, 13400, 12400, 11500],
+              "ISA+15": [14700, 14200, 13500, 12800, 11900, 11000, 10000, 8900],
+              "ISA+20": [null,  11600, 10900, 10200, 9300,  8300,  7200,  6000]
+            },
+            "antiIcePenalty": {
+              "engine": -2100,
+              "engineAndWing": -6400
+            }
+          },
+          "longRangeCruise": {
+            "name": "Long Range Cruise Altitude Capability",
+            "unit": "feet",
+            "description": "Pressure altitude for 100 ft/min ROC - MAX CONTINUOUS THRUST",
+            "weights": [40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+            "temperatures": ["ISA+10", "ISA+15", "ISA+20"],
+            "data": {
+              "ISA+10": [32700, 30200, 27500, 24800, 22100, 19700, 17900, 16200, 14400, 11800],
+              "ISA+15": [31800, 28600, 25700, 22900, 20300, 18300, 16500, 14600, 11900, 9300],
+              "ISA+20": [30700, 27100, 24000, 21200, 18800, 16700, 14400, 11800, 9500, 6500]
+            },
+            "antiIcePenalty": {
+              "engine": -1600,
+              "engineAndWing": -8600
+            }
+          }
+        }
+      },
+      "leap-1b27": {
+        "displayName": "LEAP-1B27",
+        "engine": "LEAP-1B27",
+        "tables": {
+          "kias310": {
+            "name": "310 KIAS Altitude Capability",
+            "unit": "feet",
+            "description": "Pressure altitude for 100 ft/min ROC - MAX CONTINUOUS THRUST at 310 KIAS",
+            "weights": [45, 50, 55, 60, 65, 70, 75, 80],
+            "temperatures": ["ISA+10", "ISA+15", "ISA+20"],
+            "data": {
+              "ISA+10": [16300, 15900, 15500, 15000, 14200, 13400, 12400, 11500],
+              "ISA+15": [14700, 14200, 13500, 12800, 11900, 11000, 10000, 8900],
+              "ISA+20": [null,  11600, 10900, 10200, 9300,  8300,  7200,  6000]
+            },
+            "antiIcePenalty": {
+              "engine": -2100,
+              "engineAndWing": -6400
+            }
+          },
+          "longRangeCruise": {
+            "name": "Long Range Cruise Altitude Capability",
+            "unit": "feet",
+            "description": "Pressure altitude for 100 ft/min ROC - MAX CONTINUOUS THRUST",
+            "weights": [40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+            "temperatures": ["ISA+10", "ISA+15", "ISA+20"],
+            "data": {
+              "ISA+10": [32700, 30200, 27500, 24900, 23000, 21300, 19600, 18000, 16400, 14700],
+              "ISA+15": [31800, 28600, 25700, 23400, 21600, 19800, 18000, 16300, 14500, 11800],
+              "ISA+20": [30700, 27100, 24200, 22200, 20300, 18300, 16500, 14600, 11700, 9100]
+            },
+            "antiIcePenalty": {
+              "engine": -1500,
+              "engineAndWing": -6500
+            }
+          }
+        }
+      }
+    }
+  },
+  "b737-800": {
+    "displayName": "Boeing 737-800",
+    "variants": {
+      "cfm56-7b24": {
+        "displayName": "CFM56-7B24",
+        "engine": "CFM56-7B24",
+        "tables": {
+          "longRangeCruise": {
+            "name": "Long Range Cruise Altitude Capability",
+            "unit": "feet",
+            "description": "Pressure altitude for 100 ft/min ROC - MAX CONTINUOUS THRUST",
+            "weights": [40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+            "temperatures": ["ISA+10", "ISA+15", "ISA+20"],
+            "data": {
+              "ISA+10": [33800, 31400, 29000, 26300, 23700, 21100, 18400, 15300, 12400, 9500],
+              "ISA+15": [33000, 30500, 27700, 24700, 21800, 18600, 15800, 12800, 9500, 6400],
+              "ISA+20": [31800, 29200, 25800, 22400, 19400, 16300, 13200, 9800, 6500, 3400]
+            },
+            "antiIcePenalty": {
+              "engine": -2000,
+              "engineAndWing": -6500
+            }
+          },
+          "kias310": {
+            "name": "310 KIAS Altitude Capability",
+            "unit": "feet",
+            "description": "Pressure altitude for 100 ft/min ROC - MAX CONTINUOUS THRUST at 310 KIAS",
+            "weights": [40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+            "temperatures": ["ISA+10", "ISA+15", "ISA+20"],
+            "data": {
+              "ISA+10": [16700, 16400, 16000, 15400, 14800, 13900, 13000, 12000, 10900, 9700],
+              "ISA+15": [14300, 14000, 13500, 12800, 12000, 11100, 10100, 9000, 7800, 6500],
+              "ISA+20": [11300, 11000, 10400, 9600, 8800, 8000, 6900, 5700, 4500, 3200]
+            },
+            "antiIcePenalty": {
+              "engine": -2300,
+              "engineAndWing": -7100
+            }
+          }
+        }
+      },
+      "cfm56-7b26": {
+        "displayName": "CFM56-7B26",
+        "engine": "CFM56-7B26",
+        "tables": {
+          "longRangeCruise": {
+            "name": "Long Range Cruise Altitude Capability",
+            "unit": "feet",
+            "description": "Pressure altitude for 100 ft/min ROC - MAX CONTINUOUS THRUST",
+            "weights": [40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+            "temperatures": ["ISA+10", "ISA+15", "ISA+20"],
+            "data": {
+              "ISA+10": [33800, 31400, 29000, 26300, 24100, 22500, 20900, 19200, 17200, 15200],
+              "ISA+15": [33000, 30500, 27700, 24800, 23000, 21300, 19700, 17400, 15300, 12600],
+              "ISA+20": [31800, 29200, 25800, 23500, 21600, 19800, 17300, 15000, 12500, 9900]
+            },
+            "antiIcePenalty": {
+              "engine": -1200,
+              "engineAndWing": -5500
+            }
+          },
+          "kias310": {
+            "name": "310 KIAS Altitude Capability",
+            "unit": "feet",
+            "description": "Pressure altitude for 100 ft/min ROC - MAX CONTINUOUS THRUST at 310 KIAS",
+            "weights": [40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+            "temperatures": ["ISA+10", "ISA+15", "ISA+20"],
+            "data": {
+              "ISA+10": [19800, 19500, 19100, 18700, 18100, 17500, 16700, 16000, 15200, 14200],
+              "ISA+15": [18200, 17900, 17500, 17000, 16500, 15800, 15100, 14300, 13400, 12400],
+              "ISA+20": [16200, 15900, 15500, 15000, 14400, 13700, 12900, 12000, 11100, 10100]
+            },
+            "antiIcePenalty": {
+              "engine": -1200,
+              "engineAndWing": -4900
+            }
+          }
+        }
+      }
+    }
+  }
+}
