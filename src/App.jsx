@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useCalculatorStore } from './store/calculatorStore'
 import EDTOCalculator from './components/EDTOCalculator'
 import NormalCalculator from './components/NormalCalculator'
@@ -35,6 +35,16 @@ export default function App() {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [fading, setFading] = React.useState(false)
+  const [logoFontReady, setLogoFontReady] = useState(false)
+
+  // Wait for Tourney to finish loading before showing the "C".
+  // On Android Chrome, SVG text renders immediately at paint time and never
+  // repaints when the web font arrives, so we gate visibility on font readiness.
+  useEffect(() => {
+    document.fonts.load("700 58px 'Tourney'")
+      .then(() => setLogoFontReady(true))
+      .catch(() => setLogoFontReady(true)) // fallback: show even if font fails
+  }, [])
 
   const currentCalc     = CALCULATORS.find(c => c.id === activeCalculator)
   const CurrentComponent = currentCalc?.component
@@ -124,12 +134,15 @@ export default function App() {
                   strokeLinejoin="miter"
                 />
                 <text
-                  fontFamily="'Tourney', sans-serif"
-                  fontWeight="700"
-                  fontSize="58"
-                  fill="url(#cb-logo-grad)"
                   x="50" y="72"
                   textAnchor="middle"
+                  fill="url(#cb-logo-grad)"
+                  style={{
+                    fontFamily: "'Tourney', sans-serif",
+                    fontWeight: 700,
+                    fontSize: '58px',
+                    visibility: logoFontReady ? 'visible' : 'hidden',
+                  }}
                 >C</text>
               </svg>
               <span style={{
