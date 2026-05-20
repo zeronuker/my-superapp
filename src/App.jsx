@@ -107,10 +107,10 @@ export default function App() {
               <div
                 role="img"
                 aria-label="ClaudeBorne"
-                style={{ position: 'relative', width: 40, height: 40, flexShrink: 0 }}
+                style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}
               >
                 {/* Frame + background */}
-                <svg width="40" height="40" viewBox="0 0 100 100"
+                <svg width="48" height="48" viewBox="0 0 100 100"
                   aria-hidden="true"
                   style={{ display: 'block' }}>
                   <defs>
@@ -142,7 +142,7 @@ export default function App() {
                     paddingBottom: '2px',
                     fontFamily: "'Tourney', sans-serif",
                     fontWeight: 700,
-                    fontSize: '24px',
+                    fontSize: '28px',
                     background: 'var(--cb-grad)',
                     WebkitBackgroundClip: 'text',
                     backgroundClip: 'text',
