@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useCalculatorStore } from './store/calculatorStore'
 import EDTOCalculator from './components/EDTOCalculator'
 import NormalCalculator from './components/NormalCalculator'
@@ -35,16 +35,6 @@ export default function App() {
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [fading, setFading] = React.useState(false)
-  const [logoFontReady, setLogoFontReady] = useState(false)
-
-  // Wait for Tourney to finish loading before showing the "C".
-  // On Android Chrome, SVG text renders immediately at paint time and never
-  // repaints when the web font arrives, so we gate visibility on font readiness.
-  useEffect(() => {
-    document.fonts.load("700 58px 'Tourney'")
-      .then(() => setLogoFontReady(true))
-      .catch(() => setLogoFontReady(true)) // fallback: show even if font fails
-  }, [])
 
   const currentCalc     = CALCULATORS.find(c => c.id === activeCalculator)
   const CurrentComponent = currentCalc?.component
@@ -111,40 +101,58 @@ export default function App() {
             alignItems: 'center', justifyContent: 'space-between' }}>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              {/* Inline SVG — uses Tourney already loaded by brand.css from Google Fonts.
-                  An <img>-loaded SVG is sandboxed on Android Chrome and ignores @font-face,
-                  causing the "C" to fall back to the system font. Inline avoids this entirely. */}
-              <svg width="36" height="36" viewBox="0 0 100 100"
-                role="img" aria-label="ClaudeBorne"
-                style={{ flexShrink: 0, display: 'block' }}>
-                <defs>
-                  <linearGradient id="cb-logo-grad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%"   stopColor="var(--cb-mint)" />
-                    <stop offset="55%"  stopColor="var(--cb-blue)" />
-                    <stop offset="100%" stopColor="var(--cb-violet)" />
-                  </linearGradient>
-                </defs>
-                <rect width="100" height="100" fill="var(--cb-surface-0)" />
-                <polyline
-                  points="15,28 15,15 85,15 85,85 50,85"
-                  fill="none"
-                  stroke="url(#cb-logo-grad)"
-                  strokeWidth="3.5"
-                  strokeLinecap="square"
-                  strokeLinejoin="miter"
-                />
-                <text
-                  x="50" y="72"
-                  textAnchor="middle"
-                  fill="url(#cb-logo-grad)"
+              {/* Logo mark — SVG handles the frame/background, HTML <span> renders the "C".
+                  Android Chrome does not reliably apply web fonts to SVG <text> elements
+                  even when the font is loaded; HTML elements always work correctly. */}
+              <div
+                role="img"
+                aria-label="ClaudeBorne"
+                style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}
+              >
+                {/* Frame + background */}
+                <svg width="36" height="36" viewBox="0 0 100 100"
+                  aria-hidden="true"
+                  style={{ display: 'block' }}>
+                  <defs>
+                    <linearGradient id="cb-logo-grad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%"   stopColor="var(--cb-mint)" />
+                      <stop offset="55%"  stopColor="var(--cb-blue)" />
+                      <stop offset="100%" stopColor="var(--cb-violet)" />
+                    </linearGradient>
+                  </defs>
+                  <rect width="100" height="100" fill="var(--cb-surface-0)" />
+                  <polyline
+                    points="15,28 15,15 85,15 85,85 50,85"
+                    fill="none"
+                    stroke="url(#cb-logo-grad)"
+                    strokeWidth="3.5"
+                    strokeLinecap="square"
+                    strokeLinejoin="miter"
+                  />
+                </svg>
+                {/* "C" as an HTML element — guaranteed web font on all platforms */}
+                <span
+                  aria-hidden="true"
                   style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingBottom: '1px',
                     fontFamily: "'Tourney', sans-serif",
                     fontWeight: 700,
-                    fontSize: '58px',
-                    visibility: logoFontReady ? 'visible' : 'hidden',
+                    fontSize: '21px',
+                    background: 'var(--cb-grad)',
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                    color: 'transparent',
+                    lineHeight: 1,
+                    userSelect: 'none',
+                    pointerEvents: 'none',
                   }}
-                >C</text>
-              </svg>
+                >C</span>
+              </div>
               <span style={{
                 fontFamily: 'var(--cb-font-display)', fontWeight: 700,
                 fontSize: 13, letterSpacing: '0.22em',
