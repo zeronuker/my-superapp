@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
 
@@ -21,8 +21,8 @@ const BTN = {
 }
 
 function Btn({ style, children, onClick, colSpan, rowSpan, hapticType = 'light' }) {
-  const [hover, setHover] = useState(false)
-  const [pressed, setPressed] = useState(false)
+  const [hover, setHover] = React.useState(false)
+  const [pressed, setPressed] = React.useState(false)
   return (
     <button
       onClick={onClick}
@@ -42,82 +42,83 @@ function Btn({ style, children, onClick, colSpan, rowSpan, hapticType = 'light' 
 }
 
 export default function NormalCalculator() {
-  const { normal, setNormalDisplay, setNormalOperation } = useCalculatorStore()
-  const [expression, setExpression] = useState('')
-  const [clearNext, setClearNext] = useState(false)
+  // All state — including expression and clearNext — lives in Zustand so it
+  // survives tab switches. setNormal is a partial updater (single store write).
+  const { normal, setNormal } = useCalculatorStore(s => ({
+    normal: s.normal,
+    setNormal: s.setNormal,
+  }))
+  const { display, previousValue, operation, expression, clearNext } = normal
 
   const handleNumber = (num) => {
     if (clearNext) {
-      setNormalDisplay(String(num))
-      setExpression('')
-      setClearNext(false)
+      setNormal({ display: String(num), expression: '', clearNext: false })
     } else {
-      const newDisplay = normal.display === '0' ? String(num) : normal.display + String(num)
-      setNormalDisplay(newDisplay)
+      const newDisplay = display === '0' ? String(num) : display + String(num)
+      setNormal({ display: newDisplay })
     }
   }
 
   const handleOperation = (op) => {
-    setClearNext(false)
-    if (normal.operation) {
-      // chain: compute pending first, then set new op
-      const current = parseFloat(normal.display)
-      let result = normal.previousValue
-      if (normal.operation === '+') result = normal.previousValue + current
-      else if (normal.operation === '-') result = normal.previousValue - current
-      else if (normal.operation === '×') result = normal.previousValue * current
-      else if (normal.operation === '÷') result = normal.previousValue / current
+    if (operation) {
+      // Chain: compute pending result then set new operator
+      const current = parseFloat(display)
+      let result = previousValue
+      if (operation === '+') result = previousValue + current
+      else if (operation === '-') result = previousValue - current
+      else if (operation === '×') result = previousValue * current
+      else if (operation === '÷') result = previousValue / current
       const r = parseFloat(result.toPrecision(12))
-      setExpression(`${r} ${op}`)
-      setNormalOperation(r, op)
+      setNormal({ display: '0', previousValue: r, operation: op,
+        expression: `${r} ${op}`, clearNext: false })
     } else {
-      setExpression(`${normal.display} ${op}`)
-      setNormalOperation(parseFloat(normal.display), op)
+      const pv = clearNext ? parseFloat(display) : parseFloat(display)
+      setNormal({ display: '0', previousValue: pv, operation: op,
+        expression: `${display} ${op}`, clearNext: false })
     }
-    setNormalDisplay('0')
   }
 
   const handleEquals = () => {
-    if (!normal.operation) return
-    const current = parseFloat(normal.display)
-    if (normal.operation === '÷' && current === 0) {
-      setExpression(`${normal.previousValue} ÷ 0 =`)
-      setNormalDisplay('Error')
-      setNormalOperation(0, null)
-      setClearNext(true)
+    if (!operation) return
+    const current = parseFloat(display)
+    if (operation === '÷' && current === 0) {
+      setNormal({ expression: `${previousValue} ÷ 0 =`, display: 'Error',
+        previousValue: 0, operation: null, clearNext: true })
       return
     }
-    let result = normal.previousValue
-    if (normal.operation === '+') result = normal.previousValue + current
-    else if (normal.operation === '-') result = normal.previousValue - current
-    else if (normal.operation === '×') result = normal.previousValue * current
-    else if (normal.operation === '÷') result = normal.previousValue / current
+    let result = previousValue
+    if (operation === '+') result = previousValue + current
+    else if (operation === '-') result = previousValue - current
+    else if (operation === '×') result = previousValue * current
+    else if (operation === '÷') result = previousValue / current
     const r = parseFloat(result.toPrecision(12))
-    setExpression(`${normal.previousValue} ${normal.operation} ${current} =`)
-    setNormalDisplay(String(r))
-    setNormalOperation(0, null)
-    setClearNext(true)
+    setNormal({
+      expression: `${previousValue} ${operation} ${current} =`,
+      display: String(r),
+      previousValue: 0, operation: null, clearNext: true,
+    })
   }
 
   const handleClear = () => {
-    setNormalDisplay('0')
-    setNormalOperation(0, null)
-    setExpression('')
-    setClearNext(false)
+    setNormal({ display: '0', previousValue: 0, operation: null,
+      expression: '', clearNext: false })
   }
 
   const handleBackspace = () => {
     if (clearNext) { handleClear(); return }
-    const next = normal.display.slice(0, -1)
-    setNormalDisplay(next || '0')
+    const next = display.slice(0, -1)
+    setNormal({ display: next || '0' })
   }
 
   const handleDecimal = () => {
-    if (clearNext) { setNormalDisplay('0.'); setClearNext(false); setExpression(''); return }
-    if (!normal.display.includes('.')) setNormalDisplay(normal.display + '.')
+    if (clearNext) {
+      setNormal({ display: '0.', clearNext: false, expression: '' })
+      return
+    }
+    if (!display.includes('.')) setNormal({ display: display + '.' })
   }
 
-  // Keyboard support
+  // Keyboard support — re-registers whenever Zustand state changes
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
@@ -133,11 +134,11 @@ export default function NormalCalculator() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [normal.display, normal.operation, normal.previousValue, clearNext])
+  }, [display, operation, previousValue, clearNext])
 
-  const opStyle = o => normal.operation === o ? BTN.opActive : BTN.op
+  const opStyle = o => operation === o && !clearNext ? BTN.opActive : BTN.op
 
-  const exprLine = expression || (normal.operation ? `${normal.previousValue} ${normal.operation}` : ' ')
+  const exprLine = expression || (operation ? `${previousValue} ${operation}` : ' ')
 
   return (
     <div style={{ maxWidth: 380, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -148,8 +149,8 @@ export default function NormalCalculator() {
         </div>
         <div style={{
           color: 'var(--cp-acc)', fontWeight: 700, fontFamily: "var(--cb-font-mono)",
-          fontSize: normal.display.length > 10 ? '2.2rem' : '3.6rem', lineHeight: 1, letterSpacing: '0.05em',
-        }}>{normal.display}</div>
+          fontSize: display.length > 10 ? '2.2rem' : '3.6rem', lineHeight: 1, letterSpacing: '0.05em',
+        }}>{display}</div>
       </div>
 
       {/* Buttons */}

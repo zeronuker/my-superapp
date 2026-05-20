@@ -76,7 +76,9 @@ export default function InterpolationCalculator() {
 
   useEffect(() => {
     setInterpolation({ result: fmt(bilinearInterpolate(rows, zValues, lookupX, lookupZ)) })
-  }, [rows, zValues, lookupX, lookupZ])
+    // setInterpolation is a stable Zustand action — listed to satisfy exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, zValues, lookupX, lookupZ, setInterpolation])
 
   const setRows = next => setInterpolation({ rows: next })
   const setZValues = next => setInterpolation({ zValues: next })

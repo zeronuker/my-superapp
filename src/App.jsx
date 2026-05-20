@@ -27,6 +27,12 @@ export default function App() {
     settings, updateSettings,
   } = useCalculatorStore()
 
+  // Changing defaultTab in Settings also navigates to that tab immediately
+  const handleSettingsUpdate = (partial) => {
+    updateSettings(partial)
+    if ('defaultTab' in partial) setActiveCalculator(partial.defaultTab)
+  }
+
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [fading, setFading] = React.useState(false)
 
@@ -195,7 +201,7 @@ export default function App() {
             darkMode={darkMode}
             onToggleDark={handleToggleDark}
             settings={settings}
-            onUpdate={updateSettings}
+            onUpdate={handleSettingsUpdate}
             onClose={() => setSettingsOpen(false)}
           />
         </>
@@ -206,6 +212,46 @@ export default function App() {
 
 // ── Settings Panel ──────────────────────────────────────────────────────────
 function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose }) {
+  const panelRef = React.useRef(null)
+
+  // Focus trap: on open, move focus into panel and keep Tab cycling within it
+  React.useEffect(() => {
+    const panel = panelRef.current
+    if (!panel) return
+
+    // Save the element that was focused before the panel opened
+    const prevFocus = document.activeElement
+
+    // Query all interactive elements inside the panel
+    const getFocusable = () => Array.from(panel.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ))
+
+    // Auto-focus the close button (first focusable element)
+    const focusable = getFocusable()
+    if (focusable.length) focusable[0].focus()
+
+    const onKeyDown = (e) => {
+      if (e.key !== 'Tab') return
+      const els = getFocusable()
+      if (!els.length) return
+      const first = els[0]
+      const last = els[els.length - 1]
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus() }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus() }
+      }
+    }
+
+    panel.addEventListener('keydown', onKeyDown)
+    return () => {
+      panel.removeEventListener('keydown', onKeyDown)
+      // Restore focus to the element that triggered the panel open
+      if (prevFocus && typeof prevFocus.focus === 'function') prevFocus.focus()
+    }
+  }, [])
+
   const panelStyle = {
     position: 'fixed', top: 0, right: 0,
     width: 300, height: '100vh',
@@ -216,7 +262,7 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose }) 
   }
 
   return (
-    <div style={panelStyle} role="dialog" aria-label="Settings">
+    <div ref={panelRef} style={panelStyle} role="dialog" aria-modal="true" aria-label="Settings">
 
       {/* Panel header */}
       <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--cp-border)',

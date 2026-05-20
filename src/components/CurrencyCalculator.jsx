@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 
 const REGIONS = [
@@ -45,32 +45,62 @@ export default function CurrencyCalculator() {
   const [rateSource, setRateSource] = useState(null)
   const [rateDate, setRateDate] = useState(null)
 
-  const fetchRate = async (from, to) => {
-    setLoading(true)
-    try {
-      const response = await fetch(`https://api.exchangerate-api.com/v4/latest/${from}`, { signal: AbortSignal.timeout(5000) })
-      if (!response.ok) throw new Error()
-      const data = await response.json()
-      setRateSource('live')
-      setRateDate(data.date || new Date().toISOString().split('T')[0])
-      return data.rates[to] || offlineRate(from, to)
-    } catch {
-      setRateSource('offline')
-      setRateDate(null)
-      return offlineRate(from, to)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Local rate mirrors Zustand — avoids extra round-trip through the store
+  // when recalculating on amount/format changes.
+  const [fetchedRate, setFetchedRate] = useState(() => currency.rate || 1)
+  const calcRef = useRef(null)
 
+  // ── Effect A: fetch rate when currencies change (not debounced — triggered by clicks, not keystrokes) ──
   useEffect(() => {
-    const convert = async () => {
-      if (!currency.amount) { setCurrencyResult(1, ''); return }
-      const rate = await fetchRate(currency.fromCurrency, currency.toCurrency)
-      setCurrencyResult(rate, formatResult(parseFloat(currency.amount) * rate, settings.numberFormat))
+    let cancelled = false
+
+    const doFetch = async () => {
+      setLoading(true)
+      try {
+        const response = await fetch(
+          `https://api.exchangerate-api.com/v4/latest/${currency.fromCurrency}`,
+          { signal: AbortSignal.timeout(5000) }
+        )
+        if (!response.ok) throw new Error('non-200')
+        const data = await response.json()
+        if (cancelled) return
+        const rate = data.rates[currency.toCurrency] || offlineRate(currency.fromCurrency, currency.toCurrency)
+        setRateSource('live')
+        setRateDate(data.date || new Date().toISOString().split('T')[0])
+        setFetchedRate(rate)
+      } catch {
+        if (cancelled) return
+        setRateSource('offline')
+        setRateDate(null)
+        setFetchedRate(offlineRate(currency.fromCurrency, currency.toCurrency))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-    convert()
-  }, [currency.amount, currency.fromCurrency, currency.toCurrency])
+
+    doFetch()
+    return () => { cancelled = true }
+  }, [currency.fromCurrency, currency.toCurrency])
+
+  // ── Effect B: recalculate result when amount, rate, or format changes ──
+  // Debounced (300 ms) so rapid amount typing doesn't fire on every keystroke.
+  // Rate and format changes are infrequent, so the 300 ms delay is imperceptible.
+  useEffect(() => {
+    clearTimeout(calcRef.current)
+    calcRef.current = setTimeout(() => {
+      if (!currency.amount) {
+        setCurrencyResult(fetchedRate, '')
+        return
+      }
+      const num = parseFloat(currency.amount)
+      if (isNaN(num)) {
+        setCurrencyResult(fetchedRate, '')
+        return
+      }
+      setCurrencyResult(fetchedRate, formatResult(num * fetchedRate, settings.numberFormat))
+    }, 300)
+    return () => clearTimeout(calcRef.current)
+  }, [currency.amount, fetchedRate, settings.numberFormat])
 
   const selectStyle = {
     background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)',
@@ -90,6 +120,9 @@ export default function CurrencyCalculator() {
     </select>
   )
 
+  // Validate amount — number inputs return '' for non-numeric values
+  const amountInvalid = currency.amount !== '' && isNaN(parseFloat(currency.amount))
+
   return (
     <div style={{ maxWidth: 400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
@@ -100,8 +133,14 @@ export default function CurrencyCalculator() {
           onChange={e => setCurrencyValues(e.target.value, currency.fromCurrency, currency.toCurrency)}
           placeholder="Enter amount"
           className="cp-input"
-          style={{ fontSize: 18 }}
+          style={{ fontSize: 18, borderColor: amountInvalid ? 'var(--cp-red)' : undefined }}
         />
+        {amountInvalid && (
+          <div style={{ fontSize: 11, color: 'var(--cp-red)', marginTop: 4,
+            letterSpacing: '0.06em', fontFamily: 'var(--cb-font-mono)' }}>
+            Enter a valid number
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'end' }}>
@@ -140,9 +179,9 @@ export default function CurrencyCalculator() {
             <div style={{ fontSize: 11, color: 'var(--cp-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
               {currency.fromCurrency} → {currency.toCurrency}
             </div>
-            {rateSource && currency.rate && (
+            {rateSource && fetchedRate && (
               <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.1em', marginTop: 6 }}>
-                1 {currency.fromCurrency} = {formatRate(currency.rate, settings.numberFormat)} {currency.toCurrency}
+                1 {currency.fromCurrency} = {formatRate(fetchedRate, settings.numberFormat)} {currency.toCurrency}
               </div>
             )}
           </>

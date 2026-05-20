@@ -26,7 +26,7 @@ export const useCalculatorStore = create((set) => ({
     isaDeviation: '', antiIce: 'none',
     longRangeCruiseAlt: null, kias310Alt: null,
   },
-  normal:        { display: '0', previousValue: 0, operation: null },
+  normal:        { display: '0', previousValue: 0, operation: null, expression: '', clearNext: false },
   scientific:    { display: '0' },
   time: {
     digits: '', multiplier: '', prevMinutes: null, operation: null,
@@ -65,6 +65,7 @@ export const useCalculatorStore = create((set) => ({
   setEDTOIsaDeviation: (v)       => set(s => ({ edto: { ...s.edto, isaDeviation: v } })),
   setEDTOAntiIce:    (antiIce)   => set(s => ({ edto: { ...s.edto, antiIce } })),
   setEDTOResults:    (l, k)      => set(s => ({ edto: { ...s.edto, longRangeCruiseAlt: l, kias310Alt: k } })),
+  setNormal:         (partial)   => set(s => ({ normal: { ...s.normal, ...partial } })),
   setNormalDisplay:  (display)   => set(s => ({ normal: { ...s.normal, display } })),
   setNormalOperation: (pv, op)   => set(s => ({ normal: { ...s.normal, previousValue: pv, operation: op } })),
   setScientificDisplay: (d)      => set(s => ({ scientific: { ...s.scientific, display: d } })),
@@ -89,7 +90,7 @@ export const useCalculatorStore = create((set) => ({
         isaDeviation: '', antiIce: 'none',
         longRangeCruiseAlt: null, kias310Alt: null,
       },
-      normal:        { display: '0', previousValue: 0, operation: null },
+      normal:        { display: '0', previousValue: 0, operation: null, expression: '', clearNext: false },
       scientific:    { display: '0' },
       time: {
         digits: '', multiplier: '', prevMinutes: null, operation: null,

@@ -83,9 +83,17 @@ export default function ScientificCalculator() {
 
   const handleClear = () => setScientificDisplay('0')
   const handleBackspace = () => {
-    const next = scientific.display.trimEnd()
-    const stripped = next.endsWith(' ') ? next.slice(0, -3) : next.slice(0, -1)
-    setScientificDisplay(stripped || '0')
+    const trimmed = scientific.display.trimEnd()
+    // Operators are stored as " op " — after trimEnd(), the string ends with the
+    // operator char (e.g. "5 ×"). Find the last space to remove " op" in one press.
+    const ops = ['+', '-', '×', '÷']
+    if (ops.some(o => trimmed.endsWith(o))) {
+      const lastSpace = trimmed.lastIndexOf(' ')
+      const stripped = lastSpace >= 0 ? trimmed.slice(0, lastSpace).trimEnd() : ''
+      setScientificDisplay(stripped || '0')
+    } else {
+      setScientificDisplay(trimmed.slice(0, -1) || '0')
+    }
   }
   const handleDecimal = () => {
     const parts = scientific.display.split(' ')

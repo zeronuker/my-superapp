@@ -44,7 +44,10 @@ export default function EDTOCalculator() {
       const firstVariant = Object.keys(aircraft.variants)[0]
       if (firstVariant) setEDTOVariant(firstVariant)
     }
-  }, [edto.aircraft])
+    // aircraft is derived from edto.aircraft (static lookup table — no extra dep needed)
+    // setEDTOVariant is a stable Zustand action reference
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edto.aircraft, aircraft])
 
   useEffect(() => {
     if (!edto.weight) setWeightDisplay('')
