@@ -18,8 +18,8 @@ export default function EDTOCalculator() {
     const normalised = clean.replace(/,/g, '')
     const val = parseFloat(normalised)
     if (isNaN(val) || val <= 0) return null
-    const kg = val <= 200 ? val * 1000 : val
-    return Math.min(Math.round(kg), 85000)
+    const raw = Math.round(val <= 200 ? val * 1000 : val)
+    return { kg: Math.min(raw, 85000), capped: raw > 85000 }
   }
 
   function formatWeightDisplay(kg) {
@@ -31,6 +31,7 @@ export default function EDTOCalculator() {
   const [weightDisplay, setWeightDisplay] = useState(() =>
     edto.weight ? formatWeightDisplay(edto.weight) : ''
   )
+  const [weightWarning, setWeightWarning] = useState('')
   const [calcDetails, setCalcDetails] = useState(null)
 
   const aircraft = lookupTables[edto.aircraft]
@@ -208,22 +209,31 @@ export default function EDTOCalculator() {
                   value={weightDisplay}
                   onChange={e => {
                     setWeightDisplay(e.target.value)
-                    const kg = parseWeightInput(e.target.value)
-                    setEDTOWeight(kg !== null ? String(kg) : '')
+                    const parsed = parseWeightInput(e.target.value)
+                    setEDTOWeight(parsed ? String(parsed.kg) : '')
+                    setWeightWarning('')
                   }}
                   onBlur={() => {
-                    const kg = parseWeightInput(weightDisplay)
-                    if (kg !== null) {
-                      setWeightDisplay(formatWeightDisplay(kg))
-                      setEDTOWeight(String(kg))
+                    const parsed = parseWeightInput(weightDisplay)
+                    if (parsed) {
+                      setWeightDisplay(formatWeightDisplay(parsed.kg))
+                      setEDTOWeight(String(parsed.kg))
+                      setWeightWarning(parsed.capped ? '⚠ Weight exceeds table max — capped at 85,000 kg' : '')
                     } else {
                       setWeightDisplay('')
                       setEDTOWeight('')
+                      setWeightWarning('')
                     }
                   }}
                   placeholder="e.g. 72,500 kg or 72.5"
                   className="cp-input"
                 />
+                {weightWarning && (
+                  <div style={{ fontSize: 11, color: 'var(--cp-yellow)', marginTop: 4,
+                    letterSpacing: '0.06em', fontFamily: 'var(--cb-font-mono)' }}>
+                    {weightWarning}
+                  </div>
+                )}
               </div>
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>ISA Deviation (°C)</div>

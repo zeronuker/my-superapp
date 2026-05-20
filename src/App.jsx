@@ -57,6 +57,23 @@ export default function App() {
 
   const zoom = FONT_SCALES[settings.fontScale] || 1
 
+  // ── Escape key closes settings ─────────────────────────────────────────
+  React.useEffect(() => {
+    if (!settingsOpen) return
+    const onKey = (e) => { if (e.key === 'Escape') setSettingsOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [settingsOpen])
+
+  // ── Zoom: use CSS zoom where supported, transform: scale fallback for old Firefox
+  const [zoomSupported] = React.useState(() => {
+    try { return window.CSS?.supports?.('zoom', '1.1') ?? true } catch { return true }
+  })
+  const zoomStyle = zoom === 1 ? {} : zoomSupported
+    ? { zoom }
+    : { transform: `scale(${zoom})`, transformOrigin: 'top left',
+        width: `${(1 / zoom) * 100}vw`, minHeight: `${(1 / zoom) * 100}vh` }
+
   return (
     <>
       <div style={{
@@ -65,7 +82,7 @@ export default function App() {
         fontFamily: 'var(--cb-font-body)',
         opacity: fading ? 0 : 1,
         transition: settings.reduceMotion ? 'none' : 'opacity 0.14s ease',
-        zoom,
+        ...zoomStyle,
       }}>
 
         {/* ── Header ──────────────────────────────────────────────────── */}

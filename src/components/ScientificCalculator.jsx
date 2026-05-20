@@ -63,7 +63,14 @@ export default function ScientificCalculator() {
     if (result !== null && result !== undefined) setScientificDisplay(fmt(result))
   }
 
-  const handleBinary = op => setScientificDisplay(scientific.display + ` ${op} `)
+  const handleBinary = op => {
+    const trimmed = scientific.display.trimEnd()
+    if (['+', '-', '×', '÷'].some(o => trimmed.endsWith(o))) {
+      setScientificDisplay(trimmed.slice(0, -1).trimEnd() + ` ${op} `)
+    } else {
+      setScientificDisplay(scientific.display + ` ${op} `)
+    }
+  }
 
   const handleEquals = () => {
     try {
