@@ -101,8 +101,37 @@ export default function App() {
             alignItems: 'center', justifyContent: 'space-between' }}>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <img src="/brand/logo-mark.svg" alt="ClaudeBorne"
-                width={36} height={36} style={{ flexShrink: 0 }} />
+              {/* Inline SVG — uses Tourney already loaded by brand.css from Google Fonts.
+                  An <img>-loaded SVG is sandboxed on Android Chrome and ignores @font-face,
+                  causing the "C" to fall back to the system font. Inline avoids this entirely. */}
+              <svg width="36" height="36" viewBox="0 0 100 100"
+                role="img" aria-label="ClaudeBorne"
+                style={{ flexShrink: 0, display: 'block' }}>
+                <defs>
+                  <linearGradient id="cb-logo-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%"   stopColor="var(--cb-mint)" />
+                    <stop offset="55%"  stopColor="var(--cb-blue)" />
+                    <stop offset="100%" stopColor="var(--cb-violet)" />
+                  </linearGradient>
+                </defs>
+                <rect width="100" height="100" fill="var(--cb-surface-0)" />
+                <polyline
+                  points="15,28 15,15 85,15 85,85 50,85"
+                  fill="none"
+                  stroke="url(#cb-logo-grad)"
+                  strokeWidth="3.5"
+                  strokeLinecap="square"
+                  strokeLinejoin="miter"
+                />
+                <text
+                  fontFamily="'Tourney', sans-serif"
+                  fontWeight="700"
+                  fontSize="62"
+                  fill="url(#cb-logo-grad)"
+                  x="50" y="74"
+                  textAnchor="middle"
+                >C</text>
+              </svg>
               <span style={{
                 fontFamily: 'var(--cb-font-display)', fontWeight: 700,
                 fontSize: 13, letterSpacing: '0.22em',
