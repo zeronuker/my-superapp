@@ -101,58 +101,13 @@ export default function App() {
             alignItems: 'center', justifyContent: 'space-between' }}>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              {/* Logo mark — SVG handles the frame/background, HTML <span> renders the "C".
-                  Android Chrome does not reliably apply web fonts to SVG <text> elements
-                  even when the font is loaded; HTML elements always work correctly. */}
-              <div
-                role="img"
-                aria-label="ClaudeBorne"
-                style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}
-              >
-                {/* Frame + background */}
-                <svg width="48" height="48" viewBox="0 0 100 100"
-                  aria-hidden="true"
-                  style={{ display: 'block' }}>
-                  <defs>
-                    <linearGradient id="cb-logo-grad" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%"   stopColor="var(--cb-mint)" />
-                      <stop offset="55%"  stopColor="var(--cb-blue)" />
-                      <stop offset="100%" stopColor="var(--cb-violet)" />
-                    </linearGradient>
-                  </defs>
-                  <rect width="100" height="100" fill="var(--cb-surface-0)" />
-                  <polyline
-                    points="15,28 15,15 85,15 85,85 50,85"
-                    fill="none"
-                    stroke="url(#cb-logo-grad)"
-                    strokeWidth="3.5"
-                    strokeLinecap="square"
-                    strokeLinejoin="miter"
-                  />
-                </svg>
-                {/* "C" as an HTML element — guaranteed web font on all platforms */}
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingBottom: '2px',
-                    fontFamily: "'Tourney', sans-serif",
-                    fontWeight: 700,
-                    fontSize: '28px',
-                    background: 'var(--cb-grad)',
-                    WebkitBackgroundClip: 'text',
-                    backgroundClip: 'text',
-                    color: 'transparent',
-                    lineHeight: 1,
-                    userSelect: 'none',
-                    pointerEvents: 'none',
-                  }}
-                >C</span>
-              </div>
+              <img
+                src="/brand/icons/icon-192.png"
+                width={48}
+                height={48}
+                alt="ClaudeBorne"
+                style={{ flexShrink: 0, display: 'block', borderRadius: 4 }}
+              />
               <span style={{
                 fontFamily: 'var(--cb-font-display)', fontWeight: 700,
                 fontSize: 13, letterSpacing: '0.22em',
