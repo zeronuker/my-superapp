@@ -126,9 +126,9 @@ export default function App() {
                 <text
                   fontFamily="'Tourney', sans-serif"
                   fontWeight="700"
-                  fontSize="62"
+                  fontSize="58"
                   fill="url(#cb-logo-grad)"
-                  x="50" y="74"
+                  x="50" y="72"
                   textAnchor="middle"
                 >C</text>
               </svg>
