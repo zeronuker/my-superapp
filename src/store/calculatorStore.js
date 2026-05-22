@@ -64,8 +64,6 @@ export const useCalculatorStore = create((set) => ({
   setEDTOAntiIce:    (antiIce)   => set(s => ({ edto: { ...s.edto, antiIce } })),
   setEDTOResults:    (l, k)      => set(s => ({ edto: { ...s.edto, longRangeCruiseAlt: l, kias310Alt: k } })),
   setNormal:         (partial)   => set(s => ({ normal: { ...s.normal, ...partial } })),
-  setNormalDisplay:  (display)   => set(s => ({ normal: { ...s.normal, display } })),
-  setNormalOperation: (pv, op)   => set(s => ({ normal: { ...s.normal, previousValue: pv, operation: op } })),
   setScientificDisplay: (d)      => set(s => ({ scientific: { ...s.scientific, display: d } })),
   setTime:           (partial)   => set(s => ({ time: { ...s.time, ...partial } })),
   setCurrencyValues: (a, f, t)   => set(s => ({ currency: { ...s.currency, amount: a, fromCurrency: f, toCurrency: t } })),
