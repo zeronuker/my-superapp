@@ -358,16 +358,16 @@ function SectionHeader({ title }) {
 }
 
 // ── Role colour map ─────────────────────────────────────────────────────────
-// dep/arr → green · dest alt → white · enroute alt → blue
+// dep/arr → cyan · dest alt → white · enroute alt → purple
 function getRoleStyle(label) {
   if (label === 'DEPARTURE' || label === 'ARRIVAL') {
     return {
-      color:        '#22c55e',
-      bgLatest:     'rgba(34,197,94,0.10)',
-      bgDim:        'rgba(34,197,94,0.04)',
-      borderLatest: 'rgba(34,197,94,0.45)',
-      borderDim:    'rgba(34,197,94,0.18)',
-      textDim:      'rgba(34,197,94,0.50)',
+      color:        '#06b6d4',
+      bgLatest:     'rgba(6,182,212,0.10)',
+      bgDim:        'rgba(6,182,212,0.04)',
+      borderLatest: 'rgba(6,182,212,0.45)',
+      borderDim:    'rgba(6,182,212,0.18)',
+      textDim:      'rgba(6,182,212,0.50)',
     }
   }
   if (label.startsWith('DEST ALT')) {
@@ -382,12 +382,12 @@ function getRoleStyle(label) {
   }
   // Enroute alternates
   return {
-    color:        '#3b8dff',
-    bgLatest:     'rgba(59,141,255,0.10)',
-    bgDim:        'rgba(59,141,255,0.04)',
-    borderLatest: 'rgba(59,141,255,0.45)',
-    borderDim:    'rgba(59,141,255,0.18)',
-    textDim:      'rgba(59,141,255,0.50)',
+    color:        '#a78bfa',
+    bgLatest:     'rgba(167,139,250,0.10)',
+    bgDim:        'rgba(167,139,250,0.04)',
+    borderLatest: 'rgba(167,139,250,0.45)',
+    borderDim:    'rgba(167,139,250,0.18)',
+    textDim:      'rgba(167,139,250,0.50)',
   }
 }
 
