@@ -115,6 +115,7 @@ export function interpolateAltitude2D(weight, isaDeviation, weights, temperature
 
   const t1 = tempValues[lowerIdx]
   const t2 = tempValues[upperIdx]
+  if (t2 === t1) return { altitude: lowerAlt, lowerCol, upperCol, lowerAlt, upperAlt, clamped }
   const altitude = Math.round(lowerAlt + (clampedDev - t1) * (upperAlt - lowerAlt) / (t2 - t1))
 
   return { altitude, lowerCol, upperCol, lowerAlt, upperAlt, clamped }

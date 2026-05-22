@@ -6,8 +6,6 @@ const DEFAULT_SETTINGS = {
   defaultTab:     'calculator',
   haptic:         true,
   numberFormat:   'en',       // 'en' (1,000.00) | 'eu' (1.000,00)
-  altimeterUnit:  'hPa',      // 'hPa' | 'inHg'
-  tempUnit:       'C',        // 'C' | 'F'
   defaultHistory: 3,
   autoRefresh:    true,
 }

@@ -83,11 +83,12 @@ export default function METARTAFCalculator() {
     }
   }, [])
 
-  // ── Age ticker (every 60 s) ────────────────────────────────────────────
+  // ── Age ticker (every 60 s) — only ticks when online ──────────────────
   useEffect(() => {
+    if (isOffline) return
     const t = setInterval(() => setNow(Date.now()), 60_000)
     return () => clearInterval(t)
-  }, [])
+  }, [isOffline])
 
   // ── React to Reset All ─────────────────────────────────────────────────
   const prevReset = useRef(resetCount)
