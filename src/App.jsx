@@ -355,20 +355,6 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose }) 
 
         {/* METAR / TAF */}
         <SettingsSection title="METAR / TAF">
-          <SettingsRow label="ALTIMETER">
-            <SegmentedToggle
-              options={[{ value: 'hPa', label: 'HPA' }, { value: 'inHg', label: 'INHG' }]}
-              value={settings.altimeterUnit}
-              onChange={v => onUpdate({ altimeterUnit: v })}
-            />
-          </SettingsRow>
-          <SettingsRow label="TEMPERATURE">
-            <SegmentedToggle
-              options={[{ value: 'C', label: '°C' }, { value: 'F', label: '°F' }]}
-              value={settings.tempUnit}
-              onChange={v => onUpdate({ tempUnit: v })}
-            />
-          </SettingsRow>
           <SettingsRow label="DEFAULT HISTORY">
             <select
               value={settings.defaultHistory}
