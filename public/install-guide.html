@@ -382,8 +382,21 @@
         print-color-adjust: exact;
       }
       .page { padding: 28px 40px 48px; }
-      .platform { page-break-inside: avoid; }
-      .faq-item { page-break-inside: avoid; }
+
+      /* ── Page breaks ── */
+      /* iOS section always starts on a new page */
+      .platform.ios       { page-break-before: always; padding-top: 28px; }
+      /* FAQ always starts on a new page */
+      .faq-section        { page-break-before: always; padding-top: 28px; }
+
+      /* Never break inside a step card or FAQ item */
+      .step               { page-break-inside: avoid; }
+      .faq-item           { page-break-inside: avoid; }
+      .tip                { page-break-inside: avoid; }
+      .platform-header    { page-break-after: avoid; }
+
+      /* Hide the on-screen section dividers — page breaks replace them */
+      .section-break      { display: none; }
     }
 
   </style>
@@ -573,6 +586,7 @@
 
 
   <!-- ── FAQ ── -->
+  <div class="faq-section">
   <div class="faq-header">· Common Questions ·</div>
 
   <div class="faq-item">
@@ -616,6 +630,8 @@
     </div>
   </div>
 
+
+  </div><!-- /faq-section -->
 
   <!-- ── Footer ── -->
   <div class="footer">
