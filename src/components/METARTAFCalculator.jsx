@@ -357,9 +357,44 @@ function SectionHeader({ title }) {
   )
 }
 
+// ── Role colour map ─────────────────────────────────────────────────────────
+// dep/arr → green · dest alt → white · enroute alt → blue
+function getRoleStyle(label) {
+  if (label === 'DEPARTURE' || label === 'ARRIVAL') {
+    return {
+      color:        '#22c55e',
+      bgLatest:     'rgba(34,197,94,0.10)',
+      bgDim:        'rgba(34,197,94,0.04)',
+      borderLatest: 'rgba(34,197,94,0.45)',
+      borderDim:    'rgba(34,197,94,0.18)',
+      textDim:      'rgba(34,197,94,0.50)',
+    }
+  }
+  if (label.startsWith('DEST ALT')) {
+    return {
+      color:        '#e2e8f0',
+      bgLatest:     'rgba(226,232,240,0.08)',
+      bgDim:        'rgba(226,232,240,0.03)',
+      borderLatest: 'rgba(226,232,240,0.32)',
+      borderDim:    'rgba(226,232,240,0.12)',
+      textDim:      'rgba(226,232,240,0.45)',
+    }
+  }
+  // Enroute alternates
+  return {
+    color:        '#3b8dff',
+    bgLatest:     'rgba(59,141,255,0.10)',
+    bgDim:        'rgba(59,141,255,0.04)',
+    borderLatest: 'rgba(59,141,255,0.45)',
+    borderDim:    'rgba(59,141,255,0.18)',
+    textDim:      'rgba(59,141,255,0.50)',
+  }
+}
+
 // ── Airport result card ─────────────────────────────────────────────────────
 function AirportCard({ data, now }) {
   const { icao, label, metar, taf, error } = data
+  const role         = getRoleStyle(label)
   const stationName  = metar?.[0]?.name || ''
   const latestMetar  = metar?.[0]
   const metarAge     = latestMetar ? formatAge(latestMetar.obsTime, now) : null
@@ -374,7 +409,7 @@ function AirportCard({ data, now }) {
 
       {/* Card header */}
       <div className="cp-section-header" style={{ flexWrap: 'wrap', gap: 6 }}>
-        <span className="cp-section-title" style={{ fontSize: 12 }}>
+        <span className="cp-section-title" style={{ fontSize: 12, color: role.color }}>
           {label} · {icao}
         </span>
         {stationName && (
@@ -383,7 +418,7 @@ function AirportCard({ data, now }) {
             {stationName.toUpperCase()}
           </span>
         )}
-        <div className="cp-divider" />
+        <div className="cp-divider" style={{ borderColor: role.borderDim }} />
       </div>
 
       {error ? (
@@ -401,8 +436,7 @@ function AirportCard({ data, now }) {
               </span>
               {metarAge && (
                 <span style={{ fontSize: 10, letterSpacing: '0.1em',
-                  fontFamily: 'var(--cb-font-mono)',
-                  color: 'var(--cp-acc)' }}>
+                  fontFamily: 'var(--cb-font-mono)', color: role.color }}>
                   LATEST · {metarAge}
                 </span>
               )}
@@ -412,17 +446,18 @@ function AirportCard({ data, now }) {
               ? <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>NO METAR DATA</div>
               : metar.map((m, i) => (
                 <div key={i} style={{
-                  background: i === 0 ? 'var(--cp-accdim)' : 'var(--cp-bg3)',
-                  border: `1px solid ${i === 0 ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
+                  background: i === 0 ? role.bgLatest : role.bgDim,
+                  border: `1px solid ${i === 0 ? role.borderLatest : role.borderDim}`,
+                  borderLeft: `3px solid ${i === 0 ? role.color : role.borderDim}`,
                   borderRadius: 4, padding: '8px 12px', marginBottom: 4,
                 }}>
                   {i === 0 && (
-                    <div style={{ fontSize: 9, color: 'var(--cp-acc)',
+                    <div style={{ fontSize: 9, color: role.color,
                       letterSpacing: '0.2em', marginBottom: 3 }}>LATEST</div>
                   )}
                   <div style={{
                     fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.6,
-                    color: i === 0 ? 'var(--cp-txt)' : 'var(--cp-muted)',
+                    color: i === 0 ? role.color : role.textDim,
                     wordBreak: 'break-all',
                   }}>
                     {m.rawOb || '—'}
@@ -440,7 +475,7 @@ function AirportCard({ data, now }) {
               </span>
               {tafAge && (
                 <span style={{ fontSize: 10, letterSpacing: '0.1em',
-                  fontFamily: 'var(--cb-font-mono)', color: 'var(--cp-dim)' }}>
+                  fontFamily: 'var(--cb-font-mono)', color: role.color }}>
                   ISSUED · {tafAge}
                 </span>
               )}
@@ -450,10 +485,13 @@ function AirportCard({ data, now }) {
               ? <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>NO TAF DATA</div>
               : taf.map((t, i) => (
                 <div key={i} style={{
-                  background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)',
+                  background: i === 0 ? role.bgLatest : role.bgDim,
+                  border: `1px solid ${i === 0 ? role.borderLatest : role.borderDim}`,
+                  borderLeft: `3px solid ${i === 0 ? role.color : role.borderDim}`,
                   borderRadius: 4, padding: '10px 12px', marginBottom: 4,
                   fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.8,
-                  color: 'var(--cp-muted)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                  color: i === 0 ? role.color : role.textDim,
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                 }}>
                   {t.rawTAF || '—'}
                 </div>
