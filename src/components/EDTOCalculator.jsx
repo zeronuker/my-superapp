@@ -185,6 +185,7 @@ export default function EDTOCalculator() {
         letterSpacing: '0.08em',
         lineHeight: 1.7,
         color: 'var(--cp-dim)',
+        textAlign: 'justify',
       }}>
         <span style={{ color: 'var(--cb-blue)', fontWeight: 700, letterSpacing: '0.15em' }}>ℹ INFO · </span>
         Always verify performance data against your current approved flight manuals and operator documentation.
