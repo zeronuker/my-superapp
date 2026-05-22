@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
 import { MAX_CALC_VAL, formatDisplayNum } from '../utils/formatDisplay'
@@ -143,23 +143,26 @@ export default function NormalCalculator() {
     if (!display.includes('.')) setNormal({ display: display + '.' })
   }
 
-  // Keyboard support — re-registers whenever Zustand state changes
+  // Keyboard support — ref pattern avoids stale closures, registers once
+  const keyRef = useRef({})
+  keyRef.current = { handleNumber, handleDecimal, handleOperation, handleEquals, handleBackspace, handleClear }
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-      if (e.key >= '0' && e.key <= '9') handleNumber(parseInt(e.key))
-      else if (e.key === '.') handleDecimal()
-      else if (e.key === '+') handleOperation('+')
-      else if (e.key === '-') handleOperation('-')
-      else if (e.key === '*') handleOperation('×')
-      else if (e.key === '/') { e.preventDefault(); handleOperation('÷') }
-      else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); handleEquals() }
-      else if (e.key === 'Backspace') handleBackspace()
-      else if (e.key === 'Escape') handleClear()
+      const h = keyRef.current
+      if (e.key >= '0' && e.key <= '9') h.handleNumber(parseInt(e.key))
+      else if (e.key === '.') h.handleDecimal()
+      else if (e.key === '+') h.handleOperation('+')
+      else if (e.key === '-') h.handleOperation('-')
+      else if (e.key === '*') h.handleOperation('×')
+      else if (e.key === '/') { e.preventDefault(); h.handleOperation('÷') }
+      else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); h.handleEquals() }
+      else if (e.key === 'Backspace') h.handleBackspace()
+      else if (e.key === 'Escape') h.handleClear()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [display, operation, previousValue, clearNext])
+  }, [])
 
   const opStyle = o => operation === o && !clearNext ? BTN.opActive : BTN.op
 

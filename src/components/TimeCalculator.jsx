@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
 
@@ -144,6 +144,27 @@ export default function TimeCalculator() {
     setTime({ digits: '', multiplier: '', prevMinutes: null, operation: null,
       isMultiplierMode: false, expression: '', result: null, justCalculated: false })
   }
+
+  // Keyboard support — ref pattern avoids stale closures, registers once
+  const keyRef = useRef({})
+  keyRef.current = { handleDigit, handleDecimal, handleOperation, handleEquals, handleBackspace, handleClear }
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      const h = keyRef.current
+      if (e.key >= '0' && e.key <= '9') h.handleDigit(e.key)
+      else if (e.key === '.') h.handleDecimal()
+      else if (e.key === '+') h.handleOperation('+')
+      else if (e.key === '-') h.handleOperation('-')
+      else if (e.key === '*') h.handleOperation('×')
+      else if (e.key === '/') { e.preventDefault(); h.handleOperation('÷') }
+      else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); h.handleEquals() }
+      else if (e.key === 'Backspace') h.handleBackspace()
+      else if (e.key === 'Escape') h.handleClear()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const opStyle = o => operation === o && !justCalculated ? BTN.opActive : BTN.op
 

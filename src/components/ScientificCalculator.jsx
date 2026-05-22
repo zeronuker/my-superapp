@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
 import { MAX_CALC_VAL, formatDisplayNum } from '../utils/formatDisplay'
@@ -34,6 +34,38 @@ function Btn({ style, children, onClick, colSpan, hapticType = 'light' }) {
       style={{ ...BTN.base, ...style, opacity: pressed ? 0.65 : hover ? 0.85 : 1, transform: pressed ? 'scale(0.91)' : hover ? 'scale(0.97)' : 'scale(1)', gridColumn: colSpan ? `span ${colSpan}` : undefined }}
     >{children}</button>
   )
+}
+
+// Safe expression evaluator — no Function()/eval
+// Handles: number [op number]* with correct precedence (×÷ before +−)
+function safeEval(expr) {
+  const tokens = expr.trim().split(/\s+/)
+  if (!tokens.length || tokens.length % 2 === 0) return NaN
+  const nums = [], ops = []
+  for (let i = 0; i < tokens.length; i++) {
+    if (i % 2 === 0) {
+      const n = parseFloat(tokens[i])
+      if (isNaN(n)) return NaN
+      nums.push(n)
+    } else {
+      if (!['+', '-', '×', '÷'].includes(tokens[i])) return NaN
+      ops.push(tokens[i])
+    }
+  }
+  // First pass: × and ÷
+  let i = 0
+  while (i < ops.length) {
+    if (ops[i] === '×' || ops[i] === '÷') {
+      const val = ops[i] === '×' ? nums[i] * nums[i + 1] : nums[i] / nums[i + 1]
+      nums.splice(i, 2, val)
+      ops.splice(i, 1)
+    } else { i++ }
+  }
+  // Second pass: + and −
+  let result = nums[0]
+  for (let i = 0; i < ops.length; i++)
+    result = ops[i] === '+' ? result + nums[i + 1] : result - nums[i + 1]
+  return result
 }
 
 export default function ScientificCalculator() {
@@ -92,9 +124,7 @@ export default function ScientificCalculator() {
 
   const handleEquals = () => {
     try {
-      const expr = scientific.display.replace(/×/g, '*').replace(/÷/g, '/')
-      // eslint-disable-next-line no-new-func
-      const result = Function('"use strict"; return (' + expr + ')')()
+      const result = safeEval(scientific.display)
       if (!isFinite(result) || isNaN(result)) { setScientificDisplay('Error'); return }
       if (Math.abs(result) > MAX_CALC_VAL)    { setScientificDisplay('OUT OF RANGE'); return }
       setScientificDisplay(fmt(result))
@@ -120,23 +150,26 @@ export default function ScientificCalculator() {
     if (!parts[parts.length - 1].includes('.')) setScientificDisplay(scientific.display + '.')
   }
 
-  // Keyboard support
+  // Keyboard support — ref pattern avoids stale closures, registers once
+  const keyRef = useRef({})
+  keyRef.current = { handleNumber, handleDecimal, handleBinary, handleEquals, handleBackspace, handleClear }
   useEffect(() => {
     const onKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-      if (e.key >= '0' && e.key <= '9') handleNumber(parseInt(e.key))
-      else if (e.key === '.') handleDecimal()
-      else if (e.key === '+') handleBinary('+')
-      else if (e.key === '-') handleBinary('-')
-      else if (e.key === '*') handleBinary('×')
-      else if (e.key === '/') { e.preventDefault(); handleBinary('÷') }
-      else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); handleEquals() }
-      else if (e.key === 'Backspace') handleBackspace()
-      else if (e.key === 'Escape') handleClear()
+      const h = keyRef.current
+      if (e.key >= '0' && e.key <= '9') h.handleNumber(parseInt(e.key))
+      else if (e.key === '.') h.handleDecimal()
+      else if (e.key === '+') h.handleBinary('+')
+      else if (e.key === '-') h.handleBinary('-')
+      else if (e.key === '*') h.handleBinary('×')
+      else if (e.key === '/') { e.preventDefault(); h.handleBinary('÷') }
+      else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); h.handleEquals() }
+      else if (e.key === 'Backspace') h.handleBackspace()
+      else if (e.key === 'Escape') h.handleClear()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [scientific.display])
+  }, [])
 
   const lastToken      = scientific.display.split(' ').pop() || '0'
   const formattedLast  = formatDisplayNum(lastToken)
