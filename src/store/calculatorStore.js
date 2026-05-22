@@ -3,7 +3,7 @@ import { create } from 'zustand'
 const DEFAULT_SETTINGS = {
   fontScale:      'normal',   // 'compact' | 'normal' | 'large'
   reduceMotion:   false,
-  defaultTab:     'normal',
+  defaultTab:     'calculator',
   haptic:         true,
   numberFormat:   'en',       // 'en' (1,000.00) | 'eu' (1.000,00)
   altimeterUnit:  'hPa',      // 'hPa' | 'inHg'
@@ -49,7 +49,7 @@ export const useCalculatorStore = create((set) => ({
       const s = localStorage.getItem('cb-settings')
       if (s) { const p = JSON.parse(s); if (p.defaultTab) return p.defaultTab }
     } catch (_) {}
-    return 'normal'
+    return 'calculator'
   })(),
 
   // ── Settings ────────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ export const useCalculatorStore = create((set) => ({
         rows: [{ x: '', ys: [''] }, { x: '', ys: [''] }, { x: '', ys: [''] }],
         lookupX: '', lookupZ: '', result: '',
       },
-      activeCalculator: 'normal',
+      activeCalculator: 'calculator',
       resetCount: s.resetCount + 1,
     }))
   },

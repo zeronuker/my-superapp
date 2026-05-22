@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
+import { MAX_CALC_VAL, formatDisplayNum } from '../utils/formatDisplay'
 
 const BTN = {
   base: {
@@ -60,6 +61,12 @@ export default function NormalCalculator() {
   }
 
   const handleOperation = (op) => {
+    // If display is OUT OF RANGE, start fresh from 0
+    if (display === 'OUT OF RANGE') {
+      setNormal({ display: '0', previousValue: 0, operation: op,
+        expression: `0 ${op}`, clearNext: false })
+      return
+    }
     if (operation) {
       // Chain: compute pending result then set new operator
       const current = parseFloat(display)
@@ -69,17 +76,25 @@ export default function NormalCalculator() {
       else if (operation === '×') result = previousValue * current
       else if (operation === '÷') result = previousValue / current
       const r = parseFloat(result.toPrecision(12))
+      if (!isFinite(r) || isNaN(r)) {
+        setNormal({ display: 'Error', previousValue: 0, operation: null, expression: '', clearNext: true })
+        return
+      }
+      if (Math.abs(r) > MAX_CALC_VAL) {
+        setNormal({ display: 'OUT OF RANGE', previousValue: 0, operation: null, expression: '', clearNext: true })
+        return
+      }
       setNormal({ display: '0', previousValue: r, operation: op,
         expression: `${r} ${op}`, clearNext: false })
     } else {
-      const pv = clearNext ? parseFloat(display) : parseFloat(display)
+      const pv = parseFloat(display)
       setNormal({ display: '0', previousValue: pv, operation: op,
         expression: `${display} ${op}`, clearNext: false })
     }
   }
 
   const handleEquals = () => {
-    if (!operation) return
+    if (!operation || display === 'OUT OF RANGE') return
     const current = parseFloat(display)
     if (operation === '÷' && current === 0) {
       setNormal({ expression: `${previousValue} ÷ 0 =`, display: 'Error',
@@ -92,6 +107,16 @@ export default function NormalCalculator() {
     else if (operation === '×') result = previousValue * current
     else if (operation === '÷') result = previousValue / current
     const r = parseFloat(result.toPrecision(12))
+    if (!isFinite(r) || isNaN(r)) {
+      setNormal({ expression: `${previousValue} ${operation} ${current} =`, display: 'Error',
+        previousValue: 0, operation: null, clearNext: true })
+      return
+    }
+    if (Math.abs(r) > MAX_CALC_VAL) {
+      setNormal({ expression: `${previousValue} ${operation} ${current} =`, display: 'OUT OF RANGE',
+        previousValue: 0, operation: null, clearNext: true })
+      return
+    }
     setNormal({
       expression: `${previousValue} ${operation} ${current} =`,
       display: String(r),
@@ -138,7 +163,8 @@ export default function NormalCalculator() {
 
   const opStyle = o => operation === o && !clearNext ? BTN.opActive : BTN.op
 
-  const exprLine = expression || (operation ? `${previousValue} ${operation}` : ' ')
+  const exprLine       = expression || (operation ? `${previousValue} ${operation}` : ' ')
+  const formattedDisplay = formatDisplayNum(display)
 
   return (
     <div style={{ maxWidth: 380, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -149,8 +175,13 @@ export default function NormalCalculator() {
         </div>
         <div style={{
           color: 'var(--cp-acc)', fontWeight: 700, fontFamily: "var(--cb-font-mono)",
-          fontSize: display.length > 10 ? '2.2rem' : '3.6rem', lineHeight: 1, letterSpacing: '0.05em',
-        }}>{display}</div>
+          fontSize: formattedDisplay.length > 16 ? '1.6rem'
+                  : formattedDisplay.length > 12 ? '2.2rem'
+                  : formattedDisplay.length > 9  ? '2.8rem'
+                  : '3.6rem',
+          lineHeight: 1, letterSpacing: '0.05em',
+          overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+        }}>{formattedDisplay}</div>
       </div>
 
       {/* Buttons */}

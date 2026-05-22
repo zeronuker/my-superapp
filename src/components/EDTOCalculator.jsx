@@ -173,6 +173,27 @@ export default function EDTOCalculator() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
+      {/* ── Disclaimer banner ──────────────────────────────────────────────── */}
+      <div style={{
+        background: 'rgba(59,141,255,0.06)',
+        border: '1px solid rgba(59,141,255,0.2)',
+        borderLeft: '3px solid var(--cb-blue)',
+        borderRadius: 4,
+        padding: '10px 14px',
+        fontFamily: 'var(--cb-font-mono)',
+        fontSize: 11,
+        letterSpacing: '0.08em',
+        lineHeight: 1.7,
+        color: 'var(--cp-dim)',
+        textAlign: 'justify',
+      }}>
+        <span style={{ color: 'var(--cb-blue)', fontWeight: 700, letterSpacing: '0.15em' }}>ℹ INFO · </span>
+        Always verify performance data against your current approved flight manuals and operator documentation.
+        It is the sole responsibility of the user to verify all results against current approved aircraft flight manuals,
+        operator documentation, and applicable regulations. The developers of ClaudeBorne SuperApp make no warranty
+        as to the accuracy of these results and accept no liability for any outcome arising from their use.
+      </div>
+
       {/* Step 1 */}
       <div>
         <SectionHeader title="Step 1 — Aircraft" />

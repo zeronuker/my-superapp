@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
+import { MAX_CALC_VAL, formatDisplayNum } from '../utils/formatDisplay'
 
 const BTN = {
   base: {
@@ -41,7 +42,13 @@ export default function ScientificCalculator() {
   const fmt = v => (!isFinite(v) || isNaN(v)) ? 'Error' : parseFloat(v.toPrecision(10)).toString()
 
   const handleNumber = num => {
-    setScientificDisplay(scientific.display === '0' ? String(num) : scientific.display + String(num))
+    const d = scientific.display
+    // Start fresh if display shows a terminal state
+    if (d === '0' || d === 'Error' || d === 'OUT OF RANGE') {
+      setScientificDisplay(String(num))
+    } else {
+      setScientificDisplay(d + String(num))
+    }
   }
 
   const handleUnary = op => {
@@ -60,10 +67,21 @@ export default function ScientificCalculator() {
       e:    () => { setScientificDisplay(String(Math.E)); return null },
     }
     const result = ops[op]?.()
-    if (result !== null && result !== undefined) setScientificDisplay(fmt(result))
+    if (result !== null && result !== undefined) {
+      if (isFinite(result) && !isNaN(result) && Math.abs(result) > MAX_CALC_VAL) {
+        setScientificDisplay('OUT OF RANGE')
+      } else {
+        setScientificDisplay(fmt(result))
+      }
+    }
   }
 
   const handleBinary = op => {
+    // Start fresh if display shows a terminal state
+    if (scientific.display === 'OUT OF RANGE' || scientific.display === 'Error') {
+      setScientificDisplay(`0 ${op} `)
+      return
+    }
     const trimmed = scientific.display.trimEnd()
     if (['+', '-', '×', '÷'].some(o => trimmed.endsWith(o))) {
       setScientificDisplay(trimmed.slice(0, -1).trimEnd() + ` ${op} `)
@@ -77,6 +95,8 @@ export default function ScientificCalculator() {
       const expr = scientific.display.replace(/×/g, '*').replace(/÷/g, '/')
       // eslint-disable-next-line no-new-func
       const result = Function('"use strict"; return (' + expr + ')')()
+      if (!isFinite(result) || isNaN(result)) { setScientificDisplay('Error'); return }
+      if (Math.abs(result) > MAX_CALC_VAL)    { setScientificDisplay('OUT OF RANGE'); return }
       setScientificDisplay(fmt(result))
     } catch { setScientificDisplay('Error') }
   }
@@ -118,6 +138,9 @@ export default function ScientificCalculator() {
     return () => window.removeEventListener('keydown', onKey)
   }, [scientific.display])
 
+  const lastToken      = scientific.display.split(' ').pop() || '0'
+  const formattedLast  = formatDisplayNum(lastToken)
+
   return (
     <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: '18px 24px 22px', textAlign: 'right' }}>
@@ -126,9 +149,14 @@ export default function ScientificCalculator() {
         </div>
         <div style={{
           color: 'var(--cp-acc)', fontWeight: 700, fontFamily: "var(--cb-font-mono)",
-          fontSize: scientific.display.length > 14 ? '1.7rem' : '3rem', lineHeight: 1, letterSpacing: '0.05em', marginTop: 6,
+          fontSize: formattedLast.length > 16 ? '1.6rem'
+                  : formattedLast.length > 12 ? '2.2rem'
+                  : formattedLast.length > 9  ? '2.6rem'
+                  : '3rem',
+          lineHeight: 1, letterSpacing: '0.05em', marginTop: 6,
+          overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
         }}>
-          {scientific.display.split(' ').pop() || '0'}
+          {formattedLast}
         </div>
       </div>
 

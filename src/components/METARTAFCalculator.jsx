@@ -61,6 +61,8 @@ export default function METARTAFCalculator() {
   const [loading,      setLoading]      = useState(false)
   const [now,          setNow]          = useState(Date.now())
 
+  const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
+
   const timerRef  = useRef(null)
   const stateRef  = useRef({})
 
@@ -68,6 +70,18 @@ export default function METARTAFCalculator() {
   useEffect(() => {
     stateRef.current = { dep, arr, destAlts, enrouteCount, enrouteAlts, hours }
   })
+
+  // ── Track connectivity ─────────────────────────────────────────────────
+  useEffect(() => {
+    const handleOnline  = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    window.addEventListener('online',  handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online',  handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   // ── Age ticker (every 60 s) ────────────────────────────────────────────
   useEffect(() => {
@@ -111,6 +125,14 @@ export default function METARTAFCalculator() {
   const doFetch = useCallback(async (s) => {
     const targets = buildTargets(s)
     if (!targets.length) return
+
+    // Guard: if offline, show cached data and bail — no request, no iOS dialog
+    if (!navigator.onLine) {
+      setIsOffline(true)
+      return
+    }
+
+    setIsOffline(false)
     setLoading(true)
 
     const out = {}
@@ -131,7 +153,10 @@ export default function METARTAFCalculator() {
     saveCache({ ...s, results: out, fetchedAt: ts })
   }, [buildTargets])
 
-  const handleFetch = () => doFetch(stateRef.current)
+  const handleFetch = () => {
+    if (!navigator.onLine) { setIsOffline(true); return }
+    doFetch(stateRef.current)
+  }
 
   // ── Auto-refresh at :00 and :30 ───────────────────────────────────────
   useEffect(() => {
@@ -153,9 +178,9 @@ export default function METARTAFCalculator() {
     return () => clearTimeout(timerRef.current)
   }, [settings.autoRefresh, doFetch])
 
-  // ── Stale-on-mount check (>30 min old → refetch immediately) ──────────
+  // ── Stale-on-mount check (>30 min old → refetch immediately if online) ─
   useEffect(() => {
-    if (fetchedAt && Date.now() - fetchedAt > 30 * 60_000) {
+    if (fetchedAt && Date.now() - fetchedAt > 30 * 60_000 && navigator.onLine) {
       doFetch(stateRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -277,8 +302,30 @@ export default function METARTAFCalculator() {
         </button>
       </div>
 
+      {/* ── OFFLINE BANNER ──────────────────────────────────────────────── */}
+      {isOffline && (
+        <div style={{
+          background: 'rgba(252,211,77,0.07)',
+          border: '1px solid rgba(252,211,77,0.25)',
+          borderLeft: '3px solid var(--cp-yellow)',
+          borderRadius: 4, padding: '8px 14px', marginBottom: 12,
+          display: 'flex', alignItems: 'center', gap: 8,
+          fontFamily: 'var(--cb-font-mono)', fontSize: 11,
+          letterSpacing: '0.12em', color: 'var(--cp-yellow)',
+        }}>
+          ⚠ OFFLINE
+          {results
+            ? <span style={{ color: 'var(--cp-dim)' }}>
+                · SHOWING CACHED DATA
+                {fetchedAt ? ` · CACHED ${formatAge(fetchedAt / 1000, now)}` : ''}
+              </span>
+            : <span style={{ color: 'var(--cp-dim)' }}>· NO CACHED DATA AVAILABLE</span>
+          }
+        </div>
+      )}
+
       {/* ── FETCH TIMESTAMP ─────────────────────────────────────────────── */}
-      {fetchedAt && (
+      {fetchedAt && !isOffline && (
         <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em',
           fontFamily: 'var(--cb-font-mono)', marginBottom: 24 }}>
           LAST FETCH · {new Date(fetchedAt).toUTCString().toUpperCase()}
@@ -310,9 +357,44 @@ function SectionHeader({ title }) {
   )
 }
 
+// ── Role colour map ─────────────────────────────────────────────────────────
+// dep/arr → cyan · dest alt → white · enroute alt → purple
+function getRoleStyle(label) {
+  if (label === 'DEPARTURE' || label === 'ARRIVAL') {
+    return {
+      color:        '#06b6d4',
+      bgLatest:     'rgba(6,182,212,0.10)',
+      bgDim:        'rgba(6,182,212,0.04)',
+      borderLatest: 'rgba(6,182,212,0.45)',
+      borderDim:    'rgba(6,182,212,0.18)',
+      textDim:      'rgba(6,182,212,0.50)',
+    }
+  }
+  if (label.startsWith('DEST ALT')) {
+    return {
+      color:        '#e2e8f0',
+      bgLatest:     'rgba(226,232,240,0.08)',
+      bgDim:        'rgba(226,232,240,0.03)',
+      borderLatest: 'rgba(226,232,240,0.32)',
+      borderDim:    'rgba(226,232,240,0.12)',
+      textDim:      'rgba(226,232,240,0.45)',
+    }
+  }
+  // Enroute alternates
+  return {
+    color:        '#a78bfa',
+    bgLatest:     'rgba(167,139,250,0.10)',
+    bgDim:        'rgba(167,139,250,0.04)',
+    borderLatest: 'rgba(167,139,250,0.45)',
+    borderDim:    'rgba(167,139,250,0.18)',
+    textDim:      'rgba(167,139,250,0.50)',
+  }
+}
+
 // ── Airport result card ─────────────────────────────────────────────────────
 function AirportCard({ data, now }) {
   const { icao, label, metar, taf, error } = data
+  const role         = getRoleStyle(label)
   const stationName  = metar?.[0]?.name || ''
   const latestMetar  = metar?.[0]
   const metarAge     = latestMetar ? formatAge(latestMetar.obsTime, now) : null
@@ -327,7 +409,7 @@ function AirportCard({ data, now }) {
 
       {/* Card header */}
       <div className="cp-section-header" style={{ flexWrap: 'wrap', gap: 6 }}>
-        <span className="cp-section-title" style={{ fontSize: 12 }}>
+        <span className="cp-section-title" style={{ fontSize: 12, color: role.color }}>
           {label} · {icao}
         </span>
         {stationName && (
@@ -336,7 +418,7 @@ function AirportCard({ data, now }) {
             {stationName.toUpperCase()}
           </span>
         )}
-        <div className="cp-divider" />
+        <div className="cp-divider" style={{ borderColor: role.borderDim }} />
       </div>
 
       {error ? (
@@ -354,8 +436,7 @@ function AirportCard({ data, now }) {
               </span>
               {metarAge && (
                 <span style={{ fontSize: 10, letterSpacing: '0.1em',
-                  fontFamily: 'var(--cb-font-mono)',
-                  color: 'var(--cp-acc)' }}>
+                  fontFamily: 'var(--cb-font-mono)', color: role.color }}>
                   LATEST · {metarAge}
                 </span>
               )}
@@ -365,17 +446,18 @@ function AirportCard({ data, now }) {
               ? <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>NO METAR DATA</div>
               : metar.map((m, i) => (
                 <div key={i} style={{
-                  background: i === 0 ? 'var(--cp-accdim)' : 'var(--cp-bg3)',
-                  border: `1px solid ${i === 0 ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
+                  background: i === 0 ? role.bgLatest : role.bgDim,
+                  border: `1px solid ${i === 0 ? role.borderLatest : role.borderDim}`,
+                  borderLeft: `3px solid ${i === 0 ? role.color : role.borderDim}`,
                   borderRadius: 4, padding: '8px 12px', marginBottom: 4,
                 }}>
                   {i === 0 && (
-                    <div style={{ fontSize: 9, color: 'var(--cp-acc)',
+                    <div style={{ fontSize: 9, color: role.color,
                       letterSpacing: '0.2em', marginBottom: 3 }}>LATEST</div>
                   )}
                   <div style={{
                     fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.6,
-                    color: i === 0 ? 'var(--cp-txt)' : 'var(--cp-muted)',
+                    color: i === 0 ? role.color : role.textDim,
                     wordBreak: 'break-all',
                   }}>
                     {m.rawOb || '—'}
@@ -393,7 +475,7 @@ function AirportCard({ data, now }) {
               </span>
               {tafAge && (
                 <span style={{ fontSize: 10, letterSpacing: '0.1em',
-                  fontFamily: 'var(--cb-font-mono)', color: 'var(--cp-dim)' }}>
+                  fontFamily: 'var(--cb-font-mono)', color: role.color }}>
                   ISSUED · {tafAge}
                 </span>
               )}
@@ -403,10 +485,13 @@ function AirportCard({ data, now }) {
               ? <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>NO TAF DATA</div>
               : taf.map((t, i) => (
                 <div key={i} style={{
-                  background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)',
+                  background: i === 0 ? role.bgLatest : role.bgDim,
+                  border: `1px solid ${i === 0 ? role.borderLatest : role.borderDim}`,
+                  borderLeft: `3px solid ${i === 0 ? role.color : role.borderDim}`,
                   borderRadius: 4, padding: '10px 12px', marginBottom: 4,
                   fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.8,
-                  color: 'var(--cp-muted)', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                  color: i === 0 ? role.color : role.textDim,
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                 }}>
                   {t.rawTAF || '—'}
                 </div>

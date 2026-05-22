@@ -1,22 +1,23 @@
 import React, { useState } from 'react'
 import { useCalculatorStore } from './store/calculatorStore'
 import EDTOCalculator from './components/EDTOCalculator'
-import NormalCalculator from './components/NormalCalculator'
-import ScientificCalculator from './components/ScientificCalculator'
+import CombinedCalculator from './components/CombinedCalculator'
 import TimeCalculator from './components/TimeCalculator'
 import CurrencyCalculator from './components/CurrencyCalculator'
 import InterpolationCalculator from './components/InterpolationCalculator'
 import METARTAFCalculator from './components/METARTAFCalculator'
 
 export const CALCULATORS = [
-  { id: 'normal',        icon: '⊕',  name: 'Normal',        component: NormalCalculator },
-  { id: 'scientific',    icon: '∑',  name: 'Scientific',    component: ScientificCalculator },
+  { id: 'calculator',    icon: '⊕',  name: 'Calculator',    component: CombinedCalculator },
   { id: 'time',          icon: '◷',  name: 'Time',          component: TimeCalculator },
   { id: 'interpolation', icon: '△',  name: 'Interpolation', component: InterpolationCalculator },
   { id: 'edto',          icon: '✈',  name: 'EDTO',          component: EDTOCalculator },
   { id: 'currency',      icon: '⊞',  name: 'Currency',      component: CurrencyCalculator },
   { id: 'metartaf',      icon: '☁',  name: 'METAR/TAF',     component: METARTAFCalculator },
 ]
+
+// IDs that no longer exist — remap to 'calculator'
+const LEGACY_IDS = new Set(['normal', 'scientific'])
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13 }
 
@@ -38,6 +39,13 @@ export default function App() {
 
   const currentCalc     = CALCULATORS.find(c => c.id === activeCalculator)
   const CurrentComponent = currentCalc?.component
+
+  // ── Migrate legacy tab IDs (normal/scientific → calculator) ───────────
+  React.useEffect(() => {
+    if (LEGACY_IDS.has(activeCalculator)) setActiveCalculator('calculator')
+    if (LEGACY_IDS.has(settings.defaultTab)) handleSettingsUpdate({ defaultTab: 'calculator' })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Sync darkMode → data-theme + persist ──────────────────────────────
   React.useEffect(() => {
@@ -347,20 +355,6 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose }) 
 
         {/* METAR / TAF */}
         <SettingsSection title="METAR / TAF">
-          <SettingsRow label="ALTIMETER">
-            <SegmentedToggle
-              options={[{ value: 'hPa', label: 'HPA' }, { value: 'inHg', label: 'INHG' }]}
-              value={settings.altimeterUnit}
-              onChange={v => onUpdate({ altimeterUnit: v })}
-            />
-          </SettingsRow>
-          <SettingsRow label="TEMPERATURE">
-            <SegmentedToggle
-              options={[{ value: 'C', label: '°C' }, { value: 'F', label: '°F' }]}
-              value={settings.tempUnit}
-              onChange={v => onUpdate({ tempUnit: v })}
-            />
-          </SettingsRow>
           <SettingsRow label="DEFAULT HISTORY">
             <select
               value={settings.defaultHistory}

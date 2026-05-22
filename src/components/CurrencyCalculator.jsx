@@ -48,13 +48,30 @@ export default function CurrencyCalculator() {
   // Local rate mirrors Zustand — avoids extra round-trip through the store
   // when recalculating on amount/format changes.
   const [fetchedRate, setFetchedRate] = useState(() => currency.rate || 1)
+  const [fetchTrigger, setFetchTrigger] = useState(0)
   const calcRef = useRef(null)
+
+  // ── Re-fetch live rate when connectivity is restored ───────────────────
+  useEffect(() => {
+    const handleOnline = () => setFetchTrigger(t => t + 1)
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [])
 
   // ── Effect A: fetch rate when currencies change (not debounced — triggered by clicks, not keystrokes) ──
   useEffect(() => {
     let cancelled = false
 
     const doFetch = async () => {
+      // Guard: if offline, skip the network request entirely (prevents iOS airplane-mode dialog)
+      if (!navigator.onLine) {
+        setRateSource('offline')
+        setRateDate(null)
+        setFetchedRate(offlineRate(currency.fromCurrency, currency.toCurrency))
+        setLoading(false)
+        return
+      }
+
       setLoading(true)
       try {
         const response = await fetch(
@@ -80,7 +97,7 @@ export default function CurrencyCalculator() {
 
     doFetch()
     return () => { cancelled = true }
-  }, [currency.fromCurrency, currency.toCurrency])
+  }, [currency.fromCurrency, currency.toCurrency, fetchTrigger])
 
   // ── Effect B: recalculate result when amount, rate, or format changes ──
   // Debounced (300 ms) so rapid amount typing doesn't fire on every keystroke.
