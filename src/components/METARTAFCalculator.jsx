@@ -61,6 +61,8 @@ export default function METARTAFCalculator() {
   const [loading,      setLoading]      = useState(false)
   const [now,          setNow]          = useState(Date.now())
 
+  const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
+
   const timerRef  = useRef(null)
   const stateRef  = useRef({})
 
@@ -68,6 +70,18 @@ export default function METARTAFCalculator() {
   useEffect(() => {
     stateRef.current = { dep, arr, destAlts, enrouteCount, enrouteAlts, hours }
   })
+
+  // ── Track connectivity ─────────────────────────────────────────────────
+  useEffect(() => {
+    const handleOnline  = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    window.addEventListener('online',  handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online',  handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   // ── Age ticker (every 60 s) ────────────────────────────────────────────
   useEffect(() => {
@@ -111,6 +125,14 @@ export default function METARTAFCalculator() {
   const doFetch = useCallback(async (s) => {
     const targets = buildTargets(s)
     if (!targets.length) return
+
+    // Guard: if offline, show cached data and bail — no request, no iOS dialog
+    if (!navigator.onLine) {
+      setIsOffline(true)
+      return
+    }
+
+    setIsOffline(false)
     setLoading(true)
 
     const out = {}
@@ -131,7 +153,10 @@ export default function METARTAFCalculator() {
     saveCache({ ...s, results: out, fetchedAt: ts })
   }, [buildTargets])
 
-  const handleFetch = () => doFetch(stateRef.current)
+  const handleFetch = () => {
+    if (!navigator.onLine) { setIsOffline(true); return }
+    doFetch(stateRef.current)
+  }
 
   // ── Auto-refresh at :00 and :30 ───────────────────────────────────────
   useEffect(() => {
@@ -153,9 +178,9 @@ export default function METARTAFCalculator() {
     return () => clearTimeout(timerRef.current)
   }, [settings.autoRefresh, doFetch])
 
-  // ── Stale-on-mount check (>30 min old → refetch immediately) ──────────
+  // ── Stale-on-mount check (>30 min old → refetch immediately if online) ─
   useEffect(() => {
-    if (fetchedAt && Date.now() - fetchedAt > 30 * 60_000) {
+    if (fetchedAt && Date.now() - fetchedAt > 30 * 60_000 && navigator.onLine) {
       doFetch(stateRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -277,8 +302,30 @@ export default function METARTAFCalculator() {
         </button>
       </div>
 
+      {/* ── OFFLINE BANNER ──────────────────────────────────────────────── */}
+      {isOffline && (
+        <div style={{
+          background: 'rgba(252,211,77,0.07)',
+          border: '1px solid rgba(252,211,77,0.25)',
+          borderLeft: '3px solid var(--cp-yellow)',
+          borderRadius: 4, padding: '8px 14px', marginBottom: 12,
+          display: 'flex', alignItems: 'center', gap: 8,
+          fontFamily: 'var(--cb-font-mono)', fontSize: 11,
+          letterSpacing: '0.12em', color: 'var(--cp-yellow)',
+        }}>
+          ⚠ OFFLINE
+          {results
+            ? <span style={{ color: 'var(--cp-dim)' }}>
+                · SHOWING CACHED DATA
+                {fetchedAt ? ` · CACHED ${formatAge(fetchedAt / 1000, now)}` : ''}
+              </span>
+            : <span style={{ color: 'var(--cp-dim)' }}>· NO CACHED DATA AVAILABLE</span>
+          }
+        </div>
+      )}
+
       {/* ── FETCH TIMESTAMP ─────────────────────────────────────────────── */}
-      {fetchedAt && (
+      {fetchedAt && !isOffline && (
         <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em',
           fontFamily: 'var(--cb-font-mono)', marginBottom: 24 }}>
           LAST FETCH · {new Date(fetchedAt).toUTCString().toUpperCase()}
