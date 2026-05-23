@@ -194,44 +194,6 @@
       line-height: 1.5;
     }
 
-    /* ── Coming soon ────────────────────────────────────────────── */
-    .coming-soon-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 44px;
-    }
-
-    .coming-card {
-      background: var(--cb-surface-1);
-      border: 1px solid var(--cb-line);
-      border-left: 3px solid rgba(91,107,255,0.5);
-      border-radius: 4px;
-      padding: 10px 14px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .coming-badge {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 8.5px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--cb-violet);
-      background: rgba(91,107,255,0.1);
-      border: 1px solid rgba(91,107,255,0.25);
-      border-radius: 3px;
-      padding: 2px 6px;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .coming-text {
-      font-size: 11.5px;
-      color: var(--cb-ink-2);
-    }
-
     /* ── CTA banner ─────────────────────────────────────────────── */
     .cta-banner {
       background: var(--cb-surface-2);
@@ -498,7 +460,7 @@
       }
       .page { padding: 28px 40px 48px; }
 
-      /* Page 1: header + intro + features + coming soon           */
+      /* Page 1: header + intro + features                         */
       /* Page 2: CTA + PWA note + Android steps                    */
       /* Page 3: iOS steps                                          */
       /* Page 4: FAQ + footer                                       */
@@ -510,7 +472,6 @@
       .faq-item         { page-break-inside: avoid; }
       .tip              { page-break-inside: avoid; }
       .feature-card     { page-break-inside: avoid; }
-      .coming-card      { page-break-inside: avoid; }
       .platform-header  { page-break-after: avoid; }
       .cta-banner       { page-break-inside: avoid; }
 
@@ -597,40 +558,12 @@
       </div>
     </div>
 
-  </div>
-
-  <!-- ── Coming Soon ── -->
-  <div class="section-eyebrow">· Coming Soon ·</div>
-  <div class="coming-soon-grid">
-
-    <div class="coming-card">
-      <div class="coming-badge">Soon</div>
-      <div class="coming-text">Additional aircraft types for EDTO (A320neo, B787 and more)</div>
-    </div>
-
-    <div class="coming-card">
-      <div class="coming-badge">Soon</div>
-      <div class="coming-text">Fuel planning calculator</div>
-    </div>
-
-    <div class="coming-card">
-      <div class="coming-badge">Soon</div>
-      <div class="coming-text">Weight &amp; Balance calculator</div>
-    </div>
-
-    <div class="coming-card">
-      <div class="coming-badge">Soon</div>
-      <div class="coming-text">Winds aloft / True Airspeed calculator</div>
-    </div>
-
-    <div class="coming-card">
-      <div class="coming-badge">Soon</div>
-      <div class="coming-text">METAR weather severity color coding</div>
-    </div>
-
-    <div class="coming-card">
-      <div class="coming-badge">Soon</div>
-      <div class="coming-text">More features based on user feedback</div>
+    <div class="feature-card">
+      <div class="feature-icon">⏰</div>
+      <div>
+        <div class="feature-title">FTL Calculator</div>
+        <div class="feature-desc">Flight time limitation calculator based on CAD 1901 (CAAM Malaysia). Covers maximum FDP, standby duty, in-flight relief, split duty and PIC discretion for flight and cabin crew.</div>
+      </div>
     </div>
 
   </div>
