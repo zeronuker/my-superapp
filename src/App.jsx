@@ -39,6 +39,17 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [fading, setFading] = React.useState(false)
 
+  // Build ordered tab list — respects user-saved order, appends unknown new tabs at end
+  const orderedCalcs = React.useMemo(() => {
+    const saved = settings.tabOrder || []
+    const known = new Set(saved)
+    const extras = CALCULATORS.filter(c => !known.has(c.id))
+    return [
+      ...saved.map(id => CALCULATORS.find(c => c.id === id)).filter(Boolean),
+      ...extras,
+    ]
+  }, [settings.tabOrder])
+
   const currentCalc     = CALCULATORS.find(c => c.id === activeCalculator)
   const CurrentComponent = currentCalc?.component
 
@@ -159,7 +170,7 @@ export default function App() {
           <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', gap: 4,
             paddingTop: 12, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 1 }}
             className="cp-tab-bar">
-            {CALCULATORS.map(calc => (
+            {orderedCalcs.map(calc => (
               <button
                 key={calc.id}
                 onClick={() => setActiveCalculator(calc.id)}
@@ -218,6 +229,7 @@ export default function App() {
             settings={settings}
             onUpdate={handleSettingsUpdate}
             onClose={() => setSettingsOpen(false)}
+            orderedCalcs={orderedCalcs}
           />
         </>
       )}
@@ -226,7 +238,7 @@ export default function App() {
 }
 
 // ── Settings Panel ──────────────────────────────────────────────────────────
-function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose }) {
+function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, orderedCalcs }) {
   const panelRef = React.useRef(null)
 
   // Focus trap: on open, move focus into panel and keep Tab cycling within it
@@ -322,15 +334,15 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose }) 
           </SettingsRow>
         </SettingsSection>
 
-        {/* UX */}
-        <SettingsSection title="UX">
+        {/* INTERFACE */}
+        <SettingsSection title="INTERFACE">
           <SettingsRow label="DEFAULT TAB">
             <select
               value={settings.defaultTab}
               onChange={e => onUpdate({ defaultTab: e.target.value })}
               style={selectStyle}
             >
-              {CALCULATORS.map(c => (
+              {orderedCalcs.map(c => (
                 <option key={c.id} value={c.id}>{c.name.toUpperCase()}</option>
               ))}
             </select>
@@ -342,6 +354,47 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose }) 
               onChange={v => onUpdate({ haptic: v })}
             />
           </SettingsRow>
+
+          {/* Tab order */}
+          <div style={{ marginTop: 8 }}>
+            <span className="cp-label" style={{ display: 'block', marginBottom: 8 }}>TAB ORDER</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {orderedCalcs.map((calc, idx) => (
+                <div key={calc.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)',
+                  borderRadius: 4, padding: '5px 8px',
+                }}>
+                  <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-muted)', letterSpacing: '0.1em' }}>
+                    <span style={{ marginRight: 6, opacity: 0.6 }}>{calc.icon}</span>
+                    {calc.name.toUpperCase()}
+                  </span>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button
+                      className="cp-btn"
+                      disabled={idx === 0}
+                      onClick={() => {
+                        const next = orderedCalcs.map(c => c.id)
+                        ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
+                        onUpdate({ tabOrder: next })
+                      }}
+                      style={{ padding: '2px 7px', fontSize: 12, opacity: idx === 0 ? 0.25 : 1 }}
+                    >▲</button>
+                    <button
+                      className="cp-btn"
+                      disabled={idx === orderedCalcs.length - 1}
+                      onClick={() => {
+                        const next = orderedCalcs.map(c => c.id)
+                        ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
+                        onUpdate({ tabOrder: next })
+                      }}
+                      style={{ padding: '2px 7px', fontSize: 12, opacity: idx === orderedCalcs.length - 1 ? 0.25 : 1 }}
+                    >▼</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </SettingsSection>
 
         {/* CURRENCY */}
