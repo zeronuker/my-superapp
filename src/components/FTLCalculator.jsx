@@ -3,9 +3,56 @@ import { lookupFDP, getBandLabelForResult } from '../data/ftlTables'
 
 // ── Time helpers ──────────────────────────────────────────────────────────────
 
+/**
+ * Accepts "HH:MM" or "HHMM" (4-digit) → "HH:MM", or "" on invalid.
+ * Used for clock times (0000–2359).
+ */
+function normalizeTime(str) {
+  if (!str) return ''
+  const s = str.trim().replace(/[^0-9:]/g, '')
+  let h, m
+  if (s.includes(':')) {
+    ;[h, m] = s.split(':').map(Number)
+  } else if (s.length === 4) {
+    h = parseInt(s.slice(0, 2), 10)
+    m = parseInt(s.slice(2), 10)
+  } else if (s.length === 3) {
+    h = parseInt(s[0], 10)
+    m = parseInt(s.slice(1), 10)
+  } else {
+    return ''
+  }
+  if (isNaN(h) || isNaN(m) || h > 23 || m > 59) return ''
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+/**
+ * Accepts "H:MM", "HH:MM" or "HHMM" → minutes, or null on invalid.
+ * Used for durations (rest periods, sector lengths).
+ */
+function parseDur(str) {
+  if (!str) return null
+  const s = str.trim().replace(/[^0-9:]/g, '')
+  let h, m
+  if (s.includes(':')) {
+    ;[h, m] = s.split(':').map(Number)
+  } else if (s.length === 4) {
+    h = parseInt(s.slice(0, 2), 10)
+    m = parseInt(s.slice(2), 10)
+  } else if (s.length === 3) {
+    h = parseInt(s[0], 10)
+    m = parseInt(s.slice(1), 10)
+  } else {
+    return null
+  }
+  if (isNaN(h) || isNaN(m) || m > 59) return null
+  return h * 60 + m
+}
+
 function toMins(hhmm) {
-  if (!hhmm) return 0
-  const [h = 0, m = 0] = hhmm.split(':').map(s => parseInt(s, 10) || 0)
+  const n = normalizeTime(hhmm)
+  if (!n) return 0
+  const [h, m] = n.split(':').map(Number)
   return h * 60 + m
 }
 
@@ -27,14 +74,6 @@ function fmtDur(mins) {
   return `${h}:${String(m).padStart(2, '0')}`
 }
 
-/** "8:30" → minutes (480), or null on bad input */
-function parseDur(str) {
-  if (!str || !str.includes(':')) return null
-  const [h, m] = str.split(':').map(s => parseInt(s, 10))
-  if (isNaN(h) || isNaN(m) || m > 59) return null
-  return h * 60 + m
-}
-
 // ── FTL computation ───────────────────────────────────────────────────────────
 
 function computeFTL({
@@ -49,6 +88,10 @@ function computeFTL({
 }) {
   const notes  = []
   const errors = []
+
+  // Normalize clock-time inputs (accept HH:MM or HHMM)
+  reportTime  = normalizeTime(reportTime)  || reportTime
+  standbyStart = normalizeTime(standbyStart) || standbyStart
 
   // Preceding rest (hours) — needed for Table B
   const precedingRestMins = parseDur(precedingRestStr)
@@ -340,9 +383,11 @@ export default function FTLCalculator() {
           <Section title="FLIGHT DETAILS">
             <Row label="REPORT TIME">
               <input
-                type="time" value={reportTime}
+                type="text" value={reportTime} placeholder="HH:MM"
                 onChange={e => setReportTime(e.target.value)}
-                style={{ ...inp, width: 120, textAlign: 'center' }}
+                onBlur={e => { const n = normalizeTime(e.target.value); if (n) setReportTime(n) }}
+                style={{ ...inp, width: 100, textAlign: 'center' }}
+                maxLength={5}
               />
             </Row>
             <Row label="SECTORS">
@@ -366,7 +411,8 @@ export default function FTLCalculator() {
                   {longRange && (
                     <input type="text" placeholder="H:MM"
                       value={longestSector} onChange={e => setLongestSector(e.target.value)}
-                      style={{ ...inp, width: 72, textAlign: 'center' }} maxLength={5}
+                      onBlur={e => { const m = parseDur(e.target.value); if (m != null) setLongestSector(fmtDur(m)) }}
+                      style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
                     />
                   )}
                 </div>
@@ -381,9 +427,10 @@ export default function FTLCalculator() {
                 label="REST DURATION"
                 note="Rest period before this duty — selects Table B row (Ch. 2.10)"
               >
-                <input type="text" placeholder="H:MM"
+                <input type="text" placeholder="H:MM or HHMM"
                   value={precedingRest} onChange={e => setPrecedingRest(e.target.value)}
-                  style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
+                  onBlur={e => { const m = parseDur(e.target.value); if (m != null) setPrecedingRest(fmtDur(m)) }}
+                  style={{ ...inp, width: 110, textAlign: 'center' }} maxLength={5}
                 />
               </Row>
               <div style={{
@@ -403,9 +450,11 @@ export default function FTLCalculator() {
           }>
             {standby && (
               <Row label="STANDBY START" note="Max 12h standby (Ch. 2.9)">
-                <input type="time" value={standbyStart}
+                <input type="text" value={standbyStart} placeholder="HH:MM"
                   onChange={e => setStandbyStart(e.target.value)}
-                  style={{ ...inp, width: 120, textAlign: 'center' }}
+                  onBlur={e => { const n = normalizeTime(e.target.value); if (n) setStandbyStart(n) }}
+                  style={{ ...inp, width: 100, textAlign: 'center' }}
+                  maxLength={5}
                 />
               </Row>
             )}
@@ -431,6 +480,7 @@ export default function FTLCalculator() {
                   <Row label="REST PERIOD" note="Minimum 3h required (Ch. 2.12)">
                     <input type="text" placeholder="H:MM"
                       value={ifrRest} onChange={e => setIfrRest(e.target.value)}
+                      onBlur={e => { const m = parseDur(e.target.value); if (m != null) setIfrRest(fmtDur(m)) }}
                       style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
                     />
                   </Row>
@@ -448,6 +498,7 @@ export default function FTLCalculator() {
               <Row label="REST PERIOD" note="3–10h rest → ½ extension (Ch. 2.13)">
                 <input type="text" placeholder="H:MM"
                   value={splitRest} onChange={e => setSplitRest(e.target.value)}
+                  onBlur={e => { const m = parseDur(e.target.value); if (m != null) setSplitRest(fmtDur(m)) }}
                   style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
                 />
               </Row>
