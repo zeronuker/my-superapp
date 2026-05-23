@@ -39,6 +39,7 @@ function parseDur(str) {
 
 function computeFTL({
   reportTime, sectors, crewType, acclimatised,
+  isCabinCrew,
   precedingRestStr,
   longRange, longestSectorStr,
   standby, standbyStart,
@@ -87,7 +88,9 @@ function computeFTL({
   const bandLabel  = getBandLabelForResult(reportTime, crewType, acclimatised, precedingRestH)
   const tableLabel = crewType === 'single' ? 'C' : acclimatised ? 'A' : 'B'
 
-  let fdp = baseFDP
+  // 2a. Cabin crew allowance §2.21.2 (+1h on base FDP)
+  const cabinAllowance = isCabinCrew ? 60 : 0
+  let fdp = baseFDP + cabinAllowance
   let standbyReduction = 0
 
   // 3. Standby §2.9
@@ -149,7 +152,7 @@ function computeFTL({
     baseFDP, effSectors, fdp,
     endTime: toHHMM(toMins(reportTime) + fdp),
     tableLabel, bandLabel,
-    breakdown: { standbyReduction, ifrExtension, splitExtension, picExtension },
+    breakdown: { cabinAllowance, standbyReduction, ifrExtension, splitExtension, picExtension },
     notes, errors,
   }
 }
@@ -240,6 +243,7 @@ export default function FTLCalculator() {
       sectors:          Math.min(sectors, maxSectors),
       crewType:         effectiveCrew,
       acclimatised,
+      isCabinCrew:      crewCat === 'cabin',
       precedingRestStr: precedingRest,
       longRange,        longestSectorStr: longestSector,
       standby,          standbyStart,
@@ -502,6 +506,12 @@ export default function FTLCalculator() {
                         {fmtDur(result.baseFDP)}
                       </td>
                     </tr>
+                    {result.breakdown.cabinAllowance > 0 && (
+                      <tr>
+                        <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>Cabin crew allowance §2.21.2</td>
+                        <td style={{ textAlign: 'right', color: 'var(--cp-green)' }}>+{fmtDur(result.breakdown.cabinAllowance)}</td>
+                      </tr>
+                    )}
                     {result.breakdown.standbyReduction > 0 && (
                       <tr>
                         <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>Standby reduction §2.9</td>
