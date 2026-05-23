@@ -58,7 +58,7 @@ function computeFTL({
     return { error: 'Enter preceding rest period — required for Table B (non-acclimatised)' }
   }
 
-  // 1. Effective sector count — long range §2.11
+  // 1. Effective sector count — long range Ch. 2.11
   let effSectors = sectors
   if (longRange && crewType === '2crew') {
     const lsMins = parseDur(longestSectorStr)
@@ -68,7 +68,7 @@ function computeFTL({
         add = lsMins > 11 * 60 ? 4 : lsMins > 9 * 60 ? 3 : 2
       } else {
         if (lsMins > 11 * 60) {
-          errors.push('Long range sector >11h: not permitted for non-acclimatised crew (§2.11)')
+          errors.push('Long range sector >11h: not permitted for non-acclimatised crew (Ch. 2.11)')
           add = null
         } else {
           add = 4
@@ -76,7 +76,7 @@ function computeFTL({
       }
       if (add != null) {
         effSectors = (sectors - 1) + add
-        if (add > 1) notes.push(`Long range §2.11: longest sector counts as ${add} → effective ${effSectors} sector(s)`)
+        if (add > 1) notes.push(`Long range Ch. 2.11: longest sector counts as ${add} → effective ${effSectors} sector(s)`)
       }
     }
   }
@@ -88,52 +88,52 @@ function computeFTL({
   const bandLabel  = getBandLabelForResult(reportTime, crewType, acclimatised, precedingRestH)
   const tableLabel = crewType === 'single' ? 'C' : acclimatised ? 'A' : 'B'
 
-  // 2a. Cabin crew allowance §2.21.2 (+1h on base FDP)
+  // 2a. Cabin crew allowance Ch. 2.21.2 (+1h on base FDP)
   const cabinAllowance = isCabinCrew ? 60 : 0
   let fdp = baseFDP + cabinAllowance
   let standbyReduction = 0
 
-  // 3. Standby §2.9
+  // 3. Standby Ch. 2.9
   if (standby && standbyStart) {
     const sbMins = diffMins(standbyStart, reportTime)
-    if (sbMins > 12 * 60) errors.push('Standby exceeds 12h maximum (§2.9)')
+    if (sbMins > 12 * 60) errors.push('Standby exceeds 12h maximum (Ch. 2.9)')
     if (sbMins >= 6 * 60) {
       standbyReduction = sbMins - 6 * 60
       fdp = Math.max(0, fdp - standbyReduction)
-      notes.push(`Standby Case B (≥6h): −${fmtDur(standbyReduction)} (§2.9)`)
+      notes.push(`Standby Case B (≥6h): −${fmtDur(standbyReduction)} (Ch. 2.9)`)
     } else {
-      notes.push('Standby Case A (<6h): no FDP reduction (§2.9)')
+      notes.push('Standby Case A (<6h): no FDP reduction (Ch. 2.9)')
     }
   }
 
-  // 4. In-flight relief §2.12
+  // 4. In-flight relief Ch. 2.12
   let ifrExtension = 0
   if (ifr) {
     const restMins = parseDur(ifrRestStr)
     if (!restMins) {
       notes.push('IFR: enter rest period duration')
     } else if (restMins < 3 * 60) {
-      notes.push('IFR rest <3h: no extension applies (§2.12)')
+      notes.push('IFR rest <3h: no extension applies (Ch. 2.12)')
     } else {
       const cap = ifrType === 'bunk' ? 18 * 60 : 15 * 60
       ifrExtension = ifrType === 'bunk' ? Math.floor(restMins / 2) : Math.floor(restMins / 3)
       const before = fdp
       fdp = Math.min(fdp + ifrExtension, cap)
       if (fdp < before + ifrExtension)
-        notes.push(`FDP capped at ${fmtDur(cap)} (${ifrType} rest limit §2.12)`)
+        notes.push(`FDP capped at ${fmtDur(cap)} (${ifrType} rest limit Ch. 2.12)`)
     }
   }
 
-  // 5. Split duty §2.13
+  // 5. Split duty Ch. 2.13
   let splitExtension = 0
   if (splitDuty) {
     const restMins = parseDur(splitRestStr)
     if (!restMins) {
       notes.push('Split duty: enter rest period duration')
     } else if (restMins < 3 * 60) {
-      notes.push('Split duty rest <3h: no extension applies (§2.13)')
+      notes.push('Split duty rest <3h: no extension applies (Ch. 2.13)')
     } else if (restMins > 10 * 60) {
-      notes.push('Split duty rest >10h: extension not applicable (§2.13)')
+      notes.push('Split duty rest >10h: extension not applicable (Ch. 2.13)')
     } else {
       splitExtension = Math.floor(restMins / 2)
       fdp += splitExtension
@@ -334,7 +334,7 @@ export default function FTLCalculator() {
               </div>
             </Row>
             {crewCat === 'flight' && crewType === '2crew' && (
-              <Row label="LONG RANGE" note={longRange ? 'Duration of longest individual sector (§2.11)' : undefined}>
+              <Row label="LONG RANGE" note={longRange ? 'Duration of longest individual sector (Ch. 2.11)' : undefined}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Seg
                     options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
@@ -356,7 +356,7 @@ export default function FTLCalculator() {
             <Section title="PRECEDING REST">
               <Row
                 label="REST DURATION"
-                note="Rest period before this duty — selects Table B row (§2.10)"
+                note="Rest period before this duty — selects Table B row (Ch. 2.10)"
               >
                 <input type="text" placeholder="H:MM"
                   value={precedingRest} onChange={e => setPrecedingRest(e.target.value)}
@@ -379,7 +379,7 @@ export default function FTLCalculator() {
               value={standby} onChange={setStandby} />
           }>
             {standby && (
-              <Row label="STANDBY START" note="Max 12h standby (§2.9)">
+              <Row label="STANDBY START" note="Max 12h standby (Ch. 2.9)">
                 <input type="time" value={standbyStart}
                   onChange={e => setStandbyStart(e.target.value)}
                   style={{ ...inp, width: 120, textAlign: 'center' }}
@@ -405,7 +405,7 @@ export default function FTLCalculator() {
                       value={ifrType} onChange={setIfrType}
                     />
                   </Row>
-                  <Row label="REST PERIOD" note="Minimum 3h required (§2.12)">
+                  <Row label="REST PERIOD" note="Minimum 3h required (Ch. 2.12)">
                     <input type="text" placeholder="H:MM"
                       value={ifrRest} onChange={e => setIfrRest(e.target.value)}
                       style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
@@ -422,7 +422,7 @@ export default function FTLCalculator() {
               value={splitDuty} onChange={setSplitDuty} />
           }>
             {splitDuty && (
-              <Row label="REST PERIOD" note="3–10h rest → ½ extension (§2.13)">
+              <Row label="REST PERIOD" note="3–10h rest → ½ extension (Ch. 2.13)">
                 <input type="text" placeholder="H:MM"
                   value={splitRest} onChange={e => setSplitRest(e.target.value)}
                   style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
@@ -508,25 +508,25 @@ export default function FTLCalculator() {
                     </tr>
                     {result.breakdown.cabinAllowance > 0 && (
                       <tr>
-                        <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>Cabin crew allowance §2.21.2</td>
+                        <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>Cabin crew allowance Ch. 2.21.2</td>
                         <td style={{ textAlign: 'right', color: 'var(--cp-green)' }}>+{fmtDur(result.breakdown.cabinAllowance)}</td>
                       </tr>
                     )}
                     {result.breakdown.standbyReduction > 0 && (
                       <tr>
-                        <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>Standby reduction §2.9</td>
+                        <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>Standby reduction Ch. 2.9</td>
                         <td style={{ textAlign: 'right', color: 'var(--cp-red)' }}>−{fmtDur(result.breakdown.standbyReduction)}</td>
                       </tr>
                     )}
                     {result.breakdown.ifrExtension > 0 && (
                       <tr>
-                        <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>IFR extension §2.12</td>
+                        <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>IFR extension Ch. 2.12</td>
                         <td style={{ textAlign: 'right', color: 'var(--cp-green)' }}>+{fmtDur(result.breakdown.ifrExtension)}</td>
                       </tr>
                     )}
                     {result.breakdown.splitExtension > 0 && (
                       <tr>
-                        <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>Split duty §2.13</td>
+                        <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>Split duty Ch. 2.13</td>
                         <td style={{ textAlign: 'right', color: 'var(--cp-green)' }}>+{fmtDur(result.breakdown.splitExtension)}</td>
                       </tr>
                     )}
@@ -573,8 +573,8 @@ export default function FTLCalculator() {
           <div style={{ marginTop: 14, padding: '10px 12px', border: '1px solid var(--cp-border2)', borderRadius: 4 }}>
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em', lineHeight: 1.8 }}>
               CAD 1901 ISS01 REV01 — CAAM MALAYSIA<br />
-              §2.9 Standby · §2.10 Max FDP · §2.11 Long Range<br />
-              §2.12 In-Flight Relief · §2.13 Split Duty
+              Ch. 2.9 Standby · Ch. 2.10 Max FDP · Ch. 2.11 Long Range<br />
+              Ch. 2.12 In-Flight Relief · Ch. 2.13 Split Duty
             </div>
           </div>
 
