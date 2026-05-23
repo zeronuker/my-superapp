@@ -9,8 +9,6 @@
  * TABLE C : single pilot               — 5 local-time bands × sector groups ≤4/5/6/7/8+
  *
  * Source: decimal hours converted to minutes  (e.g. 12.25 h → 735 min)
- * NOTE: Table B sector 3 value "11.3" extracted as-is from PDF — verify
- *       against original document (may be 11.5 per 0.75-step pattern).
  */
 
 const h = (decHours) => Math.round(decHours * 60)
@@ -29,7 +27,7 @@ export const TABLE_A = [
 // Row selected by LENGTH OF PRECEDING REST (not local time of start).
 // Columns: sectors 1, 2, 3, 4, 5, 6, 7+
 export const TABLE_B = [
-  { id: 'r0', label: 'Preceding rest ≤18h or ≥30h', v: [h(13), h(12.25), h(11.3), h(10.75), h(10), h(9.25), h(9)] },
+  { id: 'r0', label: 'Preceding rest ≤18h or ≥30h', v: [h(13), h(12.25), h(11.5), h(10.75), h(10), h(9.25), h(9)] },
   { id: 'r1', label: 'Preceding rest 18–30h',        v: [h(11.5), h(11), h(10.5), h(9.75),  h(9),  h(9),    h(9)] },
 ]
 
