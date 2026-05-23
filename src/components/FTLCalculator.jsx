@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { lookupFDP, getTimeBand, getBandLabel } from '../data/ftlTables'
+import { lookupFDP, getBandLabelForResult } from '../data/ftlTables'
 
 // ── Time helpers ──────────────────────────────────────────────────────────────
 
@@ -27,7 +27,7 @@ function fmtDur(mins) {
   return `${h}:${String(m).padStart(2, '0')}`
 }
 
-/** "8:30" or "08:30" → minutes, or null on bad input */
+/** "8:30" → minutes (480), or null on bad input */
 function parseDur(str) {
   if (!str || !str.includes(':')) return null
   const [h, m] = str.split(':').map(s => parseInt(s, 10))
@@ -39,6 +39,7 @@ function parseDur(str) {
 
 function computeFTL({
   reportTime, sectors, crewType, acclimatised,
+  precedingRestStr,
   longRange, longestSectorStr,
   standby, standbyStart,
   ifr, ifrType, ifrRestStr,
@@ -47,6 +48,14 @@ function computeFTL({
 }) {
   const notes  = []
   const errors = []
+
+  // Preceding rest (hours) — needed for Table B
+  const precedingRestMins = parseDur(precedingRestStr)
+  const precedingRestH    = precedingRestMins != null ? precedingRestMins / 60 : 0
+
+  if (!acclimatised && crewType === '2crew' && !precedingRestMins) {
+    return { error: 'Enter preceding rest period — required for Table B (non-acclimatised)' }
+  }
 
   // 1. Effective sector count — long range §2.11
   let effSectors = sectors
@@ -64,7 +73,7 @@ function computeFTL({
           add = 4
         }
       }
-      if (add !== null) {
+      if (add != null) {
         effSectors = (sectors - 1) + add
         if (add > 1) notes.push(`Long range §2.11: longest sector counts as ${add} → effective ${effSectors} sector(s)`)
       }
@@ -72,12 +81,10 @@ function computeFTL({
   }
 
   // 2. Base FDP lookup
-  const baseFDP = lookupFDP(reportTime, effSectors, crewType, acclimatised)
-  if (baseFDP === null)      return { pending: true }
-  if (baseFDP === undefined) return { error: 'Table lookup failed — check inputs' }
+  const baseFDP = lookupFDP(reportTime, effSectors, crewType, acclimatised, precedingRestH)
+  if (baseFDP == null) return { error: 'Table lookup failed — check inputs' }
 
-  const band       = getTimeBand(reportTime)
-  const bandLabel  = getBandLabel(band)
+  const bandLabel  = getBandLabelForResult(reportTime, crewType, acclimatised, precedingRestH)
   const tableLabel = crewType === 'single' ? 'C' : acclimatised ? 'A' : 'B'
 
   let fdp = baseFDP
@@ -90,7 +97,7 @@ function computeFTL({
     if (sbMins >= 6 * 60) {
       standbyReduction = sbMins - 6 * 60
       fdp = Math.max(0, fdp - standbyReduction)
-      notes.push(`Standby Case B (≥6h standby): −${fmtDur(standbyReduction)} (§2.9)`)
+      notes.push(`Standby Case B (≥6h): −${fmtDur(standbyReduction)} (§2.9)`)
     } else {
       notes.push('Standby Case A (<6h): no FDP reduction (§2.9)')
     }
@@ -106,9 +113,7 @@ function computeFTL({
       notes.push('IFR rest <3h: no extension applies (§2.12)')
     } else {
       const cap = ifrType === 'bunk' ? 18 * 60 : 15 * 60
-      ifrExtension = ifrType === 'bunk'
-        ? Math.floor(restMins / 2)
-        : Math.floor(restMins / 3)
+      ifrExtension = ifrType === 'bunk' ? Math.floor(restMins / 2) : Math.floor(restMins / 3)
       const before = fdp
       fdp = Math.min(fdp + ifrExtension, cap)
       if (fdp < before + ifrExtension)
@@ -206,45 +211,50 @@ function Section({ title, toggle, children }) {
 // ── Main calculator ───────────────────────────────────────────────────────────
 
 export default function FTLCalculator() {
-  const [aircraft,      setAircraft]      = useState('aeroplane')
-  const [crewCat,       setCrewCat]       = useState('flight')
-  const [crewType,      setCrewType]      = useState('2crew')
-  const [acclimatised,  setAcclimatised]  = useState(true)
-  const [reportTime,    setReportTime]    = useState('')
-  const [sectors,       setSectors]       = useState(1)
-  const [longRange,     setLongRange]     = useState(false)
-  const [longestSector, setLongestSector] = useState('')
-  const [standby,       setStandby]       = useState(false)
-  const [standbyStart,  setStandbyStart]  = useState('')
-  const [ifr,           setIfr]           = useState(false)
-  const [ifrType,       setIfrType]       = useState('bunk')
-  const [ifrRest,       setIfrRest]       = useState('')
-  const [splitDuty,     setSplitDuty]     = useState(false)
-  const [splitRest,     setSplitRest]     = useState('')
-  const [picDisc,       setPicDisc]       = useState(false)
+  const [aircraft,       setAircraft]       = useState('aeroplane')
+  const [crewCat,        setCrewCat]        = useState('flight')
+  const [crewType,       setCrewType]       = useState('2crew')
+  const [acclimatised,   setAcclimatised]   = useState(true)
+  const [reportTime,     setReportTime]     = useState('')
+  const [sectors,        setSectors]        = useState(1)
+  const [precedingRest,  setPrecedingRest]  = useState('')
+  const [longRange,      setLongRange]      = useState(false)
+  const [longestSector,  setLongestSector]  = useState('')
+  const [standby,        setStandby]        = useState(false)
+  const [standbyStart,   setStandbyStart]   = useState('')
+  const [ifr,            setIfr]            = useState(false)
+  const [ifrType,        setIfrType]        = useState('bunk')
+  const [ifrRest,        setIfrRest]        = useState('')
+  const [splitDuty,      setSplitDuty]      = useState(false)
+  const [splitRest,      setSplitRest]      = useState('')
+  const [picDisc,        setPicDisc]        = useState(false)
 
-  const effectiveCrew   = crewCat === 'cabin' ? '2crew' : crewType
-  const maxSectors      = effectiveCrew === 'single' ? 4 : 8
+  const effectiveCrew  = crewCat === 'cabin' ? '2crew' : crewType
+  const needsTableB    = effectiveCrew === '2crew' && !acclimatised
+  const maxSectors     = 8
 
   const result = useMemo(() => {
     if (!reportTime) return null
     return computeFTL({
       reportTime,
-      sectors:         Math.min(sectors, maxSectors),
-      crewType:        effectiveCrew,
+      sectors:          Math.min(sectors, maxSectors),
+      crewType:         effectiveCrew,
       acclimatised,
-      longRange,       longestSectorStr: longestSector,
-      standby,         standbyStart,
-      ifr,             ifrType, ifrRestStr: ifrRest,
-      splitDuty,       splitRestStr: splitRest,
-      picDiscretion:   picDisc,
+      precedingRestStr: precedingRest,
+      longRange,        longestSectorStr: longestSector,
+      standby,          standbyStart,
+      ifr,              ifrType, ifrRestStr: ifrRest,
+      splitDuty,        splitRestStr: splitRest,
+      picDiscretion:    picDisc,
     })
-  }, [reportTime, sectors, effectiveCrew, acclimatised,
-      longRange, longestSector,
-      standby, standbyStart,
-      ifr, ifrType, ifrRest,
-      splitDuty, splitRest,
-      picDisc, maxSectors])
+  }, [
+    reportTime, sectors, effectiveCrew, acclimatised, precedingRest,
+    longRange, longestSector,
+    standby, standbyStart,
+    ifr, ifrType, ifrRest,
+    splitDuty, splitRest,
+    picDisc,
+  ])
 
   const inp = {
     background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)',
@@ -287,8 +297,7 @@ export default function FTLCalculator() {
               <Row label="TYPE">
                 <Seg
                   options={[{ value: '2crew', label: '2+ CREW' }, { value: 'single', label: 'SINGLE' }]}
-                  value={crewType}
-                  onChange={v => { setCrewType(v); if (v === 'single') setSectors(s => Math.min(s, 4)) }}
+                  value={crewType} onChange={setCrewType}
                 />
               </Row>
             )}
@@ -309,7 +318,7 @@ export default function FTLCalculator() {
                 style={{ ...inp, width: 120, textAlign: 'center' }}
               />
             </Row>
-            <Row label={`SECTORS (max ${maxSectors})`}>
+            <Row label="SECTORS">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <button className="cp-btn" style={{ padding: '4px 12px', fontSize: 16, lineHeight: 1 }}
                   onClick={() => setSectors(s => Math.max(1, s - 1))}>−</button>
@@ -321,7 +330,7 @@ export default function FTLCalculator() {
               </div>
             </Row>
             {crewCat === 'flight' && crewType === '2crew' && (
-              <Row label="LONG RANGE" note={longRange ? 'Enter duration of longest single sector (§2.11)' : undefined}>
+              <Row label="LONG RANGE" note={longRange ? 'Duration of longest individual sector (§2.11)' : undefined}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Seg
                     options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
@@ -337,6 +346,28 @@ export default function FTLCalculator() {
               </Row>
             )}
           </Section>
+
+          {/* Preceding rest — only shown for Table B (not acclimatised, 2+ crew) */}
+          {needsTableB && (
+            <Section title="PRECEDING REST">
+              <Row
+                label="REST DURATION"
+                note="Rest period before this duty — selects Table B row (§2.10)"
+              >
+                <input type="text" placeholder="H:MM"
+                  value={precedingRest} onChange={e => setPrecedingRest(e.target.value)}
+                  style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
+                />
+              </Row>
+              <div style={{
+                fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)',
+                lineHeight: 1.7, letterSpacing: '0.06em', padding: '0 0 4px',
+              }}>
+                ≤18h or ≥30h → more restrictive FDP limit<br />
+                18–30h → less restrictive FDP limit
+              </div>
+            </Section>
+          )}
 
           {/* Standby */}
           <Section title="STANDBY" toggle={
@@ -363,7 +394,10 @@ export default function FTLCalculator() {
                 <>
                   <Row label="REST TYPE">
                     <Seg
-                      options={[{ value: 'bunk', label: 'BUNK  ×½  max 18h' }, { value: 'seat', label: 'SEAT  ×⅓  max 15h' }]}
+                      options={[
+                        { value: 'bunk', label: 'BUNK  ×½  max 18h' },
+                        { value: 'seat', label: 'SEAT  ×⅓  max 15h' },
+                      ]}
                       value={ifrType} onChange={setIfrType}
                     />
                   </Row>
@@ -423,20 +457,10 @@ export default function FTLCalculator() {
               </div>
             </div>
 
-          ) : result?.pending ? (
-            <div className="cp-card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-              <div style={{ fontSize: 24, color: 'var(--cp-yellow)', marginBottom: 10 }}>⚠</div>
-              <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-yellow)', letterSpacing: '0.14em', marginBottom: 8 }}>
-                TABLE DATA PENDING
-              </div>
-              <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', lineHeight: 1.7 }}>
-                FDP tables not yet loaded.<br />Provide Table A / B / C values.
-              </div>
-            </div>
-
           ) : result?.error ? (
-            <div className="cp-card" style={{ textAlign: 'center', padding: '40px 20px', borderColor: 'var(--cp-red)' }}>
-              <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-red)', letterSpacing: '0.1em' }}>
+            <div className="cp-card" style={{ textAlign: 'center', padding: '32px 20px', borderColor: 'var(--cp-red)' }}>
+              <div style={{ fontSize: 20, color: 'var(--cp-red)', marginBottom: 10 }}>⚠</div>
+              <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-red)', letterSpacing: '0.08em', lineHeight: 1.6 }}>
                 {result.error}
               </div>
             </div>
@@ -465,14 +489,14 @@ export default function FTLCalculator() {
                 </div>
               </div>
 
-              {/* Breakdown table */}
+              {/* Breakdown */}
               <div className="cp-card" style={{ marginBottom: 14 }}>
                 <div className="cp-label" style={{ marginBottom: 10 }}>BREAKDOWN</div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>
                   <tbody>
                     <tr>
                       <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>
-                        Base (Table {result.tableLabel} · {result.bandLabel})
+                        Table {result.tableLabel} · {result.bandLabel}
                       </td>
                       <td style={{ textAlign: 'right', color: 'var(--cp-muted)', fontWeight: 600 }}>
                         {fmtDur(result.baseFDP)}
