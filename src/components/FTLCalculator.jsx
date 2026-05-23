@@ -84,7 +84,7 @@ function computeFTL({
   standby, standbyStart,
   ifr, ifrType, ifrRestStr,
   splitDuty, splitRestStr,
-  picDiscretion,
+  picDiscretion, picExtensionStr,
 }) {
   const notes  = []
   const errors = []
@@ -183,19 +183,34 @@ function computeFTL({
     }
   }
 
-  // 6. PIC discretion (+1h)
+  // 6. PIC discretion — Ch. 2.15
+  const fdpPrePIC = fdp   // save FDP before PIC extension (used for reference times)
   let picExtension = 0
   if (picDiscretion) {
-    picExtension = 60
-    fdp += 60
+    picExtension = parseDur(picExtensionStr) || 0
+    if (picExtension > 3 * 60) {
+      errors.push('PIC extension exceeds 3h maximum (Ch. 2.15)')
+      picExtension = 3 * 60   // cap at absolute maximum
+    } else if (picExtension > 2 * 60) {
+      notes.push('Extension >2h: operator must submit Discretion Report to CAAM within 14 days (Ch. 2.15.4)')
+    }
+    if (picExtension > 0) fdp += picExtension
   }
+
+  // PIC reference times: what FDP expiry would be at +1h / +2h / +3h
+  const picRef = picDiscretion ? {
+    h1: { label: '+1:00', end: toHHMM(toMins(reportTime) + fdpPrePIC + 60),  caam: false },
+    h2: { label: '+2:00', end: toHHMM(toMins(reportTime) + fdpPrePIC + 120), caam: false },
+    h3: { label: '+3:00', end: toHHMM(toMins(reportTime) + fdpPrePIC + 180), caam: true  },
+  } : null
 
   return {
     ok: true,
-    baseFDP, effSectors, fdp,
+    baseFDP, effSectors, fdp, fdpPrePIC,
     endTime: toHHMM(toMins(reportTime) + fdp),
     tableLabel, bandLabel,
     breakdown: { cabinAllowance, standbyReduction, ifrExtension, splitExtension, picExtension },
+    picRef,
     notes, errors,
   }
 }
@@ -274,6 +289,7 @@ export default function FTLCalculator() {
   const [splitDuty,      setSplitDuty]      = useState(false)
   const [splitRest,      setSplitRest]      = useState('')
   const [picDisc,        setPicDisc]        = useState(false)
+  const [picExtStr,      setPicExtStr]      = useState('')
 
   const effectiveCrew  = crewCat === 'cabin' ? '2crew' : crewType
   const needsTableB    = effectiveCrew === '2crew' && !acclimatised
@@ -293,6 +309,7 @@ export default function FTLCalculator() {
       ifr,              ifrType, ifrRestStr: ifrRest,
       splitDuty,        splitRestStr: splitRest,
       picDiscretion:    picDisc,
+      picExtensionStr:  picExtStr,
     })
   }, [
     reportTime, sectors, effectiveCrew, acclimatised, precedingRest,
@@ -300,7 +317,7 @@ export default function FTLCalculator() {
     standby, standbyStart,
     ifr, ifrType, ifrRest,
     splitDuty, splitRest,
-    picDisc,
+    picDisc, picExtStr,
   ])
 
   const inp = {
@@ -508,12 +525,21 @@ export default function FTLCalculator() {
           {/* PIC discretion */}
           <Section title="PIC DISCRETION" toggle={
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-              value={picDisc} onChange={setPicDisc} />
+              value={picDisc} onChange={v => { setPicDisc(v); if (!v) setPicExtStr('') }} />
           }>
             {picDisc && (
-              <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-orange)', letterSpacing: '0.08em', paddingBottom: 8 }}>
-                +1:00 applied · Must be documented in operational records
-              </div>
+              <>
+                <Row label="EXTENSION" note="Max 2h before sectors · Max 3h before last sector (Ch. 2.15)">
+                  <input type="text" placeholder="H:MM"
+                    value={picExtStr} onChange={e => setPicExtStr(e.target.value)}
+                    onBlur={e => { const m = parseDur(e.target.value); if (m != null) setPicExtStr(fmtDur(m)) }}
+                    style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
+                  />
+                </Row>
+                <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-orange)', letterSpacing: '0.08em', paddingBottom: 4, lineHeight: 1.6 }}>
+                  Must be documented · Discretion Report Form required (Ch. 2.15.4)
+                </div>
+              </>
             )}
           </Section>
 
@@ -620,6 +646,34 @@ export default function FTLCalculator() {
                   </tbody>
                 </table>
               </div>
+
+              {/* PIC discretion reference panel */}
+              {result.picRef && (
+                <div className="cp-card" style={{ marginBottom: 14 }}>
+                  <div className="cp-label" style={{ marginBottom: 10 }}>PIC DISCRETION REFERENCE</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'left', paddingBottom: 6, fontWeight: 'normal' }}>EXTENSION</th>
+                        <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal' }}>FDP EXPIRES</th>
+                        <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal' }}>CAAM REPORT</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.values(result.picRef).map(row => (
+                        <tr key={row.label}>
+                          <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{row.label}</td>
+                          <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-orange)' : 'var(--cp-txt)', fontWeight: 600 }}>{row.end} LOCAL</td>
+                          <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-orange)' : 'var(--cp-dim)', fontSize: 10 }}>{row.caam ? '⚠ REQUIRED' : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{ marginTop: 8, fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.06em', lineHeight: 1.6 }}>
+                    Extension &gt;2h requires operator to submit report to CAAM within 14 days (Ch. 2.15.4)
+                  </div>
+                </div>
+              )}
 
               {/* Warnings */}
               {result.errors?.length > 0 && (
