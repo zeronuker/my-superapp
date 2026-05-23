@@ -285,9 +285,9 @@ export default function FTLCalculator() {
         marginBottom: 20,
       }}>
         <span style={{ color: 'var(--cb-blue)', fontWeight: 700, letterSpacing: '0.15em' }}>ℹ INFO · </span>
-        This calculator is based on CAD 1901 (CAAM Malaysia) and is intended as a reference aid only.
-        Flight time limitation calculations must always be verified against your current approved operations manual,
-        company procedures, and applicable regulations. It is the sole responsibility of the user to ensure
+        This calculator is based on CAD 1901 (CAAM) and is intended as a reference aid only.
+        Flight duty periods and limitation calculations must always be verified against your current approved operations manual,
+        company procedures, or crewing/rostering departments. It is the sole responsibility of the user to ensure
         compliance with all applicable FTL rules. The developers of ClaudeBorne SuperApp make no warranty
         as to the accuracy of these results and accept no liability for any outcome arising from their use.
       </div>
