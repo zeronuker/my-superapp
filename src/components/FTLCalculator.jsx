@@ -269,6 +269,29 @@ export default function FTLCalculator() {
 
   return (
     <div>
+      {/* ── Disclaimer banner ──────────────────────────────────────────────── */}
+      <div style={{
+        background: 'rgba(59,141,255,0.06)',
+        border: '1px solid rgba(59,141,255,0.2)',
+        borderLeft: '3px solid var(--cb-blue)',
+        borderRadius: 4,
+        padding: '10px 14px',
+        fontFamily: 'var(--cb-font-mono)',
+        fontSize: 11,
+        letterSpacing: '0.08em',
+        lineHeight: 1.7,
+        color: 'var(--cp-dim)',
+        textAlign: 'justify',
+        marginBottom: 20,
+      }}>
+        <span style={{ color: 'var(--cb-blue)', fontWeight: 700, letterSpacing: '0.15em' }}>ℹ INFO · </span>
+        This calculator is based on CAD 1901 (CAAM Malaysia) and is intended as a reference aid only.
+        Flight time limitation calculations must always be verified against your current approved operations manual,
+        company procedures, and applicable regulations. It is the sole responsibility of the user to ensure
+        compliance with all applicable FTL rules. The developers of ClaudeBorne SuperApp make no warranty
+        as to the accuracy of these results and accept no liability for any outcome arising from their use.
+      </div>
+
       {/* Page header */}
       <div className="cp-section-header" style={{ marginBottom: 20 }}>
         <span className="cp-section-title">FTL CALCULATOR</span>
