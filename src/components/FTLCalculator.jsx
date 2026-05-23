@@ -287,9 +287,9 @@ export default function FTLCalculator() {
                 value={aircraft} onChange={setAircraft}
               />
             </Row>
-            <Row label="CATEGORY">
+            <Row label="POSITION">
               <Seg
-                options={[{ value: 'flight', label: 'FLIGHT' }, { value: 'cabin', label: 'CABIN' }]}
+                options={[{ value: 'flight', label: 'FLIGHT CREW' }, { value: 'cabin', label: 'CABIN CREW' }]}
                 value={crewCat} onChange={setCrewCat}
               />
             </Row>
@@ -484,7 +484,7 @@ export default function FTLCalculator() {
                   <div className="cp-label" style={{ marginBottom: 6 }}>FDP EXPIRES</div>
                   <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 30, fontWeight: 700, color: 'var(--cp-txt)', lineHeight: 1 }}>
                     {result.endTime}
-                    <span style={{ fontSize: 12, color: 'var(--cp-dim)', marginLeft: 8, letterSpacing: '0.1em' }}>UTC</span>
+                    <span style={{ fontSize: 12, color: 'var(--cp-dim)', marginLeft: 8, letterSpacing: '0.1em' }}>LOCAL</span>
                   </div>
                 </div>
               </div>
