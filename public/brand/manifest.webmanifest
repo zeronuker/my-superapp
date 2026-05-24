@@ -1,7 +1,7 @@
 {
   "name": "ClaudeBorne",
   "short_name": "ClaudeBorne",
-  "description": "ClaudeBorne — a workbench for agentic work.",
+  "description": "Aviation utility app for pilots — FTL calculator, METAR/TAF weather, EDTO, interpolation, time and currency tools.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

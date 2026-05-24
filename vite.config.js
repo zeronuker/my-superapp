@@ -26,6 +26,16 @@ export default defineConfig({
           },
           // Cache Google Fonts for offline brand fonts
           {
+            // METAR / TAF — Vercel serverless proxy
+            urlPattern: /\/api\/weather\b/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'weather-data',
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 30 },
+              networkTimeoutSeconds: 8,
+            },
+          },
+          {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
