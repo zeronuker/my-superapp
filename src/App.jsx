@@ -206,11 +206,14 @@ export default function App() {
           borderTop: '1px solid var(--cp-border3)',
           padding: '12px 24px',
           textAlign: 'center',
+          fontFamily: 'var(--cb-font-mono)',
           fontSize: 11,
           color: 'var(--cp-dim)',
           letterSpacing: '0.12em',
+          lineHeight: 1.8,
         }}>
-          CLAUDEBORNE SUPERAPP · EDTO BASED ON BOEING FLIGHT MANUALS · PWA OFFLINE CAPABLE
+          <div>CLAUDEBORNE SUPERAPP · PWA OFFLINE CAPABLE</div>
+          <div style={{ fontSize: 9, letterSpacing: '0.16em' }}>v2.5</div>
         </footer>
       </div>
 
