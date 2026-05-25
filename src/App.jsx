@@ -8,6 +8,7 @@ import InterpolationCalculator from './components/InterpolationCalculator'
 import METARTAFCalculator from './components/METARTAFCalculator'
 import FTLCalculator from './components/FTLCalculator'
 import PrayerModule, { PrayerSettings } from './modules/prayer'
+import UpdatePrompt from './components/UpdatePrompt'
 
 export const CALCULATORS = [
   { id: 'calculator',    icon: '⊕',  name: 'Calculator',    component: CombinedCalculator },
@@ -212,6 +213,9 @@ export default function App() {
           CLAUDEBORNE SUPERAPP · EDTO BASED ON BOEING FLIGHT MANUALS · PWA OFFLINE CAPABLE
         </footer>
       </div>
+
+      {/* ── Update prompt ────────────────────────────────────────────── */}
+      <UpdatePrompt />
 
       {/* ── Settings overlay ─────────────────────────────────────────── */}
       {settingsOpen && (

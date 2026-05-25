@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       // Brand manifest lives at /brand/manifest.webmanifest — disable plugin generation
       manifest: false,
       workbox: {
