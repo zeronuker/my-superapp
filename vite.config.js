@@ -35,6 +35,26 @@ export default defineConfig({
               networkTimeoutSeconds: 8,
             },
           },
+          // Aladhan prayer times API — network-first, 30-min TTL, 7-day cache window
+          {
+            urlPattern: /^https:\/\/api\.aladhan\.com\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'prayer-api-cache',
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              networkTimeoutSeconds: 10,
+            },
+          },
+          // Nominatim reverse geocoding (location → city name)
+          {
+            urlPattern: /^https:\/\/nominatim\.openstreetmap\.org\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'geocode-cache',
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              networkTimeoutSeconds: 8,
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
             handler: 'CacheFirst',

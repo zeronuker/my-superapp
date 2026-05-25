@@ -7,6 +7,7 @@ import CurrencyCalculator from './components/CurrencyCalculator'
 import InterpolationCalculator from './components/InterpolationCalculator'
 import METARTAFCalculator from './components/METARTAFCalculator'
 import FTLCalculator from './components/FTLCalculator'
+import PrayerModule, { PrayerSettings } from './modules/prayer'
 
 export const CALCULATORS = [
   { id: 'calculator',    icon: '⊕',  name: 'Calculator',    component: CombinedCalculator },
@@ -16,6 +17,7 @@ export const CALCULATORS = [
   { id: 'currency',      icon: '⊞',  name: 'Currency',      component: CurrencyCalculator },
   { id: 'metartaf',      icon: '☁',  name: 'METAR/TAF',     component: METARTAFCalculator },
   { id: 'ftl',           icon: '⊙',  name: 'FTL',           component: FTLCalculator },
+  { id: 'prayer',        icon: '🕌',  name: 'Qiblat & Solat', component: PrayerModule },
 ]
 
 // IDs that no longer exist — remap to 'calculator'
@@ -428,6 +430,11 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
               onChange={v => onUpdate({ autoRefresh: v })}
             />
           </SettingsRow>
+        </SettingsSection>
+
+        {/* QIBLAT & SOLAT */}
+        <SettingsSection title="QIBLAT & SOLAT">
+          <PrayerSettings />
         </SettingsSection>
 
       </div>

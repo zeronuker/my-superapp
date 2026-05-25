@@ -1,0 +1,59 @@
+import {
+  Coordinates,
+  CalculationMethod,
+  CalculationParameters,
+  Madhab,
+  PrayerTimes,
+} from 'adhan'
+
+// ── Calculation method map ────────────────────────────────────────────────────
+// JAKIM uses Fajr 20°, Isha 18° — not a named method in adhan.js, so custom
+const METHOD_MAP = {
+  jakim:        () => new CalculationParameters('Other', 20, 18),
+  moonsighting: () => CalculationMethod.MoonsightingCommittee(),
+  mwl:          () => CalculationMethod.MuslimWorldLeague(),
+  isna:         () => CalculationMethod.NorthAmerica(),
+  egyptian:     () => CalculationMethod.Egyptian(),
+  uaq:          () => CalculationMethod.UmmAlQura(),
+}
+
+function fmt(date, timeFormat) {
+  if (!date) return '--:--'
+  const h = date.getHours()
+  const m = String(date.getMinutes()).padStart(2, '0')
+  if (timeFormat === '12hr') {
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    return `${h % 12 || 12}:${m} ${ampm}`
+  }
+  return `${String(h).padStart(2, '0')}:${m}`
+}
+
+/**
+ * Calculate prayer times locally using adhan.js.
+ * Returns normalized times object with both formatted strings and raw Date objects.
+ */
+export function calculateLocal(lat, lng, date, method = 'jakim', madhab = 'shafi', timeFormat = '24hr') {
+  const coords  = new Coordinates(lat, lng)
+  const params  = (METHOD_MAP[method] ?? METHOD_MAP.jakim)()
+  params.madhab = madhab === 'hanafi' ? Madhab.Hanafi : Madhab.Shafi
+
+  const pt = new PrayerTimes(coords, date, params)
+
+  return {
+    Fajr:    fmt(pt.fajr,    timeFormat),
+    Sunrise: fmt(pt.sunrise, timeFormat),
+    Dhuhr:   fmt(pt.dhuhr,  timeFormat),
+    Asr:     fmt(pt.asr,    timeFormat),
+    Maghrib: fmt(pt.maghrib, timeFormat),
+    Isha:    fmt(pt.isha,   timeFormat),
+    // Raw Date objects for countdown / next-prayer logic
+    fajrDate:    pt.fajr,
+    sunriseDate: pt.sunrise,
+    dhuhrDate:   pt.dhuhr,
+    asrDate:     pt.asr,
+    maghribDate: pt.maghrib,
+    ishaDate:    pt.isha,
+    source: 'local',
+    date:   date.toDateString(),
+  }
+}
