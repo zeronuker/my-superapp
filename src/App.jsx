@@ -11,13 +11,13 @@ import PrayerModule, { PrayerSettings } from './modules/prayer'
 import UpdatePrompt from './components/UpdatePrompt'
 
 export const CALCULATORS = [
-  { id: 'calculator',    icon: '⊕',  name: 'Calculator',    component: CombinedCalculator },
-  { id: 'time',          icon: '◷',  name: 'Time',          component: TimeCalculator },
-  { id: 'interpolation', icon: '△',  name: 'Interpolation', component: InterpolationCalculator },
-  { id: 'edto',          icon: '✈',  name: 'EDTO',          component: EDTOCalculator },
-  { id: 'currency',      icon: '⊞',  name: 'Currency',      component: CurrencyCalculator },
-  { id: 'metartaf',      icon: '☁',  name: 'METAR/TAF',     component: METARTAFCalculator },
-  { id: 'ftl',           icon: '⊙',  name: 'FTL',           component: FTLCalculator },
+  { id: 'calculator',    icon: '🧮',  name: 'Calculator',     component: CombinedCalculator },
+  { id: 'time',          icon: '⏱️', name: 'Time',           component: TimeCalculator },
+  { id: 'interpolation', icon: '📐',  name: 'Interpolation',  component: InterpolationCalculator },
+  { id: 'edto',          icon: '✈️', name: 'EDTO',           component: EDTOCalculator },
+  { id: 'currency',      icon: '💱',  name: 'Currency',       component: CurrencyCalculator },
+  { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
+  { id: 'ftl',           icon: '⏳',  name: 'FTL',            component: FTLCalculator },
   { id: 'prayer',        icon: '🕌',  name: 'Qiblat & Solat', component: PrayerModule },
 ]
 
@@ -179,7 +179,7 @@ export default function App() {
                 onClick={() => setActiveCalculator(calc.id)}
                 className={`cp-tab${activeCalculator === calc.id ? ' active' : ''}`}
               >
-                <span style={{ marginRight: 6, fontSize: 13 }}>{calc.icon}</span>
+                <span style={{ marginRight: 6, fontSize: 18 }}>{calc.icon}</span>
                 {calc.name}
               </button>
             ))}
