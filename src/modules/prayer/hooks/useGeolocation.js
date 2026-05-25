@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import {
   getCurrentPosition,
   reverseGeocode,
@@ -8,8 +8,9 @@ import {
 
 /**
  * Manages device GPS + reverse geocode.
- * On mount: restores last known position immediately (no spinner delay on re-open).
- * auto-locates on first visit when no saved position exists.
+ * On mount: restores last known position from localStorage (no spinner on re-open).
+ * Does NOT auto-locate — locate() must be called from a user gesture so Android
+ * Chrome shows the full permission dialog instead of silently denying it.
  */
 export function useGeolocation() {
   const lastPos = loadLastPosition()
@@ -39,11 +40,6 @@ export function useGeolocation() {
       return null
     }
   }, [])
-
-  // Auto-locate only when there's no saved position (first visit)
-  useEffect(() => {
-    if (!lastPos) locate()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Manual city pick — bypasses GPS
   const setManualLocation = useCallback((city, country, lat, lng) => {

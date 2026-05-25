@@ -61,9 +61,36 @@ export default function PrayerTimesPage({
       )}
 
       {!loading && !times && !location && (
-        <div style={{ padding: '24px 0', textAlign: 'center',
-          fontFamily: T.sans, fontSize: 13, color: T.dim, lineHeight: 1.6 }}>
-          Enable location or search for a city above to load prayer times.
+        <div style={{
+          margin: '24px 0',
+          background: 'rgba(var(--cp-acc-rgb,63,224,197),0.05)',
+          border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.2)',
+          borderRadius: 8, padding: '20px 18px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>📍</div>
+          <div style={{ fontFamily: T.mono, fontSize: 10, color: 'var(--cp-acc)',
+            letterSpacing: '0.16em', marginBottom: 8 }}>
+            LOCATION NEEDED
+          </div>
+          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink2,
+            lineHeight: 1.6, marginBottom: 16 }}>
+            Tap the button below to share your location,
+            or search for a city using the field above.
+          </div>
+          <button
+            onClick={onGpsLocate}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
+              border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.4)',
+              borderRadius: 6, padding: '10px 20px', cursor: 'pointer',
+              fontFamily: T.mono, fontSize: 10, letterSpacing: '0.14em',
+              color: 'var(--cp-acc)',
+            }}
+          >
+            <span style={{ fontSize: 16 }}>⊕</span>
+            USE MY LOCATION
+          </button>
         </div>
       )}
 
