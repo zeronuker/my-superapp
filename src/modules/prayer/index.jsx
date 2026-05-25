@@ -49,7 +49,7 @@ export default function PrayerModule() {
   const { settings, updatePrayerSettings } = usePrayerStore()
 
   // Geolocation
-  const { location, status: gpsStatus, locate, setManualLocation } = useGeolocation()
+  const { location, status: gpsStatus, error: gpsError, locate, setManualLocation } = useGeolocation()
 
   // Prayer times
   const { times, loading, error, source } = usePrayerTimes(location, settings)
@@ -65,6 +65,7 @@ export default function PrayerModule() {
         <PrayerTimesPage
           location={location}
           gpsStatus={gpsStatus}
+          gpsError={gpsError}
           onGpsLocate={locate}
           onManualSelect={setManualLocation}
           times={times}

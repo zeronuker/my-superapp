@@ -38,7 +38,7 @@ function buildRows(times) {
 }
 
 export default function PrayerTimesPage({
-  location, gpsStatus, onGpsLocate, onManualSelect,
+  location, gpsStatus, gpsError, onGpsLocate, onManualSelect,
   times, loading, source, settings,
 }) {
   const rows = buildRows(times)
@@ -48,6 +48,7 @@ export default function PrayerTimesPage({
       <Header
         location={location}
         gpsStatus={gpsStatus}
+        gpsError={gpsError}
         onGpsLocate={onGpsLocate}
         onManualSelect={onManualSelect}
       />
