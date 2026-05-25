@@ -159,8 +159,9 @@ export default function Header({ location, onGpsLocate, onManualSelect, gpsStatu
               LOCATION UNAVAILABLE
             </div>
             <div style={{ fontFamily: T.sans, fontSize: 11, color: T.dim, lineHeight: 1.5 }}>
-              Location access was denied or unavailable.
-              In your browser settings, allow location for this site — then tap the location below to try again.
+              {typeof gpsError === 'string' && gpsError
+                ? gpsError
+                : 'Location access was denied or unavailable.'}
             </div>
           </div>
         </div>
