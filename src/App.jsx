@@ -442,6 +442,20 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
         </SettingsSection>
 
       </div>
+
+      {/* Version */}
+      <div style={{
+        padding: '12px 20px',
+        borderTop: '1px solid var(--cp-border3)',
+        textAlign: 'center',
+        fontFamily: 'var(--cb-font-mono)',
+        fontSize: 9,
+        letterSpacing: '0.16em',
+        color: 'var(--cp-dim)',
+        flexShrink: 0,
+      }}>
+        v2.5
+      </div>
     </div>
   )
 }
