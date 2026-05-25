@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   getCurrentPosition,
   reverseGeocode,
@@ -8,9 +8,14 @@ import {
 
 /**
  * Manages device GPS + reverse geocode.
- * On mount: restores last known position from localStorage (no spinner on re-open).
- * Does NOT auto-locate — locate() must be called from a user gesture so Android
- * Chrome shows the full permission dialog instead of silently denying it.
+ *
+ * On mount: checks the Permissions API to determine geolocation state:
+ *   'granted'  → auto-locate immediately (no popup needed)
+ *   'prompt'   → wait for user gesture to call locate()
+ *   'denied'   → expose permissionState so UI can show reset instructions
+ *
+ * Restores last known position from localStorage so returning users
+ * never see a spinner while permission resolves.
  */
 export function useGeolocation() {
   const lastPos = loadLastPosition()
@@ -20,8 +25,9 @@ export function useGeolocation() {
       ? { lat: lastPos.lat, lng: lastPos.lng, city: lastPos.city, country: lastPos.country, source: 'gps' }
       : null
   )
-  const [status, setStatus] = useState(lastPos ? 'ready' : 'idle')
-  const [error,  setError]  = useState(null)
+  const [status,          setStatus]          = useState(lastPos ? 'ready' : 'idle')
+  const [error,           setError]           = useState(null)
+  const [permissionState, setPermissionState] = useState('unknown') // 'granted'|'denied'|'prompt'|'unknown'
 
   const locate = useCallback(async () => {
     setStatus('locating')
@@ -33,13 +39,33 @@ export function useGeolocation() {
       saveLastPosition(lat, lng, city, country)
       setLocationState(loc)
       setStatus('ready')
+      setPermissionState('granted')
       return loc
     } catch (err) {
-      setError(err.message ?? 'Location unavailable')
+      const msg = err.message ?? 'Location unavailable'
+      setError(msg)
       setStatus('error')
+      // If the error is a GeolocationPositionError code 1 = PERMISSION_DENIED
+      if (err.code === 1) setPermissionState('denied')
       return null
     }
   }, [])
+
+  // Check Permissions API on mount — auto-locate if already granted
+  useEffect(() => {
+    if (!navigator.permissions) return
+    navigator.permissions.query({ name: 'geolocation' }).then(result => {
+      setPermissionState(result.state)
+
+      // Already granted → safe to auto-locate without triggering a popup
+      if (result.state === 'granted' && !lastPos) locate()
+
+      // Listen for the user granting/denying from the browser settings page
+      result.onchange = () => setPermissionState(result.state)
+    }).catch(() => {
+      // Permissions API not supported — fall back to unknown, let user tap
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Manual city pick — bypasses GPS
   const setManualLocation = useCallback((city, country, lat, lng) => {
@@ -49,5 +75,5 @@ export function useGeolocation() {
     setError(null)
   }, [])
 
-  return { location, status, error, locate, setManualLocation }
+  return { location, status, error, permissionState, locate, setManualLocation }
 }

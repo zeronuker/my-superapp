@@ -38,10 +38,13 @@ function buildRows(times) {
 }
 
 export default function PrayerTimesPage({
-  location, gpsStatus, gpsError, onGpsLocate, onManualSelect,
+  location, gpsStatus, gpsError, permissionState, onGpsLocate, onManualSelect,
   times, loading, source, settings,
 }) {
   const rows = buildRows(times)
+
+  // First-visit card content varies by permission state
+  const denied = permissionState === 'denied'
 
   return (
     <div>
@@ -63,34 +66,66 @@ export default function PrayerTimesPage({
       {!loading && !times && !location && (
         <div style={{
           margin: '24px 0',
-          background: 'rgba(var(--cp-acc-rgb,63,224,197),0.05)',
-          border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.2)',
+          background: denied
+            ? 'rgba(251,146,60,0.06)'
+            : 'rgba(var(--cp-acc-rgb,63,224,197),0.05)',
+          border: `1px solid ${denied ? 'rgba(251,146,60,0.25)' : 'rgba(var(--cp-acc-rgb,63,224,197),0.2)'}`,
           borderRadius: 8, padding: '20px 18px', textAlign: 'center',
         }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>📍</div>
-          <div style={{ fontFamily: T.mono, fontSize: 10, color: 'var(--cp-acc)',
-            letterSpacing: '0.16em', marginBottom: 8 }}>
-            LOCATION NEEDED
+          <div style={{ fontSize: 32, marginBottom: 12 }}>{denied ? '🔒' : '📍'}</div>
+          <div style={{
+            fontFamily: T.mono, fontSize: 10, letterSpacing: '0.16em', marginBottom: 8,
+            color: denied ? T.orange : 'var(--cp-acc)',
+          }}>
+            {denied ? 'LOCATION BLOCKED' : 'LOCATION NEEDED'}
           </div>
-          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink2,
-            lineHeight: 1.6, marginBottom: 16 }}>
-            Tap the button below to share your location,
-            or search for a city using the field above.
-          </div>
-          <button
-            onClick={onGpsLocate}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
-              border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.4)',
-              borderRadius: 6, padding: '10px 20px', cursor: 'pointer',
-              fontFamily: T.mono, fontSize: 10, letterSpacing: '0.14em',
-              color: 'var(--cp-acc)',
-            }}
-          >
-            <span style={{ fontSize: 16 }}>⊕</span>
-            USE MY LOCATION
-          </button>
+
+          {denied ? (
+            <>
+              <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink2,
+                lineHeight: 1.7, marginBottom: 4 }}>
+                Location permission was blocked. To fix this:
+              </div>
+              <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim,
+                lineHeight: 1.9, marginBottom: 16, textAlign: 'left',
+                background: 'rgba(0,0,0,0.15)', borderRadius: 6, padding: '10px 14px',
+              }}>
+                <b style={{ color: T.ink2 }}>On Android:</b><br />
+                Open Chrome → tap ⋮ → Settings →<br />
+                Site settings → Location → find this site → Allow<br />
+                <br />
+                <b style={{ color: T.ink2 }}>On iOS:</b><br />
+                Settings → Chrome (or Safari) →<br />
+                Location → Allow
+              </div>
+              <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim,
+                lineHeight: 1.5 }}>
+                Or search for your city using the field above.
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink2,
+                lineHeight: 1.6, marginBottom: 16 }}>
+                Tap the button below to share your location,
+                or search for a city using the field above.
+              </div>
+              <button
+                onClick={onGpsLocate}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
+                  border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.4)',
+                  borderRadius: 6, padding: '10px 20px', cursor: 'pointer',
+                  fontFamily: T.mono, fontSize: 10, letterSpacing: '0.14em',
+                  color: 'var(--cp-acc)',
+                }}
+              >
+                <span style={{ fontSize: 16 }}>⊕</span>
+                USE MY LOCATION
+              </button>
+            </>
+          )}
         </div>
       )}
 
