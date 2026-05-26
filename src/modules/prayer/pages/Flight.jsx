@@ -239,9 +239,8 @@ export default function FlightPage({ settings }) {
             value={headingDeg}
             onChange={v => setInputs({ headingDeg: v })}
             placeholder="315"
-            unit="°"
             type="number"
-            hint="Optional — for cabin Qibla"
+            hint="Optional — check your seat screen moving map, look for Track or Heading"
           />
         </div>
       </Section>
