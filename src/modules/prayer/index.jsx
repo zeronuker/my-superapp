@@ -48,11 +48,12 @@ function SubNav({ active, onChange }) {
 export default function PrayerModule() {
   const [tab, setTab] = useState('times')
 
-  // Auto-switch to FLIGHT tab when device goes offline
+  // Auto-switch to FLIGHT tab when offline (on mount or when connection drops)
   useEffect(() => {
-    const goOffline = () => setTab(t => t === 'times' || t === 'qiblat' ? 'flight' : t)
-    window.addEventListener('offline', goOffline)
-    return () => window.removeEventListener('offline', goOffline)
+    const switchToFlight = () => setTab(t => t !== 'flight' ? 'flight' : t)
+    if (!navigator.onLine) switchToFlight()
+    window.addEventListener('offline', switchToFlight)
+    return () => window.removeEventListener('offline', switchToFlight)
   }, [])
 
   const { settings, updatePrayerSettings } = usePrayerStore()
