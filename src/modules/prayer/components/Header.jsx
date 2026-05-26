@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { T } from './tokens'
 import { searchCities } from '../services/geolocation'
+import { useClock } from '../hooks/useClock'
 
 // ── Hijri date using built-in Intl (no extra dependency) ─────────────────────
 const HIJRI_MONTHS_MY = [
@@ -39,7 +40,7 @@ const QUICK_PICKS = [
 
 // ── Header ────────────────────────────────────────────────────────────────────
 export default function Header({ location, onGpsLocate, onManualSelect, gpsStatus, gpsError }) {
-  const [now,       setNow]       = useState(new Date())
+  const now                        = useClock()
   const [editing,   setEditing]   = useState(false)
   const [query,     setQuery]     = useState('')
   const [results,   setResults]   = useState([])
@@ -47,12 +48,6 @@ export default function Header({ location, onGpsLocate, onManualSelect, gpsStatu
   const [searchErr, setSearchErr] = useState(false)
   const inputRef   = useRef(null)
   const debounceRef = useRef(null)
-
-  // Live clock
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(id)
-  }, [])
 
   // Debounced Nominatim city search
   useEffect(() => {

@@ -25,8 +25,8 @@ export const useCalculatorStore = create((set) => ({
     isaDeviation: '', antiIce: 'none',
     longRangeCruiseAlt: null, kias310Alt: null,
   },
-  normal:        { display: '0', previousValue: 0, operation: null, expression: '', clearNext: false },
-  scientific:    { display: '0' },
+  normal:     { display: '0', previousValue: 0, operation: null, expression: '', clearNext: false },
+  scientific: { display: '0' },
   time: {
     digits: '', multiplier: '', prevMinutes: null, operation: null,
     isMultiplierMode: false, expression: '', result: null, justCalculated: false,
@@ -87,8 +87,8 @@ export const useCalculatorStore = create((set) => ({
         isaDeviation: '', antiIce: 'none',
         longRangeCruiseAlt: null, kias310Alt: null,
       },
-      normal:        { display: '0', previousValue: 0, operation: null, expression: '', clearNext: false },
-      scientific:    { display: '0' },
+      normal:     { display: '0', previousValue: 0, operation: null, expression: '', clearNext: false },
+      scientific: { display: '0' },
       time: {
         digits: '', multiplier: '', prevMinutes: null, operation: null,
         isMultiplierMode: false, expression: '', result: null, justCalculated: false,

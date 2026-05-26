@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useRegisterSW } from 'virtual:pwa-register/react'
 import { useCalculatorStore } from './store/calculatorStore'
 import EDTOCalculator from './components/EDTOCalculator'
 import CombinedCalculator from './components/CombinedCalculator'
@@ -465,6 +466,11 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
           <PrayerSettings />
         </SettingsSection>
 
+        {/* APP UPDATE */}
+        <SettingsSection title="APP UPDATE">
+          <UpdateChecker />
+        </SettingsSection>
+
       </div>
 
       {/* Version */}
@@ -480,6 +486,98 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
       }}>
         v2.5
       </div>
+    </div>
+  )
+}
+
+// ── Update checker ──────────────────────────────────────────────────────────
+function UpdateChecker() {
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW()
+
+  const [status, setStatus] = React.useState('idle') // 'idle' | 'checking' | 'uptodate' | 'available'
+
+  // Sync external needRefresh → local status
+  React.useEffect(() => {
+    if (needRefresh) setStatus('available')
+  }, [needRefresh])
+
+  const check = async () => {
+    setStatus('checking')
+    try {
+      const reg = await navigator.serviceWorker.getRegistration()
+      await reg?.update()
+    } catch { /* ignore — no SW in dev */ }
+    // Give the SW a moment to signal if an update was found
+    setTimeout(() => {
+      setStatus(s => s === 'checking' ? 'uptodate' : s)
+    }, 2500)
+  }
+
+  const dismiss = () => {
+    setNeedRefresh(false)
+    setStatus('idle')
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Check button */}
+      <button
+        onClick={status === 'checking' ? undefined : check}
+        disabled={status === 'checking'}
+        style={{
+          width: '100%',
+          background: 'transparent',
+          border: '1px solid var(--cp-border2)',
+          borderRadius: 4, padding: '7px 12px',
+          fontFamily: 'var(--cb-font-mono)', fontSize: 10,
+          letterSpacing: '0.14em',
+          color: status === 'checking' ? 'var(--cp-dim)' : 'var(--cp-acc)',
+          cursor: status === 'checking' ? 'default' : 'pointer',
+          transition: 'all 0.12s',
+        }}
+      >
+        {status === 'checking' ? '⊙ CHECKING…' : '⬆ CHECK FOR UPDATES'}
+      </button>
+
+      {/* Status feedback */}
+      {status === 'uptodate' && (
+        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+          letterSpacing: '0.12em', color: 'var(--cp-dim)', textAlign: 'center' }}>
+          ✓ YOU'RE ON THE LATEST VERSION
+        </div>
+      )}
+
+      {status === 'available' && (
+        <div style={{
+          background: 'rgba(var(--cp-acc-rgb,63,224,197),0.08)',
+          border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.3)',
+          borderRadius: 4, padding: '8px 12px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        }}>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+            letterSpacing: '0.12em', color: 'var(--cp-acc)' }}>
+            UPDATE AVAILABLE
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={dismiss} style={{
+              background: 'transparent', border: '1px solid var(--cp-border2)',
+              borderRadius: 3, padding: '4px 8px', cursor: 'pointer',
+              fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+              letterSpacing: '0.1em', color: 'var(--cp-dim)',
+            }}>LATER</button>
+            <button onClick={() => updateServiceWorker(true)} style={{
+              background: 'rgba(var(--cp-acc-rgb,63,224,197),0.15)',
+              border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.4)',
+              borderRadius: 3, padding: '4px 8px', cursor: 'pointer',
+              fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+              letterSpacing: '0.1em', color: 'var(--cp-acc)', fontWeight: 700,
+            }}>UPDATE NOW</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

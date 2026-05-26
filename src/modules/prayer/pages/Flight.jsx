@@ -1,13 +1,17 @@
 import { T } from '../components/tokens'
 import { useFlight } from '../hooks/useFlight'
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function fmt(n, dec = 4) {
-  if (n == null) return '—'
-  const abs = Math.abs(n).toFixed(dec)
-  return n >= 0 ? abs : `-${abs}`
+// Short labels for the footer note
+const METHOD_SHORT = {
+  jakim:        'JAKIM',
+  moonsighting: 'MOONSIGHTING',
+  mwl:          'MWL',
+  isna:         'ISNA',
+  egyptian:     'EGYPTIAN',
+  uaq:          'UMM AL-QURA',
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function latStr(lat) {
   return `${Math.abs(lat).toFixed(2)}° ${lat >= 0 ? 'N' : 'S'}`
 }
@@ -37,7 +41,7 @@ function Section({ title, children }) {
 
 function Field({ label, value, onChange, placeholder, unit, type = 'text', hint, error: fieldError }) {
   return (
-    <div>
+    <div style={{ minWidth: 0 }}>
       <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
         letterSpacing: '0.14em', marginBottom: 5 }}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -47,9 +51,11 @@ function Field({ label, value, onChange, placeholder, unit, type = 'text', hint,
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          autoComplete="off" autoCorrect="off" autoCapitalize="characters" spellCheck="false"
+          autoComplete="off" autoCorrect="off"
+          autoCapitalize={type === 'text' ? 'characters' : 'off'}
+          spellCheck="false"
           style={{
-            flex: 1, background: T.bg1,
+            flex: 1, minWidth: 0, background: T.bg1,
             border: `1px solid ${fieldError ? 'rgba(251,146,60,0.5)' : T.bord2}`,
             borderRadius: 6, color: T.ink,
             fontFamily: T.mono, fontSize: 14,
@@ -117,6 +123,93 @@ function PrayerRow({ name, time, done, isNext, isSunrise }) {
   )
 }
 
+/**
+ * Top-down airplane SVG with a rotating arrow showing which direction
+ * Mecca is relative to the cabin. Nose always points up.
+ */
+function CabinDirectionDial({ cabin }) {
+  const size = 160
+  const cx = size / 2
+  const cy = size / 2
+  const R  = 58   // arrow radius from centre
+
+  // Convert cabin side + angle → a single clockwise rotation from nose (up)
+  const rotation =
+    cabin.side === 'AHEAD'  ? 0 :
+    cabin.side === 'BEHIND' ? 180 :
+    cabin.side === 'RIGHT'  ? cabin.angle :
+    360 - cabin.angle        // LEFT
+
+  const rad = (rotation * Math.PI) / 180
+  // Arrow tip position (0° = up, clockwise)
+  const tx = cx + R * Math.sin(rad)
+  const ty = cy - R * Math.cos(rad)
+
+  const label =
+    cabin.side === 'AHEAD'  ? 'FACE FORWARD (NOSE)' :
+    cabin.side === 'BEHIND' ? 'FACE REARWARD (TAIL)' :
+    `${cabin.angle}° TO THE ${cabin.side}`
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+        style={{ overflow: 'visible' }}>
+
+        {/* Outer ring */}
+        <circle cx={cx} cy={cy} r={size / 2 - 2}
+          fill="rgba(var(--cp-acc-rgb,63,224,197),0.04)"
+          stroke="rgba(var(--cp-acc-rgb,63,224,197),0.18)" strokeWidth={1} />
+
+        {/* NOSE / TAIL labels on ring */}
+        <text x={cx} y={10} textAnchor="middle" dominantBaseline="central"
+          fontFamily="var(--cb-font-mono)" fontSize={7} fill="var(--cp-dim)"
+          letterSpacing="2">NOSE</text>
+        <text x={cx} y={size - 10} textAnchor="middle" dominantBaseline="central"
+          fontFamily="var(--cb-font-mono)" fontSize={7} fill="var(--cp-dim)"
+          letterSpacing="2">TAIL</text>
+
+        {/* ── Airplane top-down silhouette (nose = up) ── */}
+        <g transform={`translate(${cx}, ${cy})`} opacity={0.65}>
+          {/* Fuselage */}
+          <ellipse rx={7} ry={30} fill="var(--cp-muted)" />
+          {/* Nose */}
+          <ellipse rx={7} ry={8} cy={-28} fill="var(--cp-muted)" />
+          {/* Wings */}
+          <ellipse rx={40} ry={7} cy={-4} fill="var(--cp-muted)" />
+          {/* Horizontal stabiliser */}
+          <ellipse rx={20} ry={5} cy={24} fill="var(--cp-muted)" />
+        </g>
+
+        {/* Direction arrow (rotates around centre) */}
+        <g transform={`rotate(${rotation}, ${cx}, ${cy})`}>
+          {/* Shaft */}
+          <line x1={cx} y1={cy} x2={cx} y2={cy - R + 14}
+            stroke="var(--cp-acc)" strokeWidth={2.5} strokeLinecap="round" />
+          {/* Arrowhead */}
+          <polygon
+            points={`${cx},${cy - R} ${cx - 7},${cy - R + 14} ${cx + 7},${cy - R + 14}`}
+            fill="var(--cp-acc)" />
+        </g>
+
+        {/* Kaaba emoji at arrow tip */}
+        <text x={tx} y={ty}
+          textAnchor="middle" dominantBaseline="central"
+          fontSize={13} style={{ userSelect: 'none' }}>🕋</text>
+
+        {/* Centre pivot */}
+        <circle cx={cx} cy={cy} r={4}
+          fill="var(--cp-bg2)" stroke="var(--cp-acc)" strokeWidth={1.5} />
+      </svg>
+
+      {/* Direction label */}
+      <div style={{ fontFamily: T.mono, fontSize: 9, letterSpacing: '0.14em',
+        color: 'var(--cp-acc)', textAlign: 'center' }}>
+        {label}
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function FlightPage({ settings }) {
   const {
@@ -136,7 +229,7 @@ export default function FlightPage({ settings }) {
     { name: 'Sunrise', time: result.times.Sunrise,  date: result.times.sunriseDate, isSunrise: true  },
     { name: 'Dhuhr',   time: result.times.Dhuhr,   date: result.times.dhuhrDate,   isSunrise: false },
     { name: 'Asr',     time: result.times.Asr,     date: result.times.asrDate,     isSunrise: false },
-    { name: 'Maghrib', time: result.times.Maghrib,  date: result.times.maghribDate,  isSunrise: false },
+    { name: 'Maghrib', time: result.times.Maghrib,  date: result.times.maghribDate, isSunrise: false },
     { name: 'Isha',    time: result.times.Isha,    date: result.times.ishaDate,    isSunrise: false },
   ].map((p, _, arr) => {
     const active = arr.filter(x => !x.isSunrise)
@@ -179,8 +272,8 @@ export default function FlightPage({ settings }) {
 
       {/* Route */}
       <Section title="ROUTE">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'start' }}>
-          <div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'start', minWidth: 0 }}>
+          <div style={{ minWidth: 0 }}>
             <Field
               label="DEPARTURE (ICAO)"
               value={dep}
@@ -190,8 +283,8 @@ export default function FlightPage({ settings }) {
             <AirportTag airport={depAirport} icao={dep} />
           </div>
           <span style={{ fontFamily: T.mono, fontSize: 18, color: T.dim,
-            paddingTop: 28, display: 'block' }}>→</span>
-          <div>
+            paddingTop: 28, display: 'block', flexShrink: 0 }}>→</span>
+          <div style={{ minWidth: 0 }}>
             <Field
               label="DESTINATION (ICAO)"
               value={dest}
@@ -201,7 +294,9 @@ export default function FlightPage({ settings }) {
             <AirportTag airport={destAirport} icao={dest} />
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+
+        {/* ── Elapsed / Total — stacked on mobile to prevent clipping ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, minWidth: 0 }}>
           <Field
             label="ELAPSED TIME"
             value={elapsedHours}
@@ -225,7 +320,7 @@ export default function FlightPage({ settings }) {
 
       {/* Aircraft */}
       <Section title="AIRCRAFT">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, minWidth: 0 }}>
           <Field
             label="ALTITUDE"
             value={altitudeFt}
@@ -239,8 +334,9 @@ export default function FlightPage({ settings }) {
             value={headingDeg}
             onChange={v => setInputs({ headingDeg: v })}
             placeholder="315"
+            unit="°"
             type="number"
-            hint="Optional — check your seat screen moving map, look for Track or Heading"
+            hint="Optional — check moving map on your IFE screen"
           />
         </div>
       </Section>
@@ -332,8 +428,9 @@ export default function FlightPage({ settings }) {
               background: T.bg1, border: `1px solid ${T.bord2}`,
               borderRadius: 6, padding: '12px 14px',
             }}>
+              {/* Bearing readout */}
               <div style={{ display: 'flex', justifyContent: 'space-between',
-                alignItems: 'center', marginBottom: result.cabin ? 12 : 0 }}>
+                alignItems: 'center', marginBottom: 12 }}>
                 <div>
                   <div style={{ fontFamily: T.mono, fontSize: 36, fontWeight: 700,
                     color: 'var(--cp-acc)', lineHeight: 1 }}>{result.bearing}°</div>
@@ -343,43 +440,23 @@ export default function FlightPage({ settings }) {
                 <span style={{ fontSize: 36 }}>🕋</span>
               </div>
 
-              {/* Cabin-relative */}
-              {result.cabin && (
+              {/* Cabin direction — airplane diagram */}
+              {result.cabin ? (
                 <div style={{
-                  background: 'rgba(var(--cp-acc-rgb,63,224,197),0.07)',
-                  border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.2)',
-                  borderRadius: 6, padding: '10px 12px',
-                  display: 'flex', alignItems: 'center', gap: 10,
+                  background: 'rgba(var(--cp-acc-rgb,63,224,197),0.05)',
+                  border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.18)',
+                  borderRadius: 8, padding: '14px 12px',
                 }}>
-                  <span style={{ fontSize: 20 }}>✈️</span>
-                  <div>
-                    <div style={{ fontFamily: T.mono, fontSize: 8,
-                      color: 'var(--cp-acc)', letterSpacing: '0.14em', marginBottom: 3 }}>
-                      CABIN DIRECTION
-                    </div>
-                    {result.cabin.side === 'AHEAD' ? (
-                      <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink }}>
-                        Face <strong style={{ color: 'var(--cp-acc)' }}>straight ahead</strong> toward the aircraft nose
-                      </div>
-                    ) : result.cabin.side === 'BEHIND' ? (
-                      <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink }}>
-                        Face <strong style={{ color: T.orange }}>toward the tail</strong> of the aircraft
-                      </div>
-                    ) : (
-                      <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink }}>
-                        Face <strong style={{ color: 'var(--cp-acc)' }}>{result.cabin.angle}°</strong> to the{' '}
-                        <strong style={{ color: 'var(--cp-acc)' }}>
-                          {result.cabin.side === 'LEFT' ? '← LEFT' : 'RIGHT →'}
-                        </strong>{' '}of the aircraft
-                      </div>
-                    )}
+                  <div style={{ fontFamily: T.mono, fontSize: 8, color: 'var(--cp-acc)',
+                    letterSpacing: '0.16em', textAlign: 'center', marginBottom: 12 }}>
+                    CABIN DIRECTION
                   </div>
+                  <CabinDirectionDial cabin={result.cabin} />
                 </div>
-              )}
-              {!result.cabin && (
+              ) : (
                 <div style={{ fontFamily: T.sans, fontSize: 11, color: T.dim,
-                  marginTop: 8, lineHeight: 1.5 }}>
-                  Enter aircraft heading above to see cabin-relative direction.
+                  lineHeight: 1.5 }}>
+                  Enter aircraft heading above to see cabin-relative Qibla direction.
                 </div>
               )}
             </div>
@@ -403,7 +480,7 @@ export default function FlightPage({ settings }) {
             <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
               letterSpacing: '0.08em', textAlign: 'center', marginTop: 8,
               lineHeight: 1.8 }}>
-              BASED ON DEVICE LOCAL TIME · JAKIM METHOD{'\n'}
+              BASED ON DEVICE LOCAL TIME · {METHOD_SHORT[settings?.calculationMethod] ?? 'JAKIM'} METHOD<br />
               TIMES ARE APPROXIMATE — VERIFY WITH CREW
             </div>
           </Section>

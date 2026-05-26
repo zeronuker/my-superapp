@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react'
 import { T } from './tokens'
-
-const PRAYER_NAMES = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
+import { useClock } from '../hooks/useClock'
 
 function getNextPrayer(times) {
   if (!times) return null
@@ -28,13 +26,7 @@ function getNextPrayer(times) {
 function pad(n) { return String(n).padStart(2, '0') }
 
 export default function NextPrayerCard({ times }) {
-  const [now, setNow] = useState(new Date())
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(id)
-  }, [])
-
+  const now  = useClock()
   const next = getNextPrayer(times)
   if (!next) return null
 

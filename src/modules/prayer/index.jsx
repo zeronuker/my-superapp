@@ -21,25 +21,34 @@ function SubNav({ active, onChange }) {
     { id: 'flight', label: 'FLIGHT', icon: '✈️' },
   ]
   return (
-    <div style={{ display: 'flex', borderBottom: `1px solid ${T.border}`,
-      marginBottom: 20, gap: 0 }}>
-      {tabs.map(t => {
-        const on = active === t.id
-        return (
-          <button key={t.id} onClick={() => onChange(t.id)} style={{
-            background: 'transparent', border: 'none',
-            borderBottom: on ? '2px solid var(--cp-acc)' : '2px solid transparent',
-            color: on ? 'var(--cp-acc)' : T.dim,
-            fontFamily: T.mono, fontSize: 10, letterSpacing: '0.14em',
-            padding: '8px 16px 10px', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 6,
-            marginBottom: -1,  // overlap the border
-          }}>
-            <span style={{ fontSize: 13 }}>{t.icon}</span>
-            {t.label}
-          </button>
-        )
-      })}
+    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+      <div style={{
+        display: 'inline-flex',
+        background: 'var(--cp-bg3)',
+        border: '1px solid var(--cp-border)',
+        borderRadius: 6,
+        padding: 3,
+        gap: 3,
+      }}>
+        {tabs.map(t => {
+          const on = active === t.id
+          return (
+            <button key={t.id} onClick={() => onChange(t.id)} style={{
+              fontFamily: T.mono, fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+              padding: '7px 16px', borderRadius: 4,
+              border: `1px solid ${on ? 'var(--cp-acc)' : 'transparent'}`,
+              cursor: 'pointer',
+              background: on ? 'var(--cp-accdim)' : 'transparent',
+              color: on ? 'var(--cp-acc)' : T.dim,
+              transition: 'all 0.12s',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <span style={{ fontSize: 13 }}>{t.icon}</span>
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -61,8 +70,8 @@ export default function PrayerModule() {
   // Geolocation
   const { location, status: gpsStatus, error: gpsError, permissionState, locate, setManualLocation } = useGeolocation()
 
-  // Prayer times
-  const { times, loading, error, source } = usePrayerTimes(location, settings)
+  // Prayer times (source is embedded in times.source from the service)
+  const { times, loading, error } = usePrayerTimes(location, settings)
 
   // Qibla compass
   const { bearing, needleAngle, live, permissionNeeded, requestPermission } = useQibla(location)
@@ -81,7 +90,7 @@ export default function PrayerModule() {
           onManualSelect={setManualLocation}
           times={times}
           loading={loading}
-          source={source ?? times?.source}
+          source={times?.source}
           settings={settings}
         />
       )}
