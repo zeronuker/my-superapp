@@ -15,7 +15,7 @@ import { T }                   from './components/tokens'
 // ── Sub-nav ──────────────────────────────────────────────────────────────────
 function SubNav({ active, onChange }) {
   const tabs = [
-    { id: 'times',  label: 'TIMES',  icon: '◷' },
+    { id: 'times',  label: 'SOLAT',  icon: '◷' },
     { id: 'qiblat', label: 'QIBLAT', icon: '🧭' },
   ]
   return (

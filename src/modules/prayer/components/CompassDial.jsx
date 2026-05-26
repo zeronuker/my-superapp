@@ -1,11 +1,10 @@
 import { T } from './tokens'
 
-// Cardinal labels in Malay (standard for Malaysian Islamic compass)
 const CARDINALS = [
-  { label: 'U', angle: 0   },   // Utara  — North
-  { label: 'T', angle: 90  },   // Timur  — East
-  { label: 'S', angle: 180 },   // Selatan — South
-  { label: 'B', angle: 270 },   // Barat  — West
+  { label: 'N', angle: 0   },
+  { label: 'E', angle: 90  },
+  { label: 'S', angle: 180 },
+  { label: 'W', angle: 270 },
 ]
 
 const TICKS = Array.from({ length: 72 }, (_, i) => i * 5)
@@ -62,9 +61,9 @@ export default function CompassDial({
             <text key={label} x={lx} y={ly}
               textAnchor="middle" dominantBaseline="central"
               fontFamily="var(--cb-font-mono)"
-              fontSize={label === 'U' ? 14 : 12}
+              fontSize={label === 'N' ? 14 : 12}
               fontWeight="700"
-              fill={label === 'U' ? 'var(--cp-acc)' : 'var(--cp-muted)'}>
+              fill={label === 'N' ? 'var(--cp-acc)' : 'var(--cp-muted)'}>
               {label}
             </text>
           )
