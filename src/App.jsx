@@ -104,6 +104,23 @@ export default function App() {
     : { transform: `scale(${zoom})`, transformOrigin: 'top left',
         width: `${(1 / zoom) * 100}vw`, minHeight: `${(1 / zoom) * 100}vh` }
 
+  // ── Auto-compact in landscape on short screens (iPad/phone landscape) ──
+  const [landscapeCompact, setLandscapeCompact] = React.useState(false)
+  React.useEffect(() => {
+    const check = () => {
+      setLandscapeCompact(
+        window.innerWidth > window.innerHeight && window.innerHeight < 850
+      )
+    }
+    check()
+    window.addEventListener('resize', check)
+    window.addEventListener('orientationchange', check)
+    return () => {
+      window.removeEventListener('resize', check)
+      window.removeEventListener('orientationchange', check)
+    }
+  }, [])
+
   return (
     <>
       <div style={{
@@ -187,12 +204,16 @@ export default function App() {
         </div>
 
         {/* ── Main content ─────────────────────────────────────────────── */}
-        <main style={{ maxWidth: 960, margin: '0 auto', padding: '24px 24px 48px' }}>
+        <main style={{
+          maxWidth: 960, margin: '0 auto',
+          padding: landscapeCompact ? '12px 24px 24px' : '24px 24px 48px',
+        }}>
           <div style={{
             background: 'var(--cp-bg2)',
             border: '1px solid var(--cp-border)',
             borderRadius: 4,
-            padding: '24px',
+            padding: landscapeCompact ? '16px' : '24px',
+            zoom: landscapeCompact ? 0.82 : undefined,
           }}>
             <div key={activeCalculator}
               className={settings.reduceMotion ? '' : 'cp-calc-fade'}>
