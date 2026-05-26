@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './FlightMockup.jsx'
+import App from './App.jsx'
 import './index.css'
 
 if ('serviceWorker' in navigator) {

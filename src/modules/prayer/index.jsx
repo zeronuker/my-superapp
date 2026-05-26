@@ -3,20 +3,22 @@
  * Self-contained: own store, own GPS, own prayer time fetching, own compass.
  * No parent store dependencies.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import usePrayerStore          from './store/prayerStore'
 import { useGeolocation }      from './hooks/useGeolocation'
 import { usePrayerTimes }      from './hooks/usePrayerTimes'
 import { useQibla }            from './hooks/useQibla'
 import PrayerTimesPage         from './pages/PrayerTimes'
 import QiblaPage               from './pages/Qibla'
+import FlightPage              from './pages/Flight'
 import { T }                   from './components/tokens'
 
 // ── Sub-nav ──────────────────────────────────────────────────────────────────
 function SubNav({ active, onChange }) {
   const tabs = [
-    { id: 'times',  label: 'SOLAT',  icon: '◷' },
+    { id: 'times',  label: 'SOLAT',  icon: '◷'  },
     { id: 'qiblat', label: 'QIBLAT', icon: '🧭' },
+    { id: 'flight', label: 'FLIGHT', icon: '✈️' },
   ]
   return (
     <div style={{ display: 'flex', borderBottom: `1px solid ${T.border}`,
@@ -45,6 +47,13 @@ function SubNav({ active, onChange }) {
 // ── Module root ───────────────────────────────────────────────────────────────
 export default function PrayerModule() {
   const [tab, setTab] = useState('times')
+
+  // Auto-switch to FLIGHT tab when device goes offline
+  useEffect(() => {
+    const goOffline = () => setTab(t => t === 'times' || t === 'qiblat' ? 'flight' : t)
+    window.addEventListener('offline', goOffline)
+    return () => window.removeEventListener('offline', goOffline)
+  }, [])
 
   const { settings, updatePrayerSettings } = usePrayerStore()
 
@@ -85,6 +94,10 @@ export default function PrayerModule() {
           onRequestPermission={requestPermission}
           location={location}
         />
+      )}
+
+      {tab === 'flight' && (
+        <FlightPage settings={settings} />
       )}
     </div>
   )

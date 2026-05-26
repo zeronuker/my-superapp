@@ -28,6 +28,19 @@ const usePrayerStore = create(persist(
       settings: { ...s.settings, ...patch },
     })),
 
+    // ── Flight inputs (persisted so they survive tab switches) ─────────────
+    flightInputs: {
+      dep:          '',
+      dest:         '',
+      elapsedHours: '',
+      totalHours:   '',
+      altitudeFt:   '35000',
+      headingDeg:   '',
+    },
+    setFlightInputs: (patch) => set((s) => ({
+      flightInputs: { ...s.flightInputs, ...patch },
+    })),
+
   }),
   { name: 'prayer-module-store' }   // scoped localStorage key — never collides with parent
 ))
