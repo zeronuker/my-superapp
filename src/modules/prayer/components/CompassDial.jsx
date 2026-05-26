@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { T } from './tokens'
 
 const CARDINALS = [
@@ -16,6 +17,7 @@ export default function CompassDial({
   permissionNeeded = false,
   onRequestPermission,
 }) {
+  const [showCalibration, setShowCalibration] = useState(false)
   const size = 230
   const cx = size / 2, cy = size / 2
   const R  = size / 2 - 14
@@ -130,6 +132,58 @@ export default function CompassDial({
           <div style={{ fontFamily: T.sans, fontSize: 11, color: T.dim, lineHeight: 1.5 }}>
             Face <strong style={{ color: T.ink }}>{Math.round(bearing)}°</strong> to face the Qiblat
           </div>
+        </div>
+      )}
+
+      {/* Calibrate button — shown when compass is live */}
+      {!permissionNeeded && live && (
+        <button
+          onClick={() => setShowCalibration(v => !v)}
+          style={{
+            background: 'transparent',
+            border: `1px solid ${T.bord2}`,
+            borderRadius: 6, padding: '6px 16px', cursor: 'pointer',
+            fontFamily: T.mono, fontSize: 9, letterSpacing: '0.12em',
+            color: T.dim,
+          }}
+        >
+          ✦ CALIBRATE COMPASS
+        </button>
+      )}
+
+      {/* Calibration instructions panel */}
+      {showCalibration && (
+        <div style={{
+          background: 'rgba(var(--cp-acc-rgb,63,224,197),0.05)',
+          border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.2)',
+          borderRadius: 8, padding: '16px 18px',
+          textAlign: 'center', width: '100%',
+        }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>∞</div>
+          <div style={{ fontFamily: T.mono, fontSize: 9, color: 'var(--cp-acc)',
+            letterSpacing: '0.16em', marginBottom: 8 }}>
+            HOW TO CALIBRATE
+          </div>
+          <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink2,
+            lineHeight: 1.7, marginBottom: 14 }}>
+            Hold your phone flat and move it in a <strong style={{ color: T.ink }}>figure-8 motion</strong> several times until the needle stabilises.
+          </div>
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.dim,
+            lineHeight: 1.6, marginBottom: 14 }}>
+            Keep away from metal objects, magnets, and electronic devices which can interfere with the compass.
+          </div>
+          <button
+            onClick={() => setShowCalibration(false)}
+            style={{
+              background: 'rgba(var(--cp-acc-rgb,63,224,197),0.1)',
+              border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.3)',
+              borderRadius: 6, padding: '6px 20px', cursor: 'pointer',
+              fontFamily: T.mono, fontSize: 9, letterSpacing: '0.12em',
+              color: 'var(--cp-acc)',
+            }}
+          >
+            GOT IT
+          </button>
         </div>
       )}
     </div>
