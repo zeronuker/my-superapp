@@ -51,6 +51,7 @@ export async function fetchAladhan(lat, lng, date, method = 'jakim', madhab = 's
   const t = json.data.timings
 
   return {
+    Imsak:   fmt(t.Imsak,   date, timeFormat),
     Fajr:    fmt(t.Fajr,    date, timeFormat),
     Sunrise: fmt(t.Sunrise, date, timeFormat),
     Dhuhr:   fmt(t.Dhuhr,   date, timeFormat),
@@ -58,6 +59,7 @@ export async function fetchAladhan(lat, lng, date, method = 'jakim', madhab = 's
     Maghrib: fmt(t.Maghrib, date, timeFormat),
     Isha:    fmt(t.Isha,    date, timeFormat),
     // Raw Date objects
+    imsakDate:   toDate(t.Imsak,   date),
     fajrDate:    toDate(t.Fajr,    date),
     sunriseDate: toDate(t.Sunrise, date),
     dhuhrDate:   toDate(t.Dhuhr,   date),

@@ -13,7 +13,7 @@ function makeKey(lat, lng, date, method, madhab, timeFormat) {
   return `${date.toISOString().slice(0, 10)}|${lat.toFixed(3)}|${lng.toFixed(3)}|${method}|${madhab}|${timeFormat}`
 }
 
-const DATE_FIELDS = ['fajrDate', 'sunriseDate', 'dhuhrDate', 'asrDate', 'maghribDate', 'ishaDate']
+const DATE_FIELDS = ['imsakDate', 'fajrDate', 'sunriseDate', 'dhuhrDate', 'asrDate', 'maghribDate', 'ishaDate']
 
 export function getCached(lat, lng, date, method, madhab, timeFormat) {
   const cache = read()

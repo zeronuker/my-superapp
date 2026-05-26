@@ -5,6 +5,7 @@ function getNextPrayer(times) {
   if (!times) return null
   const now = new Date()
   const prayers = [
+    { name: 'Imsak',   date: times.imsakDate,   display: times.Imsak   },
     { name: 'Fajr',    date: times.fajrDate,    display: times.Fajr    },
     { name: 'Dhuhr',   date: times.dhuhrDate,   display: times.Dhuhr   },
     { name: 'Asr',     date: times.asrDate,     display: times.Asr     },
@@ -15,12 +16,12 @@ function getNextPrayer(times) {
   const next = prayers.find(p => p.date > now)
   if (next) return next
 
-  // All prayers have passed — Fajr is tomorrow; advance its date by 1 day
-  const fajr = prayers[0]
-  if (!fajr) return null
-  const tomorrowFajr = new Date(fajr.date)
-  tomorrowFajr.setDate(tomorrowFajr.getDate() + 1)
-  return { ...fajr, date: tomorrowFajr }
+  // All prayers have passed — Imsak is tomorrow; advance its date by 1 day
+  const imsak = prayers[0]
+  if (!imsak) return null
+  const tomorrowImsak = new Date(imsak.date)
+  tomorrowImsak.setDate(tomorrowImsak.getDate() + 1)
+  return { ...imsak, date: tomorrowImsak }
 }
 
 function pad(n) { return String(n).padStart(2, '0') }

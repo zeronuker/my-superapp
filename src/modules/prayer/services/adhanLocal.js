@@ -39,7 +39,11 @@ export function calculateLocal(lat, lng, date, method = 'jakim', madhab = 'shafi
 
   const pt = new PrayerTimes(coords, date, params)
 
+  // Imsak: 10 minutes before Fajr (JAKIM standard; universally used across methods)
+  const imsakDate = new Date(pt.fajr.getTime() - 10 * 60_000)
+
   return {
+    Imsak:   fmt(imsakDate, timeFormat),
     Fajr:    fmt(pt.fajr,    timeFormat),
     Sunrise: fmt(pt.sunrise, timeFormat),
     Dhuhr:   fmt(pt.dhuhr,  timeFormat),
@@ -47,6 +51,7 @@ export function calculateLocal(lat, lng, date, method = 'jakim', madhab = 'shafi
     Maghrib: fmt(pt.maghrib, timeFormat),
     Isha:    fmt(pt.isha,   timeFormat),
     // Raw Date objects for countdown / next-prayer logic
+    imsakDate,
     fajrDate:    pt.fajr,
     sunriseDate: pt.sunrise,
     dhuhrDate:   pt.dhuhr,

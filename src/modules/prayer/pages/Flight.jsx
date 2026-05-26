@@ -105,7 +105,7 @@ function AirportTag({ airport, icao }) {
   )
 }
 
-function PrayerRow({ name, time, done, isNext, isSunrise }) {
+function PrayerRow({ name, time, done, isNext, isSunrise, isImsak }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -128,6 +128,10 @@ function PrayerRow({ name, time, done, isNext, isSunrise }) {
         {isSunrise && (
           <span style={{ fontFamily: T.mono, fontSize: 7,
             color: T.dim, letterSpacing: '0.1em' }}>SUNRISE</span>
+        )}
+        {isImsak && (
+          <span style={{ fontFamily: T.mono, fontSize: 7,
+            color: T.dim, letterSpacing: '0.1em' }}>IMSAK</span>
         )}
       </div>
       <span style={{ fontFamily: T.mono, fontSize: 13,
@@ -238,12 +242,13 @@ export default function FlightPage({ settings }) {
   // Build prayer rows from result times
   const now = new Date()
   const prayerRows = result ? [
-    { name: 'Fajr',    time: result.times.Fajr,    date: result.times.fajrDate,    isSunrise: false },
-    { name: 'Sunrise', time: result.times.Sunrise,  date: result.times.sunriseDate, isSunrise: true  },
-    { name: 'Dhuhr',   time: result.times.Dhuhr,   date: result.times.dhuhrDate,   isSunrise: false },
-    { name: 'Asr',     time: result.times.Asr,     date: result.times.asrDate,     isSunrise: false },
-    { name: 'Maghrib', time: result.times.Maghrib,  date: result.times.maghribDate, isSunrise: false },
-    { name: 'Isha',    time: result.times.Isha,    date: result.times.ishaDate,    isSunrise: false },
+    { name: 'Imsak',   time: result.times.Imsak,   date: result.times.imsakDate,   isSunrise: false, isImsak: true  },
+    { name: 'Fajr',    time: result.times.Fajr,    date: result.times.fajrDate,    isSunrise: false, isImsak: false },
+    { name: 'Sunrise', time: result.times.Sunrise,  date: result.times.sunriseDate, isSunrise: true,  isImsak: false },
+    { name: 'Dhuhr',   time: result.times.Dhuhr,   date: result.times.dhuhrDate,   isSunrise: false, isImsak: false },
+    { name: 'Asr',     time: result.times.Asr,     date: result.times.asrDate,     isSunrise: false, isImsak: false },
+    { name: 'Maghrib', time: result.times.Maghrib,  date: result.times.maghribDate, isSunrise: false, isImsak: false },
+    { name: 'Isha',    time: result.times.Isha,    date: result.times.ishaDate,    isSunrise: false, isImsak: false },
   ].map((p, _, arr) => {
     const active = arr.filter(x => !x.isSunrise)
     const next   = active.find(x => x.date instanceof Date && x.date > now) ?? active[0]

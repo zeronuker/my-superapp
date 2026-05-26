@@ -91,6 +91,7 @@ export function applyAltitudeCorrection(times, altitudeFt) {
     return `${h}:${m}`
   }
 
+  const imsakDate   = shift(times.imsakDate,    -1)
   const fajrDate    = shift(times.fajrDate,    -1)
   const sunriseDate = shift(times.sunriseDate,  -1)
   const maghribDate = shift(times.maghribDate,  +1)
@@ -98,7 +99,8 @@ export function applyAltitudeCorrection(times, altitudeFt) {
 
   return {
     ...times,
-    fajrDate, sunriseDate, maghribDate, ishaDate,
+    imsakDate, fajrDate, sunriseDate, maghribDate, ishaDate,
+    Imsak:   fmt(imsakDate),
     Fajr:    fmt(fajrDate),
     Sunrise: fmt(sunriseDate),
     Maghrib: fmt(maghribDate),

@@ -17,18 +17,19 @@ function buildRows(times) {
   if (!times) return []
   const now = new Date()
   const prayers = [
-    { name: 'Fajr',    time: times.Fajr,    date: times.fajrDate,    isSunrise: false },
-    { name: 'Sunrise', time: times.Sunrise,  date: times.sunriseDate, isSunrise: true  },
-    { name: 'Dhuhr',   time: times.Dhuhr,   date: times.dhuhrDate,   isSunrise: false },
-    { name: 'Asr',     time: times.Asr,     date: times.asrDate,     isSunrise: false },
-    { name: 'Maghrib', time: times.Maghrib,  date: times.maghribDate,  isSunrise: false },
-    { name: 'Isha',    time: times.Isha,    date: times.ishaDate,    isSunrise: false },
+    { name: 'Imsak',   time: times.Imsak,   date: times.imsakDate,   isSunrise: false, isImsak: true  },
+    { name: 'Fajr',    time: times.Fajr,    date: times.fajrDate,    isSunrise: false, isImsak: false },
+    { name: 'Sunrise', time: times.Sunrise,  date: times.sunriseDate, isSunrise: true,  isImsak: false },
+    { name: 'Dhuhr',   time: times.Dhuhr,   date: times.dhuhrDate,   isSunrise: false, isImsak: false },
+    { name: 'Asr',     time: times.Asr,     date: times.asrDate,     isSunrise: false, isImsak: false },
+    { name: 'Maghrib', time: times.Maghrib,  date: times.maghribDate, isSunrise: false, isImsak: false },
+    { name: 'Isha',    time: times.Isha,    date: times.ishaDate,    isSunrise: false, isImsak: false },
   ]
 
-  // Find next non-sunrise prayer (wraps to tomorrow's Fajr after Isha)
+  // Find next active prayer — excludes Sunrise; Imsak counts for countdown
   const activePrayers = prayers.filter(p => !p.isSunrise)
   const nextPrayer    = activePrayers.find(p => p.date instanceof Date && p.date > now)
-    ?? activePrayers[0] // after Isha: highlight Fajr row as "next" (tomorrow)
+    ?? activePrayers[0] // after Isha: wrap to tomorrow's Imsak/Fajr
 
   return prayers.map(p => ({
     ...p,

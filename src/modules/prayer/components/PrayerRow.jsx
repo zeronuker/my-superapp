@@ -1,6 +1,6 @@
 import { T } from './tokens'
 
-export default function PrayerRow({ name, time, done, isNext, isSunrise }) {
+export default function PrayerRow({ name, time, done, isNext, isSunrise, isImsak }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -25,6 +25,11 @@ export default function PrayerRow({ name, time, done, isNext, isSunrise }) {
         {isSunrise && (
           <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.1em' }}>
             SUNRISE
+          </span>
+        )}
+        {isImsak && (
+          <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.1em' }}>
+            IMSAK
           </span>
         )}
       </div>
