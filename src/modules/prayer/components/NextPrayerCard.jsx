@@ -54,10 +54,9 @@ export default function NextPrayerCard({ times }) {
         <div style={{ fontFamily: T.mono, fontSize: 9, letterSpacing: '0.14em',
           color: T.dim, marginBottom: 4 }}>IN</div>
         <div style={{ fontFamily: T.mono, fontSize: 28, fontWeight: 700,
-          color: 'var(--cp-acc)', lineHeight: 1 }}>
-          {pad(h)}:{pad(m)}
+          color: 'var(--cp-acc)', lineHeight: 1, letterSpacing: '0.03em' }}>
+          {pad(h)}:{pad(m)}:{pad(s)}
         </div>
-        <div style={{ fontFamily: T.mono, fontSize: 11, color: T.dim, marginTop: 2 }}>{pad(s)}s</div>
       </div>
     </div>
   )
