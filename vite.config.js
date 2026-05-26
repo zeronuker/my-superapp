@@ -10,7 +10,6 @@ export default defineConfig({
       // Brand manifest lives at /brand/manifest.webmanifest — disable plugin generation
       manifest: false,
       workbox: {
-        skipWaiting: true,
         clientsClaim: true,
         // Include brand assets in the precache
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
