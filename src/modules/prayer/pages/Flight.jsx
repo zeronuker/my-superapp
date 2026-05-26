@@ -39,31 +39,44 @@ function Section({ title, children }) {
   )
 }
 
-function Field({ label, value, onChange, placeholder, unit, type = 'text', hint, error: fieldError }) {
+function Field({ label, value, onChange, placeholder, unit, type = 'text', hint, error: fieldError, inlineSuffix }) {
   return (
     <div style={{ minWidth: 0 }}>
       <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
         letterSpacing: '0.14em', marginBottom: 5 }}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <input
-          type={type}
-          inputMode={type === 'number' ? 'decimal' : undefined}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
-          autoComplete="off" autoCorrect="off"
-          autoCapitalize={type === 'text' ? 'characters' : 'off'}
-          spellCheck="false"
-          style={{
-            flex: 1, minWidth: 0, background: T.bg1,
-            border: `1px solid ${fieldError ? 'rgba(251,146,60,0.5)' : T.bord2}`,
-            borderRadius: 6, color: T.ink,
-            fontFamily: T.mono, fontSize: 14,
-            padding: '9px 12px', outline: 'none',
-            letterSpacing: '0.06em',
-          }}
-        />
-        {unit && (
+        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <input
+            type={inlineSuffix ? 'text' : type}
+            inputMode={type === 'number' || inlineSuffix ? 'decimal' : undefined}
+            value={value}
+            onChange={e => onChange(
+              inlineSuffix
+                ? e.target.value.replace(new RegExp(inlineSuffix, 'g'), '').replace(/[^0-9.]/g, '')
+                : e.target.value
+            )}
+            placeholder={placeholder}
+            autoComplete="off" autoCorrect="off"
+            autoCapitalize={type === 'text' && !inlineSuffix ? 'characters' : 'off'}
+            spellCheck="false"
+            style={{
+              width: '100%', minWidth: 0, background: T.bg1,
+              border: `1px solid ${fieldError ? 'rgba(251,146,60,0.5)' : T.bord2}`,
+              borderRadius: 6, color: T.ink,
+              fontFamily: T.mono, fontSize: 14,
+              padding: inlineSuffix ? '9px 28px 9px 12px' : '9px 12px',
+              outline: 'none', letterSpacing: '0.06em',
+            }}
+          />
+          {inlineSuffix && value !== '' && (
+            <span style={{
+              position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+              fontFamily: T.mono, fontSize: 14, color: T.dim,
+              pointerEvents: 'none', letterSpacing: '0.06em',
+            }}>{inlineSuffix}</span>
+          )}
+        </div>
+        {unit && !inlineSuffix && (
           <span style={{ fontFamily: T.mono, fontSize: 10,
             color: T.dim, letterSpacing: '0.1em', flexShrink: 0 }}>{unit}</span>
         )}
@@ -333,9 +346,8 @@ export default function FlightPage({ settings }) {
             label="TRUE HEADING"
             value={headingDeg}
             onChange={v => setInputs({ headingDeg: v })}
-            placeholder="315"
-            unit="°"
-            type="number"
+            placeholder="234°"
+            inlineSuffix="°"
             hint="Optional — check moving map on your IFE screen"
           />
         </div>
@@ -484,6 +496,25 @@ export default function FlightPage({ settings }) {
               TIMES ARE APPROXIMATE — VERIFY WITH CREW
             </div>
           </Section>
+
+          {/* Dead reckoning disclaimer */}
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 8,
+            background: 'rgba(251,146,60,0.05)',
+            border: '1px solid rgba(251,146,60,0.18)',
+            borderRadius: 6, padding: '10px 12px', marginTop: 4,
+          }}>
+            <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>⚠</span>
+            <div>
+              <div style={{ fontFamily: T.mono, fontSize: 8, color: T.orange,
+                letterSpacing: '0.14em', marginBottom: 4 }}>
+                ESTIMATED POSITION ONLY
+              </div>
+              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.dim, lineHeight: 1.6 }}>
+                Prayer times and Qibla direction shown in the Flight tab are based on estimated position and altitude. Dead reckoning carries a margin of error — actual position may differ due to winds and route changes.
+              </div>
+            </div>
+          </div>
         </>
       )}
     </div>
