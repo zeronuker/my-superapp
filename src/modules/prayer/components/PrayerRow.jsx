@@ -27,11 +27,6 @@ export default function PrayerRow({ name, time, done, isNext, isSunrise, isImsak
             SUNRISE
           </span>
         )}
-        {isImsak && (
-          <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.1em' }}>
-            IMSAK
-          </span>
-        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{

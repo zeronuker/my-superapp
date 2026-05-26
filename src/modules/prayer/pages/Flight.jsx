@@ -129,10 +129,6 @@ function PrayerRow({ name, time, done, isNext, isSunrise, isImsak }) {
           <span style={{ fontFamily: T.mono, fontSize: 7,
             color: T.dim, letterSpacing: '0.1em' }}>SUNRISE</span>
         )}
-        {isImsak && (
-          <span style={{ fontFamily: T.mono, fontSize: 7,
-            color: T.dim, letterSpacing: '0.1em' }}>IMSAK</span>
-        )}
       </div>
       <span style={{ fontFamily: T.mono, fontSize: 13,
         color: isNext ? 'var(--cp-acc)' : T.ink2 }}>{time}</span>
