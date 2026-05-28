@@ -178,12 +178,14 @@ export default function NormalCalculator() {
         </div>
         <div style={{
           color: 'var(--cp-acc)', fontWeight: 700, fontFamily: "var(--cb-font-mono)",
-          fontSize: formattedDisplay.length > 16 ? '1.6rem'
-                  : formattedDisplay.length > 12 ? '2.2rem'
-                  : formattedDisplay.length > 9  ? '2.8rem'
+          fontSize: formattedDisplay.length > 18 ? '1.1rem'
+                  : formattedDisplay.length > 15 ? '1.5rem'
+                  : formattedDisplay.length > 12 ? '2.0rem'
+                  : formattedDisplay.length > 9  ? '2.5rem'
+                  : formattedDisplay.length > 7  ? '2.8rem'
                   : '3.6rem',
           lineHeight: 1, letterSpacing: '0.05em',
-          overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
         }}>{formattedDisplay}</div>
       </div>
 

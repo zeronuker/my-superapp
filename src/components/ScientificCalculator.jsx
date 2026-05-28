@@ -182,12 +182,14 @@ export default function ScientificCalculator() {
         </div>
         <div style={{
           color: 'var(--cp-acc)', fontWeight: 700, fontFamily: "var(--cb-font-mono)",
-          fontSize: formattedLast.length > 16 ? '1.6rem'
-                  : formattedLast.length > 12 ? '2.2rem'
-                  : formattedLast.length > 9  ? '2.6rem'
+          fontSize: formattedLast.length > 18 ? '1.1rem'
+                  : formattedLast.length > 15 ? '1.5rem'
+                  : formattedLast.length > 12 ? '2.0rem'
+                  : formattedLast.length > 9  ? '2.4rem'
+                  : formattedLast.length > 7  ? '2.8rem'
                   : '3rem',
           lineHeight: 1, letterSpacing: '0.05em', marginTop: 6,
-          overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
         }}>
           {formattedLast}
         </div>
