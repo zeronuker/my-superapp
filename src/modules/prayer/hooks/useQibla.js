@@ -29,11 +29,15 @@ export function useQibla(location) {
 
     const handler = (e) => {
       let h = null
-      // iOS: webkitCompassHeading (clockwise from north, 0–360)
+
+      // iOS: webkitCompassHeading is clockwise from magnetic north (0–360) — use directly
       if (e.webkitCompassHeading != null) {
         h = e.webkitCompassHeading
       }
-      // Android: alpha is counter-clockwise from north — invert
+      // Android / desktop: alpha is counter-clockwise from geographic north — invert to get
+      // a clockwise compass heading. Only reliable when the event is absolute (referenced to
+      // geographic north). deviceorientationabsolute is always absolute; the standard
+      // deviceorientation event may not be (alpha could be relative to initial orientation).
       else if (e.alpha != null) {
         h = (360 - e.alpha) % 360
       }
@@ -44,8 +48,15 @@ export function useQibla(location) {
       }
     }
 
-    window.addEventListener('deviceorientation', handler, true)
-    return () => window.removeEventListener('deviceorientation', handler, true)
+    // Prefer deviceorientationabsolute (Chrome Android 66+) which guarantees alpha is
+    // referenced to geographic north. Fall back to deviceorientation for iOS / other browsers
+    // where webkitCompassHeading provides the absolute heading instead.
+    const eventName = ('ondeviceorientationabsolute' in window)
+      ? 'deviceorientationabsolute'
+      : 'deviceorientation'
+
+    window.addEventListener(eventName, handler, true)
+    return () => window.removeEventListener(eventName, handler, true)
   }, [])
 
   // Try to start automatically (works on Android / desktop with sensors)
