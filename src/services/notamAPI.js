@@ -6,7 +6,8 @@
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import { icaoToFir, latlngToFir } from '../data/firLookup'
 
-const BASE = 'https://notamapi.faa.gov/api/v2'
+// Proxied through Vercel serverless function to avoid CORS
+const BASE = '/api/notam'
 
 // ── Q-code subject → plain English ───────────────────────────────────────────
 const Q_SUBJECT = {
@@ -211,11 +212,15 @@ export async function fetchNotams(icaoList, pageSize = 100) {
   const results = await Promise.allSettled(
     icaoList.map(icao =>
       fetch(
-        `${BASE}/notams?icaoLocation=${icao.toUpperCase()}&pageSize=${pageSize}`,
-        { signal: AbortSignal.timeout(12_000) }
+        `${BASE}?icao=${icao.toUpperCase()}&pageSize=${pageSize}`,
+        { signal: AbortSignal.timeout(15_000) }
       ).then(r => r.ok ? r.json() : Promise.reject(new Error(`${icao}: HTTP ${r.status}`)))
     )
   )
+
+  // If every single request failed, surface the first error
+  const allFailed = results.every(r => r.status === 'rejected')
+  if (allFailed) throw new Error(results[0]?.reason?.message ?? 'All NOTAM requests failed')
 
   const allNotams = []
   const seen = new Set()
