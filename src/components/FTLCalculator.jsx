@@ -315,7 +315,7 @@ export default function FTLCalculator() {
       picExtensionStr:  picExtStr,
     })
   }, [
-    reportTime, sectors, effectiveCrew, acclimatised, precedingRest,
+    reportTime, sectors, crewCat, effectiveCrew, acclimatised, precedingRest,
     longRange, longestSector,
     standby, standbyStart,
     ifr, ifrType, ifrRest,
