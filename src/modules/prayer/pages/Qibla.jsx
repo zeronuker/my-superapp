@@ -1,7 +1,7 @@
 import CompassDial from '../components/CompassDial'
 import { T } from '../components/tokens'
 
-export default function QiblaPage({ bearing, needleAngle, live, permissionNeeded, onRequestPermission, location }) {
+export default function QiblaPage({ bearing, needleAngle, heading, live, permissionNeeded, onRequestPermission, location }) {
   return (
     <div>
       <div style={{ fontFamily: T.mono, fontSize: 10, letterSpacing: '0.18em',
@@ -20,6 +20,7 @@ export default function QiblaPage({ bearing, needleAngle, live, permissionNeeded
           <CompassDial
             bearing={bearing ?? 0}
             needleAngle={needleAngle ?? 0}
+            heading={heading}
             live={live}
             permissionNeeded={permissionNeeded}
             onRequestPermission={onRequestPermission}

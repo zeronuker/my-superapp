@@ -74,7 +74,7 @@ export default function PrayerModule() {
   const { times, loading, error } = usePrayerTimes(location, settings)
 
   // Qibla compass
-  const { bearing, needleAngle, live, permissionNeeded, requestPermission } = useQibla(location)
+  const { bearing, heading, needleAngle, live, permissionNeeded, requestPermission } = useQibla(location)
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto' }}>
@@ -99,6 +99,7 @@ export default function PrayerModule() {
         <QiblaPage
           bearing={bearing}
           needleAngle={needleAngle}
+          heading={heading}
           live={live}
           permissionNeeded={permissionNeeded}
           onRequestPermission={requestPermission}

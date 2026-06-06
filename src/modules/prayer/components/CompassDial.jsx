@@ -13,6 +13,7 @@ const TICKS = Array.from({ length: 72 }, (_, i) => i * 5)
 export default function CompassDial({
   needleAngle  = 0,
   bearing      = 0,
+  heading      = null,
   live         = false,
   permissionNeeded = false,
   onRequestPermission,
@@ -32,44 +33,50 @@ export default function CompassDial({
         onClick={permissionNeeded ? onRequestPermission : undefined}
         style={{ cursor: permissionNeeded ? 'pointer' : 'default', display: 'block' }}
       >
-        {/* Outer ring */}
+        {/* Static background ring */}
         <circle cx={cx} cy={cy} r={R}
           fill="var(--cp-bg3, #1b2340)" stroke="var(--cp-border2)" strokeWidth={1.5} />
-        {/* Inner ring */}
-        <circle cx={cx} cy={cy} r={R - 22}
-          fill="none" stroke="var(--cp-border)" strokeWidth={1} />
 
-        {/* Tick marks */}
-        {TICKS.map(deg => {
-          const len = deg % 90 === 0 ? 11 : deg % 45 === 0 ? 7 : 4
-          const a  = (deg * Math.PI) / 180
-          const x1 = cx + (R - 2) * Math.sin(a)
-          const y1 = cy - (R - 2) * Math.cos(a)
-          const x2 = cx + (R - 2 - len) * Math.sin(a)
-          const y2 = cy - (R - 2 - len) * Math.cos(a)
-          return (
-            <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2}
-              stroke={deg % 90 === 0 ? 'var(--cp-muted)' : 'var(--cp-border)'}
-              strokeWidth={deg % 90 === 0 ? 1.5 : 0.8} />
-          )
-        })}
+        {/* Rotating compass rose — spins with device so N always tracks real North */}
+        <g transform={`rotate(${live && heading != null ? -heading : 0}, ${cx}, ${cy})`}
+           style={{ transition: live ? 'transform 0.15s ease-out' : 'none' }}>
 
-        {/* Cardinal labels */}
-        {CARDINALS.map(({ label, angle }) => {
-          const a  = (angle * Math.PI) / 180
-          const lx = cx + (R - 32) * Math.sin(a)
-          const ly = cy - (R - 32) * Math.cos(a)
-          return (
-            <text key={label} x={lx} y={ly}
-              textAnchor="middle" dominantBaseline="central"
-              fontFamily="var(--cb-font-mono)"
-              fontSize={label === 'N' ? 14 : 12}
-              fontWeight="700"
-              fill={label === 'N' ? 'var(--cp-acc)' : 'var(--cp-muted)'}>
-              {label}
-            </text>
-          )
-        })}
+          {/* Inner ring */}
+          <circle cx={cx} cy={cy} r={R - 22}
+            fill="none" stroke="var(--cp-border)" strokeWidth={1} />
+
+          {/* Tick marks */}
+          {TICKS.map(deg => {
+            const len = deg % 90 === 0 ? 11 : deg % 45 === 0 ? 7 : 4
+            const a  = (deg * Math.PI) / 180
+            const x1 = cx + (R - 2) * Math.sin(a)
+            const y1 = cy - (R - 2) * Math.cos(a)
+            const x2 = cx + (R - 2 - len) * Math.sin(a)
+            const y2 = cy - (R - 2 - len) * Math.cos(a)
+            return (
+              <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={deg % 90 === 0 ? 'var(--cp-muted)' : 'var(--cp-border)'}
+                strokeWidth={deg % 90 === 0 ? 1.5 : 0.8} />
+            )
+          })}
+
+          {/* Cardinal labels */}
+          {CARDINALS.map(({ label, angle }) => {
+            const a  = (angle * Math.PI) / 180
+            const lx = cx + (R - 32) * Math.sin(a)
+            const ly = cy - (R - 32) * Math.cos(a)
+            return (
+              <text key={label} x={lx} y={ly}
+                textAnchor="middle" dominantBaseline="central"
+                fontFamily="var(--cb-font-mono)"
+                fontSize={label === 'N' ? 14 : 12}
+                fontWeight="700"
+                fill={label === 'N' ? 'var(--cp-acc)' : 'var(--cp-muted)'}>
+                {label}
+              </text>
+            )
+          })}
+        </g>
 
         {/* Qibla needle — rotates to needleAngle */}
         <g transform={`rotate(${needleAngle}, ${cx}, ${cy})`}>
