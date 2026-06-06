@@ -125,7 +125,7 @@ export default function EDTOCalculator() {
       borderRadius: 4,
       padding: 16,
     }}>
-      <div className="cp-label" style={{ marginBottom: 10 }}>{title}</div>
+      <div className="cp-label" style={{ marginBottom: 10, minHeight: '2.6em', display: 'flex', alignItems: 'flex-start' }}>{title}</div>
       <div style={{ fontSize: 32, fontWeight: 700, color: accentColor, fontFamily: "var(--cb-font-mono)", lineHeight: 1, marginBottom: 4 }}>
         {value ?? '—'}
       </div>
