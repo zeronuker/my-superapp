@@ -281,7 +281,7 @@ export function latlngToFir(lat, lng) {
 
     // North America
     { prefix: 'CY', latMin: 41,  latMax: 48,  lngMin: -82, lngMax: -74 },
-    { prefix: 'CZ', latMin: 48,  latMax: 60,  lngMin: -140,-lngMax: -114},
+    { prefix: 'CZ', latMin: 48,  latMax: 60,  lngMin: -140, lngMax: -114},
     { prefix: 'MM', latMin: 14,  latMax: 33,  lngMin: -118,lngMax: -86 },
 
     // South America
