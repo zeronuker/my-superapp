@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
+import NotamViewer from './NotamViewer'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const HOURS_OPTIONS  = [1, 2, 3, 6, 12, 24]
@@ -58,6 +59,7 @@ export default function METARTAFCalculator() {
   const [hours,        setHours]        = useState(cache?.hours        || settings.defaultHistory)
   const [results,      setResults]      = useState(cache?.results      || null)
   const [fetchedAt,    setFetchedAt]    = useState(cache?.fetchedAt    || null)
+  const [tab,          setTab]          = useState('metar') // 'metar' | 'notam'
   const [loading,      setLoading]      = useState(false)
   const [now,          setNow]          = useState(Date.now())
 
@@ -207,6 +209,38 @@ export default function METARTAFCalculator() {
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
+      {/* ── Sub-nav: METAR/TAF | NOTAM ───────────────────────────────────── */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+        <div style={{
+          display: 'inline-flex',
+          background: 'var(--cp-bg3)',
+          border: '1px solid var(--cp-border)',
+          borderRadius: 6, padding: 3, gap: 3,
+        }}>
+          {[['metar', '🌤', 'METAR / TAF'], ['notam', '📋', 'NOTAM']].map(([id, icon, label]) => (
+            <button key={id} onClick={() => setTab(id)} style={{
+              fontFamily: 'var(--cb-font-mono)',
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+              padding: '7px 18px', borderRadius: 4,
+              border: `1px solid ${tab === id ? 'var(--cp-acc)' : 'transparent'}`,
+              background: tab === id ? 'var(--cp-accdim)' : 'transparent',
+              color: tab === id ? 'var(--cp-acc)' : 'var(--cp-dim)',
+              cursor: 'pointer', transition: 'all 0.12s',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <span style={{ fontSize: 13 }}>{icon}</span>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── NOTAM tab ─────────────────────────────────────────────────────── */}
+      {tab === 'notam' && <NotamViewer />}
+
+      {/* ── METAR/TAF tab ─────────────────────────────────────────────────── */}
+      {tab === 'metar' && <>
+
       {/* ── ROUTE ────────────────────────────────────────────────────────── */}
       <SectionHeader title="Route" />
 
@@ -344,6 +378,8 @@ export default function METARTAFCalculator() {
           ENTER ICAO CODES AND FETCH
         </div>
       )}
+
+      </>}  {/* end tab === 'metar' */}
     </div>
   )
 }

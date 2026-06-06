@@ -3,7 +3,6 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 import { useCalculatorStore } from './store/calculatorStore'
 import EDTOCalculator from './components/EDTOCalculator'
 import CombinedCalculator from './components/CombinedCalculator'
-import TimeCalculator from './components/TimeCalculator'
 import CurrencyCalculator from './components/CurrencyCalculator'
 import InterpolationCalculator from './components/InterpolationCalculator'
 import METARTAFCalculator from './components/METARTAFCalculator'
@@ -13,7 +12,6 @@ import UpdatePrompt from './components/UpdatePrompt'
 
 export const CALCULATORS = [
   { id: 'calculator',    icon: '🧮',  name: 'Calculator',     component: CombinedCalculator },
-  { id: 'time',          icon: '⏱️', name: 'Time',           component: TimeCalculator },
   { id: 'interpolation', icon: '📐',  name: 'Interpolation',  component: InterpolationCalculator },
   { id: 'edto',          icon: '✈️', name: 'EDTO',           component: EDTOCalculator },
   { id: 'currency',      icon: '💱',  name: 'Currency',       component: CurrencyCalculator },
@@ -23,7 +21,7 @@ export const CALCULATORS = [
 ]
 
 // IDs that no longer exist — remap to 'calculator'
-const LEGACY_IDS = new Set(['normal', 'scientific'])
+const LEGACY_IDS = new Set(['normal', 'scientific', 'time'])
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13 }
 

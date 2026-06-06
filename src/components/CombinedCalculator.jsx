@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
 import NormalCalculator from './NormalCalculator'
 import ScientificCalculator from './ScientificCalculator'
+import TimeCalculator from './TimeCalculator'
 
 const MODES = [
   { id: 'basic',      label: 'BASIC' },
   { id: 'scientific', label: 'SCIENTIFIC' },
+  { id: 'time',       label: 'TIME' },
 ]
 
 export default function CombinedCalculator() {
@@ -31,7 +33,7 @@ export default function CombinedCalculator() {
                 fontSize: 11,
                 fontWeight: 700,
                 letterSpacing: '0.15em',
-                padding: '7px 22px',
+                padding: '7px 18px',
                 borderRadius: 4,
                 border: `1px solid ${mode === id ? 'var(--cp-acc)' : 'transparent'}`,
                 cursor: 'pointer',
@@ -47,7 +49,9 @@ export default function CombinedCalculator() {
       </div>
 
       {/* ── Active calculator ───────────────────────────────────────────── */}
-      {mode === 'basic' ? <NormalCalculator /> : <ScientificCalculator />}
+      {mode === 'basic'      && <NormalCalculator />}
+      {mode === 'scientific' && <ScientificCalculator />}
+      {mode === 'time'       && <TimeCalculator />}
     </div>
   )
 }

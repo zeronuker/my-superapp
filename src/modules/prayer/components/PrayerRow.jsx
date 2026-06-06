@@ -22,11 +22,6 @@ export default function PrayerRow({ name, time, done, isNext, isSunrise, isImsak
         }}>
           {name}
         </span>
-        {isSunrise && (
-          <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.1em' }}>
-            SUNRISE
-          </span>
-        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{
