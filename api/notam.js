@@ -1,12 +1,11 @@
 /**
- * Vercel serverless proxy for the FAA NOTAM Search API.
- * Avoids CORS restrictions on direct browser fetches.
- * Docs: https://notamapi.faa.gov/
+ * Vercel serverless proxy for the autorouter.aero NOTAM API.
+ * Data sourced from Eurocontrol EAD via INO (International NOTAM Operations).
+ * Free, no API key required. End users of this app are the licensed recipients.
  *
  * GET /api/notam?icao=WMKK&pageSize=100
  */
 
-const BASE    = 'https://notamapi.faa.gov/api/v2'
 const ICAO_RE = /^[A-Z0-9]{2,6}$/
 
 export default async function handler(req, res) {
@@ -21,15 +20,24 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'icao must be 2–6 alphanumeric characters' })
   }
 
-  const pageSize = Math.min(Math.max(parseInt(pageSizeRaw, 10) || 100, 1), 200)
-  const url = `${BASE}/notams?icaoLocation=${icaoUpper}&pageSize=${pageSize}`
+  const pageSize  = Math.min(Math.max(parseInt(pageSizeRaw, 10) || 100, 1), 100)
+
+  // Include NOTAMs valid from 1 hour ago onwards — catches active, future,
+  // and very recently expired NOTAMs while excluding ancient history
+  const startvalidity = Math.floor(Date.now() / 1000) - 3600
+
+  const url =
+    `https://api.autorouter.aero/v1.0/notam` +
+    `?itemas=${encodeURIComponent(JSON.stringify([icaoUpper]))}` +
+    `&limit=${pageSize}` +
+    `&startvalidity=${startvalidity}`
 
   try {
     const upstream = await fetch(url, { signal: AbortSignal.timeout(12_000) })
 
     if (!upstream.ok) {
       return res.status(upstream.status).json({
-        error: `FAA NOTAM API returned ${upstream.status}`,
+        error: `NOTAM API returned ${upstream.status} for ${icaoUpper}`,
       })
     }
 

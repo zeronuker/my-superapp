@@ -1,7 +1,5 @@
 import React, { useState, useRef } from 'react'
 import { fetchNotams, detectRouteFirs, buildInitialChips, NOTAM_CATEGORIES } from '../services/notamAPI'
-import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
-import { latlngToFir } from '../data/firLookup'
 
 // ── Tokens (matches app style) ────────────────────────────────────────────────
 const T = {

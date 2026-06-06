@@ -1,115 +1,100 @@
 /**
- * NOTAM service — FAA NOTAM Search API (free, no API key, international coverage)
- * Docs: https://notamapi.faa.gov/
+ * NOTAM service — autorouter.aero API (free, no key, Eurocontrol EAD data)
+ * Proxied through /api/notam to avoid CORS.
+ * Docs: https://www.autorouter.aero/wiki/api/notams/
  */
 
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import { icaoToFir, latlngToFir } from '../data/firLookup'
 
-// Proxied through Vercel serverless function to avoid CORS
-const BASE = '/api/notam'
-
 // ── Q-code subject → plain English ───────────────────────────────────────────
 const Q_SUBJECT = {
   // Airspace
-  QR: 'Airspace restriction',
-  QRA: 'Name of aerodrome',
-  QRB: 'Restricted area',
-  QRD: 'Danger area',
-  QRE: 'Exercises',
-  QRP: 'Prohibited area',
-  QRR: 'Restricted area activated',
-  QRT: 'Temporary restricted area',
-  QRW: 'Warning area',
+  QR:   'Airspace restriction',
+  QRA:  'Aerodrome name',
+  QRB:  'Restricted area',
+  QRD:  'Danger area',
+  QRP:  'Prohibited area',
+  QRR:  'Restricted area activated',
+  QRT:  'Temporary restricted area',
+  QRW:  'Warning area',
   // Runway / Movement Area
-  QM: 'Movement area',
-  QMR: 'Runway',
-  QMC: 'Runway closed',
-  QML: 'Taxiway',
-  QMT: 'Taxiway closed',
-  QMS: 'Stand/apron',
-  QMU: 'Unserviceable',
+  QM:   'Movement area',
+  QMR:  'Runway',
+  QMC:  'Runway closed',
+  QML:  'Taxiway',
+  QMT:  'Taxiway closed',
+  QMS:  'Stand/apron',
+  QMU:  'Unserviceable — movement area',
+  QMX:  'Taxiway/apron closed',
   // Nav Aids
-  QN: 'Navigation aid',
-  QNA: 'ATIS',
-  QNB: 'NDB',
-  QND: 'VDF',
-  QNL: 'Locator',
-  QNM: 'VOR/DME',
-  QNN: 'Radio navigation',
-  QNO: 'DME',
-  QNT: 'TACAN',
-  QNU: 'VORTAC',
-  QNV: 'VOR',
-  QNX: 'ILS',
-  QNY: 'MLS',
-  QNZ: 'Approach',
+  QN:   'Navigation aid',
+  QNA:  'ATIS',
+  QNB:  'NDB',
+  QND:  'VDF',
+  QNL:  'Locator',
+  QNM:  'VOR/DME',
+  QNN:  'Radio navigation',
+  QNO:  'DME',
+  QNT:  'TACAN',
+  QNU:  'VORTAC',
+  QNV:  'VOR',
+  QNX:  'ILS',
+  QNY:  'MLS',
+  QNZ:  'Approach aid',
   // Lighting
-  QL: 'Lighting',
-  QLA: 'Approach lighting',
-  QLB: 'Aerodrome beacon',
-  QLC: 'Runway centreline lighting',
-  QLD: 'Landing direction indicator',
-  QLE: 'Runway edge lighting',
-  QLF: 'Sequenced flashing lights',
-  QLG: 'Pilot-controlled lighting',
-  QLH: 'High-intensity lighting',
-  QLI: 'Runway TDZ lighting',
-  QLP: 'PAPI',
-  QLR: 'All RTG lighting',
-  QLS: 'Stopway lighting',
-  QLT: 'Threshold lighting',
-  QLV: 'VASIS',
-  QLW: 'Helipad lighting',
-  QLL: 'Taxiway lighting',
+  QL:   'Lighting',
+  QLA:  'Approach lighting',
+  QLB:  'Aerodrome beacon',
+  QLC:  'Runway centreline lighting',
+  QLD:  'Landing direction indicator',
+  QLE:  'Runway edge lighting',
+  QLF:  'Sequenced flashing lights',
+  QLG:  'Pilot-controlled lighting',
+  QLH:  'High-intensity lighting',
+  QLI:  'Runway TDZ lighting',
+  QLP:  'PAPI',
+  QLS:  'Stopway lighting',
+  QLT:  'Threshold lighting',
+  QLV:  'VASIS',
+  QLW:  'Helipad lighting',
+  QLL:  'Taxiway lighting',
   // Obstacles
-  QO: 'Obstacle',
-  QOB: 'Obstacle — crane/structure',
-  QOL: 'Obstacle lighting',
+  QO:   'Obstacle',
+  QOB:  'Obstacle — crane/structure',
+  QOL:  'Obstacle lighting',
   // Communication / ATC
-  QS: 'ATC / Airspace',
-  QSA: 'ATC advisory',
-  QSC: 'ATC clearance',
-  QSL: 'ATC surveillance',
-  QSP: 'Rescue coordination',
-  QSR: 'ATC service resumed',
-  QSS: 'ATC service suspended',
-  QST: 'ATIS',
+  QS:   'ATC / Services',
+  QSA:  'ATC advisory',
+  QSS:  'ATC service suspended',
+  QSR:  'ATC service resumed',
+  QST:  'ATIS',
   // Procedures
-  QP: 'Procedures',
-  QPA: 'Procedure — arrival',
-  QPD: 'Procedure — departure',
-  QPI: 'Instrument approach procedure',
-  QPO: 'Obstacle departure procedure',
+  QP:   'Procedures',
+  QPA:  'Arrival procedure',
+  QPD:  'Departure procedure',
+  QPI:  'Instrument approach procedure',
   // Aerodrome
-  QA: 'Aerodrome',
-  QAC: 'Aerodrome closed',
-  QAG: 'Aerodrome — customs/immigration',
-  QAH: 'Aerodrome elevation',
-  QAL: 'Aerodrome layout',
-  QAO: 'Aerodrome operating hours',
-  QAP: 'Aerodrome — PPR required',
-  QAR: 'Aerodrome rescue',
-  QAS: 'Aerodrome status',
-  QAT: 'Aerodrome ATS',
+  QA:   'Aerodrome',
+  QAC:  'Aerodrome closed',
+  QAO:  'Aerodrome operating hours',
+  QAS:  'Aerodrome status',
+  QAT:  'ATS at aerodrome',
   // Warning
-  QW: 'Warning',
-  QWA: 'Air display',
-  QWB: 'Bird activity',
-  QWC: 'Jet blast hazard',
-  QWE: 'Laser activity',
-  QWF: 'Volcanic activity',
-  QWG: 'Wildlife activity',
-  QWH: 'Unmanned aircraft (drone)',
-  QWJ: 'Rocket/missile activity',
-  QWL: 'Laser beam activity',
-  QWM: 'Military exercises',
-  QWS: 'Snow removal',
-  QWU: 'Underwater blasting',
-  QWV: 'Parachute activity',
-  QWX: 'VIP movement',
-  QWY: 'Aircraft in distress',
-  QWZ: 'SIGMET',
+  QW:   'Warning',
+  QWA:  'Air display',
+  QWB:  'Bird activity',
+  QWE:  'Laser activity',
+  QWF:  'Volcanic activity',
+  QWG:  'Wildlife activity',
+  QWH:  'Unmanned aircraft (drone)',
+  QWJ:  'Rocket/missile activity',
+  QWM:  'Military exercises',
+  QWP:  'Parachute activity',
+  QWU:  'Blasting activity',
+  QWV:  'Parachute jumping',
+  QWX:  'VIP movement',
+  QWZ:  'SIGMET',
 }
 
 // ── NOTAM Category → colour + label ──────────────────────────────────────────
@@ -127,44 +112,20 @@ export const NOTAM_CATEGORIES = {
 function classifyQCode(qCode) {
   if (!qCode) return 'OTHER'
   const q = qCode.toUpperCase()
-  if (q.startsWith('QR'))            return 'AIRSPACE'
-  if (q.startsWith('QM'))            return 'AERODROME'
-  if (q.startsWith('QO'))            return 'OBSTACLE'
-  if (q.startsWith('QN'))            return 'NAVAID'
-  if (q.startsWith('QW'))            return 'WARNING'
-  if (q.startsWith('QL'))            return 'LIGHTING'
+  if (q.startsWith('QR'))              return 'AIRSPACE'
+  if (q.startsWith('QM'))              return 'AERODROME'
+  if (q.startsWith('QO'))              return 'OBSTACLE'
+  if (q.startsWith('QN'))              return 'NAVAID'
+  if (q.startsWith('QW'))              return 'WARNING'
+  if (q.startsWith('QL'))              return 'LIGHTING'
   if (q.startsWith('QP') || q.startsWith('QA')) return 'PROCEDURE'
-  if (q.startsWith('QS'))            return 'AIRSPACE'
+  if (q.startsWith('QS'))              return 'AIRSPACE'
   return 'OTHER'
-}
-
-// ── Q-line parser ─────────────────────────────────────────────────────────────
-/**
- * Parse a NOTAM Q-line into structured fields.
- * Q) FIR/QCODE/TRAFFIC/PURPOSE/SCOPE/LOWER/UPPER/COORD
- */
-function parseQLine(raw) {
-  if (!raw) return null
-  // Strip leading "Q)" if present
-  const line = raw.replace(/^\s*Q\)\s*/i, '').trim()
-  const parts = line.split('/')
-  if (parts.length < 6) return null
-  return {
-    fir:     parts[0]?.trim(),
-    qCode:   parts[1]?.trim(),
-    traffic: parts[2]?.trim(),
-    purpose: parts[3]?.trim(),
-    scope:   parts[4]?.trim(),
-    lower:   parts[5]?.trim(),
-    upper:   parts[6]?.trim(),
-    coord:   parts[7]?.trim(),
-  }
 }
 
 function qCodeToSummary(qCode) {
   if (!qCode) return 'Notice to air missions'
   const q = qCode.toUpperCase()
-  // Try exact match first, then progressively shorter prefixes
   for (let len = q.length; len >= 2; len--) {
     const sub = Q_SUBJECT[q.slice(0, len)]
     if (sub) return sub
@@ -172,39 +133,62 @@ function qCodeToSummary(qCode) {
   return 'Notice to air missions'
 }
 
-// ── Date / validity helpers ───────────────────────────────────────────────────
-function parseNotamDate(str) {
-  // FAA API format: "2024-06-01T10:00:00.000Z" or "2406010900" (YYMMDDHHMM)
-  if (!str) return null
-  if (str.includes('T') || str.includes('-')) return new Date(str)
-  // YYMMDDHHMM
-  const yy = str.slice(0, 2)
-  const mm = str.slice(2, 4)
-  const dd = str.slice(4, 6)
-  const hh = str.slice(6, 8)
-  const mn = str.slice(8, 10)
-  return new Date(`20${yy}-${mm}-${dd}T${hh}:${mn}:00Z`)
+// ── Validity helpers ──────────────────────────────────────────────────────────
+// autorouter uses Unix timestamps (seconds). endvalidity ≥ 2^31 means PERM.
+const PERM_THRESHOLD = 2_000_000_000
+
+function fmtUnixDate(sec) {
+  if (!sec || sec >= PERM_THRESHOLD) return 'PERM'
+  return new Date(sec * 1000).toISOString().slice(0, 16).replace('T', ' ') + 'Z'
 }
 
-export function getValidity(notam) {
-  const now = Date.now()
-  const start = parseNotamDate(notam.startDate || notam.effectiveStart)
-  const end   = parseNotamDate(notam.endDate   || notam.effectiveEnd)
-  if (!start) return { status: 'UNKNOWN', start: null, end: null }
-  if (start.getTime() > now)   return { status: 'FUTURE',  start, end }
-  if (end && end.getTime() < now) return { status: 'EXPIRED', start, end }
-  return { status: 'ACTIVE', start, end }
+function computeValidity(raw) {
+  const now      = Date.now()
+  const startMs  = raw.startvalidity ? raw.startvalidity * 1000 : null
+  const endSec   = raw.endvalidity
+  const isPerm   = !endSec || endSec >= PERM_THRESHOLD
+  const endMs    = isPerm ? null : endSec * 1000
+
+  let status = 'UNKNOWN'
+  if (startMs !== null) {
+    if (startMs > now)              status = 'FUTURE'
+    else if (!isPerm && endMs < now) status = 'EXPIRED'
+    else                             status = 'ACTIVE'
+  }
+
+  return {
+    status,
+    start:    startMs ? new Date(startMs) : null,
+    end:      endMs   ? new Date(endMs)   : null,
+    startStr: fmtUnixDate(raw.startvalidity),
+    endStr:   isPerm ? 'PERM' : fmtUnixDate(endSec),
+  }
 }
 
-function fmtDate(d) {
-  if (!d) return 'PERM'
-  return d.toISOString().slice(0, 16).replace('T', ' ') + 'Z'
+// ── Build readable NOTAM ID ───────────────────────────────────────────────────
+function buildId(raw) {
+  const series = raw.series || ''
+  const num    = String(raw.number || '').padStart(4, '0')
+  const yr     = String(raw.year || '').slice(-2)
+  if (!num || num === '0000') return raw.id || 'UNKNOWN'
+  return yr ? `${series}${num}/${yr}` : `${series}${num}`
+}
+
+// ── Build raw NOTAM text from item fields ─────────────────────────────────────
+function buildRaw(raw) {
+  return [
+    raw.itema ? `A) ${raw.itema}` : '',
+    raw.itemd ? `D) ${raw.itemd}` : '',
+    raw.iteme ? `E) ${raw.iteme}` : '',
+    raw.itemf ? `F) ${raw.itemf}` : '',
+    raw.itemg ? `G) ${raw.itemg}` : '',
+  ].filter(Boolean).join('\n') || JSON.stringify(raw)
 }
 
 // ── Main fetch ────────────────────────────────────────────────────────────────
 /**
  * Fetch NOTAMs for a list of ICAO location codes (airports or FIRs).
- * Returns parsed NOTAM objects sorted: ACTIVE first, then FUTURE, then EXPIRED.
+ * Returns parsed NOTAM objects sorted: ACTIVE → FUTURE → EXPIRED.
  */
 export async function fetchNotams(icaoList, pageSize = 100) {
   if (!icaoList?.length) return []
@@ -212,49 +196,51 @@ export async function fetchNotams(icaoList, pageSize = 100) {
   const results = await Promise.allSettled(
     icaoList.map(icao =>
       fetch(
-        `${BASE}?icao=${icao.toUpperCase()}&pageSize=${pageSize}`,
+        `/api/notam?icao=${icao.toUpperCase()}&pageSize=${pageSize}`,
         { signal: AbortSignal.timeout(15_000) }
       ).then(r => r.ok ? r.json() : Promise.reject(new Error(`${icao}: HTTP ${r.status}`)))
     )
   )
 
-  // If every single request failed, surface the first error
+  // Surface error if every request failed
   const allFailed = results.every(r => r.status === 'rejected')
   if (allFailed) throw new Error(results[0]?.reason?.message ?? 'All NOTAM requests failed')
 
   const allNotams = []
-  const seen = new Set()
+  const seen      = new Set()
 
   for (const r of results) {
     if (r.status !== 'fulfilled') continue
-    const items = r.value?.items ?? r.value?.notams ?? (Array.isArray(r.value) ? r.value : [])
-    for (const raw of items) {
-      const id = raw.notamID || raw.id || raw.number
+
+    // autorouter returns { total, rows: [...] }
+    const rows = r.value?.rows ?? []
+
+    for (const raw of rows) {
+      const id = buildId(raw)
       if (!id || seen.has(id)) continue
       seen.add(id)
 
-      const qParsed  = parseQLine(raw.qLine || raw.q)
-      const qCode    = qParsed?.qCode ?? ''
+      // Q-code is split across code23 (subject) and code45 (condition)
+      const qCode    = 'Q' + (raw.code23 || '') + (raw.code45 || '')
       const category = classifyQCode(qCode)
       const summary  = qCodeToSummary(qCode)
-      const validity = getValidity(raw)
+      const validity = computeValidity(raw)
 
       allNotams.push({
         id,
-        icao:     raw.icaoLocation || raw.location || '',
+        icao:     raw.itema || raw.fir || '',
         category,
         summary,
         qCode,
-        qParsed,
         validity,
-        startStr: fmtDate(validity.start),
-        endStr:   fmtDate(validity.end),
-        raw:      raw.notamText || raw.text || raw.message || JSON.stringify(raw),
+        startStr: validity.startStr,
+        endStr:   validity.endStr,
+        raw:      buildRaw(raw),
       })
     }
   }
 
-  // Sort: ACTIVE → FUTURE → EXPIRED
+  // Sort: ACTIVE → FUTURE → EXPIRED → UNKNOWN
   const order = { ACTIVE: 0, FUTURE: 1, EXPIRED: 2, UNKNOWN: 3 }
   allNotams.sort((a, b) => order[a.validity.status] - order[b.validity.status])
 
@@ -263,8 +249,7 @@ export async function fetchNotams(icaoList, pageSize = 100) {
 
 // ── FIR route detection ───────────────────────────────────────────────────────
 /**
- * Given departure + arrival airport coords, sample 10 points along the
- * great circle and return deduplicated FIR chips (icao + name).
+ * Sample 10 points along the great circle and return deduplicated FIR chips.
  */
 export function detectRouteFirs(depPos, destPos) {
   const chips = []
@@ -276,26 +261,22 @@ export function detectRouteFirs(depPos, destPos) {
     chips.push(entry)
   }
 
-  // Sample 11 evenly-spaced points (0%, 10%, ... 100%)
   for (let i = 0; i <= 10; i++) {
-    const f   = i / 10
-    const pos = interpolateGreatCircle(depPos.lat, depPos.lng, destPos.lat, destPos.lng, f)
-    const fir = latlngToFir(pos.lat, pos.lng)
-    if (fir) addFir(fir)
+    const pos = interpolateGreatCircle(depPos.lat, depPos.lng, destPos.lat, destPos.lng, i / 10)
+    addFir(latlngToFir(pos.lat, pos.lng))
   }
 
   return chips
 }
 
 /**
- * Given dep + arr ICAO codes (strings), return chips for both airports
- * plus their FIRs.
+ * Build initial chips from DEP + ARR ICAO codes (airports + their home FIRs).
  */
 export function buildInitialChips(depIcao, arrIcao) {
   const chips = []
   const seen  = new Set()
 
-  const add = (icao, name, type = 'fir') => {
+  const add = (icao, name, type) => {
     if (!icao || seen.has(icao)) return
     seen.add(icao)
     chips.push({ icao, name, type })
