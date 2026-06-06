@@ -33,8 +33,8 @@ function buildRows(times) {
 
   return prayers.map(p => ({
     ...p,
-    done:   p.date instanceof Date && p.date < now && !p.isSunrise,
-    isNext: !p.isSunrise && p.name === nextPrayer?.name,
+    done:   p.date instanceof Date && p.date < now && !p.isSunrise && !p.isImsak,
+    isNext: !p.isSunrise && !p.isImsak && p.name === nextPrayer?.name,
   }))
 }
 

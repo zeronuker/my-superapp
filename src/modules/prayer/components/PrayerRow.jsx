@@ -1,6 +1,32 @@
 import { T } from './tokens'
 
 export default function PrayerRow({ name, time, done, isNext, isSunrise, isImsak }) {
+  const isReference = isSunrise || isImsak   // reference times — not prayer obligations
+
+  if (isReference) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '7px 0',
+        borderBottom: `1px dashed ${T.border}`,
+        opacity: 0.55,
+      }}>
+        <span style={{
+          fontFamily: T.sans, fontSize: 12, fontStyle: 'italic',
+          color: T.dim, letterSpacing: '0.02em',
+        }}>
+          {name}
+        </span>
+        <span style={{
+          fontFamily: T.mono, fontSize: 12, fontWeight: 400,
+          color: T.dim,
+        }}>
+          {time}
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -18,7 +44,6 @@ export default function PrayerRow({ name, time, done, isNext, isSunrise, isImsak
           fontFamily: T.sans, fontSize: 14,
           fontWeight: isNext ? 600 : 400,
           color: done && !isNext ? T.dim : isNext ? 'var(--cp-acc)' : T.ink,
-          opacity: isSunrise ? 0.5 : 1,
         }}>
           {name}
         </span>
