@@ -150,20 +150,23 @@ function computeFTL({
   }
 
   // 4. In-flight relief Ch. 2.12
+  // Caps differ by crew type: bunk 18h (flight) / 19h (cabin); seat 15h (flight) / 16h (cabin)
   let ifrExtension = 0
   if (ifr) {
     const restMins = parseDur(ifrRestStr)
     if (!restMins) {
       notes.push('IFR: enter rest period duration')
     } else if (restMins < 3 * 60) {
-      notes.push('IFR rest <3h: no extension applies (Ch. 2.12)')
+      notes.push('IFR rest <3h: no extension applies (Ch. 2.12.3)')
     } else {
-      const cap = ifrType === 'bunk' ? 18 * 60 : 15 * 60
+      const cap = ifrType === 'bunk'
+        ? (isCabinCrew ? 19 * 60 : 18 * 60)
+        : (isCabinCrew ? 16 * 60 : 15 * 60)
       ifrExtension = ifrType === 'bunk' ? Math.floor(restMins / 2) : Math.floor(restMins / 3)
       const before = fdp
       fdp = Math.min(fdp + ifrExtension, cap)
       if (fdp < before + ifrExtension)
-        notes.push(`FDP capped at ${fmtDur(cap)} (${ifrType} rest limit Ch. 2.12)`)
+        notes.push(`FDP capped at ${fmtDur(cap)} (${ifrType} rest, ${isCabinCrew ? 'cabin crew' : 'flight crew'} limit Ch. 2.12.3)`)
     }
   }
 
@@ -488,8 +491,8 @@ export default function FTLCalculator() {
                   <Row label="REST TYPE">
                     <Seg
                       options={[
-                        { value: 'bunk', label: 'BUNK  ×½  max 18h' },
-                        { value: 'seat', label: 'SEAT  ×⅓  max 15h' },
+                        { value: 'bunk', label: `BUNK  ×½  max ${crewCat === 'cabin' ? '19h' : '18h'}` },
+                        { value: 'seat', label: `SEAT  ×⅓  max ${crewCat === 'cabin' ? '16h' : '15h'}` },
                       ]}
                       value={ifrType} onChange={setIfrType}
                     />
