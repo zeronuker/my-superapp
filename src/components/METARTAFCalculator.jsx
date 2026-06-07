@@ -449,7 +449,7 @@ function SeverityLegend() {
     { color: '#f87171', label: 'SEVERE WIND', sub: '≥35kt / gust ≥45kt' },
   ]
   const WX = [
-    { color: '#f97316', label: 'PRESENT WEATHER', sub: 'RA  SN  FG  BR  TS  FZRA  GR  HZ  VA  FC  etc.' },
+    { color: '#facc15', label: 'PRESENT WEATHER', sub: 'RA  SN  FG  BR  TS  FZRA  GR  HZ  VA  FC  etc.' },
   ]
 
   const dot = color => (

@@ -32,8 +32,8 @@ export const WIND_COLORS = {
   SEVERE: '#f87171',
 }
 
-// Present weather phenomena are always coloured orange regardless of flight category.
-export const WX_COLOR = '#f97316'
+// Present weather phenomena are always coloured yellow regardless of flight category.
+export const WX_COLOR = '#facc15'
 
 // Matches any METAR/TAF present-weather token:
 //   optional RE (recent) or VC (vicinity)
