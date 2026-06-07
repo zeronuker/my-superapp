@@ -55,7 +55,7 @@ src/
   modules/prayer/             # self-contained module (own store/hooks/services/pages)
 api/
   weather.js                  # Vercel serverless proxy → aviationweather.gov
-  notam.js                    # Vercel serverless proxy → Notamify (Bearer key)
+  notam.js                    # Vercel serverless proxy → autorouter.aero (OAuth)
 ```
 
 ## Conventions & gotchas
@@ -89,8 +89,8 @@ when asked. The service worker caches aggressively; users get an update prompt
 
 ## Known pending work
 
-- **NOTAM (`api/notam.js`)** uses the Notamify API and needs `NOTAMIFY_API_KEY`
-  set in Vercel env vars. Notamify is credit-based, so the proxy edge-caches
-  responses (`s-maxage`) to limit usage.
+- **NOTAM (`api/notam.js`)** is fully implemented but inert until the
+  autorouter.aero account is approved and `AUTOROUTER_EMAIL` /
+  `AUTOROUTER_PASSWORD` are set in Vercel env vars.
 - **Dev-only `npm audit` findings** (esbuild/vite/vitest) — not shipped to
   production; do not `npm audit fix --force` (it pulls a breaking Vite major).
