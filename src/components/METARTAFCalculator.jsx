@@ -372,6 +372,9 @@ export default function METARTAFCalculator() {
         </div>
       )}
 
+      {/* ── COLOUR LEGEND ───────────────────────────────────────────────── */}
+      {results && <SeverityLegend />}
+
       {/* ── RESULTS ─────────────────────────────────────────────────────── */}
       {results && orderedKeys.map(key => (
         <AirportCard key={key} data={results[key]} now={now} />
@@ -431,6 +434,91 @@ function getRoleStyle(label) {
     borderDim:    'rgba(167,139,250,0.18)',
     textDim:      'rgba(167,139,250,0.50)',
   }
+}
+
+// ── Severity colour legend ──────────────────────────────────────────────────
+function SeverityLegend() {
+  const CATS = [
+    { color: '#22c55e', label: 'VFR',  sub: '>3000ft  >5SM'  },
+    { color: '#60a5fa', label: 'MVFR', sub: '1–3000ft  3–5SM' },
+    { color: '#f87171', label: 'IFR',  sub: '500–999ft  1–3SM' },
+    { color: '#e879f9', label: 'LIFR', sub: '<500ft  <1SM'    },
+  ]
+  const WINDS = [
+    { color: '#fbbf24', label: 'STRONG WIND', sub: '≥20kt / gust ≥25kt' },
+    { color: '#f87171', label: 'SEVERE WIND', sub: '≥35kt / gust ≥45kt' },
+  ]
+
+  const dot = color => (
+    <span style={{
+      display: 'inline-block', width: 8, height: 8,
+      borderRadius: '50%', background: color, flexShrink: 0,
+    }} />
+  )
+
+  return (
+    <div style={{
+      background: 'var(--cp-bg3)',
+      border: '1px solid var(--cp-border)',
+      borderRadius: 6, padding: '10px 14px',
+      marginBottom: 20,
+    }}>
+      {/* Flight category row */}
+      <div style={{
+        fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+        letterSpacing: '0.14em', color: 'var(--cp-dim)',
+        marginBottom: 7,
+      }}>
+        FLIGHT CATEGORY
+      </div>
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: '6px 18px',
+        marginBottom: 10,
+      }}>
+        {CATS.map(({ color, label, sub }) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {dot(color)}
+            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11,
+              fontWeight: 700, color, letterSpacing: '0.08em' }}>{label}</span>
+            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+              color: 'var(--cp-dim)', letterSpacing: '0.06em' }}>{sub}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Divider */}
+      <div style={{ borderTop: '1px solid var(--cp-border3)', marginBottom: 8 }} />
+
+      {/* Wind severity row */}
+      <div style={{
+        fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+        letterSpacing: '0.14em', color: 'var(--cp-dim)',
+        marginBottom: 7,
+      }}>
+        WIND SEVERITY
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px' }}>
+        {WINDS.map(({ color, label, sub }) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {dot(color)}
+            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11,
+              fontWeight: 700, color, letterSpacing: '0.08em' }}>{label}</span>
+            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+              color: 'var(--cp-dim)', letterSpacing: '0.06em' }}>{sub}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer note */}
+      <div style={{
+        marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--cp-border3)',
+        fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+        color: 'var(--cp-dim)', letterSpacing: '0.06em', lineHeight: 1.6,
+      }}>
+        COLOURS APPLY TO LATEST REPORT ONLY · WIND TOKEN COLOURED INDEPENDENTLY · TEMPO/PROB AT 70% OPACITY
+      </div>
+    </div>
+  )
 }
 
 // ── Airport result card ─────────────────────────────────────────────────────
