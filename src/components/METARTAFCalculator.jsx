@@ -6,6 +6,7 @@ import {
   getMetarFlightCat, getWindSev,
   tokenizeRaw, parseTafSegments,
 } from '../utils/metarSeverity'
+import { decodeMetar, decodeTaf } from '../utils/metarDecode'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const HOURS_OPTIONS  = [1, 2, 3, 6, 12, 24]
@@ -550,6 +551,7 @@ function SeverityLegend() {
 // ── Airport result card ─────────────────────────────────────────────────────
 function AirportCard({ data, now }) {
   const { icao, label, metar, taf, error } = data
+  const [decoded, setDecoded] = useState(false)
   const role         = getRoleStyle(label)
   const stationName  = metar?.[0]?.name || ''
   const latestMetar  = metar?.[0]
@@ -575,6 +577,24 @@ function AirportCard({ data, now }) {
           </span>
         )}
         <div className="cp-divider" style={{ borderColor: role.borderDim }} />
+        {!error && (metar?.length || taf?.length) ? (
+          <button
+            onClick={() => setDecoded(v => !v)}
+            style={{
+              flexShrink: 0,
+              background: decoded ? role.bgLatest : 'transparent',
+              border: `1px solid ${decoded ? role.color : role.borderDim}`,
+              borderRadius: 4, padding: '3px 10px', cursor: 'pointer',
+              fontFamily: 'var(--cb-font-mono)', fontSize: 9, fontWeight: 700,
+              letterSpacing: '0.12em',
+              color: decoded ? role.color : 'var(--cp-dim)',
+              transition: 'all 0.12s',
+            }}
+            title={decoded ? 'Show raw report' : 'Decode to plain English'}
+          >
+            {decoded ? '⊟ RAW' : '⊞ DECODE'}
+          </button>
+        ) : null}
       </div>
 
       {error ? (
@@ -637,6 +657,14 @@ function AirportCard({ data, now }) {
                 )
               })
             }
+
+            {decoded && latestMetar && (
+              <DecodeBox role={role}>
+                {decodeMetar(latestMetar).map((r, i) => (
+                  <DecodeRow key={i} label={r.label} value={r.value} role={role} />
+                ))}
+              </DecodeBox>
+            )}
           </div>
 
           {/* ── TAF ── */}
@@ -694,9 +722,80 @@ function AirportCard({ data, now }) {
                 )
               })
             }
+
+            {decoded && latestTaf && (() => {
+              const segs = decodeTaf(latestTaf.rawTAF)
+              if (!segs) return null
+              return (
+                <DecodeBox role={role}>
+                  {segs.map((seg, si) => (
+                    <div key={si} style={{
+                      marginBottom: si < segs.length - 1 ? 10 : 0,
+                      opacity: seg.isTemporal ? 0.78 : 1,
+                    }}>
+                      <div style={{
+                        fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700,
+                        letterSpacing: '0.1em', color: role.color, marginBottom: 3,
+                      }}>
+                        {seg.header}
+                      </div>
+                      {seg.items.map((it, j) => (
+                        <div key={j} style={{
+                          fontFamily: 'var(--cb-font-body)', fontSize: 12,
+                          color: 'var(--cp-txt)', lineHeight: 1.5, paddingLeft: 10,
+                        }}>
+                          {it}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </DecodeBox>
+              )
+            })()}
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// ── Decoded-report panel helpers ─────────────────────────────────────────────
+function DecodeBox({ role, children }) {
+  return (
+    <div style={{
+      marginTop: 6,
+      background: 'var(--cp-bg3)',
+      border: `1px solid ${role.borderDim}`,
+      borderLeft: `3px solid ${role.color}`,
+      borderRadius: 4, padding: '10px 14px',
+    }}>
+      <div style={{
+        fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.18em',
+        color: 'var(--cp-dim)', marginBottom: 8,
+      }}>
+        DECODED
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function DecodeRow({ label, value, role }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, marginBottom: 5, alignItems: 'baseline' }}>
+      <span style={{
+        flexShrink: 0, width: 96,
+        fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.08em',
+        color: role.color,
+      }}>
+        {label}
+      </span>
+      <span style={{
+        fontFamily: 'var(--cb-font-body)', fontSize: 12,
+        color: 'var(--cp-txt)', lineHeight: 1.5,
+      }}>
+        {value}
+      </span>
     </div>
   )
 }
