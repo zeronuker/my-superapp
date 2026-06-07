@@ -448,6 +448,9 @@ function SeverityLegend() {
     { color: '#fbbf24', label: 'STRONG WIND', sub: '≥20kt / gust ≥25kt' },
     { color: '#f87171', label: 'SEVERE WIND', sub: '≥35kt / gust ≥45kt' },
   ]
+  const WX = [
+    { color: '#f97316', label: 'PRESENT WEATHER', sub: 'RA  SN  FG  BR  TS  FZRA  GR  HZ  VA  FC  etc.' },
+  ]
 
   const dot = color => (
     <span style={{
@@ -497,8 +500,31 @@ function SeverityLegend() {
       }}>
         WIND SEVERITY
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', marginBottom: 10 }}>
         {WINDS.map(({ color, label, sub }) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {dot(color)}
+            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11,
+              fontWeight: 700, color, letterSpacing: '0.08em' }}>{label}</span>
+            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+              color: 'var(--cp-dim)', letterSpacing: '0.06em' }}>{sub}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Divider */}
+      <div style={{ borderTop: '1px solid var(--cp-border3)', marginBottom: 8 }} />
+
+      {/* Weather phenomena row */}
+      <div style={{
+        fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+        letterSpacing: '0.14em', color: 'var(--cp-dim)',
+        marginBottom: 7,
+      }}>
+        WEATHER PHENOMENA
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px' }}>
+        {WX.map(({ color, label, sub }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {dot(color)}
             <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11,

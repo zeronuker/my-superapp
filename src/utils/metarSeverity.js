@@ -32,6 +32,16 @@ export const WIND_COLORS = {
   SEVERE: '#f87171',
 }
 
+// Present weather phenomena are always coloured orange regardless of flight category.
+export const WX_COLOR = '#f97316'
+
+// Matches any METAR/TAF present-weather token:
+//   optional RE (recent) or VC (vicinity)
+//   optional intensity + or -
+//   optional descriptor MI BC PR DR BL SH TS FZ
+//   one or more phenomenon codes DZ RA SN SG IC PL GR GS BR FG FU VA DU SA HZ PO SQ FC SS DS
+const WX_TOKEN_RE = /^(?:RE|VC)?[+-]?(?:MI|BC|PR|DR|BL|SH|TS|FZ)?(?:DZ|RA|SN|SG|IC|PL|GR|GS|BR|FG|FU|VA|DU|SA|HZ|PO|SQ|FC|SS|DS)+$/
+
 // ── Internal ordering helpers ────────────────────────────────────────────────
 const ORD = ['VFR', 'MVFR', 'IFR', 'LIFR']
 
@@ -66,8 +76,9 @@ function applyWxFloor(cat, wx) {
   const w = wx.toUpperCase()
   // FC, heavy thunderstorm → LIFR floor
   if (/\bFC\b|\+TSRA|\+TS\b|TSGR/.test(w)) return worst(cat, 'LIFR')
-  // Any TS, any FZ → IFR floor
-  if (/\bTS\b|\bFZ/.test(w)) return worst(cat, 'IFR')
+  // Any TS compound (TSRA, TSSN, TSPL …) or any FZ → IFR floor
+  // \bTS matches TS at the start of a word so RETSRA (recent) is correctly excluded
+  if (/\bTS|\bFZ/.test(w)) return worst(cat, 'IFR')
   return cat
 }
 
@@ -138,10 +149,11 @@ export function tokenizeRaw(rawOb, catColor, windColor) {
   if (!rawOb) return [{ text: '—', color: catColor }]
   // Wind token: dddssKT or dddssGssKT or VRBssKT
   const windRe = /^(?:VRB|\d{3})\d{2,3}(?:G\d{2,3})?KT$/
-  return rawOb.split(/(\s+)/).map(tok => ({
-    text:  tok,
-    color: windRe.test(tok) && windColor ? windColor : catColor,
-  }))
+  return rawOb.split(/(\s+)/).map(tok => {
+    if (windRe.test(tok) && windColor) return { text: tok, color: windColor }
+    if (WX_TOKEN_RE.test(tok))         return { text: tok, color: WX_COLOR  }
+    return { text: tok, color: catColor }
+  })
 }
 
 // ── Public: parse a raw TAF string into coloured segments ───────────────────
@@ -201,11 +213,12 @@ export function parseTafSegments(rawTaf) {
     const windSev   = _parseTafWindSev(text)
     const windColor = windSev !== 'NORMAL' ? (WIND_COLORS[windSev] ?? null) : null
 
-    // Tokenise: wind token → windColor, rest → catColor
-    const tokens = text.split(/(\s+)/).map(tok => ({
-      text:  tok,
-      color: windRe.test(tok) && windColor ? windColor : catColor,
-    }))
+    // Tokenise: wind → windColor, wx phenomenon → WX_COLOR, rest → catColor
+    const tokens = text.split(/(\s+)/).map(tok => {
+      if (windRe.test(tok) && windColor) return { text: tok, color: windColor }
+      if (WX_TOKEN_RE.test(tok))         return { text: tok, color: WX_COLOR  }
+      return { text: tok, color: catColor }
+    })
 
     return { type, text, tokens, catColor, cat, isTemporal }
   })
