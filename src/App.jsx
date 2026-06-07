@@ -1,17 +1,23 @@
-import React, { useState } from 'react'
+import React, { useState, lazy, Suspense } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { useCalculatorStore } from './store/calculatorStore'
-import EDTOCalculator from './components/EDTOCalculator'
-import CombinedCalculator from './components/CombinedCalculator'
-import CurrencyCalculator from './components/CurrencyCalculator'
-import InterpolationCalculator from './components/InterpolationCalculator'
-import METARTAFCalculator from './components/METARTAFCalculator'
-import FTLCalculator from './components/FTLCalculator'
-import DensityAltitudeCalculator from './components/DensityAltitudeCalculator'
-import TASCalculator from './components/TASCalculator'
-import PrayerModule, { PrayerSettings } from './modules/prayer'
 import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
+
+// Each tab is code-split into its own chunk, loaded on demand when first opened.
+// vite-plugin-pwa precaches every emitted chunk, so offline still works.
+const CombinedCalculator      = lazy(() => import('./components/CombinedCalculator'))
+const InterpolationCalculator = lazy(() => import('./components/InterpolationCalculator'))
+const EDTOCalculator          = lazy(() => import('./components/EDTOCalculator'))
+const DensityAltitudeCalculator = lazy(() => import('./components/DensityAltitudeCalculator'))
+const TASCalculator           = lazy(() => import('./components/TASCalculator'))
+const CurrencyCalculator      = lazy(() => import('./components/CurrencyCalculator'))
+const METARTAFCalculator      = lazy(() => import('./components/METARTAFCalculator'))
+const FTLCalculator           = lazy(() => import('./components/FTLCalculator'))
+const PrayerModule            = lazy(() => import('./modules/prayer'))
+// Named export → adapt to the default shape React.lazy expects (same chunk as PrayerModule)
+const PrayerSettings = lazy(() =>
+  import('./modules/prayer').then(m => ({ default: m.PrayerSettings })))
 
 export const CALCULATORS = [
   { id: 'calculator',    icon: '🧮',  name: 'Calculator',     component: CombinedCalculator },
@@ -29,6 +35,25 @@ export const CALCULATORS = [
 const LEGACY_IDS = new Set(['normal', 'scientific', 'time'])
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13 }
+
+// Fallback shown while a lazily-loaded tab chunk is fetched.
+function TabLoading({ compact }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+      padding: compact ? '16px 0' : '48px 0',
+      fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.18em',
+      color: 'var(--cp-dim)',
+    }}>
+      <span className="cp-spinner" style={{
+        width: 12, height: 12, borderRadius: '50%',
+        border: '2px solid var(--cp-border)', borderTopColor: 'var(--cp-acc)',
+        display: 'inline-block', animation: 'cp-spin 0.7s linear infinite',
+      }} />
+      LOADING…
+    </div>
+  )
+}
 
 export default function App() {
   const {
@@ -222,7 +247,9 @@ export default function App() {
             <div key={activeCalculator}
               className={settings.reduceMotion ? '' : 'cp-calc-fade'}>
               <ErrorBoundary name={currentCalc?.name} resetKey={activeCalculator}>
-                {CurrentComponent && <CurrentComponent />}
+                <Suspense fallback={<TabLoading />}>
+                  {CurrentComponent && <CurrentComponent />}
+                </Suspense>
               </ErrorBoundary>
             </div>
           </div>
@@ -468,7 +495,9 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
 
         {/* QIBLAT & SOLAT */}
         <SettingsSection title="QIBLAT & SOLAT">
-          <PrayerSettings />
+          <Suspense fallback={<TabLoading compact />}>
+            <PrayerSettings />
+          </Suspense>
         </SettingsSection>
 
         {/* APP UPDATE */}

@@ -247,6 +247,9 @@ input[type="number"] { -moz-appearance: textfield; }
 @keyframes cpFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .cp-calc-fade { animation: cpFadeIn 0.18s ease; }
 
+/* ── Lazy-load spinner ── */
+@keyframes cp-spin { to { transform: rotate(360deg); } }
+
 /* ── Reduce motion ── */
 html[data-reduce-motion="true"] .cp-calc-fade { animation: none; }
 html[data-reduce-motion="true"] * { transition: none !important; }
