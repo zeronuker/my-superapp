@@ -9,6 +9,7 @@ import METARTAFCalculator from './components/METARTAFCalculator'
 import FTLCalculator from './components/FTLCalculator'
 import PrayerModule, { PrayerSettings } from './modules/prayer'
 import UpdatePrompt from './components/UpdatePrompt'
+import ErrorBoundary from './components/ErrorBoundary'
 
 export const CALCULATORS = [
   { id: 'calculator',    icon: '🧮',  name: 'Calculator',     component: CombinedCalculator },
@@ -216,7 +217,9 @@ export default function App() {
           }}>
             <div key={activeCalculator}
               className={settings.reduceMotion ? '' : 'cp-calc-fade'}>
-              {CurrentComponent && <CurrentComponent />}
+              <ErrorBoundary name={currentCalc?.name} resetKey={activeCalculator}>
+                {CurrentComponent && <CurrentComponent />}
+              </ErrorBoundary>
             </div>
           </div>
         </main>
