@@ -482,7 +482,7 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
         color: 'var(--cp-dim)',
         flexShrink: 0,
       }}>
-        v2.5
+        v3.0
       </div>
     </div>
   )
