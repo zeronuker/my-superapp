@@ -439,10 +439,10 @@ function getRoleStyle(label) {
 // ── Severity colour legend ──────────────────────────────────────────────────
 function SeverityLegend() {
   const CATS = [
-    { color: '#22c55e', label: 'VFR',  sub: '>3000ft  >5SM'  },
-    { color: '#60a5fa', label: 'MVFR', sub: '1–3000ft  3–5SM' },
-    { color: '#f87171', label: 'IFR',  sub: '500–999ft  1–3SM' },
-    { color: '#e879f9', label: 'LIFR', sub: '<500ft  <1SM'    },
+    { color: '#22c55e', label: 'VFR',  sub: '>3000ft  ≥8000m'      },
+    { color: '#60a5fa', label: 'MVFR', sub: '1–3000ft  5000–7999m' },
+    { color: '#f87171', label: 'IFR',  sub: '500–999ft  1500–4999m' },
+    { color: '#e879f9', label: 'LIFR', sub: '<500ft  <1500m'        },
   ]
   const WINDS = [
     { color: '#fbbf24', label: 'STRONG WIND', sub: '≥20kt / gust ≥25kt' },

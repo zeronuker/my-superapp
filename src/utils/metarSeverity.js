@@ -1,11 +1,13 @@
 /**
  * METAR / TAF severity colour utilities.
  *
- * Flight categories
- *   VFR  – ceiling > 3 000 ft  AND  vis > 5 SM    → green  #22c55e
- *   MVFR – ceiling 1 000–3 000 ft  OR  vis 3–5 SM → blue   #60a5fa
- *   IFR  – ceiling 500–999 ft      OR  vis 1–3 SM → red    #f87171
- *   LIFR – ceiling < 500 ft        OR  vis < 1 SM → magenta #e879f9
+ * Flight categories — visibility thresholds in METRES (ICAO standard)
+ *   VFR  – ceiling > 3 000 ft  AND  vis ≥ 8 000 m  → green   #22c55e
+ *   MVFR – ceiling 1 000–3 000 ft  OR  vis 5 000–7 999 m → blue #60a5fa
+ *   IFR  – ceiling 500–999 ft      OR  vis 1 500–4 999 m → red  #f87171
+ *   LIFR – ceiling < 500 ft        OR  vis < 1 500 m     → magenta #e879f9
+ *
+ *   9999 in raw METAR = "10 km or more" → treated as 10 000 m (VFR)
  *
  * Wind severity (token-level, independent of flight category)
  *   NORMAL – spd < 20 kt  AND  gust < 25 kt → no override
@@ -41,11 +43,13 @@ function worst(a, b) {
   return ORD[Math.max(ORD.indexOf(a), ORD.indexOf(b))]
 }
 
-function visCat(sm) {
-  if (sm == null) return null
-  if (sm < 1)  return 'LIFR'
-  if (sm < 3)  return 'IFR'
-  if (sm < 5)  return 'MVFR'
+// Visibility thresholds are in METRES (ICAO standard).
+// 9999 in a raw METAR means "10 km or more" → pass 10000.
+function visCat(m) {
+  if (m == null) return null
+  if (m < 1500) return 'LIFR'
+  if (m < 5000) return 'IFR'
+  if (m < 8000) return 'MVFR'
   return 'VFR'
 }
 
@@ -83,14 +87,15 @@ export function getMetarFlightCat(m) {
   const raw = m.rawOb || ''
   const wx  = (m.wxString || '').toUpperCase()
 
+  // aviationweather.gov returns visib in statute miles — convert to metres
+  // so visCat() can use consistent ICAO metre thresholds.
+  const visM = m.visib != null ? parseFloat(m.visib) * 1609.34 : null
+
   // CAVOK / unlimited sky codes → automatically VFR ceiling, apply wx floor
   if (/\b(CAVOK|CLR|SKC|NCD|NSC)\b/.test(raw)) {
-    const visSm = m.visib != null ? parseFloat(m.visib) : null
-    const base  = visSm != null ? (visCat(visSm) ?? 'VFR') : 'VFR'
+    const base = visM != null ? (visCat(visM) ?? 'VFR') : 'VFR'
     return applyWxFloor(base, wx)
   }
-
-  const visSm  = m.visib != null ? parseFloat(m.visib) : null
 
   // Find ceiling = lowest BKN or OVC layer
   let ceiling = null
@@ -102,7 +107,7 @@ export function getMetarFlightCat(m) {
     }
   }
 
-  const base = worst(visCat(visSm), ceilCat(ceiling))
+  const base = worst(visCat(visM), ceilCat(ceiling))
   if (base === null) return null  // no usable data → no colour override
 
   return applyWxFloor(base, wx)
@@ -210,43 +215,43 @@ export function parseTafSegments(rawTaf) {
 function _categorizeTafText(text) {
   // Unlimited sky codes → VFR base
   if (/\b(CAVOK|SKC|NCD|NSC)\b/.test(text)) {
-    const visSm = _parseTafVisSm(text)
-    const vc    = visSm != null ? (visCat(visSm) ?? 'VFR') : 'VFR'
+    const visM = _parseTafVisM(text)
+    const vc   = visM != null ? (visCat(visM) ?? 'VFR') : 'VFR'
     return applyWxFloor(vc, _parseTafWxStr(text))
   }
 
-  const visSm  = _parseTafVisSm(text)
+  const visM    = _parseTafVisM(text)
   const ceiling = _parseTafCeilFt(text)
-  const base    = worst(visCat(visSm), ceilCat(ceiling))
+  const base    = worst(visCat(visM), ceilCat(ceiling))
   const safeBase = base ?? 'VFR'  // default optimistic when both null (e.g. continuation line)
 
   return applyWxFloor(safeBase, _parseTafWxStr(text))
 }
 
-function _parseTafVisSm(text) {
-  // US format: "5SM", "1/2SM", "1 1/2SM"
+// Returns visibility in METRES.
+// ICAO 4-digit values are already in metres; US SM values are converted.
+function _parseTafVisM(text) {
+  // US format: "5SM", "1/2SM", "1 1/2SM" — convert SM → metres
   const smMatch = text.match(/\b(\d+(?:\s+\d+\/\d+|\/\d+)?)\s*SM\b/)
   if (smMatch) {
     const parts = smMatch[1].trim().split(/\s+/)
-    let val = 0
+    let valSm = 0
     for (const p of parts) {
       if (p.includes('/')) {
         const [n, d] = p.split('/')
-        val += parseFloat(n) / parseFloat(d)
+        valSm += parseFloat(n) / parseFloat(d)
       } else {
-        val += parseFloat(p)
+        valSm += parseFloat(p)
       }
     }
-    return val
+    return valSm * 1609.34
   }
-  // ICAO metric: 4-digit 0400–9998 (not inside a cloud group or time group)
-  // Must not be preceded directly by BKN/FEW/SCT/OVC or a /
+  // ICAO metric: 4-digit metres (0400–9999), not inside a cloud group or time group
   const mMatch = text.match(/(?<![A-Z\/])(\b(?:0[4-9]\d{2}|[1-8]\d{3}|9999)\b)(?!\s*FT)/)
   if (mMatch) {
     const v = parseInt(mMatch[1])
-    if (v === 9999) return 10
-    // Only treat as visibility if within plausible range
-    if (v >= 400 && v <= 9998) return v / 1609.34
+    if (v === 9999) return 10000  // "10 km or more"
+    if (v >= 400 && v <= 9998) return v  // already metres
   }
   return null
 }
