@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import NotamViewer from './NotamViewer'
+import {
+  CAT_COLORS, WIND_COLORS,
+  getMetarFlightCat, getWindSev,
+  tokenizeRaw, parseTafSegments,
+} from '../utils/metarSeverity'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const HOURS_OPTIONS  = [1, 2, 3, 6, 12, 24]
@@ -481,26 +486,42 @@ function AirportCard({ data, now }) {
 
             {metar.length === 0
               ? <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>NO METAR DATA</div>
-              : metar.map((m, i) => (
-                <div key={i} style={{
-                  background: i === 0 ? role.bgLatest : role.bgDim,
-                  border: `1px solid ${i === 0 ? role.borderLatest : role.borderDim}`,
-                  borderLeft: `3px solid ${i === 0 ? role.color : role.borderDim}`,
-                  borderRadius: 4, padding: '8px 12px', marginBottom: 4,
-                }}>
-                  {i === 0 && (
-                    <div style={{ fontSize: 9, color: role.color,
-                      letterSpacing: '0.2em', marginBottom: 3 }}>LATEST</div>
-                  )}
-                  <div style={{
-                    fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.6,
-                    color: i === 0 ? role.color : role.textDim,
-                    wordBreak: 'break-all',
+              : metar.map((m, i) => {
+                // Latest report: severity colour coding
+                // Older reports: existing dimmed role colour (no change)
+                let textContent
+                if (i === 0) {
+                  const cat      = getMetarFlightCat(m)
+                  const catColor = cat ? CAT_COLORS[cat] : role.color
+                  const windSev  = getWindSev(m.wspd, m.wgst)
+                  const windColor = windSev !== 'NORMAL' ? WIND_COLORS[windSev] : null
+                  const tokens   = tokenizeRaw(m.rawOb, catColor, windColor)
+                  textContent = tokens.map((tok, j) => (
+                    <span key={j} style={{ color: tok.color }}>{tok.text}</span>
+                  ))
+                } else {
+                  textContent = <span style={{ color: role.textDim }}>{m.rawOb || '—'}</span>
+                }
+                return (
+                  <div key={i} style={{
+                    background: i === 0 ? role.bgLatest : role.bgDim,
+                    border: `1px solid ${i === 0 ? role.borderLatest : role.borderDim}`,
+                    borderLeft: `3px solid ${i === 0 ? role.color : role.borderDim}`,
+                    borderRadius: 4, padding: '8px 12px', marginBottom: 4,
                   }}>
-                    {m.rawOb || '—'}
+                    {i === 0 && (
+                      <div style={{ fontSize: 9, color: role.color,
+                        letterSpacing: '0.2em', marginBottom: 3 }}>LATEST</div>
+                    )}
+                    <div style={{
+                      fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.6,
+                      wordBreak: 'break-all',
+                    }}>
+                      {textContent}
+                    </div>
                   </div>
-                </div>
-              ))
+                )
+              })
             }
           </div>
 
@@ -520,19 +541,44 @@ function AirportCard({ data, now }) {
 
             {taf.length === 0
               ? <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>NO TAF DATA</div>
-              : taf.map((t, i) => (
-                <div key={i} style={{
-                  background: i === 0 ? role.bgLatest : role.bgDim,
-                  border: `1px solid ${i === 0 ? role.borderLatest : role.borderDim}`,
-                  borderLeft: `3px solid ${i === 0 ? role.color : role.borderDim}`,
-                  borderRadius: 4, padding: '10px 12px', marginBottom: 4,
-                  fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.8,
-                  color: i === 0 ? role.color : role.textDim,
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                }}>
-                  {t.rawTAF || '—'}
-                </div>
-              ))
+              : taf.map((t, i) => {
+                // Latest TAF: parse into forecast segments and colour each independently
+                // Older TAFs: existing dimmed role colour (no change)
+                let tafContent
+                if (i === 0) {
+                  const segments = parseTafSegments(t.rawTAF)
+                  if (segments && segments.length > 0) {
+                    tafContent = segments.map((seg, si) => (
+                      <div key={si} style={{ opacity: seg.isTemporal ? 0.7 : 1 }}>
+                        {seg.tokens.map((tok, j) => (
+                          <span key={j} style={{ color: tok.color }}>{tok.text}</span>
+                        ))}
+                      </div>
+                    ))
+                  } else {
+                    // Fallback if parse yields nothing
+                    tafContent = <span style={{ color: role.color }}>{t.rawTAF || '—'}</span>
+                  }
+                } else {
+                  tafContent = <span style={{ color: role.textDim }}>{t.rawTAF || '—'}</span>
+                }
+                return (
+                  <div key={i} style={{
+                    background: i === 0 ? role.bgLatest : role.bgDim,
+                    border: `1px solid ${i === 0 ? role.borderLatest : role.borderDim}`,
+                    borderLeft: `3px solid ${i === 0 ? role.color : role.borderDim}`,
+                    borderRadius: 4, padding: '10px 12px', marginBottom: 4,
+                    fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.8,
+                    wordBreak: 'break-word',
+                  }}>
+                    {i === 0 && (
+                      <div style={{ fontSize: 9, color: role.color,
+                        letterSpacing: '0.2em', marginBottom: 3 }}>LATEST</div>
+                    )}
+                    {tafContent}
+                  </div>
+                )
+              })
             }
           </div>
         </>
