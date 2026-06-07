@@ -7,6 +7,8 @@ import CurrencyCalculator from './components/CurrencyCalculator'
 import InterpolationCalculator from './components/InterpolationCalculator'
 import METARTAFCalculator from './components/METARTAFCalculator'
 import FTLCalculator from './components/FTLCalculator'
+import DensityAltitudeCalculator from './components/DensityAltitudeCalculator'
+import TASCalculator from './components/TASCalculator'
 import PrayerModule, { PrayerSettings } from './modules/prayer'
 import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -15,6 +17,8 @@ export const CALCULATORS = [
   { id: 'calculator',    icon: '🧮',  name: 'Calculator',     component: CombinedCalculator },
   { id: 'interpolation', icon: '📐',  name: 'Interpolation',  component: InterpolationCalculator },
   { id: 'edto',          icon: '✈️', name: 'EDTO',           component: EDTOCalculator },
+  { id: 'densityalt',    icon: '🌡️', name: 'Density Alt',     component: DensityAltitudeCalculator },
+  { id: 'tas',           icon: '💨',  name: 'TAS',            component: TASCalculator },
   { id: 'currency',      icon: '💱',  name: 'Currency',       component: CurrencyCalculator },
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
   { id: 'ftl',           icon: '⏳',  name: 'FTL',            component: FTLCalculator },
