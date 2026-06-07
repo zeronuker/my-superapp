@@ -233,7 +233,7 @@ export default function App() {
           lineHeight: 1.8,
         }}>
           <div>CLAUDEBORNE SUPERAPP · PWA OFFLINE CAPABLE</div>
-          <div style={{ fontSize: 9, letterSpacing: '0.16em' }}>v2.5</div>
+          <div style={{ fontSize: 9, letterSpacing: '0.16em' }}>v3.0</div>
         </footer>
       </div>
 
