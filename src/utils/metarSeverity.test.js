@@ -184,6 +184,20 @@ describe('tokenizeRaw', () => {
     expect(out.find(t => t.text === '24022G34KT').color).toBe(WIND_COLORS.SEVERE)
     expect(out.find(t => t.text === '-RA').color).toBe(WX_COLOR)
   })
+
+  it('splits a CB cloud group — base in category colour, CB in WX colour', () => {
+    const out = visibleTokens(tokenizeRaw('XXXX FEW017CB SCT030', CAT_COLORS.MVFR, null))
+    expect(out.find(t => t.text === 'FEW017').color).toBe(CAT_COLORS.MVFR)
+    expect(out.find(t => t.text === 'CB').color).toBe(WX_COLOR)
+    // a plain cloud group stays whole, in category colour
+    expect(out.find(t => t.text === 'SCT030').color).toBe(CAT_COLORS.MVFR)
+  })
+
+  it('splits a TCU cloud group', () => {
+    const out = visibleTokens(tokenizeRaw('XXXX BKN025TCU', CAT_COLORS.IFR, null))
+    expect(out.find(t => t.text === 'BKN025').color).toBe(CAT_COLORS.IFR)
+    expect(out.find(t => t.text === 'TCU').color).toBe(WX_COLOR)
+  })
 })
 
 describe('parseTafSegments', () => {

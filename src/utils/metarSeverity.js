@@ -42,6 +42,39 @@ export const WX_COLOR = '#facc15'
 //   one or more phenomenon codes DZ RA SN SG IC PL GR GS BR FG FU VA DU SA HZ PO SQ FC SS DS
 const WX_TOKEN_RE = /^(?:RE|VC)?[+-]?(?:MI|BC|PR|DR|BL|SH|TS|FZ)?(?:DZ|RA|SN|SG|IC|PL|GR|GS|BR|FG|FU|VA|DU|SA|HZ|PO|SQ|FC|SS|DS)+$/
 
+// Wind token: dddssKT, dddssGssKT or VRBssKT
+const WIND_TOKEN_RE = /^(?:VRB|\d{3})\d{2,3}(?:G\d{2,3})?KT$/
+
+// Cloud group carrying a convective type suffix — CB (cumulonimbus) or TCU
+// (towering cumulus). These are operationally significant, so the suffix is
+// coloured like present weather while the base layer keeps the category colour.
+const CLOUD_CB_RE = /^(FEW|SCT|BKN|OVC|VV)(\d{3}|\/{3})(CB|TCU)$/
+
+// ── Token colouring ──────────────────────────────────────────────────────────
+/**
+ * Returns one or more coloured parts for a single raw token.
+ * Most tokens yield a single part; a cloud group ending in CB/TCU is split so
+ * the convective suffix can be highlighted independently.
+ *
+ * Priority: wind severity > present weather > CB/TCU cloud suffix > category.
+ *
+ * @returns {Array<{text:string, color:string}>}
+ */
+function colorizeToken(tok, catColor, windColor) {
+  if (WIND_TOKEN_RE.test(tok) && windColor) return [{ text: tok, color: windColor }]
+  if (WX_TOKEN_RE.test(tok))                return [{ text: tok, color: WX_COLOR  }]
+
+  const cb = tok.match(CLOUD_CB_RE)
+  if (cb) {
+    return [
+      { text: cb[1] + cb[2], color: catColor }, // e.g. "FEW017"
+      { text: cb[3],         color: WX_COLOR },  // "CB" / "TCU"
+    ]
+  }
+
+  return [{ text: tok, color: catColor }]
+}
+
 // ── Internal ordering helpers ────────────────────────────────────────────────
 const ORD = ['VFR', 'MVFR', 'IFR', 'LIFR']
 
@@ -147,13 +180,7 @@ export function getWindSev(wspd, wgst) {
  */
 export function tokenizeRaw(rawOb, catColor, windColor) {
   if (!rawOb) return [{ text: '—', color: catColor }]
-  // Wind token: dddssKT or dddssGssKT or VRBssKT
-  const windRe = /^(?:VRB|\d{3})\d{2,3}(?:G\d{2,3})?KT$/
-  return rawOb.split(/(\s+)/).map(tok => {
-    if (windRe.test(tok) && windColor) return { text: tok, color: windColor }
-    if (WX_TOKEN_RE.test(tok))         return { text: tok, color: WX_COLOR  }
-    return { text: tok, color: catColor }
-  })
+  return rawOb.split(/(\s+)/).flatMap(tok => colorizeToken(tok, catColor, windColor))
 }
 
 // ── Public: parse a raw TAF string into coloured segments ───────────────────
@@ -193,8 +220,6 @@ export function parseTafSegments(rawTaf) {
 
   if (groups.length === 0) return null
 
-  const windRe = /^(?:VRB|\d{3})\d{2,3}(?:G\d{2,3})?KT$/
-
   return groups.map(text => {
     // Determine segment type
     const type = /^FM/.test(text)    ? 'FM'
@@ -213,12 +238,8 @@ export function parseTafSegments(rawTaf) {
     const windSev   = _parseTafWindSev(text)
     const windColor = windSev !== 'NORMAL' ? (WIND_COLORS[windSev] ?? null) : null
 
-    // Tokenise: wind → windColor, wx phenomenon → WX_COLOR, rest → catColor
-    const tokens = text.split(/(\s+)/).map(tok => {
-      if (windRe.test(tok) && windColor) return { text: tok, color: windColor }
-      if (WX_TOKEN_RE.test(tok))         return { text: tok, color: WX_COLOR  }
-      return { text: tok, color: catColor }
-    })
+    // Tokenise: wind → windColor, wx/CB-TCU → WX_COLOR, rest → catColor
+    const tokens = text.split(/(\s+)/).flatMap(tok => colorizeToken(tok, catColor, windColor))
 
     return { type, text, tokens, catColor, cat, isTemporal }
   })
