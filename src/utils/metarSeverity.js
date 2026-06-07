@@ -259,8 +259,11 @@ function _parseTafVisM(text) {
     }
     return valSm * 1609.34
   }
-  // ICAO metric: 4-digit metres (0400–9999), not inside a cloud group or time group
-  const mMatch = text.match(/(?<![A-Z\/])(\b(?:0[4-9]\d{2}|[1-8]\d{3}|9999)\b)(?!\s*FT)/)
+  // ICAO metric: 4-digit metres (0400–9999).
+  //   (?<![A-Z\/])  — not preceded by a letter or '/' (excludes cloud bases, RHS of a validity period)
+  //   (?!\/)        — not followed by '/' (excludes the LHS of a validity period like 1212/1318)
+  //   (?!\s*FT)     — not a height value in feet
+  const mMatch = text.match(/(?<![A-Z\/])(\b(?:0[4-9]\d{2}|[1-8]\d{3}|9999)\b)(?!\/)(?!\s*FT)/)
   if (mMatch) {
     const v = parseInt(mMatch[1])
     if (v === 9999) return 10000  // "10 km or more"
