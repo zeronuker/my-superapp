@@ -1,7 +1,7 @@
 /**
- * NOTAM service — autorouter.aero API (free, no key, Eurocontrol EAD data)
- * Proxied through /api/notam to avoid CORS.
- * Docs: https://www.autorouter.aero/wiki/api/notams/
+ * NOTAM service — Notamify API (credit-based, Bearer key, global coverage).
+ * Proxied through /api/notam to avoid CORS and keep the key server-side.
+ * Docs: https://skymerse.gitbook.io/notamify-api
  */
 
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
@@ -134,55 +134,97 @@ function qCodeToSummary(qCode) {
 }
 
 // ── Validity helpers ──────────────────────────────────────────────────────────
-// autorouter uses Unix timestamps (seconds). endvalidity ≥ 2^31 means PERM.
-const PERM_THRESHOLD = 2_000_000_000
-
-function fmtUnixDate(sec) {
-  if (!sec || sec >= PERM_THRESHOLD) return 'PERM'
-  return new Date(sec * 1000).toISOString().slice(0, 16).replace('T', ' ') + 'Z'
+// Notamify uses ISO-8601 timestamps plus an is_permanent boolean.
+function fmtISO(ms) {
+  if (ms == null || isNaN(ms)) return '—'
+  return new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + 'Z'
 }
 
 function computeValidity(raw) {
-  const now      = Date.now()
-  const startMs  = raw.startvalidity ? raw.startvalidity * 1000 : null
-  const endSec   = raw.endvalidity
-  const isPerm   = !endSec || endSec >= PERM_THRESHOLD
-  const endMs    = isPerm ? null : endSec * 1000
+  const now     = Date.now()
+  const startMs = raw.starts_at ? Date.parse(raw.starts_at) : null
+  const isPerm  = !!raw.is_permanent || !raw.ends_at
+  const endMs   = isPerm ? null : Date.parse(raw.ends_at)
+
+  const hasStart = startMs != null && !isNaN(startMs)
+  const hasEnd   = endMs   != null && !isNaN(endMs)
 
   let status = 'UNKNOWN'
-  if (startMs !== null) {
-    if (startMs > now)              status = 'FUTURE'
-    else if (!isPerm && endMs < now) status = 'EXPIRED'
-    else                             status = 'ACTIVE'
+  if (hasStart) {
+    if (startMs > now)                  status = 'FUTURE'
+    else if (!isPerm && hasEnd && endMs < now) status = 'EXPIRED'
+    else                                status = 'ACTIVE'
+  } else if (isPerm) {
+    status = 'ACTIVE'
   }
 
   return {
     status,
-    start:    startMs ? new Date(startMs) : null,
-    end:      endMs   ? new Date(endMs)   : null,
-    startStr: fmtUnixDate(raw.startvalidity),
-    endStr:   isPerm ? 'PERM' : fmtUnixDate(endSec),
+    start:    hasStart ? new Date(startMs) : null,
+    end:      hasEnd   ? new Date(endMs)   : null,
+    startStr: hasStart ? fmtISO(startMs) : '—',
+    endStr:   isPerm ? 'PERM' : fmtISO(endMs),
   }
 }
 
-// ── Build readable NOTAM ID ───────────────────────────────────────────────────
-function buildId(raw) {
-  const series = raw.series || ''
-  const num    = String(raw.number || '').padStart(4, '0')
-  const yr     = String(raw.year || '').slice(-2)
-  if (!num || num === '0000') return raw.id || 'UNKNOWN'
-  return yr ? `${series}${num}/${yr}` : `${series}${num}`
+// ── Q-code extraction ─────────────────────────────────────────────────────────
+// Prefer the structured qcode field; fall back to the Q) line in the raw text.
+function extractQCode(raw) {
+  let q = (raw.qcode || '').toUpperCase().trim()
+  if (q && !q.startsWith('Q')) q = 'Q' + q
+  if (q.length >= 2) return q
+
+  const m = (raw.icao_message || '').match(/Q\)\s*[A-Z]{4}\/(Q[A-Z]{2,4})/i)
+  return m ? m[1].toUpperCase() : ''
 }
 
-// ── Build raw NOTAM text from item fields ─────────────────────────────────────
-function buildRaw(raw) {
-  return [
-    raw.itema ? `A) ${raw.itema}` : '',
-    raw.itemd ? `D) ${raw.itemd}` : '',
-    raw.iteme ? `E) ${raw.iteme}` : '',
-    raw.itemf ? `F) ${raw.itemf}` : '',
-    raw.itemg ? `G) ${raw.itemg}` : '',
-  ].filter(Boolean).join('\n') || JSON.stringify(raw)
+// ── Parse one Notamify NOTAM object → app shape (pure, testable) ──────────────
+/**
+ * @param {object} raw  a Notamify notam object
+ * @returns {object|null} normalised NOTAM, or null if unusable
+ */
+export function parseNotam(raw) {
+  if (!raw) return null
+  const id = raw.notam_number || raw.id
+  if (!id) return null
+
+  const qCode    = extractQCode(raw)
+  const validity = computeValidity(raw)
+
+  return {
+    id:       String(id),
+    icao:     raw.icao_code || raw.location || '',
+    category: classifyQCode(qCode),
+    summary:  qCodeToSummary(qCode),
+    qCode,
+    validity,
+    startStr: validity.startStr,
+    endStr:   validity.endStr,
+    raw:      raw.icao_message || raw.message || JSON.stringify(raw),
+  }
+}
+
+const STATUS_ORDER = { ACTIVE: 0, FUTURE: 1, EXPIRED: 2, UNKNOWN: 3 }
+
+/**
+ * Parse a Notamify API response ({ notams: [...] }) into sorted app NOTAMs,
+ * deduplicating by id. Pure — accepts an array of response objects.
+ */
+export function parseNotamResponses(responses) {
+  const out  = []
+  const seen = new Set()
+
+  for (const resp of responses) {
+    for (const raw of resp?.notams ?? []) {
+      const n = parseNotam(raw)
+      if (!n || seen.has(n.id)) continue
+      seen.add(n.id)
+      out.push(n)
+    }
+  }
+
+  out.sort((a, b) => STATUS_ORDER[a.validity.status] - STATUS_ORDER[b.validity.status])
+  return out
 }
 
 // ── Main fetch ────────────────────────────────────────────────────────────────
@@ -190,13 +232,13 @@ function buildRaw(raw) {
  * Fetch NOTAMs for a list of ICAO location codes (airports or FIRs).
  * Returns parsed NOTAM objects sorted: ACTIVE → FUTURE → EXPIRED.
  */
-export async function fetchNotams(icaoList, pageSize = 100) {
+export async function fetchNotams(icaoList) {
   if (!icaoList?.length) return []
 
   const results = await Promise.allSettled(
     icaoList.map(icao =>
       fetch(
-        `/api/notam?icao=${icao.toUpperCase()}&pageSize=${pageSize}`,
+        `/api/notam?icao=${icao.toUpperCase()}`,
         { signal: AbortSignal.timeout(15_000) }
       ).then(r => r.ok ? r.json() : Promise.reject(new Error(`${icao}: HTTP ${r.status}`)))
     )
@@ -206,45 +248,11 @@ export async function fetchNotams(icaoList, pageSize = 100) {
   const allFailed = results.every(r => r.status === 'rejected')
   if (allFailed) throw new Error(results[0]?.reason?.message ?? 'All NOTAM requests failed')
 
-  const allNotams = []
-  const seen      = new Set()
+  const responses = results
+    .filter(r => r.status === 'fulfilled')
+    .map(r => r.value)
 
-  for (const r of results) {
-    if (r.status !== 'fulfilled') continue
-
-    // autorouter returns { total, rows: [...] }
-    const rows = r.value?.rows ?? []
-
-    for (const raw of rows) {
-      const id = buildId(raw)
-      if (!id || seen.has(id)) continue
-      seen.add(id)
-
-      // Q-code is split across code23 (subject) and code45 (condition)
-      const qCode    = 'Q' + (raw.code23 || '') + (raw.code45 || '')
-      const category = classifyQCode(qCode)
-      const summary  = qCodeToSummary(qCode)
-      const validity = computeValidity(raw)
-
-      allNotams.push({
-        id,
-        icao:     raw.itema || raw.fir || '',
-        category,
-        summary,
-        qCode,
-        validity,
-        startStr: validity.startStr,
-        endStr:   validity.endStr,
-        raw:      buildRaw(raw),
-      })
-    }
-  }
-
-  // Sort: ACTIVE → FUTURE → EXPIRED → UNKNOWN
-  const order = { ACTIVE: 0, FUTURE: 1, EXPIRED: 2, UNKNOWN: 3 }
-  allNotams.sort((a, b) => order[a.validity.status] - order[b.validity.status])
-
-  return allNotams
+  return parseNotamResponses(responses)
 }
 
 // ── FIR route detection ───────────────────────────────────────────────────────
