@@ -101,7 +101,8 @@ export const useCalculatorStore = create((set) => ({
         rows: [{ x: '', ys: [''] }, { x: '', ys: [''] }, { x: '', ys: [''] }],
         lookupX: '', lookupZ: '', result: '',
       },
-      activeCalculator: 'calculator',
+      // Note: activeCalculator is deliberately left unchanged — Reset All clears
+      // calculator data but should not navigate the user away from their tab.
       resetCount: s.resetCount + 1,
     }))
   },

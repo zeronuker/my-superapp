@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { T } from './tokens'
 
 const CARDINALS = [
@@ -9,6 +9,20 @@ const CARDINALS = [
 ]
 
 const TICKS = Array.from({ length: 72 }, (_, i) => i * 5)
+
+/**
+ * Returns a continuously-increasing angle that tracks `target` (a 0–360° value)
+ * by the shortest signed step each update. This stops CSS rotations from
+ * spinning ~360° the "long way" when the heading wraps past north (0/360°).
+ */
+function useUnwrappedAngle(target) {
+  const ref = useRef(target ?? 0)
+  if (target != null) {
+    const delta = ((target - ref.current) % 360 + 540) % 360 - 180  // shortest step ∈ (-180,180]
+    ref.current += delta
+  }
+  return ref.current
+}
 
 export default function CompassDial({
   needleAngle  = 0,
@@ -22,6 +36,10 @@ export default function CompassDial({
   const size = 230
   const cx = size / 2, cy = size / 2
   const R  = size / 2 - 14
+
+  // Unwrapped angles so the rose + needle rotate the short way across north
+  const roseAngle   = useUnwrappedAngle(live && heading != null ? -heading : 0)
+  const needleAngleC = useUnwrappedAngle(needleAngle)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
@@ -38,7 +56,7 @@ export default function CompassDial({
           fill="var(--cp-bg3, #1b2340)" stroke="var(--cp-border2)" strokeWidth={1.5} />
 
         {/* Rotating compass rose — spins with device so N always tracks real North */}
-        <g transform={`rotate(${live && heading != null ? -heading : 0}, ${cx}, ${cy})`}
+        <g transform={`rotate(${roseAngle}, ${cx}, ${cy})`}
            style={{ transition: live ? 'transform 0.15s ease-out' : 'none' }}>
 
           {/* Inner ring */}
@@ -78,8 +96,9 @@ export default function CompassDial({
           })}
         </g>
 
-        {/* Qibla needle — rotates to needleAngle */}
-        <g transform={`rotate(${needleAngle}, ${cx}, ${cy})`}>
+        {/* Qibla needle — rotates to needleAngle (unwrapped to avoid north-cross spin) */}
+        <g transform={`rotate(${needleAngleC}, ${cx}, ${cy})`}
+           style={{ transition: live ? 'transform 0.15s ease-out' : 'none' }}>
           {/* Pointing tip (toward Mecca) */}
           <polygon
             points={`${cx},${cy - R + 38} ${cx - 7},${cy + 14} ${cx + 7},${cy + 14}`}

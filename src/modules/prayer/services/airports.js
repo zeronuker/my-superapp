@@ -87,7 +87,8 @@ const AIRPORTS = {
   // ── East Asia ────────────────────────────────────────────────────────────────
   RJTT: { name: 'Tokyo Haneda',                 city: 'Tokyo',        country: 'Japan',        lat: 35.5494,  lng: 139.7798 },
   RJAA: { name: 'Narita Intl',                  city: 'Tokyo',        country: 'Japan',        lat: 35.7653,  lng: 140.3864 },
-  RJOO: { name: 'Kansai Intl',                  city: 'Osaka',        country: 'Japan',        lat: 34.4272,  lng: 135.2440 },
+  RJBB: { name: 'Kansai Intl',                  city: 'Osaka',        country: 'Japan',        lat: 34.4347,  lng: 135.2440 },
+  RJOO: { name: 'Osaka Itami Intl',             city: 'Osaka',        country: 'Japan',        lat: 34.7855,  lng: 135.4382 },
   RKSI: { name: 'Incheon Intl',                 city: 'Seoul',        country: 'South Korea',  lat: 37.4691,  lng: 126.4510 },
   ZBAA: { name: 'Beijing Capital Intl',         city: 'Beijing',      country: 'China',        lat: 40.0799,  lng: 116.6031 },
   ZSPD: { name: 'Shanghai Pudong Intl',         city: 'Shanghai',     country: 'China',        lat: 31.1434,  lng: 121.8052 },
