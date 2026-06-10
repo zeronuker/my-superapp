@@ -561,7 +561,7 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
         className={animate ? 'cp-modal-anim' : ''}
         style={{
           position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          width: 'min(560px, 92vw)', maxHeight: '86vh',
+          width: 'min(560px, 92vw)', height: 'min(620px, 86vh)',
           background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 8,
           zIndex: 200, display: 'flex', flexDirection: 'column', overflow: 'hidden',
           boxShadow: '0 24px 60px rgba(0,0,0,0.55)',
