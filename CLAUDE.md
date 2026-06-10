@@ -87,10 +87,12 @@ Push to `master` → Vercel builds and deploys automatically. Commit/push only
 when asked. The service worker caches aggressively; users get an update prompt
 (`UpdatePrompt.jsx`) when a new build is available.
 
-## Known pending work
+## Notes
 
-- **NOTAM (`api/notam.js`)** is fully implemented but inert until the
-  autorouter.aero account is approved and `AUTOROUTER_EMAIL` /
-  `AUTOROUTER_PASSWORD` are set in Vercel env vars.
+- **NOTAM (`api/notam.js`)** is live via the autorouter.aero API (OAuth, free).
+  Requires `AUTOROUTER_EMAIL` / `AUTOROUTER_PASSWORD` in Vercel env vars — these
+  are the account login email/password (autorouter uses them as the OAuth
+  client_id/client_secret). Verified working against WMKK.
 - **Dev-only `npm audit` findings** (esbuild/vite/vitest) — not shipped to
   production; do not `npm audit fix --force` (it pulls a breaking Vite major).
+  See SECURITY.md.
