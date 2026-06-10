@@ -250,6 +250,12 @@ input[type="number"] { -moz-appearance: textfield; }
 /* ── Lazy-load spinner ── */
 @keyframes cp-spin { to { transform: rotate(360deg); } }
 
+/* ── Settings: mobile sheet slide-up + desktop modal pop ── */
+@keyframes cpSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes cpModalIn { from { opacity: 0; transform: translate(-50%, -47%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+.cp-sheet-anim { animation: cpSheetUp 0.22s ease; }
+.cp-modal-anim { animation: cpModalIn 0.16s ease; }
+
 /* ── Reduce motion ── */
 html[data-reduce-motion="true"] .cp-calc-fade { animation: none; }
 html[data-reduce-motion="true"] * { transition: none !important; }

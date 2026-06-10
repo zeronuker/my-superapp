@@ -300,178 +300,174 @@ export default function App() {
   )
 }
 
+// ── Settings tabs ───────────────────────────────────────────────────────────
+const SETTINGS_TABS = [
+  { id: 'general', label: 'GENERAL', icon: '⚙'  },
+  { id: 'weather', label: 'WEATHER', icon: '🌤' },
+  { id: 'prayer',  label: 'PRAYER',  icon: '🕌' },
+  { id: 'about',   label: 'ABOUT',   icon: 'ⓘ'  },
+]
+
+const FOCUSABLE_SEL =
+  'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+// Width-based layout switch. Driven by window width (not device sniffing) so
+// iPad Split View / Stage Manager narrow windows correctly get the sheet.
+function useMediaQuery(query) {
+  const [matches, setMatches] = React.useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches
+  )
+  React.useEffect(() => {
+    const mq = window.matchMedia(query)
+    const onChange = e => setMatches(e.matches)
+    setMatches(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [query])
+  return matches
+}
+
 // ── Settings Panel ──────────────────────────────────────────────────────────
 function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, orderedCalcs }) {
   const panelRef = React.useRef(null)
+  const [activeTab, setActiveTab] = React.useState('general')
+  const isWide = useMediaQuery('(min-width: 768px)')   // ≥768 → modal+rail, else sheet+strip
+  const animate = !settings.reduceMotion
 
-  // Focus trap: on open, move focus into panel and keep Tab cycling within it
+  // Focus trap. The keydown handler is attached to the document and queries the
+  // live panelRef, so it survives the layout swap when the window crosses 768px.
   React.useEffect(() => {
-    const panel = panelRef.current
-    if (!panel) return
-
-    // Save the element that was focused before the panel opened
     const prevFocus = document.activeElement
-
-    // Query all interactive elements inside the panel
-    const getFocusable = () => Array.from(panel.querySelectorAll(
-      'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    ))
-
-    // Auto-focus the close button (first focusable element)
-    const focusable = getFocusable()
-    if (focusable.length) focusable[0].focus()
+    const first = panelRef.current?.querySelector(FOCUSABLE_SEL)
+    if (first) first.focus()
 
     const onKeyDown = (e) => {
       if (e.key !== 'Tab') return
-      const els = getFocusable()
+      const panel = panelRef.current
+      if (!panel) return
+      const els = Array.from(panel.querySelectorAll(FOCUSABLE_SEL))
       if (!els.length) return
-      const first = els[0]
-      const last = els[els.length - 1]
+      const f = els[0], l = els[els.length - 1]
       if (e.shiftKey) {
-        if (document.activeElement === first) { e.preventDefault(); last.focus() }
+        if (document.activeElement === f) { e.preventDefault(); l.focus() }
       } else {
-        if (document.activeElement === last) { e.preventDefault(); first.focus() }
+        if (document.activeElement === l) { e.preventDefault(); f.focus() }
       }
     }
-
-    panel.addEventListener('keydown', onKeyDown)
+    document.addEventListener('keydown', onKeyDown)
     return () => {
-      panel.removeEventListener('keydown', onKeyDown)
-      // Restore focus to the element that triggered the panel open
+      document.removeEventListener('keydown', onKeyDown)
       if (prevFocus && typeof prevFocus.focus === 'function') prevFocus.focus()
     }
   }, [])
 
-  const panelStyle = {
-    position: 'fixed', top: 0, right: 0,
-    width: 300, height: '100vh',
-    background: 'var(--cp-bg2)',
-    borderLeft: '1px solid var(--cp-border)',
-    zIndex: 200, display: 'flex', flexDirection: 'column',
-    boxShadow: '-12px 0 40px rgba(0,0,0,0.5)',
-  }
+  // ── Per-tab content (controls are identical to the old single-scroll panel) ──
+  const tabContent = (
+    <>
+      {activeTab === 'general' && (
+        <>
+          <SettingsSection title="APPEARANCE">
+            <SettingsRow label="THEME">
+              <SegmentedToggle
+                options={[{ value: 'dark', label: 'DARK' }, { value: 'light', label: 'LIGHT' }]}
+                value={darkMode ? 'dark' : 'light'}
+                onChange={v => { if ((v === 'light') === darkMode) onToggleDark() }}
+              />
+            </SettingsRow>
+            <SettingsRow label="FONT SIZE">
+              <SegmentedToggle
+                options={[
+                  { value: 'compact', label: 'SM' },
+                  { value: 'normal',  label: 'MD' },
+                  { value: 'large',   label: 'LG' },
+                ]}
+                value={settings.fontScale}
+                onChange={v => onUpdate({ fontScale: v })}
+              />
+            </SettingsRow>
+            <SettingsRow label="REDUCE MOTION">
+              <SegmentedToggle
+                options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
+                value={settings.reduceMotion}
+                onChange={v => onUpdate({ reduceMotion: v })}
+              />
+            </SettingsRow>
+          </SettingsSection>
 
-  return (
-    <div ref={panelRef} style={panelStyle} role="dialog" aria-modal="true" aria-label="Settings">
+          <SettingsSection title="INTERFACE">
+            <SettingsRow label="DEFAULT TAB">
+              <select
+                value={settings.defaultTab}
+                onChange={e => onUpdate({ defaultTab: e.target.value })}
+                style={selectStyle}
+              >
+                {orderedCalcs.map(c => (
+                  <option key={c.id} value={c.id}>{c.name.toUpperCase()}</option>
+                ))}
+              </select>
+            </SettingsRow>
+            <SettingsRow label="HAPTIC">
+              <SegmentedToggle
+                options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
+                value={settings.haptic}
+                onChange={v => onUpdate({ haptic: v })}
+              />
+            </SettingsRow>
 
-      {/* Panel header */}
-      <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--cp-border)',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11,
-          letterSpacing: '0.22em', color: 'var(--cp-acc)' }}>
-          ⚙  SETTINGS
-        </span>
-        <button className="cp-btn" onClick={onClose}
-          style={{ padding: '4px 10px', fontSize: 13 }}>✕</button>
-      </div>
-
-      {/* Scrollable body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-
-        {/* APPEARANCE */}
-        <SettingsSection title="APPEARANCE">
-          <SettingsRow label="THEME">
-            <SegmentedToggle
-              options={[{ value: 'dark', label: 'DARK' }, { value: 'light', label: 'LIGHT' }]}
-              value={darkMode ? 'dark' : 'light'}
-              onChange={v => { if ((v === 'light') === darkMode) onToggleDark() }}
-            />
-          </SettingsRow>
-          <SettingsRow label="FONT SIZE">
-            <SegmentedToggle
-              options={[
-                { value: 'compact', label: 'SM' },
-                { value: 'normal',  label: 'MD' },
-                { value: 'large',   label: 'LG' },
-              ]}
-              value={settings.fontScale}
-              onChange={v => onUpdate({ fontScale: v })}
-            />
-          </SettingsRow>
-          <SettingsRow label="REDUCE MOTION">
-            <SegmentedToggle
-              options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-              value={settings.reduceMotion}
-              onChange={v => onUpdate({ reduceMotion: v })}
-            />
-          </SettingsRow>
-        </SettingsSection>
-
-        {/* INTERFACE */}
-        <SettingsSection title="INTERFACE">
-          <SettingsRow label="DEFAULT TAB">
-            <select
-              value={settings.defaultTab}
-              onChange={e => onUpdate({ defaultTab: e.target.value })}
-              style={selectStyle}
-            >
-              {orderedCalcs.map(c => (
-                <option key={c.id} value={c.id}>{c.name.toUpperCase()}</option>
-              ))}
-            </select>
-          </SettingsRow>
-          <SettingsRow label="HAPTIC">
-            <SegmentedToggle
-              options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
-              value={settings.haptic}
-              onChange={v => onUpdate({ haptic: v })}
-            />
-          </SettingsRow>
-
-          {/* Tab order */}
-          <div style={{ marginTop: 8 }}>
-            <span className="cp-label" style={{ display: 'block', marginBottom: 8 }}>TAB ORDER</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {orderedCalcs.map((calc, idx) => (
-                <div key={calc.id} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)',
-                  borderRadius: 4, padding: '5px 8px',
-                }}>
-                  <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-muted)', letterSpacing: '0.1em' }}>
-                    <span style={{ marginRight: 6, opacity: 0.6 }}>{calc.icon}</span>
-                    {calc.name.toUpperCase()}
-                  </span>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button
-                      className="cp-btn"
-                      disabled={idx === 0}
-                      onClick={() => {
-                        const next = orderedCalcs.map(c => c.id)
-                        ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
-                        onUpdate({ tabOrder: next })
-                      }}
-                      style={{ padding: '2px 7px', fontSize: 12, opacity: idx === 0 ? 0.25 : 1 }}
-                    >▲</button>
-                    <button
-                      className="cp-btn"
-                      disabled={idx === orderedCalcs.length - 1}
-                      onClick={() => {
-                        const next = orderedCalcs.map(c => c.id)
-                        ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
-                        onUpdate({ tabOrder: next })
-                      }}
-                      style={{ padding: '2px 7px', fontSize: 12, opacity: idx === orderedCalcs.length - 1 ? 0.25 : 1 }}
-                    >▼</button>
+            <div style={{ marginTop: 8 }}>
+              <span className="cp-label" style={{ display: 'block', marginBottom: 8 }}>TAB ORDER</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {orderedCalcs.map((calc, idx) => (
+                  <div key={calc.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)',
+                    borderRadius: 4, padding: '5px 8px',
+                  }}>
+                    <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-muted)', letterSpacing: '0.1em' }}>
+                      <span style={{ marginRight: 6, opacity: 0.6 }}>{calc.icon}</span>
+                      {calc.name.toUpperCase()}
+                    </span>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button
+                        className="cp-btn"
+                        disabled={idx === 0}
+                        onClick={() => {
+                          const next = orderedCalcs.map(c => c.id)
+                          ;[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]
+                          onUpdate({ tabOrder: next })
+                        }}
+                        style={{ padding: '2px 7px', fontSize: 12, opacity: idx === 0 ? 0.25 : 1 }}
+                      >▲</button>
+                      <button
+                        className="cp-btn"
+                        disabled={idx === orderedCalcs.length - 1}
+                        onClick={() => {
+                          const next = orderedCalcs.map(c => c.id)
+                          ;[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]
+                          onUpdate({ tabOrder: next })
+                        }}
+                        style={{ padding: '2px 7px', fontSize: 12, opacity: idx === orderedCalcs.length - 1 ? 0.25 : 1 }}
+                      >▼</button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        </SettingsSection>
+          </SettingsSection>
 
-        {/* CURRENCY */}
-        <SettingsSection title="CURRENCY">
-          <SettingsRow label="NUMBER FORMAT">
-            <SegmentedToggle
-              options={[{ value: 'en', label: '1,000' }, { value: 'eu', label: '1.000' }]}
-              value={settings.numberFormat}
-              onChange={v => onUpdate({ numberFormat: v })}
-            />
-          </SettingsRow>
-        </SettingsSection>
+          <SettingsSection title="CURRENCY">
+            <SettingsRow label="NUMBER FORMAT">
+              <SegmentedToggle
+                options={[{ value: 'en', label: '1,000' }, { value: 'eu', label: '1.000' }]}
+                value={settings.numberFormat}
+                onChange={v => onUpdate({ numberFormat: v })}
+              />
+            </SettingsRow>
+          </SettingsSection>
+        </>
+      )}
 
-        {/* METAR / TAF */}
+      {activeTab === 'weather' && (
         <SettingsSection title="METAR / TAF">
           <SettingsRow label="DEFAULT HISTORY">
             <select
@@ -492,33 +488,115 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
             />
           </SettingsRow>
         </SettingsSection>
+      )}
 
-        {/* QIBLAT & SOLAT */}
+      {activeTab === 'prayer' && (
         <SettingsSection title="QIBLAT & SOLAT">
           <Suspense fallback={<TabLoading compact />}>
             <PrayerSettings />
           </Suspense>
         </SettingsSection>
+      )}
 
-        {/* APP UPDATE */}
-        <SettingsSection title="APP UPDATE">
-          <UpdateChecker />
-        </SettingsSection>
+      {activeTab === 'about' && (
+        <>
+          <SettingsSection title="APP UPDATE">
+            <UpdateChecker />
+          </SettingsSection>
+          <div style={{
+            textAlign: 'center', fontFamily: 'var(--cb-font-mono)',
+            fontSize: 9, letterSpacing: '0.16em', color: 'var(--cp-dim)', paddingTop: 4,
+          }}>
+            CLAUDEBORNE SUPERAPP · v3.0
+          </div>
+        </>
+      )}
+    </>
+  )
 
+  // ── Shared header ──
+  const header = (
+    <div style={{ padding: '16px 18px 14px', borderBottom: '1px solid var(--cp-border)',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+      <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11,
+        letterSpacing: '0.22em', color: 'var(--cp-acc)' }}>
+        ⚙  SETTINGS
+      </span>
+      <button className="cp-btn" onClick={onClose}
+        style={{ padding: '4px 10px', fontSize: 13 }} aria-label="Close settings">✕</button>
+    </div>
+  )
+
+  // ── Tab button (strip = mobile top, rail = desktop left) ──
+  const TabButton = ({ tab, variant }) => {
+    const active = activeTab === tab.id
+    const base = {
+      cursor: 'pointer', background: active ? 'var(--cp-accdim)' : 'transparent',
+      color: active ? 'var(--cp-acc)' : 'var(--cp-dim)',
+      fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.1em', transition: 'all 0.12s',
+    }
+    if (variant === 'rail') {
+      return (
+        <button onClick={() => setActiveTab(tab.id)} aria-current={active}
+          style={{ ...base, display: 'flex', alignItems: 'center', gap: 9, width: '100%',
+            textAlign: 'left', border: 'none', borderRadius: 4, padding: '10px 12px', fontSize: 11 }}>
+          <span style={{ fontSize: 14 }}>{tab.icon}</span>{tab.label}
+        </button>
+      )
+    }
+    return (
+      <button onClick={() => setActiveTab(tab.id)} aria-current={active}
+        style={{ ...base, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+          gap: 4, border: 'none', borderBottom: `2px solid ${active ? 'var(--cp-acc)' : 'transparent'}`,
+          padding: '10px 4px', minHeight: 52, fontSize: 9 }}>
+        <span style={{ fontSize: 15 }}>{tab.icon}</span>{tab.label}
+      </button>
+    )
+  }
+
+  // ── Desktop / iPad: centred modal with left rail ──
+  if (isWide) {
+    return (
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
+        className={animate ? 'cp-modal-anim' : ''}
+        style={{
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          width: 'min(560px, 92vw)', maxHeight: '86vh',
+          background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 8,
+          zIndex: 200, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.55)',
+        }}>
+        {header}
+        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          <div style={{ width: 150, flexShrink: 0, borderRight: '1px solid var(--cp-border)',
+            padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto' }}>
+            {SETTINGS_TABS.map(t => <TabButton key={t.id} tab={t} variant="rail" />)}
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+            {tabContent}
+          </div>
+        </div>
       </div>
+    )
+  }
 
-      {/* Version */}
-      <div style={{
-        padding: '12px 20px',
-        borderTop: '1px solid var(--cp-border3)',
-        textAlign: 'center',
-        fontFamily: 'var(--cb-font-mono)',
-        fontSize: 9,
-        letterSpacing: '0.16em',
-        color: 'var(--cp-dim)',
-        flexShrink: 0,
+  // ── Mobile: full-height sheet with top tab strip ──
+  return (
+    <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
+      className={animate ? 'cp-sheet-anim' : ''}
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'var(--cp-bg2)',
+        zIndex: 200, display: 'flex', flexDirection: 'column',
+        paddingTop: 'env(safe-area-inset-top)',
       }}>
-        v3.0
+      {header}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--cp-border)', flexShrink: 0 }}>
+        {SETTINGS_TABS.map(t => <TabButton key={t.id} tab={t} variant="strip" />)}
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px',
+        paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
+        {tabContent}
       </div>
     </div>
   )
