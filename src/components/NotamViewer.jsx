@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { fetchNotams, detectRouteFirs, buildInitialChips, NOTAM_CATEGORIES } from '../services/notamAPI'
 import { useCalculatorStore } from '../store/calculatorStore'
+import { lookupAirport } from '../data/airports'
 
 // ── Tokens (matches app style) ────────────────────────────────────────────────
 const T = {
@@ -21,52 +22,10 @@ const T = {
 const CATEGORY_ORDER = ['AERODROME', 'AIRSPACE', 'NAVAID', 'OBSTACLE', 'WARNING', 'LIGHTING', 'PROCEDURE', 'OTHER']
 const STATUS_RANK = { ACTIVE: 0, FUTURE: 1, EXPIRED: 2, UNKNOWN: 3 }
 
-// ── Airport coordinate lookup (covers common airports) ─────────────────────────
-const AIRPORT_COORDS = {
-  WMKK: { lat: 2.7456,   lng: 101.7072 },
-  WMKL: { lat: 6.1897,   lng: 100.1601 },
-  WMKP: { lat: 5.2972,   lng: 100.2769 },
-  WMKC: { lat: 6.1667,   lng: 102.2833 },
-  WSSS: { lat: 1.3502,   lng: 103.9940 },
-  OMDB: { lat: 25.2532,  lng: 55.3657  },
-  OOMS: { lat: 23.5933,  lng: 58.2844  },
-  RJBB: { lat: 34.4347,  lng: 135.2440 },
-  RJTT: { lat: 35.5533,  lng: 139.7811 },
-  RJAA: { lat: 35.7647,  lng: 140.3864 },
-  RKSI: { lat: 37.4602,  lng: 126.4407 },
-  EGLL: { lat: 51.4775,  lng: -0.4614  },
-  EHAM: { lat: 52.3086,  lng: 4.7639   },
-  EDDF: { lat: 50.0333,  lng: 8.5706   },
-  LFPG: { lat: 49.0097,  lng: 2.5478   },
-  LEMD: { lat: 40.4936,  lng: -3.5668  },
-  LIRF: { lat: 41.8003,  lng: 12.2389  },
-  LTFM: { lat: 41.2608,  lng: 28.7418  },
-  VHHH: { lat: 22.3080,  lng: 113.9185 },
-  VTBS: { lat: 13.6811,  lng: 100.7472 },
-  VVTS: { lat: 10.8188,  lng: 106.6519 },
-  VIDP: { lat: 28.5665,  lng: 77.1031  },
-  VABB: { lat: 19.0896,  lng: 72.8656  },
-  VECC: { lat: 22.6453,  lng: 88.4467  },
-  OPKC: { lat: 24.9065,  lng: 67.1608  },
-  HECC: { lat: 30.1219,  lng: 31.4056  },
-  KATL: { lat: 33.6407,  lng: -84.4277 },
-  KLAX: { lat: 33.9425,  lng: -118.408 },
-  KJFK: { lat: 40.6413,  lng: -73.7781 },
-  KORD: { lat: 41.9742,  lng: -87.9073 },
-  KSFO: { lat: 37.6213,  lng: -122.379 },
-  CYYZ: { lat: 43.6772,  lng: -79.6306 },
-  CYVR: { lat: 49.1947,  lng: -123.184 },
-  SBGR: { lat: -23.4356, lng: -46.4731 },
-  SAEZ: { lat: -34.8222, lng: -58.5358 },
-  YMML: { lat: -37.6690, lng: 144.841  },
-  YSSY: { lat: -33.9461, lng: 151.177  },
-  NZAA: { lat: -37.0082, lng: 174.792  },
-  FAOR: { lat: -26.1392, lng: 28.246   },
-  HKJK: { lat: -1.3192,  lng: 36.9275  },
-}
-
+// Airport coordinate lookup — shared database (src/data/airports.js)
 function getAirportCoords(icao) {
-  return AIRPORT_COORDS[icao?.toUpperCase()] ?? null
+  const a = lookupAirport(icao)
+  return a ? { lat: a.lat, lng: a.lng } : null
 }
 
 // ── Sort helpers ──────────────────────────────────────────────────────────────

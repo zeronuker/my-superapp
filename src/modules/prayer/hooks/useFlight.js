@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import usePrayerStore           from '../store/prayerStore'
-import { lookupAirport }        from '../services/airports'
+import { lookupAirport }        from '../../../data/airports'
 import { calculateFlight }      from '../services/flightCalc'
 
 /**

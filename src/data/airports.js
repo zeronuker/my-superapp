@@ -1,5 +1,6 @@
 /**
- * Curated ICAO airport database.
+ * Curated ICAO airport database — single source of truth.
+ * Shared by the prayer Flight tab (useFlight) and the NOTAM auto-detect.
  * Covers major commercial airports worldwide with focus on
  * Malaysian, Middle East, Southeast Asian, and key global routes.
  * Format: ICAO → { name, city, country, lat, lng }
@@ -66,9 +67,6 @@ const AIRPORTS = {
   // ── Turkey ───────────────────────────────────────────────────────────────────
   LTFM: { name: 'Istanbul Airport',             city: 'Istanbul',     country: 'Turkey',       lat: 41.2753,  lng:  28.7519 },
   LTAI: { name: 'Antalya',                      city: 'Antalya',      country: 'Turkey',       lat: 36.8987,  lng:  30.7992 },
-
-  // ── Egypt ────────────────────────────────────────────────────────────────────
-  HECA: { name: 'Cairo Intl',                   city: 'Cairo',        country: 'Egypt',        lat: 30.1219,  lng:  31.4056 },
 
   // ── South Asia ───────────────────────────────────────────────────────────────
   VIDP: { name: 'Indira Gandhi Intl',           city: 'Delhi',        country: 'India',        lat: 28.5665,  lng:  77.1031 },
