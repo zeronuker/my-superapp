@@ -509,26 +509,38 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
       )}
 
       {activeTab === 'weather' && (
-        <SettingsSection title="METAR / TAF">
-          <SettingsRow label="DEFAULT HISTORY">
-            <select
-              value={settings.defaultHistory}
-              onChange={e => onUpdate({ defaultHistory: Number(e.target.value) })}
-              style={selectStyle}
-            >
-              {[1, 2, 3, 6, 12, 24].map(h => (
-                <option key={h} value={h}>{h}H</option>
-              ))}
-            </select>
-          </SettingsRow>
-          <SettingsRow label="AUTO-REFRESH">
-            <SegmentedToggle
-              options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
-              value={settings.autoRefresh}
-              onChange={v => onUpdate({ autoRefresh: v })}
-            />
-          </SettingsRow>
-        </SettingsSection>
+        <>
+          <SettingsSection title="METAR / TAF">
+            <SettingsRow label="DEFAULT HISTORY">
+              <select
+                value={settings.defaultHistory}
+                onChange={e => onUpdate({ defaultHistory: Number(e.target.value) })}
+                style={selectStyle}
+              >
+                {[1, 2, 3, 6, 12, 24].map(h => (
+                  <option key={h} value={h}>{h}H</option>
+                ))}
+              </select>
+            </SettingsRow>
+            <SettingsRow label="AUTO-REFRESH">
+              <SegmentedToggle
+                options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
+                value={settings.autoRefresh}
+                onChange={v => onUpdate({ autoRefresh: v })}
+              />
+            </SettingsRow>
+          </SettingsSection>
+
+          <SettingsSection title="NOTAM">
+            <SettingsRow label="SORT WITHIN LOCATION">
+              <SegmentedToggle
+                options={[{ value: 'relevance', label: 'RELEVANCE' }, { value: 'category', label: 'CATEGORY' }]}
+                value={settings.notamSort}
+                onChange={v => onUpdate({ notamSort: v })}
+              />
+            </SettingsRow>
+          </SettingsSection>
+        </>
       )}
 
       {activeTab === 'prayer' && (

@@ -209,8 +209,11 @@ export async function fetchNotams(icaoList, pageSize = 100) {
   const allNotams = []
   const seen      = new Set()
 
-  for (const r of results) {
-    if (r.status !== 'fulfilled') continue
+  results.forEach((r, idx) => {
+    if (r.status !== 'fulfilled') return
+
+    // The queried location for this response (airport or FIR chip)
+    const source = String(icaoList[idx] || '').toUpperCase()
 
     // autorouter returns { total, rows: [...] }
     const rows = r.value?.rows ?? []
@@ -228,7 +231,8 @@ export async function fetchNotams(icaoList, pageSize = 100) {
 
       allNotams.push({
         id,
-        icao:     raw.itema || raw.fir || '',
+        source,                                  // queried location (for grouping)
+        icao:     raw.itema || raw.fir || source,
         category,
         summary,
         qCode,
@@ -238,7 +242,7 @@ export async function fetchNotams(icaoList, pageSize = 100) {
         raw:      buildRaw(raw),
       })
     }
-  }
+  })
 
   // Sort: ACTIVE → FUTURE → EXPIRED → UNKNOWN
   const order = { ACTIVE: 0, FUTURE: 1, EXPIRED: 2, UNKNOWN: 3 }

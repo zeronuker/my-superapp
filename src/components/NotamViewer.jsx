@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useMemo } from 'react'
 import { fetchNotams, detectRouteFirs, buildInitialChips, NOTAM_CATEGORIES } from '../services/notamAPI'
+import { useCalculatorStore } from '../store/calculatorStore'
 
 // ── Tokens (matches app style) ────────────────────────────────────────────────
 const T = {
@@ -13,14 +14,12 @@ const T = {
   bg2:     'var(--cp-bg2)',
   bord:    'var(--cp-border)',
   bord2:   'var(--cp-border2)',
+  green:   '#22c55e',
   orange:  'var(--cp-orange, #fb923c)',
 }
 
-// ── Small helpers ─────────────────────────────────────────────────────────────
-function fmtDate(d) {
-  if (!d) return '—'
-  return d.toISOString().slice(0, 16).replace('T', ' ') + 'Z'
-}
+const CATEGORY_ORDER = ['AERODROME', 'AIRSPACE', 'NAVAID', 'OBSTACLE', 'WARNING', 'LIGHTING', 'PROCEDURE', 'OTHER']
+const STATUS_RANK = { ACTIVE: 0, FUTURE: 1, EXPIRED: 2, UNKNOWN: 3 }
 
 // ── Airport coordinate lookup (covers common airports) ─────────────────────────
 const AIRPORT_COORDS = {
@@ -68,6 +67,38 @@ const AIRPORT_COORDS = {
 
 function getAirportCoords(icao) {
   return AIRPORT_COORDS[icao?.toUpperCase()] ?? null
+}
+
+// ── Sort helpers ──────────────────────────────────────────────────────────────
+// Lower rank = floats to the top.
+function relevanceRank(n) {
+  const s = `${n.summary} ${n.raw}`.toUpperCase()
+  const closed = /\b(CLSD|CLOSED)\b/.test(s)
+  if (/\b(RWY|RUNWAY)\b/.test(s) && closed) return 0
+  if (/\b(AD|AERODROME|ARP)\b/.test(s) && closed) return 0
+  if (/\b(ILS|GP|GLIDE\s?PATH|LOC|LOCALI[SZ]ER|MLS|RNAV|VOR)\b/.test(s) &&
+      /(U\/S|UNSERVICEABLE|OUT OF SER|OTS|NOT AVBL|UNAVBL)/.test(s)) return 1
+  const catRank = { AERODROME: 2, AIRSPACE: 3, WARNING: 3, NAVAID: 4, OBSTACLE: 5, LIGHTING: 6, PROCEDURE: 6, OTHER: 7 }
+  return catRank[n.category] ?? 7
+}
+
+function makeComparator(mode) {
+  return (a, b) => {
+    const ra = mode === 'category' ? CATEGORY_ORDER.indexOf(a.category) : relevanceRank(a)
+    const rb = mode === 'category' ? CATEGORY_ORDER.indexOf(b.category) : relevanceRank(b)
+    if (ra !== rb) return ra - rb
+    return STATUS_RANK[a.validity.status] - STATUS_RANK[b.validity.status]
+  }
+}
+
+function roleOf(chip) {
+  if (chip.type === 'fir') return 'Enroute FIR'
+  if (chip.type === 'airport') {
+    if (/depart/i.test(chip.name)) return 'Departure'
+    if (/arriv/i.test(chip.name))  return 'Arrival'
+    return 'Airport'
+  }
+  return 'Location'
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -174,12 +205,6 @@ function NotamCard({ notam }) {
             color: T.ink, letterSpacing: '0.08em' }}>
             {notam.id}
           </span>
-          {notam.icao && (
-            <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim,
-              letterSpacing: '0.06em' }}>
-              {notam.icao}
-            </span>
-          )}
         </div>
         <ValidityBadge status={notam.validity.status} />
       </div>
@@ -221,46 +246,41 @@ function NotamCard({ notam }) {
   )
 }
 
-function CategoryGroup({ category, notams }) {
-  const [collapsed, setCollapsed] = useState(false)
-  const cat = NOTAM_CATEGORIES[category] ?? NOTAM_CATEGORIES.OTHER
-  const activeCount = notams.filter(n => n.validity.status === 'ACTIVE').length
+// Collapsible per-location section
+function LocationSection({ chip, all, shown, collapsed, onToggle }) {
+  const role        = roleOf(chip)
+  const activeCount = all.filter(n => n.validity.status === 'ACTIVE').length
 
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div id={`notam-sec-${chip.icao}`} style={{ marginBottom: 10, scrollMarginTop: 12 }}>
       <button
-        onClick={() => setCollapsed(v => !v)}
+        onClick={onToggle}
         style={{
-          width: '100%', background: 'none', border: 'none',
-          cursor: 'pointer', textAlign: 'left', padding: 0, marginBottom: 8,
-          display: 'flex', alignItems: 'center', gap: 8,
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          background: 'var(--cp-bg3)', border: `1px solid ${T.bord}`,
+          borderRadius: 6, padding: '9px 12px', cursor: 'pointer', textAlign: 'left',
         }}>
-        <span style={{
-          fontFamily: T.mono, fontSize: 8, fontWeight: 700,
-          color: cat.color, letterSpacing: '0.16em',
-          background: cat.bg, border: `1px solid ${cat.border}`,
-          borderRadius: 3, padding: '3px 8px',
-        }}>
-          {cat.label.toUpperCase()}
-        </span>
+        <span style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 700,
+          color: T.ink, letterSpacing: '0.08em' }}>{chip.icao}</span>
         <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim,
-          letterSpacing: '0.08em' }}>
-          {notams.length} NOTAM{notams.length !== 1 ? 'S' : ''}
-          {activeCount > 0 && (
-            <span style={{ color: '#22c55e', marginLeft: 6 }}>
-              · {activeCount} ACTIVE
-            </span>
-          )}
+          letterSpacing: '0.1em' }}>{role.toUpperCase()}</span>
+        <span style={{ marginLeft: 'auto', fontFamily: T.mono, fontSize: 8, fontWeight: 700,
+          letterSpacing: '0.1em', padding: '2px 8px', borderRadius: 3,
+          background: 'rgba(34,197,94,0.12)', color: T.green,
+          border: '1px solid rgba(34,197,94,0.3)' }}>
+          {activeCount} ACTIVE
         </span>
-        <div style={{ flex: 1, height: 1, background: cat.border }} />
-        <span style={{ fontFamily: T.mono, fontSize: 10, color: T.dim }}>
+        <span style={{ fontFamily: T.mono, fontSize: 11, color: T.dim }}>
           {collapsed ? '▶' : '▼'}
         </span>
       </button>
 
       {!collapsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {notams.map(n => <NotamCard key={n.id} notam={n} />)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+          {shown.length === 0 ? (
+            <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim,
+              padding: '4px 2px' }}>No NOTAMs match the current filters.</div>
+          ) : shown.map(n => <NotamCard key={n.id} notam={n} />)}
         </div>
       )}
     </div>
@@ -269,6 +289,8 @@ function CategoryGroup({ category, notams }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function NotamViewer() {
+  const sortMode = useCalculatorStore(s => s.settings.notamSort) || 'relevance'
+
   const [dep,    setDep]    = useState('')
   const [arr,    setArr]    = useState('')
   const [chips,  setChips]  = useState([])   // { icao, name, type }
@@ -279,6 +301,12 @@ export default function NotamViewer() {
   const [notams,  setNotams]  = useState(null)
   const [error,   setError]   = useState('')
   const [fetched, setFetched] = useState(false)
+
+  // Filters
+  const [statusLevel, setStatusLevel] = useState('active') // 'active' | 'future' | 'expired'
+  const [catFilter,   setCatFilter]   = useState(() => new Set(CATEGORY_ORDER))
+  const [search,      setSearch]      = useState('')
+  const [collapsedMap, setCollapsedMap] = useState({})     // source → bool override
 
   const removeChip = (icao) => setChips(c => c.filter(x => x.icao !== icao))
 
@@ -295,12 +323,10 @@ export default function NotamViewer() {
     const depCoords = getAirportCoords(dep)
     const arrCoords = getAirportCoords(arr)
 
-    // Always add airport chips + their home FIRs
     const initial = buildInitialChips(dep, arr)
     const newChips = [...initial]
     const seen = new Set(initial.map(c => c.icao))
 
-    // En-route FIRs via great circle sampling (only if both coords known)
     if (depCoords && arrCoords) {
       const enroute = detectRouteFirs(depCoords, arrCoords)
       for (const fir of enroute) {
@@ -311,7 +337,6 @@ export default function NotamViewer() {
       }
     }
 
-    // Merge with existing manual chips
     setChips(prev => {
       const manual = prev.filter(c => c.type === 'manual' && !seen.has(c.icao))
       return [...newChips, ...manual]
@@ -324,6 +349,7 @@ export default function NotamViewer() {
     setError('')
     setLoading(true)
     setNotams(null)
+    setCollapsedMap({})
     try {
       const data = await fetchNotams(chips.map(c => c.icao))
       setNotams(data)
@@ -335,18 +361,55 @@ export default function NotamViewer() {
     }
   }
 
-  // Group notams by category
-  const grouped = React.useMemo(() => {
-    if (!notams) return {}
-    const g = {}
-    for (const n of notams) {
-      if (!g[n.category]) g[n.category] = []
-      g[n.category].push(n)
-    }
-    return g
+  const toggleCat = (cat) => setCatFilter(prev => {
+    const next = new Set(prev)
+    next.has(cat) ? next.delete(cat) : next.add(cat)
+    return next
+  })
+
+  // Group all notams by source location
+  const bySource = useMemo(() => {
+    const m = {}
+    for (const n of notams ?? []) { (m[n.source] ??= []).push(n) }
+    return m
   }, [notams])
 
-  const categoryOrder = ['AERODROME','AIRSPACE','NAVAID','OBSTACLE','WARNING','LIGHTING','PROCEDURE','OTHER']
+  // Apply status / category / search filters
+  const matches = (n) => {
+    const st = n.validity.status
+    if (statusLevel === 'active' && st !== 'ACTIVE') return false
+    if (statusLevel === 'future' && !(st === 'ACTIVE' || st === 'FUTURE')) return false
+    if (!catFilter.has(n.category)) return false
+    if (search) {
+      const q = search.toUpperCase()
+      if (!`${n.id} ${n.summary} ${n.raw} ${n.icao}`.toUpperCase().includes(q)) return false
+    }
+    return true
+  }
+
+  const comparator = makeComparator(sortMode)
+
+  // Sections in chip order; only locations that returned NOTAMs
+  const sections = chips
+    .map(chip => ({ chip, all: bySource[chip.icao] ?? [] }))
+    .filter(s => s.all.length > 0)
+    .map(s => ({ ...s, shown: s.all.filter(matches).sort(comparator) }))
+
+  const totalShown = sections.reduce((sum, s) => sum + s.shown.length, 0)
+  const hiddenExpired = statusLevel !== 'expired'
+    ? (notams ?? []).filter(n => n.validity.status === 'EXPIRED').length
+    : 0
+
+  const isCollapsed = (chip) => collapsedMap[chip.icao] ?? (chip.type === 'fir')
+  const toggleSection = (icao) => setCollapsedMap(m => ({ ...m, [icao]: !(m[icao] ?? false) }))
+
+  const jumpTo = (icao) => {
+    setCollapsedMap(m => ({ ...m, [icao]: false }))
+    requestAnimationFrame(() => {
+      document.getElementById(`notam-sec-${icao}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
   const canDetect = dep.length >= 2 || arr.length >= 2
 
   return (
@@ -368,7 +431,6 @@ export default function NotamViewer() {
           <IcaoInput label="ARRIVAL" value={arr} onChange={setArr} placeholder="RJBB" />
         </div>
 
-        {/* Auto-detect button */}
         <button
           onClick={handleDetect}
           disabled={!canDetect || detecting}
@@ -444,27 +506,6 @@ export default function NotamViewer() {
         </div>
       </div>
 
-      {/* ── View toggle ───────────────────────────────────────────────────── */}
-      {fetched && (
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-          <div style={{
-            display: 'inline-flex', background: 'var(--cp-bg3)',
-            border: '1px solid var(--cp-border)', borderRadius: 6, padding: 3, gap: 3,
-          }}>
-            {[['parsed', 'PARSED VIEW'], ['raw', 'RAW TEXT']].map(([id, label]) => (
-              <button key={id} onClick={() => setView(id)} style={{
-                fontFamily: T.mono, fontSize: 9, fontWeight: 700,
-                letterSpacing: '0.14em', padding: '6px 16px', borderRadius: 4,
-                border: `1px solid ${view === id ? 'var(--cp-acc)' : 'transparent'}`,
-                background: view === id ? 'var(--cp-accdim)' : 'transparent',
-                color: view === id ? T.acc : T.dim,
-                cursor: 'pointer', transition: 'all 0.12s',
-              }}>{label}</button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ── Error ─────────────────────────────────────────────────────────── */}
       {error && (
         <div style={{
@@ -495,21 +536,23 @@ export default function NotamViewer() {
       {/* ── Results ───────────────────────────────────────────────────────── */}
       {notams && (
         <>
-          {/* Summary bar */}
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            marginBottom: 14, flexWrap: 'wrap', gap: 6,
-          }}>
-            <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim,
-              letterSpacing: '0.1em' }}>
-              {notams.length} NOTAM{notams.length !== 1 ? 'S' : ''} FOUND
-              {' · '}
-              {notams.filter(n => n.validity.status === 'ACTIVE').length} ACTIVE
-            </span>
-            <span style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
-              letterSpacing: '0.08em' }}>
-              {chips.map(c => c.icao).join(' · ')}
-            </span>
+          {/* View toggle */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+            <div style={{
+              display: 'inline-flex', background: 'var(--cp-bg3)',
+              border: '1px solid var(--cp-border)', borderRadius: 6, padding: 3, gap: 3,
+            }}>
+              {[['parsed', 'PARSED VIEW'], ['raw', 'RAW TEXT']].map(([id, label]) => (
+                <button key={id} onClick={() => setView(id)} style={{
+                  fontFamily: T.mono, fontSize: 9, fontWeight: 700,
+                  letterSpacing: '0.14em', padding: '6px 16px', borderRadius: 4,
+                  border: `1px solid ${view === id ? 'var(--cp-acc)' : 'transparent'}`,
+                  background: view === id ? 'var(--cp-accdim)' : 'transparent',
+                  color: view === id ? T.acc : T.dim,
+                  cursor: 'pointer', transition: 'all 0.12s',
+                }}>{label}</button>
+              ))}
+            </div>
           </div>
 
           {notams.length === 0 && (
@@ -519,18 +562,95 @@ export default function NotamViewer() {
             </div>
           )}
 
-          {/* PARSED VIEW */}
+          {/* ── PARSED VIEW ── */}
           {view === 'parsed' && notams.length > 0 && (
-            <div>
-              {categoryOrder
-                .filter(cat => grouped[cat]?.length)
-                .map(cat => (
-                  <CategoryGroup key={cat} category={cat} notams={grouped[cat]} />
-                ))}
-            </div>
+            <>
+              {/* Location summary chips */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                {sections.map(({ chip, all }) => {
+                  const active = all.filter(n => n.validity.status === 'ACTIVE').length
+                  return (
+                    <button key={chip.icao} onClick={() => jumpTo(chip.icao)} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 7,
+                      background: 'var(--cp-bg3)', border: `1px solid ${T.bord2}`,
+                      borderRadius: 20, padding: '4px 10px', cursor: 'pointer',
+                    }}>
+                      <span style={{ fontFamily: T.mono, fontSize: 11, fontWeight: 700,
+                        color: T.ink, letterSpacing: '0.06em' }}>{chip.icao}</span>
+                      <span style={{ fontFamily: T.mono, fontSize: 9, fontWeight: 700,
+                        color: T.green }}>{active}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Filter bar — status */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center',
+                marginBottom: 10 }}>
+                <div style={{ display: 'inline-flex', background: 'var(--cp-bg3)',
+                  border: '1px solid var(--cp-border)', borderRadius: 6, padding: 3, gap: 3 }}>
+                  {[['active', 'ACTIVE'], ['future', '+FUTURE'], ['expired', '+EXPIRED']].map(([id, label]) => (
+                    <button key={id} onClick={() => setStatusLevel(id)} style={{
+                      fontFamily: T.mono, fontSize: 8, fontWeight: 700, letterSpacing: '0.12em',
+                      padding: '5px 10px', borderRadius: 4, cursor: 'pointer',
+                      border: `1px solid ${statusLevel === id ? 'var(--cp-acc)' : 'transparent'}`,
+                      background: statusLevel === id ? 'var(--cp-accdim)' : 'transparent',
+                      color: statusLevel === id ? T.acc : T.dim,
+                    }}>{label}</button>
+                  ))}
+                </div>
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search…"
+                  style={{
+                    flex: 1, minWidth: 120, background: T.bg1, border: `1px solid ${T.bord2}`,
+                    borderRadius: 6, color: T.ink, fontFamily: T.mono,
+                    fontSize: 11, padding: '6px 10px', outline: 'none', letterSpacing: '0.06em',
+                  }}
+                />
+              </div>
+
+              {/* Filter bar — categories */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 16 }}>
+                {CATEGORY_ORDER.map(cat => {
+                  const c  = NOTAM_CATEGORIES[cat]
+                  const on = catFilter.has(cat)
+                  return (
+                    <button key={cat} onClick={() => toggleCat(cat)} style={{
+                      fontFamily: T.mono, fontSize: 8, fontWeight: 700, letterSpacing: '0.08em',
+                      padding: '4px 9px', borderRadius: 12, cursor: 'pointer',
+                      background: on ? c.bg : 'transparent',
+                      border: `1px solid ${on ? c.border : T.bord2}`,
+                      color: on ? c.color : T.dim,
+                    }}>{c.label.toUpperCase()}</button>
+                  )
+                })}
+              </div>
+
+              {/* Sections */}
+              {sections.map(({ chip, all, shown }) => (
+                <LocationSection
+                  key={chip.icao}
+                  chip={chip}
+                  all={all}
+                  shown={shown}
+                  collapsed={isCollapsed(chip)}
+                  onToggle={() => toggleSection(chip.icao)}
+                />
+              ))}
+
+              {/* Footer note */}
+              <div style={{ fontFamily: T.mono, fontSize: 9, color: T.dim,
+                letterSpacing: '0.08em', textAlign: 'center', padding: '6px 0 0' }}>
+                {totalShown} SHOWN
+                {hiddenExpired > 0 && ` · ${hiddenExpired} EXPIRED HIDDEN`}
+                {` · SORT: ${sortMode.toUpperCase()}`}
+              </div>
+            </>
           )}
 
-          {/* RAW VIEW */}
+          {/* ── RAW VIEW ── */}
           {view === 'raw' && notams.length > 0 && (
             <div style={{
               background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',

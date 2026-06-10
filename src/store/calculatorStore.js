@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = {
   tabOrder:       ['calculator', 'interpolation', 'edto', 'currency', 'metartaf', 'notam', 'ftl', 'prayer'],
   navStyle:       'launcher', // 'launcher' | 'tabs' | 'grouped'
   tabPosition:    'top',      // 'top' | 'bottom'  (only used when navStyle === 'tabs')
+  notamSort:      'relevance',// 'relevance' | 'category'  (NOTAM sort within a location)
 }
 
 function loadSettings() {
