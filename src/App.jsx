@@ -3,6 +3,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 import { useCalculatorStore } from './store/calculatorStore'
 import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
+import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar } from './components/Navigation'
 
 // Each tab is code-split into its own chunk, loaded on demand when first opened.
 // vite-plugin-pwa precaches every emitted chunk, so offline still works.
@@ -82,15 +83,28 @@ export default function App() {
     ]
   }, [settings.tabOrder])
 
-  const currentCalc     = CALCULATORS.find(c => c.id === activeCalculator)
+  const navStyle    = settings.navStyle || 'launcher'
+  const tabPosition = settings.tabPosition || 'top'
+  const isLauncherHome = navStyle === 'launcher' && !activeCalculator
+
+  const currentCalc      = activeCalculator ? CALCULATORS.find(c => c.id === activeCalculator) : undefined
   const CurrentComponent = currentCalc?.component
 
-  // ── Migrate legacy tab IDs (normal/scientific → calculator) ───────────
+  // ── Migrate legacy tab IDs + choose the initial view ──────────────────
   React.useEffect(() => {
     if (LEGACY_IDS.has(activeCalculator)) setActiveCalculator('calculator')
     if (LEGACY_IDS.has(settings.defaultTab)) handleSettingsUpdate({ defaultTab: 'calculator' })
+    // Launcher opens on the home grid; other styles always have a tool open
+    if (settings.navStyle === 'launcher') setActiveCalculator(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Tabs / grouped styles must never sit on the empty launcher "home" state
+  React.useEffect(() => {
+    if (navStyle !== 'launcher' && !activeCalculator) {
+      setActiveCalculator(settings.defaultTab || orderedCalcs[0]?.id || 'calculator')
+    }
+  }, [navStyle, activeCalculator, settings.defaultTab, orderedCalcs, setActiveCalculator])
 
   // ── Sync darkMode → data-theme + persist ──────────────────────────────
   React.useEffect(() => {
@@ -210,49 +224,44 @@ export default function App() {
           </div>
         </header>
 
-        {/* ── Tab bar ─────────────────────────────────────────────────── */}
-        <div style={{
-          background: 'var(--cp-bg3)',
-          borderBottom: '1px solid var(--cp-border)',
-          padding: '0 24px',
-        }}>
-          <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', gap: 4,
-            paddingTop: 12, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 1 }}
-            className="cp-tab-bar">
-            {orderedCalcs.map(calc => (
-              <button
-                key={calc.id}
-                onClick={() => setActiveCalculator(calc.id)}
-                className={`cp-tab${activeCalculator === calc.id ? ' active' : ''}`}
-              >
-                <span style={{ marginRight: 6, fontSize: 18 }}>{calc.icon}</span>
-                {calc.name}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* ── Navigation chrome (top) ──────────────────────────────────── */}
+        {navStyle === 'tabs' && tabPosition === 'top' && (
+          <TabBar calcs={orderedCalcs} activeId={activeCalculator}
+            onSelect={setActiveCalculator} position="top" />
+        )}
+        {navStyle === 'grouped' && (
+          <GroupedNav calcs={orderedCalcs} activeId={activeCalculator}
+            onSelect={setActiveCalculator} />
+        )}
+        {navStyle === 'launcher' && !isLauncherHome && (
+          <LauncherBackBar calc={currentCalc} onHome={() => setActiveCalculator(null)} />
+        )}
 
         {/* ── Main content ─────────────────────────────────────────────── */}
         <main style={{
           maxWidth: 960, margin: '0 auto',
           padding: landscapeCompact ? '12px 24px 24px' : '24px 24px 48px',
         }}>
-          <div style={{
-            background: 'var(--cp-bg2)',
-            border: '1px solid var(--cp-border)',
-            borderRadius: 4,
-            padding: landscapeCompact ? '16px' : '24px',
-            zoom: landscapeCompact ? 0.82 : undefined,
-          }}>
-            <div key={activeCalculator}
-              className={settings.reduceMotion ? '' : 'cp-calc-fade'}>
-              <ErrorBoundary name={currentCalc?.name} resetKey={activeCalculator}>
-                <Suspense fallback={<TabLoading />}>
-                  {CurrentComponent && <CurrentComponent />}
-                </Suspense>
-              </ErrorBoundary>
+          {isLauncherHome ? (
+            <LauncherGrid calcs={orderedCalcs} onSelect={setActiveCalculator} />
+          ) : (
+            <div style={{
+              background: 'var(--cp-bg2)',
+              border: '1px solid var(--cp-border)',
+              borderRadius: 4,
+              padding: landscapeCompact ? '16px' : '24px',
+              zoom: landscapeCompact ? 0.82 : undefined,
+            }}>
+              <div key={activeCalculator}
+                className={settings.reduceMotion ? '' : 'cp-calc-fade'}>
+                <ErrorBoundary name={currentCalc?.name} resetKey={activeCalculator}>
+                  <Suspense fallback={<TabLoading />}>
+                    {CurrentComponent && <CurrentComponent />}
+                  </Suspense>
+                </ErrorBoundary>
+              </div>
             </div>
-          </div>
+          )}
         </main>
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
@@ -269,7 +278,18 @@ export default function App() {
           <div>CLAUDEBORNE SUPERAPP · PWA OFFLINE CAPABLE</div>
           <div style={{ fontSize: 9, letterSpacing: '0.16em' }}>v3.0</div>
         </footer>
+
+        {/* Reserve scroll space so content clears the fixed bottom tab bar */}
+        {navStyle === 'tabs' && tabPosition === 'bottom' && (
+          <div aria-hidden="true" style={{ height: 'calc(64px + env(safe-area-inset-bottom))' }} />
+        )}
       </div>
+
+      {/* ── Navigation chrome (bottom tabs) ──────────────────────────────── */}
+      {navStyle === 'tabs' && tabPosition === 'bottom' && (
+        <TabBar calcs={orderedCalcs} activeId={activeCalculator}
+          onSelect={setActiveCalculator} position="bottom" />
+      )}
 
       {/* ── Update prompt ────────────────────────────────────────────── */}
       <UpdatePrompt />
@@ -392,6 +412,29 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
                 onChange={v => onUpdate({ reduceMotion: v })}
               />
             </SettingsRow>
+          </SettingsSection>
+
+          <SettingsSection title="NAVIGATION">
+            <SettingsRow label="STYLE">
+              <select
+                value={settings.navStyle}
+                onChange={e => onUpdate({ navStyle: e.target.value })}
+                style={selectStyle}
+              >
+                <option value="launcher">LAUNCHER</option>
+                <option value="tabs">TABS</option>
+                <option value="grouped">GROUPED</option>
+              </select>
+            </SettingsRow>
+            {settings.navStyle === 'tabs' && (
+              <SettingsRow label="TAB POSITION">
+                <SegmentedToggle
+                  options={[{ value: 'top', label: 'TOP' }, { value: 'bottom', label: 'BOTTOM' }]}
+                  value={settings.tabPosition}
+                  onChange={v => onUpdate({ tabPosition: v })}
+                />
+              </SettingsRow>
+            )}
           </SettingsSection>
 
           <SettingsSection title="INTERFACE">

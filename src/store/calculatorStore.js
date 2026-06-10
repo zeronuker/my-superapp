@@ -9,6 +9,8 @@ const DEFAULT_SETTINGS = {
   defaultHistory: 3,
   autoRefresh:    true,
   tabOrder:       ['calculator', 'interpolation', 'edto', 'currency', 'metartaf', 'ftl', 'prayer'],
+  navStyle:       'launcher', // 'launcher' | 'tabs' | 'grouped'
+  tabPosition:    'top',      // 'top' | 'bottom'  (only used when navStyle === 'tabs')
 }
 
 function loadSettings() {
