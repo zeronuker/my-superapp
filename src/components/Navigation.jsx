@@ -12,7 +12,7 @@
 // to appear in grouped navigation.
 export const NAV_GROUPS = [
   { id: 'calc', label: 'CALC',   icon: '🧮',  members: ['calculator', 'interpolation', 'currency'] },
-  { id: 'perf', label: 'PERF',   icon: '✈️', members: ['edto', 'densityalt', 'tas'] },
+  { id: 'perf', label: 'PERF',   icon: '✈️', members: ['edto'] },
   { id: 'wx',   label: 'WX',     icon: '🌤️', members: ['metartaf'] },
   { id: 'duty', label: 'DUTY',   icon: '⏳',  members: ['ftl'] },
   { id: 'pray', label: 'PRAYER', icon: '🕌',  members: ['prayer'] },

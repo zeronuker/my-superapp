@@ -42,13 +42,12 @@ src/
   components/                 # one file per calculator tab (+ shared UI)
     METARTAFCalculator.jsx    #   weather tab (METAR/TAF + NOTAM sub-tabs)
     EDTOCalculator.jsx, FTLCalculator.jsx, InterpolationCalculator.jsx,
-    DensityAltitudeCalculator.jsx, TASCalculator.jsx, CurrencyCalculator.jsx,
-    CombinedCalculator.jsx (basic+scientific), NotamViewer.jsx,
+    CurrencyCalculator.jsx, CombinedCalculator.jsx (basic+scientific),
+    NotamViewer.jsx, Navigation.jsx (launcher/tabs/grouped chrome),
     ErrorBoundary.jsx         #   per-tab crash isolation (wraps the active tab)
   utils/                      # PURE, TESTED logic (no React/DOM)
     metarSeverity.js          #   flight category, wind severity, raw/TAF tokenising
     metarDecode.js            #   plain-English METAR/TAF decoder
-    aviationCalc.js           #   pressure/density altitude, TAS (ISA atmosphere)
     interpolation.js          #   1D/2D table interpolation
   data/ftlTables.js           # CAAM FTL lookup tables + helpers (pure, tested)
   store/calculatorStore.js    # global UI state, settings, resetCount
@@ -76,7 +75,8 @@ api/
 - **Adding a calculator tab**: create the component, then add an entry to the
   `CALCULATORS` array in `App.jsx`. New tabs auto-append to the saved tab order.
   React to global "Reset All" via `resetCount` from the store (see
-  `DensityAltitudeCalculator.jsx` for the pattern).
+  `CurrencyCalculator.jsx` for the pattern). Also add the new id to a group in
+  `NAV_GROUPS` (Navigation.jsx) so it appears in grouped navigation.
 - **Offline**: this is a PWA. Anything that fetches must degrade gracefully when
   offline and avoid triggering network calls that prompt the user. The service
   worker precaches the build output.

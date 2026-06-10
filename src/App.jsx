@@ -10,8 +10,6 @@ import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar } from './components/
 const CombinedCalculator      = lazy(() => import('./components/CombinedCalculator'))
 const InterpolationCalculator = lazy(() => import('./components/InterpolationCalculator'))
 const EDTOCalculator          = lazy(() => import('./components/EDTOCalculator'))
-const DensityAltitudeCalculator = lazy(() => import('./components/DensityAltitudeCalculator'))
-const TASCalculator           = lazy(() => import('./components/TASCalculator'))
 const CurrencyCalculator      = lazy(() => import('./components/CurrencyCalculator'))
 const METARTAFCalculator      = lazy(() => import('./components/METARTAFCalculator'))
 const FTLCalculator           = lazy(() => import('./components/FTLCalculator'))
@@ -24,8 +22,6 @@ export const CALCULATORS = [
   { id: 'calculator',    icon: '🧮',  name: 'Calculator',     component: CombinedCalculator },
   { id: 'interpolation', icon: '📐',  name: 'Interpolation',  component: InterpolationCalculator },
   { id: 'edto',          icon: '✈️', name: 'EDTO',           component: EDTOCalculator },
-  { id: 'densityalt',    icon: '🌡️', name: 'Density Alt',     component: DensityAltitudeCalculator },
-  { id: 'tas',           icon: '💨',  name: 'TAS',            component: TASCalculator },
   { id: 'currency',      icon: '💱',  name: 'Currency',       component: CurrencyCalculator },
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
   { id: 'ftl',           icon: '⏳',  name: 'FTL',            component: FTLCalculator },
@@ -33,7 +29,7 @@ export const CALCULATORS = [
 ]
 
 // IDs that no longer exist — remap to 'calculator'
-const LEGACY_IDS = new Set(['normal', 'scientific', 'time'])
+const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas'])
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13 }
 
