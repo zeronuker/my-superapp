@@ -40,7 +40,7 @@ src/
   App.jsx                     # shell: header, tab bar, settings, theme/zoom.
                               #   CALCULATORS array = the tab registry — add new tabs here.
   components/                 # one file per calculator tab (+ shared UI)
-    METARTAFCalculator.jsx    #   weather tab (METAR/TAF + NOTAM sub-tabs)
+    METARTAFCalculator.jsx    #   METAR/TAF tab.  NotamViewer.jsx = own NOTAM tab
     EDTOCalculator.jsx, FTLCalculator.jsx, InterpolationCalculator.jsx,
     CurrencyCalculator.jsx, CombinedCalculator.jsx (basic+scientific),
     NotamViewer.jsx, Navigation.jsx (launcher/tabs/grouped chrome),

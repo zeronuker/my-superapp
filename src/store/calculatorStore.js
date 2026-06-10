@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS = {
   numberFormat:   'en',       // 'en' (1,000.00) | 'eu' (1.000,00)
   defaultHistory: 3,
   autoRefresh:    true,
-  tabOrder:       ['calculator', 'interpolation', 'edto', 'currency', 'metartaf', 'ftl', 'prayer'],
+  tabOrder:       ['calculator', 'interpolation', 'edto', 'currency', 'metartaf', 'notam', 'ftl', 'prayer'],
   navStyle:       'launcher', // 'launcher' | 'tabs' | 'grouped'
   tabPosition:    'top',      // 'top' | 'bottom'  (only used when navStyle === 'tabs')
 }

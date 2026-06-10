@@ -12,6 +12,7 @@ const InterpolationCalculator = lazy(() => import('./components/InterpolationCal
 const EDTOCalculator          = lazy(() => import('./components/EDTOCalculator'))
 const CurrencyCalculator      = lazy(() => import('./components/CurrencyCalculator'))
 const METARTAFCalculator      = lazy(() => import('./components/METARTAFCalculator'))
+const NotamViewer             = lazy(() => import('./components/NotamViewer'))
 const FTLCalculator           = lazy(() => import('./components/FTLCalculator'))
 const PrayerModule            = lazy(() => import('./modules/prayer'))
 // Named export → adapt to the default shape React.lazy expects (same chunk as PrayerModule)
@@ -24,6 +25,7 @@ export const CALCULATORS = [
   { id: 'edto',          icon: '✈️', name: 'EDTO',           component: EDTOCalculator },
   { id: 'currency',      icon: '💱',  name: 'Currency',       component: CurrencyCalculator },
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
+  { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
   { id: 'ftl',           icon: '⏳',  name: 'FTL',            component: FTLCalculator },
   { id: 'prayer',        icon: '🕌',  name: 'Qiblat & Solat', component: PrayerModule },
 ]
