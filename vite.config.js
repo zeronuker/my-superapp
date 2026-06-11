@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Emit JSON imports as JSON.parse('…') rather than an object literal with a
+  // named export per key — far smaller/faster for the large airports.json.
+  json: { namedExports: false, stringify: true },
   plugins: [
     react(),
     VitePWA({

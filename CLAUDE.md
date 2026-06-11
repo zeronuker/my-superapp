@@ -50,6 +50,8 @@ src/
     metarDecode.js            #   plain-English METAR/TAF decoder
     interpolation.js          #   1D/2D table interpolation
   data/ftlTables.js           # CAAM FTL lookup tables + helpers (pure, tested)
+  data/airports.js + .json    # worldwide ICAO airport DB (shared: Flight tab +
+                              #   NOTAM). Regenerate: node scripts/generate-airports.mjs
   store/calculatorStore.js    # global UI state, settings, resetCount
   modules/prayer/             # self-contained module (own store/hooks/services/pages)
 api/
