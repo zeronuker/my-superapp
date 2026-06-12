@@ -233,7 +233,16 @@ export default function FlightPage({ settings }) {
     calculate,
   } = useFlight()
 
-  const { dep, dest, elapsedHours, totalHours, altitudeFt, headingDeg } = inputs
+  const { dep, dest, mode = 'duration', elapsedHours, totalHours,
+          depTime = '', arrTime = '', timeZone = 'utc', altitudeFt, headingDeg } = inputs
+
+  const seg = (on) => ({
+    flex: 1, fontFamily: T.mono, fontSize: 9, letterSpacing: '0.12em',
+    padding: '7px 0', borderRadius: 6, cursor: 'pointer',
+    border: `1px solid ${on ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
+    background: on ? 'var(--cp-accdim)' : 'transparent',
+    color: on ? 'var(--cp-acc)' : T.dim,
+  })
 
   // Build prayer rows from result times
   const now = new Date()
@@ -309,27 +318,35 @@ export default function FlightPage({ settings }) {
           </div>
         </div>
 
-        {/* ── Elapsed / Total — stacked on mobile to prevent clipping ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, minWidth: 0 }}>
-          <Field
-            label="ELAPSED TIME"
-            value={elapsedHours}
-            onChange={v => setInputs({ elapsedHours: v })}
-            placeholder="3.5"
-            unit="HRS"
-            type="number"
-            hint="Time since departure"
-          />
-          <Field
-            label="TOTAL FLIGHT TIME"
-            value={totalHours}
-            onChange={v => setInputs({ totalHours: v })}
-            placeholder="7.0"
-            unit="HRS"
-            type="number"
-            hint="Estimated total duration"
-          />
+        {/* ── Time mode toggle ── */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[['duration', 'DURATION'], ['clock', 'CLOCK TIME']].map(([id, label]) => (
+            <button key={id} onClick={() => setInputs({ mode: id })} style={seg(mode === id)}>{label}</button>
+          ))}
         </div>
+
+        {mode === 'clock' ? (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, minWidth: 0 }}>
+              <Field label="DEP TIME" value={depTime} onChange={v => setInputs({ depTime: v })}
+                placeholder="0930" hint="HH:MM" />
+              <Field label="ARR TIME (ETA)" value={arrTime} onChange={v => setInputs({ arrTime: v })}
+                placeholder="1730" hint="HH:MM" />
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[['utc', 'UTC / Z'], ['local', 'LOCAL']].map(([id, label]) => (
+                <button key={id} onClick={() => setInputs({ timeZone: id })} style={seg(timeZone === id)}>{label}</button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, minWidth: 0 }}>
+            <Field label="ELAPSED TIME" value={elapsedHours} onChange={v => setInputs({ elapsedHours: v })}
+              placeholder="3.5" unit="HRS" type="number" hint="Time since departure" />
+            <Field label="TOTAL FLIGHT TIME" value={totalHours} onChange={v => setInputs({ totalHours: v })}
+              placeholder="7.0" unit="HRS" type="number" hint="Estimated total duration" />
+          </div>
+        )}
       </Section>
 
       {/* Aircraft */}

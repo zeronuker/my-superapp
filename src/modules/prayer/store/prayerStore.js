@@ -32,8 +32,12 @@ const usePrayerStore = create(persist(
     flightInputs: {
       dep:          '',
       dest:         '',
+      mode:         'duration', // 'duration' | 'clock'
       elapsedHours: '',
       totalHours:   '',
+      depTime:      '',         // HH:MM  (clock mode)
+      arrTime:      '',         // HH:MM  (clock mode)
+      timeZone:     'utc',      // 'utc' | 'local'  (clock mode)
       altitudeFt:   '35000',
       headingDeg:   '',
     },
