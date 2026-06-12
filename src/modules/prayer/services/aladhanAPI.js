@@ -50,10 +50,16 @@ export async function fetchAladhan(lat, lng, date, method = 'jakim', madhab = 's
 
   const t = json.data.timings
 
+  // Dhuha (sunnah) — not in the API; derive as sunrise + 15 min
+  const sunriseDate = toDate(t.Sunrise, date)
+  const dhuhaDate   = new Date(sunriseDate.getTime() + 15 * 60_000)
+  const dhuhaHHMM   = `${String(dhuhaDate.getHours()).padStart(2, '0')}:${String(dhuhaDate.getMinutes()).padStart(2, '0')}`
+
   return {
     Imsak:   fmt(t.Imsak,   date, timeFormat),
     Fajr:    fmt(t.Fajr,    date, timeFormat),
     Sunrise: fmt(t.Sunrise, date, timeFormat),
+    Dhuha:   fmt(dhuhaHHMM, date, timeFormat),
     Dhuhr:   fmt(t.Dhuhr,   date, timeFormat),
     Asr:     fmt(t.Asr,     date, timeFormat),
     Maghrib: fmt(t.Maghrib, date, timeFormat),
@@ -61,7 +67,8 @@ export async function fetchAladhan(lat, lng, date, method = 'jakim', madhab = 's
     // Raw Date objects
     imsakDate:   toDate(t.Imsak,   date),
     fajrDate:    toDate(t.Fajr,    date),
-    sunriseDate: toDate(t.Sunrise, date),
+    sunriseDate,
+    dhuhaDate,
     dhuhrDate:   toDate(t.Dhuhr,   date),
     asrDate:     toDate(t.Asr,     date),
     maghribDate: toDate(t.Maghrib, date),

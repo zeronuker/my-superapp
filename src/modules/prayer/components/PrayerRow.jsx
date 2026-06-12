@@ -1,7 +1,7 @@
 import { T } from './tokens'
 
-export default function PrayerRow({ name, time, done, isNext, isSunrise, isImsak }) {
-  const isReference = isSunrise || isImsak   // reference times — not prayer obligations
+export default function PrayerRow({ name, time, done, isNext, isSunrise, isImsak, isDhuha }) {
+  const isReference = isSunrise || isImsak || isDhuha   // reference times — not prayer obligations
 
   if (isReference) {
     return (

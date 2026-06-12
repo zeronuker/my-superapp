@@ -57,7 +57,7 @@ function TabLoading({ compact }) {
 export default function App() {
   const {
     activeCalculator, setActiveCalculator,
-    resetAll, darkMode, toggleDarkMode,
+    resetAll, resetCount, darkMode, toggleDarkMode,
     settings, updateSettings,
   } = useCalculatorStore()
 
@@ -250,7 +250,7 @@ export default function App() {
               padding: landscapeCompact ? '16px' : '24px',
               zoom: landscapeCompact ? 0.82 : undefined,
             }}>
-              <div key={activeCalculator}
+              <div key={`${activeCalculator}-${resetCount}`}
                 className={settings.reduceMotion ? '' : 'cp-calc-fade'}>
                 <ErrorBoundary name={currentCalc?.name} resetKey={activeCalculator}>
                   <Suspense fallback={<TabLoading />}>
