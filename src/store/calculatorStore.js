@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS = {
   numberFormat:   'en',       // 'en' (1,000.00) | 'eu' (1.000,00)
   defaultHistory: 3,
   autoRefresh:    true,
-  tabOrder:       ['calculator', 'interpolation', 'edto', 'currency', 'metartaf', 'notam', 'ftl', 'prayer'],
+  tabOrder:       ['calculator', 'interpolation', 'edto', 'currency', 'metartaf', 'notam', 'ftl', 'worldtime', 'prayer'],
   navStyle:       'launcher', // 'launcher' | 'tabs' | 'grouped'
   tabPosition:    'top',      // 'top' | 'bottom'  (only used when navStyle === 'tabs')
   notamSort:      'relevance',// 'relevance' | 'category'  (NOTAM sort within a location)
@@ -85,6 +85,7 @@ export const useCalculatorStore = create((set) => ({
   resetAll: () => {
     try { localStorage.removeItem('cb-metar-cache') } catch (_) {}
     try { localStorage.removeItem('cb-notam-cache') } catch (_) {}
+    try { localStorage.removeItem('cb-worldtime') } catch (_) {}
     set(s => ({
       edto: {
         aircraft: 'b737-8', variant: 'leap-1b25', weight: '',
