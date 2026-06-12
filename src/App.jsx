@@ -704,34 +704,49 @@ const TYPE_COLOR = {
 }
 
 function Changelog() {
+  const [open, setOpen] = React.useState(() => new Set([CHANGELOG[0].version]))
+  const toggle = (v) => setOpen(prev => {
+    const next = new Set(prev); next.has(v) ? next.delete(v) : next.add(v); return next
+  })
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {CHANGELOG.map(({ version, date, entries }) => (
-        <div key={version}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700,
-              color: 'var(--cp-acc)', letterSpacing: '0.1em' }}>{version}</span>
-            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
-              color: 'var(--cp-dim)', letterSpacing: '0.1em' }}>{date}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {CHANGELOG.map(({ version, date, entries }) => {
+        const expanded = open.has(version)
+        return (
+          <div key={version} style={{ border: '1px solid var(--cp-border2)', borderRadius: 4, overflow: 'hidden' }}>
+            <button onClick={() => toggle(version)} style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+              background: expanded ? 'var(--cp-accdim)' : 'var(--cp-bg3)',
+              border: 'none', padding: '8px 12px', cursor: 'pointer', textAlign: 'left',
+            }}>
+              <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700,
+                color: 'var(--cp-acc)', letterSpacing: '0.1em' }}>{version}</span>
+              <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+                color: 'var(--cp-dim)', letterSpacing: '0.1em' }}>{date}</span>
+              <span style={{ marginLeft: 'auto', fontFamily: 'var(--cb-font-mono)', fontSize: 10,
+                color: 'var(--cp-dim)' }}>{expanded ? '▲' : '▼'}</span>
+            </button>
+            {expanded && (
+              <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {entries.map((e, i) => {
+                  const t = TYPE_COLOR[e.type] ?? TYPE_COLOR.feat
+                  return (
+                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, fontWeight: 700,
+                        letterSpacing: '0.1em', color: t.color, flexShrink: 0,
+                        background: `color-mix(in srgb, ${t.color} 12%, transparent)`,
+                        border: `1px solid color-mix(in srgb, ${t.color} 30%, transparent)`,
+                        borderRadius: 3, padding: '1px 5px' }}>{t.label}</span>
+                      <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12,
+                        color: 'var(--cp-muted)', lineHeight: 1.5 }}>{e.text}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {entries.map((e, i) => {
-              const t = TYPE_COLOR[e.type] ?? TYPE_COLOR.feat
-              return (
-                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                  <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, fontWeight: 700,
-                    letterSpacing: '0.1em', color: t.color, flexShrink: 0, paddingTop: 1,
-                    background: `color-mix(in srgb, ${t.color} 12%, transparent)`,
-                    border: `1px solid color-mix(in srgb, ${t.color} 30%, transparent)`,
-                    borderRadius: 3, padding: '1px 5px' }}>{t.label}</span>
-                  <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12,
-                    color: 'var(--cp-muted)', lineHeight: 1.5 }}>{e.text}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
