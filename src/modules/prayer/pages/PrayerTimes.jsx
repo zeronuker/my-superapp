@@ -17,25 +17,24 @@ function buildRows(times) {
   if (!times) return []
   const now = new Date()
   const prayers = [
-    { name: 'Imsak',   time: times.Imsak,   date: times.imsakDate,   isSunrise: false, isImsak: true,  isDhuha: false },
-    { name: 'Fajr',    time: times.Fajr,    date: times.fajrDate,    isSunrise: false, isImsak: false, isDhuha: false },
-    { name: 'Sunrise', time: times.Sunrise,  date: times.sunriseDate, isSunrise: true,  isImsak: false, isDhuha: false },
-    { name: 'Dhuha',   time: times.Dhuha,   date: times.dhuhaDate,   isSunrise: false, isImsak: false, isDhuha: true  },
-    { name: 'Dhuhr',   time: times.Dhuhr,   date: times.dhuhrDate,   isSunrise: false, isImsak: false, isDhuha: false },
-    { name: 'Asr',     time: times.Asr,     date: times.asrDate,     isSunrise: false, isImsak: false, isDhuha: false },
-    { name: 'Maghrib', time: times.Maghrib,  date: times.maghribDate, isSunrise: false, isImsak: false, isDhuha: false },
-    { name: 'Isha',    time: times.Isha,    date: times.ishaDate,    isSunrise: false, isImsak: false, isDhuha: false },
+    { name: 'Imsak',   time: times.Imsak,   date: times.imsakDate,   isSunrise: false, isImsak: true  },
+    { name: 'Fajr',    time: times.Fajr,    date: times.fajrDate,    isSunrise: false, isImsak: false },
+    { name: 'Sunrise', time: times.Sunrise,  date: times.sunriseDate, isSunrise: true,  isImsak: false },
+    { name: 'Dhuhr',   time: times.Dhuhr,   date: times.dhuhrDate,   isSunrise: false, isImsak: false },
+    { name: 'Asr',     time: times.Asr,     date: times.asrDate,     isSunrise: false, isImsak: false },
+    { name: 'Maghrib', time: times.Maghrib,  date: times.maghribDate, isSunrise: false, isImsak: false },
+    { name: 'Isha',    time: times.Isha,    date: times.ishaDate,    isSunrise: false, isImsak: false },
   ]
 
-  // Next active prayer — excludes reference rows (Sunrise/Dhuha); Imsak counts
-  const isRef = p => p.isSunrise || p.isDhuha
+  // Next active prayer — excludes reference rows (Sunrise); Imsak counts
+  const isRef = p => p.isSunrise
   const activePrayers = prayers.filter(p => !isRef(p))
   const nextPrayer    = activePrayers.find(p => p.date instanceof Date && p.date > now)
     ?? activePrayers[0] // after Isha: wrap to tomorrow's Imsak/Fajr
 
   return prayers.map(p => ({
     ...p,
-    done:   p.date instanceof Date && p.date < now && !p.isSunrise && !p.isImsak,
+    done:   p.date instanceof Date && p.date < now && !isRef(p) && !p.isImsak,
     isNext: !isRef(p) && !p.isImsak && p.name === nextPrayer?.name,
   }))
 }

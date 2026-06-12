@@ -6,9 +6,6 @@ import {
   PrayerTimes,
 } from 'adhan'
 
-// Minutes after sunrise that Dhuha (sunnah) begins. Adjust to taste / authority.
-const DHUHA_OFFSET_MIN = 15
-
 // ── Calculation method map ────────────────────────────────────────────────────
 // JAKIM uses Fajr 20°, Isha 18° — not a named method in adhan.js, so custom
 const METHOD_MAP = {
@@ -44,14 +41,11 @@ export function calculateLocal(lat, lng, date, method = 'jakim', madhab = 'shafi
 
   // Imsak: 10 minutes before Fajr (JAKIM standard; universally used across methods)
   const imsakDate = new Date(pt.fajr.getTime() - 10 * 60_000)
-  // Dhuha (sunnah): begins ~15 min after sunrise (sun ~spear's height above horizon)
-  const dhuhaDate = new Date(pt.sunrise.getTime() + DHUHA_OFFSET_MIN * 60_000)
 
   return {
     Imsak:   fmt(imsakDate, timeFormat),
     Fajr:    fmt(pt.fajr,    timeFormat),
     Sunrise: fmt(pt.sunrise, timeFormat),
-    Dhuha:   fmt(dhuhaDate, timeFormat),
     Dhuhr:   fmt(pt.dhuhr,  timeFormat),
     Asr:     fmt(pt.asr,    timeFormat),
     Maghrib: fmt(pt.maghrib, timeFormat),
@@ -60,7 +54,6 @@ export function calculateLocal(lat, lng, date, method = 'jakim', madhab = 'shafi
     imsakDate,
     fajrDate:    pt.fajr,
     sunriseDate: pt.sunrise,
-    dhuhaDate,
     dhuhrDate:   pt.dhuhr,
     asrDate:     pt.asr,
     maghribDate: pt.maghrib,
