@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { fetchNotams, detectRouteFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
@@ -13,6 +13,14 @@ const T = {
 }
 
 const ERA_MAX = 5
+const CACHE_KEY = 'cb-notam-cache'
+function loadCache() {
+  try { const r = localStorage.getItem(CACHE_KEY); return r ? JSON.parse(r) : null }
+  catch (_) { return null }
+}
+function saveCache(data) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch (_) {}
+}
 const CATEGORY_ORDER = ['AERODROME', 'AIRSPACE', 'NAVAID', 'OBSTACLE', 'WARNING', 'LIGHTING', 'PROCEDURE', 'OTHER']
 const STATUS_RANK = { ACTIVE: 0, FUTURE: 1, EXPIRED: 2, UNKNOWN: 3 }
 
@@ -145,10 +153,13 @@ function LocationSection({ target, all, shown, collapsed, onToggle }) {
       </button>
       {!collapsed && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-          {shown.length === 0
+          {all.length === 0
             ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim, padding: '4px 2px' }}>
-                No NOTAMs match the current filters.</div>
-            : shown.map(n => <NotamCard key={n.id} notam={n} />)}
+                No NOTAMs available for this location.</div>
+            : shown.length === 0
+              ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim, padding: '4px 2px' }}>
+                  No NOTAMs match the current filters.</div>
+              : shown.map(n => <NotamCard key={n.id} notam={n} />)}
         </div>
       )}
     </div>
@@ -157,29 +168,47 @@ function LocationSection({ target, all, shown, collapsed, onToggle }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function NotamViewer() {
-  const sortMode = useCalculatorStore(s => s.settings.notamSort) || 'relevance'
+  const { sortMode, resetCount } = useCalculatorStore(s => ({
+    sortMode: s.settings.notamSort || 'relevance',
+    resetCount: s.resetCount,
+  }))
 
+  const [cache]        = useState(loadCache)
   // Inputs (mirror METAR/TAF)
-  const [dep, setDep] = useState('')
-  const [arr, setArr] = useState('')
-  const [destAlts, setDestAlts] = useState({ alt1: '', alt2: '' })
-  const [enrouteCount, setEnrouteCount] = useState(0)
-  const [enrouteAlts, setEnrouteAlts] = useState(Array(ERA_MAX).fill(''))
-  const [extraChips, setExtraChips] = useState([])   // FIRs + manual { icao, name, type:'fir'|'airport' }
-  const [customInput, setCustomInput] = useState('')
-  const [detecting, setDetecting] = useState(false)
+  const [dep,          setDep]          = useState(cache?.dep          || '')
+  const [arr,          setArr]          = useState(cache?.arr          || '')
+  const [destAlts,     setDestAlts]     = useState(cache?.destAlts     || { alt1: '', alt2: '' })
+  const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount || 0)
+  const [enrouteAlts,  setEnrouteAlts]  = useState(cache?.enrouteAlts  || Array(ERA_MAX).fill(''))
+  const [extraChips,   setExtraChips]   = useState(cache?.extraChips   || [])
+  const [customInput,  setCustomInput]  = useState('')
+  const [detecting,    setDetecting]    = useState(false)
 
   // Results
-  const [view, setView] = useState('parsed')
-  const [loading, setLoading] = useState(false)
-  const [notams, setNotams] = useState(null)
-  const [error, setError] = useState('')
+  const [view,         setView]         = useState('parsed')
+  const [loading,      setLoading]      = useState(false)
+  const [notams,       setNotams]       = useState(cache?.notams       ?? null)
+  const [error,        setError]        = useState('')
 
   // Filters
   const [statusLevel, setStatusLevel] = useState('active')
   const [catFilter, setCatFilter] = useState(() => new Set(CATEGORY_ORDER))
   const [search, setSearch] = useState('')
   const [collapsedMap, setCollapsedMap] = useState({})
+
+  const prevReset = useRef(resetCount)
+  useEffect(() => {
+    if (resetCount === prevReset.current) return
+    prevReset.current = resetCount
+    setDep(''); setArr('')
+    setDestAlts({ alt1: '', alt2: '' })
+    setEnrouteCount(0)
+    setEnrouteAlts(Array(ERA_MAX).fill(''))
+    setExtraChips([])
+    setNotams(null)
+    setError('')
+    setCollapsedMap({})
+  }, [resetCount])
 
   // ── Ordered, deduped target list (role-tagged) ──
   const buildTargets = () => {
@@ -235,7 +264,9 @@ export default function NotamViewer() {
     if (!t.length) { setError('Enter at least one airport or FIR.'); return }
     setError(''); setLoading(true); setNotams(null); setCollapsedMap({})
     try {
-      setNotams(await fetchNotams(t.map(x => x.icao)))
+      const result = await fetchNotams(t.map(x => x.icao))
+      setNotams(result)
+      saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, notams: result })
     } catch (e) {
       setError(`Failed to fetch NOTAMs: ${e.message}`)
     } finally { setLoading(false) }
@@ -263,7 +294,6 @@ export default function NotamViewer() {
   const comparator = makeComparator(sortMode)
   const sections = targets
     .map(target => ({ target, all: bySource[target.icao] ?? [] }))
-    .filter(s => s.all.length > 0)
     .map(s => ({ ...s, shown: s.all.filter(matches).sort(comparator) }))
 
   const totalShown = sections.reduce((sum, s) => sum + s.shown.length, 0)
@@ -419,7 +449,7 @@ export default function NotamViewer() {
             <>
               {/* Summary chips (role-coloured) */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                {sections.map(({ target, all }) => {
+                {sections.filter(s => s.all.length > 0).map(({ target, all }) => {
                   const r = ROLE_STYLE[target.role] ?? ROLE_STYLE.other
                   const active = all.filter(n => n.validity.status === 'ACTIVE').length
                   return (

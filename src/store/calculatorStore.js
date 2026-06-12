@@ -84,6 +84,7 @@ export const useCalculatorStore = create((set) => ({
 
   resetAll: () => {
     try { localStorage.removeItem('cb-metar-cache') } catch (_) {}
+    try { localStorage.removeItem('cb-notam-cache') } catch (_) {}
     set(s => ({
       edto: {
         aircraft: 'b737-8', variant: 'leap-1b25', weight: '',

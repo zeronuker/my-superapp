@@ -334,7 +334,7 @@ export default function FlightPage({ settings }) {
                 placeholder="1730" hint="HH:MM" />
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
-              {[['utc', 'UTC / Z'], ['local', 'LOCAL']].map(([id, label]) => (
+              {[['utc', 'UTC / ZULU'], ['local', 'LOCAL']].map(([id, label]) => (
                 <button key={id} onClick={() => setInputs({ timeZone: id })} style={seg(timeZone === id)}>{label}</button>
               ))}
             </div>
