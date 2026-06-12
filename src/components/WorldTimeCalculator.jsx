@@ -74,24 +74,62 @@ function getDayOff(date, tz) {
   } catch { return null }
 }
 
-function buildConverterDate(hhmm, sourceTz) {
-  const clean = hhmm.replace(/\D/g, '')
-  if (clean.length < 4) return null
-  const h = parseInt(clean.slice(0, 2), 10)
-  const m = parseInt(clean.slice(2, 4), 10)
-  if (h > 23 || m > 59) return null
-  const now = new Date()
-  const off = getOffMin(sourceTz, now)
-  const utcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  return new Date(utcMidnight + (h * 60 + m - off) * 60000)
+function getLocalLabel(tz) {
+  const match = TIMEZONES.find(z => z.tz === tz)
+  if (match) return match.label
+  return tz.split('/').pop().replace(/_/g, ' ')
+}
+
+// ── Pinned card (UTC / Local) ────────────────────────────────────────────────
+function PinnedCard({ label, sublabel, timeStr, dateStr, offset, dst }) {
+  return (
+    <div style={{
+      background: T.bg1, border: `1px solid ${T.bord}`,
+      borderLeft: `3px solid var(--cp-acc)`, borderRadius: 6,
+      padding: '14px 16px', flex: 1, minWidth: 0,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5, flexWrap: 'wrap' }}>
+        <span style={{
+          fontFamily: T.mono, fontSize: 9, fontWeight: 700,
+          color: T.acc, letterSpacing: '0.16em',
+        }}>{label}</span>
+        {sublabel && (
+          <span style={{ fontFamily: T.mono, fontSize: 8, color: T.dim, letterSpacing: '0.08em' }}>
+            {sublabel}
+          </span>
+        )}
+        {dst && (
+          <span style={{
+            fontFamily: T.mono, fontSize: 8, letterSpacing: '0.08em', color: T.yellow,
+            background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)',
+            borderRadius: 3, padding: '1px 5px',
+          }}>DST</span>
+        )}
+      </div>
+      <div style={{
+        fontFamily: T.mono, fontSize: 26, fontWeight: 700,
+        color: T.acc, letterSpacing: '0.04em', lineHeight: 1, marginBottom: 5,
+      }}>{timeStr}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.06em' }}>
+          {dateStr}
+        </span>
+        {offset && (
+          <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.06em' }}>
+            UTC{offset}
+          </span>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ── Zone card ────────────────────────────────────────────────────────────────
-function ZoneCard({ zone, refDate, fmt, dst, onRemove }) {
-  const offset  = fmtOffset(zone.tz, refDate)
-  const timeStr = getTimeStr(refDate, zone.tz, fmt)
-  const dateStr = getDateStr(refDate, zone.tz)
-  const dayOff  = getDayOff(refDate, zone.tz)
+function ZoneCard({ zone, now, fmt, dst, onRemove }) {
+  const offset  = fmtOffset(zone.tz, now)
+  const timeStr = getTimeStr(now, zone.tz, fmt)
+  const dateStr = getDateStr(now, zone.tz)
+  const dayOff  = getDayOff(now, zone.tz)
 
   return (
     <div style={{
@@ -157,14 +195,12 @@ function SectionHeader({ title }) {
 export default function WorldTimeCalculator() {
   const resetCount = useCalculatorStore(s => s.resetCount)
 
-  const [cache]        = useState(loadCache)
-  const [zones,        setZones]        = useState(cache?.zones   || [])
-  const [fmt,          setFmt]          = useState(cache?.fmt     || '24hr')
-  const [convTime,     setConvTime]     = useState('')
-  const [convZoneId,   setConvZoneId]   = useState('UTC')
-  const [search,       setSearch]       = useState('')
-  const [showAdd,      setShowAdd]      = useState(false)
-  const [now,          setNow]          = useState(() => new Date())
+  const [cache]   = useState(loadCache)
+  const [zones,   setZones]   = useState(cache?.zones || [])
+  const [fmt,     setFmt]     = useState(cache?.fmt   || '24hr')
+  const [search,  setSearch]  = useState('')
+  const [showAdd, setShowAdd] = useState(false)
+  const [now,     setNow]     = useState(() => new Date())
   const searchRef = useRef(null)
 
   // Tick every second
@@ -183,29 +219,23 @@ export default function WorldTimeCalculator() {
   useEffect(() => {
     if (resetCount === prevReset.current) return
     prevReset.current = resetCount
-    setZones([])
-    setFmt('24hr')
-    setConvTime('')
-    setConvZoneId('UTC')
-    setSearch('')
-    setShowAdd(false)
+    setZones([]); setFmt('24hr'); setSearch(''); setShowAdd(false)
     saveCache({ zones: [], fmt: '24hr' })
   }, [resetCount])
 
-  // Converter zone → actual IANA string
-  const convTz = convZoneId === 'UTC' ? 'UTC' : (zones.find(z => z.id === convZoneId)?.tz || 'UTC')
+  // Local timezone (stable, detected once)
+  const localTz    = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
+  const localLabel = useMemo(() => getLocalLabel(localTz), [localTz])
+  const localDst   = useMemo(() => isCurrentlyDST(localTz), [localTz])
 
-  const isLive  = convTime.replace(/\D/g, '').length < 4
-  const refDate = isLive ? now : (buildConverterDate(convTime, convTz) ?? now)
-
-  // DST precomputed per zone (changes twice/year max — no need to recompute every tick)
+  // DST precomputed per saved zone (changes twice/year — don't recompute every tick)
   const dstMap = useMemo(() => {
     const m = {}
     for (const z of zones) m[z.tz] = isCurrentlyDST(z.tz)
     return m
   }, [zones])
 
-  // Search results (exclude already-added)
+  // Search results (exclude already-added zones)
   const addedIds = useMemo(() => new Set(zones.map(z => z.id)), [zones])
   const results  = useMemo(() => {
     if (!search.trim()) return []
@@ -226,50 +256,18 @@ export default function WorldTimeCalculator() {
   const removeZone = (id) => {
     const next = zones.filter(z => z.id !== id)
     setZones(next); persist(next, null)
-    if (convZoneId === id) setConvZoneId('UTC')
   }
 
   const setFormat = (f) => { setFmt(f); persist(null, f) }
 
-  const convZoneOptions = [{ id: 'UTC', label: 'UTC' }, ...zones]
-
   return (
     <div style={{ maxWidth: 600, margin: '0 auto' }}>
 
-      {/* ── UTC clock + format toggle ── */}
-      <div style={{
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-        marginBottom: 20, flexWrap: 'wrap', gap: 12,
-      }}>
-        <div>
-          <div style={{
-            fontFamily: T.mono, fontSize: 10, color: T.dim,
-            letterSpacing: '0.18em', marginBottom: 4,
-          }}>UTC / ZULU</div>
-          <div style={{
-            fontFamily: T.mono, fontSize: 38, fontWeight: 700,
-            color: T.acc, letterSpacing: '0.06em', lineHeight: 1,
-          }}>
-            {getTimeStr(refDate, 'UTC', fmt)}
-          </div>
-          <div style={{
-            fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.08em', marginTop: 5,
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            {getDateStr(refDate, 'UTC')}
-            {!isLive && (
-              <span style={{
-                color: T.orange, fontSize: 8, letterSpacing: '0.12em',
-                background: 'rgba(251,146,60,0.1)', border: '1px solid rgba(251,146,60,0.3)',
-                borderRadius: 3, padding: '1px 5px',
-              }}>◷ CONVERTER</span>
-            )}
-          </div>
-        </div>
-
+      {/* ── Format toggle ── */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
         <div style={{
           display: 'inline-flex', background: T.bg1, border: `1px solid ${T.bord}`,
-          borderRadius: 4, overflow: 'hidden', alignSelf: 'flex-start',
+          borderRadius: 4, overflow: 'hidden',
         }}>
           {['24hr', '12hr'].map((f, i) => (
             <button key={f} onClick={() => setFormat(f)} style={{
@@ -283,49 +281,24 @@ export default function WorldTimeCalculator() {
         </div>
       </div>
 
-      {/* ── Converter ── */}
-      <SectionHeader title="Time Converter" />
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
-        <input
-          value={convTime}
-          onChange={e => setConvTime(e.target.value.replace(/[^\d:]/g, '').slice(0, 5))}
-          placeholder="14:30"
-          maxLength={5}
-          style={{
-            width: 80, background: T.bg1, borderRadius: 4, padding: '7px 10px',
-            color: T.ink, fontFamily: T.mono, fontSize: 16, outline: 'none',
-            letterSpacing: '0.12em', textAlign: 'center',
-            border: `1px solid ${!isLive ? T.acc : T.bord2}`,
-          }}
+      {/* ── Pinned clocks: UTC + Local ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+        <PinnedCard
+          label="UTC / ZULU"
+          timeStr={getTimeStr(now, 'UTC', fmt)}
+          dateStr={getDateStr(now, 'UTC')}
         />
-        <select
-          value={convZoneId}
-          onChange={e => setConvZoneId(e.target.value)}
-          style={{
-            flex: 1, minWidth: 120, background: T.bg1, border: `1px solid ${T.bord2}`,
-            borderRadius: 4, color: T.ink, fontFamily: T.mono, fontSize: 11,
-            padding: '7px 10px', outline: 'none', cursor: 'pointer',
-          }}
-        >
-          {convZoneOptions.map(z => (
-            <option key={z.id} value={z.id}>{z.label}</option>
-          ))}
-        </select>
-        {!isLive ? (
-          <button onClick={() => { setConvTime(''); setConvZoneId('UTC') }} style={{
-            background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.3)',
-            borderRadius: 4, padding: '7px 12px', cursor: 'pointer',
-            fontFamily: T.mono, fontSize: 9, letterSpacing: '0.12em', color: T.green,
-            flexShrink: 0,
-          }}>● LIVE</button>
-        ) : (
-          <span style={{
-            fontFamily: T.mono, fontSize: 9, letterSpacing: '0.12em', color: T.green, padding: '7px 0',
-          }}>● LIVE</span>
-        )}
+        <PinnedCard
+          label="LOCAL"
+          sublabel={localLabel}
+          timeStr={getTimeStr(now, localTz, fmt)}
+          dateStr={getDateStr(now, localTz)}
+          offset={fmtOffset(localTz, now)}
+          dst={localDst}
+        />
       </div>
 
-      {/* ── Clocks ── */}
+      {/* ── Saved clocks ── */}
       <SectionHeader title="Clocks" />
 
       {zones.length === 0 && (
@@ -342,7 +315,7 @@ export default function WorldTimeCalculator() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {zones.map(zone => (
-          <ZoneCard key={zone.id} zone={zone} refDate={refDate} fmt={fmt}
+          <ZoneCard key={zone.id} zone={zone} now={now} fmt={fmt}
             dst={dstMap[zone.tz]} onRemove={() => removeZone(zone.id)} />
         ))}
       </div>
@@ -350,9 +323,7 @@ export default function WorldTimeCalculator() {
       {/* ── Add zone ── */}
       {zones.length < MAX_ZONES ? (
         showAdd ? (
-          <div style={{
-            background: T.bg1, border: `1px solid ${T.bord}`, borderRadius: 6, padding: 12,
-          }}>
+          <div style={{ background: T.bg1, border: `1px solid ${T.bord}`, borderRadius: 6, padding: 12 }}>
             <input
               ref={searchRef}
               value={search}
