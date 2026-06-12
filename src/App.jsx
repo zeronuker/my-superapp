@@ -274,7 +274,7 @@ export default function App() {
           lineHeight: 1.8,
         }}>
           <div>CLAUDEBORNE SUPERAPP · PWA OFFLINE CAPABLE</div>
-          <div style={{ fontSize: 9, letterSpacing: '0.16em' }}>v3.0</div>
+          <div style={{ fontSize: 9, letterSpacing: '0.16em' }}>v3.5</div>
         </footer>
 
         {/* Reserve scroll space so content clears the fixed bottom tab bar */}
@@ -556,11 +556,14 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
           <SettingsSection title="APP UPDATE">
             <UpdateChecker />
           </SettingsSection>
+          <SettingsSection title="CHANGELOG">
+            <Changelog />
+          </SettingsSection>
           <div style={{
             textAlign: 'center', fontFamily: 'var(--cb-font-mono)',
             fontSize: 9, letterSpacing: '0.16em', color: 'var(--cp-dim)', paddingTop: 4,
           }}>
-            CLAUDEBORNE SUPERAPP · v3.0
+            CLAUDEBORNE SUPERAPP · v3.5
           </div>
         </>
       )}
@@ -651,6 +654,84 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
         paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
         {tabContent}
       </div>
+    </div>
+  )
+}
+
+// ── Changelog ───────────────────────────────────────────────────────────────
+const CHANGELOG = [
+  {
+    version: 'v3.5', date: 'Jun 2026',
+    entries: [
+      { type: 'fix', text: 'NOTAM inputs & results persist to localStorage for offline viewing' },
+      { type: 'fix', text: 'Show "No NOTAMs available" per location when API returns nothing' },
+      { type: 'fix', text: 'Dhuha styled as full prayer row; greys out with ✓ after time passes' },
+      { type: 'fix', text: 'UTC/Z toggle relabelled to UTC / ZULU' },
+    ],
+  },
+  {
+    version: 'v3.0', date: '2025',
+    entries: [
+      { type: 'feat', text: 'Scientific calculator — expression engine + unit converter' },
+      { type: 'feat', text: 'Flight tab — clock-time mode (dep/arr) with UTC/local toggle' },
+      { type: 'feat', text: 'Dhuha prayer time added' },
+      { type: 'feat', text: 'NOTAM revamped — grouped by location, role-coloured, filterable' },
+      { type: 'feat', text: 'Full OurAirports dataset (worldwide ICAO coverage)' },
+      { type: 'fix',  text: 'Day-shifted prayer times from UTC cache key' },
+      { type: 'fix',  text: 'Reset All no longer leaves stale fields' },
+    ],
+  },
+  {
+    version: 'v2.x', date: '2024–2025',
+    entries: [
+      { type: 'feat', text: 'METAR/TAF flight category + wind severity colour coding' },
+      { type: 'feat', text: 'METAR/TAF plain-English decode toggle' },
+      { type: 'feat', text: 'Imsak & Sunrise styled as reference times' },
+      { type: 'feat', text: 'Prayer times auto-refresh after midnight' },
+      { type: 'feat', text: 'Launcher / tabs / grouped navigation styles' },
+      { type: 'feat', text: 'Settings responsive tabbed UI (sheet on mobile, modal on desktop)' },
+      { type: 'feat', text: 'Per-tab error boundaries + code-split lazy loading' },
+      { type: 'fix',  text: 'Qibla compass — rotate with device, true North tracking' },
+      { type: 'feat', text: 'NOTAM module — autorouter.aero OAuth proxy' },
+      { type: 'feat', text: 'Vitest unit tests (92 tests)' },
+    ],
+  },
+]
+
+const TYPE_COLOR = {
+  feat: { color: 'var(--cp-acc)',    label: 'NEW' },
+  fix:  { color: 'var(--cp-orange)', label: 'FIX' },
+}
+
+function Changelog() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {CHANGELOG.map(({ version, date, entries }) => (
+        <div key={version}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700,
+              color: 'var(--cp-acc)', letterSpacing: '0.1em' }}>{version}</span>
+            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+              color: 'var(--cp-dim)', letterSpacing: '0.1em' }}>{date}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {entries.map((e, i) => {
+              const t = TYPE_COLOR[e.type] ?? TYPE_COLOR.feat
+              return (
+                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, fontWeight: 700,
+                    letterSpacing: '0.1em', color: t.color, flexShrink: 0, paddingTop: 1,
+                    background: `color-mix(in srgb, ${t.color} 12%, transparent)`,
+                    border: `1px solid color-mix(in srgb, ${t.color} 30%, transparent)`,
+                    borderRadius: 3, padding: '1px 5px' }}>{t.label}</span>
+                  <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12,
+                    color: 'var(--cp-muted)', lineHeight: 1.5 }}>{e.text}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
