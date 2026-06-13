@@ -3,12 +3,24 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 /**
  * Shown as a centred modal dialog when a new service worker is waiting.
  * User must choose UPDATE NOW or LATER — no silent auto-reload.
+ *
+ * Polls for updates every 60 s via registration.update() so the prompt
+ * appears automatically without needing a page reload.
  */
 export default function UpdatePrompt() {
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
-  } = useRegisterSW()
+  } = useRegisterSW({
+    onRegisteredSW(_swUrl, r) {
+      if (!r) return
+      setInterval(async () => {
+        if (r.installing) return
+        if ('connection' in navigator && !navigator.onLine) return
+        await r.update()
+      }, 60_000)
+    },
+  })
 
   if (!needRefresh) return null
 
