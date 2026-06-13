@@ -523,6 +523,44 @@ export default function NotamViewer() {
                 })}
               </div>
 
+              {/* ── Severity summary bar ── */}
+              {(() => {
+                const counts = {}
+                for (const n of notams) counts[n.category] = (counts[n.category] || 0) + 1
+                const cats = CATEGORY_ORDER.filter(cat => counts[cat])
+                if (!cats.length) return null
+                return (
+                  <div style={{
+                    display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6,
+                    marginBottom: 14, padding: '9px 12px',
+                    background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
+                    borderRadius: 6,
+                  }}>
+                    <span style={{ fontFamily: T.mono, fontSize: 8, letterSpacing: '0.14em',
+                      color: T.dim, marginRight: 2 }}>SUMMARY</span>
+                    {cats.map(cat => {
+                      const c = NOTAM_CATEGORIES[cat]
+                      return (
+                        <div key={cat} style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          background: c.bg, border: `1px solid ${c.border}`,
+                          borderRadius: 4, padding: '3px 8px',
+                        }}>
+                          <div style={{ width: 6, height: 6, borderRadius: '50%',
+                            background: c.color, flexShrink: 0 }} />
+                          <span style={{ fontFamily: T.mono, fontSize: 9, fontWeight: 700,
+                            color: c.color, letterSpacing: '0.06em' }}>{counts[cat]}</span>
+                          <span style={{ fontFamily: T.mono, fontSize: 8, color: c.color,
+                            letterSpacing: '0.06em', opacity: 0.85 }}>{c.label.toUpperCase()}</span>
+                        </div>
+                      )
+                    })}
+                    <span style={{ marginLeft: 'auto', fontFamily: T.mono, fontSize: 8,
+                      color: T.dim, letterSpacing: '0.1em' }}>{notams.length} TOTAL</span>
+                  </div>
+                )
+              })()}
+
               {sections.map(({ target, all, shown }) => (
                 <LocationSection key={target.icao} target={target} all={all} shown={shown}
                   collapsed={isCollapsed(target.icao)} onToggle={() => toggleSection(target.icao)} />

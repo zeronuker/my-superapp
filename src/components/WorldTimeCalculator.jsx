@@ -83,8 +83,7 @@ function getLocalLabel(tz) {
 // ── Pinned card (UTC / Local) ────────────────────────────────────────────────
 function PinnedCard({ label, sublabel, timeStr, dateStr, offset, dst }) {
   return (
-    <div style={{
-      background: T.bg1, border: `1px solid ${T.bord}`,
+    <div className="cp-glass" style={{
       borderLeft: `3px solid var(--cp-acc)`, borderRadius: 6,
       padding: '14px 16px', flex: 1, minWidth: 0,
     }}>
@@ -132,8 +131,8 @@ function ZoneCard({ zone, now, fmt, dst, onRemove }) {
   const dayOff  = getDayOff(now, zone.tz)
 
   return (
-    <div style={{
-      background: T.bg1, border: `1px solid ${T.bord}`, borderRadius: 6,
+    <div className="cp-glass" style={{
+      borderRadius: 6,
       padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10,
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>

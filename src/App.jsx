@@ -138,7 +138,11 @@ export default function App() {
     if (LEGACY_IDS.has(activeCalculator)) setActiveCalculator('calculator')
     if (LEGACY_IDS.has(settings.defaultTab)) handleSettingsUpdate({ defaultTab: 'calculator' })
     if (settings.navStyle === 'launcher') {
-      setActiveCalculator(null)
+      try {
+        const last = localStorage.getItem('cb-lasttab')
+        if (last && CALCULATORS.find(c => c.id === last)) setActiveCalculator(last)
+        else setActiveCalculator(null)
+      } catch (_) { setActiveCalculator(null) }
     } else {
       // Restore last-used tab for tabs/grouped mode instead of always defaulting
       try {
@@ -328,6 +332,7 @@ export default function App() {
 
         {/* ── Main content ─────────────────────────────────────────────── */}
         <main
+          className={isLauncherHome ? 'cb-grid-bg' : ''}
           style={{
             maxWidth: 960, margin: '0 auto',
             padding: landscapeCompact ? '12px 24px 24px' : '24px 24px 48px',

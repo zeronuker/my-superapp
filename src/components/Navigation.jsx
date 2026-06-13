@@ -120,31 +120,56 @@ export function GroupedNav({ calcs, activeId, onSelect }) {
 
 // ── Launcher: home grid ───────────────────────────────────────────────────────
 export function LauncherGrid({ calcs, onSelect }) {
+  const byId = Object.fromEntries(calcs.map(c => [c.id, c]))
+  const groupedIds = new Set(NAV_GROUPS.flatMap(g => g.members))
+
+  const groups = [
+    ...NAV_GROUPS
+      .map(g => ({ ...g, calcs: g.members.map(id => byId[id]).filter(Boolean) }))
+      .filter(g => g.calcs.length > 0),
+    ...(calcs.some(c => !groupedIds.has(c.id))
+      ? [{ id: 'other', label: 'OTHER', icon: '⋯', calcs: calcs.filter(c => !groupedIds.has(c.id)) }]
+      : []),
+  ]
+
+  let cardIdx = 0
+
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.18em',
-        color: 'var(--cp-dim)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-        SELECT A TOOL
-        <div style={{ flex: 1, height: 1, background: 'var(--cp-border2)' }} />
-      </div>
+      {groups.map(group => (
+        <div key={group.id} style={{ marginBottom: 28 }}>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.18em',
+            color: 'var(--cp-dim)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 14, lineHeight: 1 }}>{group.icon}</span>
+            {group.label}
+            <div style={{ flex: 1, height: 1, background: 'var(--cp-border2)' }} />
+          </div>
 
-      <div style={{ display: 'grid', gap: 12,
-        gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
-        {calcs.map(calc => (
-          <button key={calc.id} onClick={() => onSelect(calc.id)} className="cp-launch-card" style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            gap: 10, padding: '22px 12px', cursor: 'pointer',
-            background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 8,
-            color: 'var(--cp-txt)', transition: 'border-color 0.12s, background 0.12s',
-          }}>
-            <span style={{ fontSize: 30, lineHeight: 1 }}>{calc.icon}</span>
-            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11,
-              letterSpacing: '0.1em', color: 'var(--cp-muted)', textAlign: 'center' }}>
-              {calc.name.toUpperCase()}
-            </span>
-          </button>
-        ))}
-      </div>
+          <div style={{ display: 'grid', gap: 12,
+            gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
+            {group.calcs.map(calc => {
+              const delay = (cardIdx++) * 35
+              return (
+                <button key={calc.id} onClick={() => onSelect(calc.id)}
+                  className="cp-launch-card cp-calc-fade"
+                  style={{
+                    animationDelay: `${delay}ms`, animationFillMode: 'both',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    gap: 10, padding: '22px 12px', cursor: 'pointer',
+                    background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 8,
+                    color: 'var(--cp-txt)', transition: 'border-color 0.12s, background 0.12s',
+                  }}>
+                  <span style={{ fontSize: 30, lineHeight: 1 }}>{calc.icon}</span>
+                  <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11,
+                    letterSpacing: '0.1em', color: 'var(--cp-muted)', textAlign: 'center' }}>
+                    {calc.name.toUpperCase()}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

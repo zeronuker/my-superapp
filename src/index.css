@@ -201,10 +201,11 @@ input[type="number"] { -moz-appearance: textfield; }
 .cp-tab:hover { color: var(--cp-muted); background: var(--cp-hover); }
 .cp-tab.active {
   color: var(--cp-acc);
-  background: var(--cp-bg2);
+  background:
+    var(--cb-grad) top / 100% 3px no-repeat,
+    var(--cp-bg2);
   border-color: var(--cp-border);
   border-bottom: 1px solid var(--cp-bg2);
-  box-shadow: inset 0 3px 0 0 var(--cp-acc);
 }
 
 /* ── Table ── */
@@ -255,9 +256,26 @@ input[type="number"] { -moz-appearance: textfield; }
 
 /* ── Launcher tool cards ── */
 @media (hover: hover) {
-  .cp-launch-card:hover { border-color: var(--cp-acc) !important; background: var(--cp-accdim) !important; }
+  .cp-launch-card:hover {
+    border-color: var(--cp-acc) !important;
+    background:
+      var(--cb-grad) top / 100% 2px no-repeat,
+      var(--cp-accdim) !important;
+  }
 }
 .cp-launch-card:active { transform: scale(0.98); }
+
+/* ── Glassmorphism card ── */
+.cp-glass {
+  background: color-mix(in srgb, var(--cp-bg3) 72%, transparent) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(255,255,255,0.09) !important;
+}
+:root[data-theme="light"] .cp-glass {
+  background: color-mix(in srgb, var(--cp-bg3) 78%, transparent) !important;
+  border-color: rgba(10,16,32,0.1) !important;
+}
 
 /* ── Settings: mobile sheet slide-up + desktop modal pop ── */
 @keyframes cpSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
