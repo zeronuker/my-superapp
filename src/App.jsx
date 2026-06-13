@@ -17,6 +17,7 @@ const NotamViewer             = lazy(() => import('./components/NotamViewer'))
 const FTLCalculator           = lazy(() => import('./components/FTLCalculator'))
 const WorldTimeCalculator     = lazy(() => import('./components/WorldTimeCalculator'))
 const PrayerModule            = lazy(() => import('./modules/prayer'))
+const DutyLogModule           = lazy(() => import('./modules/dutylog'))
 // Named export → adapt to the default shape React.lazy expects (same chunk as PrayerModule)
 const PrayerSettings = lazy(() =>
   import('./modules/prayer').then(m => ({ default: m.PrayerSettings })))
@@ -29,6 +30,7 @@ export const CALCULATORS = [
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
   { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
   { id: 'ftl',           icon: '⏳',  name: 'FTL',            component: FTLCalculator },
+  { id: 'dutylog',       icon: '🛫',  name: 'Duty Log',       component: DutyLogModule },
   { id: 'worldtime',     icon: '🌐',  name: 'World Time',     component: WorldTimeCalculator },
   { id: 'prayer',        icon: '🕌',  name: 'Qiblat & Solat', component: PrayerModule },
 ]
@@ -1258,6 +1260,7 @@ const CHANGELOG = [
       { type: 'feat', text: 'Export / import settings as JSON; reset settings to defaults' },
       { type: 'feat', text: 'Haptic strength, dashboard widget toggles, confirm-before-reset' },
       { type: 'fix',  text: 'Auto-detect app updates without manual check' },
+      { type: 'feat', text: 'Flight Duty Log — new module for logging sectors, fuel, times, ENG OUT data, crew, and per-sector remarks with offline persistence' },
     ],
   },
   {
