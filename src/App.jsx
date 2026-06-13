@@ -69,6 +69,26 @@ function useOnlineStatus() {
   return online
 }
 
+// Sets the PWA home-screen badge when METAR data is stale (>30 min).
+// Clears it when fresh. No-ops silently on browsers without the Badge API.
+function useMETARBadge() {
+  React.useEffect(() => {
+    if (!('setAppBadge' in navigator)) return
+    const update = () => {
+      try {
+        const c = JSON.parse(localStorage.getItem('cb-metar-cache'))
+        if (!c?.fetchedAt || !c?.results) { navigator.clearAppBadge?.(); return }
+        const ageMin = (Date.now() - c.fetchedAt) / 60000
+        if (ageMin > 30) navigator.setAppBadge(1)
+        else navigator.clearAppBadge?.()
+      } catch { navigator.clearAppBadge?.() }
+    }
+    update()
+    const t = setInterval(update, 60_000)
+    return () => { clearInterval(t); navigator.clearAppBadge?.() }
+  }, [])
+}
+
 export default function App() {
   const {
     activeCalculator, setActiveCalculator,
@@ -77,6 +97,7 @@ export default function App() {
   } = useCalculatorStore()
 
   const isOnline = useOnlineStatus()
+  useMETARBadge()
 
   // Changing defaultTab in Settings also navigates to that tab immediately
   const handleSettingsUpdate = (partial) => {

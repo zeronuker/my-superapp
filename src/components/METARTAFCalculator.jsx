@@ -90,6 +90,19 @@ export default function METARTAFCalculator() {
     }
   }, [])
 
+  // ── Back-online silent refetch ─────────────────────────────────────────
+  // When device transitions offline → online, immediately refresh if inputs exist.
+  // `stateRef.current` has live values so no stale-closure risk.
+  const wasOffline = useRef(null)
+  useEffect(() => {
+    if (wasOffline.current === null) { wasOffline.current = isOffline; return }
+    if (wasOffline.current && !isOffline) {
+      const s = stateRef.current
+      if (s.dep || s.arr) doFetch(s)
+    }
+    wasOffline.current = isOffline
+  }, [isOffline, doFetch])
+
   // ── Age ticker (every 60 s) — only ticks when online ──────────────────
   useEffect(() => {
     if (isOffline) return

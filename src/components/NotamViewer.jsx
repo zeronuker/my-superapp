@@ -197,6 +197,16 @@ export default function NotamViewer() {
   const [search, setSearch] = useState('')
   const [collapsedMap, setCollapsedMap] = useState({})
 
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine)
+
+  useEffect(() => {
+    const on  = () => setIsOnline(true)
+    const off = () => setIsOnline(false)
+    window.addEventListener('online',  on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+
   const prevReset = useRef(resetCount)
   useEffect(() => {
     if (resetCount === prevReset.current) return
@@ -274,6 +284,21 @@ export default function NotamViewer() {
       haptic('heavy')
     } finally { setLoading(false) }
   }
+
+  // Keep a stable ref to handleFetch so the back-online effect never captures a stale copy
+  const handleFetchRef = useRef(handleFetch)
+  useEffect(() => { handleFetchRef.current = handleFetch })
+
+  // ── Back-online silent refresh ─────────────────────────────────────────
+  // When device comes back online, re-fetch if there are existing results to refresh.
+  const wasOnline = useRef(null)
+  useEffect(() => {
+    if (wasOnline.current === null) { wasOnline.current = isOnline; return }
+    if (!wasOnline.current && isOnline && notams) {
+      handleFetchRef.current()
+    }
+    wasOnline.current = isOnline
+  }, [isOnline, notams])
 
   const toggleCat = (cat) => setCatFilter(prev => {
     const next = new Set(prev); next.has(cat) ? next.delete(cat) : next.add(cat); return next
