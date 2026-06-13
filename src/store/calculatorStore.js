@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 const DEFAULT_SETTINGS = {
-  fontScale:      'normal',   // 'compact' | 'normal' | 'large'
+  fontScale:      'normal',   // 'compact' | 'normal' | 'large' | 'cockpit'
   reduceMotion:   false,
   defaultTab:     'calculator',
   haptic:         true,
@@ -12,6 +12,8 @@ const DEFAULT_SETTINGS = {
   navStyle:       'launcher', // 'launcher' | 'tabs' | 'grouped'
   tabPosition:    'top',      // 'top' | 'bottom'  (only used when navStyle === 'tabs')
   notamSort:      'relevance',// 'relevance' | 'category'  (NOTAM sort within a location)
+  accentColor:    'teal',     // 'teal' | 'amber'
+  highContrast:   false,      // cockpit / bright-light readability mode
 }
 
 function loadSettings() {

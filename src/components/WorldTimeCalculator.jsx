@@ -176,7 +176,8 @@ function ZoneCard({ zone, now, fmt, dst, onRemove }) {
       </div>
       <button onClick={onRemove} style={{
         background: 'none', border: 'none', cursor: 'pointer',
-        color: T.dim, fontSize: 18, padding: '4px 6px', flexShrink: 0, lineHeight: 1,
+        color: T.dim, fontSize: 18, padding: '10px 12px', flexShrink: 0, lineHeight: 1,
+        minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>×</button>
     </div>
   )

@@ -3,6 +3,7 @@ import { fetchNotams, detectRouteFirs, NOTAM_CATEGORIES } from '../services/nota
 import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
 import { icaoToFir } from '../data/firLookup'
+import { haptic } from '../utils/haptic'
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const T = {
@@ -267,8 +268,10 @@ export default function NotamViewer() {
       const result = await fetchNotams(t.map(x => x.icao))
       setNotams(result)
       saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, notams: result })
+      haptic('medium')
     } catch (e) {
       setError(`Failed to fetch NOTAMs: ${e.message}`)
+      haptic('heavy')
     } finally { setLoading(false) }
   }
 

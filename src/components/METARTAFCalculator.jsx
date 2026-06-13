@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
+import { haptic } from '../utils/haptic'
 import {
   CAT_COLORS, WIND_COLORS,
   getMetarFlightCat, getWindSev,
@@ -152,10 +153,12 @@ export default function METARTAFCalculator() {
     }))
 
     const ts = Date.now()
+    const hasError = Object.values(out).some(v => v.error)
     setResults(out)
     setFetchedAt(ts)
     setNow(ts)
     setLoading(false)
+    haptic(hasError ? 'heavy' : 'medium')
 
     saveCache({ ...s, results: out, fetchedAt: ts })
   }, [buildTargets])

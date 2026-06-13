@@ -3,7 +3,8 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 import { useCalculatorStore } from './store/calculatorStore'
 import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
-import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar } from './components/Navigation'
+import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar, NAV_GROUPS } from './components/Navigation'
+import { searchZones } from './data/worldTimezones'
 
 // Each tab is code-split into its own chunk, loaded on demand when first opened.
 // vite-plugin-pwa precaches every emitted chunk, so offline still works.
@@ -35,7 +36,7 @@ export const CALCULATORS = [
 // IDs that no longer exist — remap to 'calculator'
 const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas'])
 
-const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13 }
+const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
 // Fallback shown while a lazily-loaded tab chunk is fetched.
 function TabLoading({ compact }) {
@@ -56,6 +57,18 @@ function TabLoading({ compact }) {
   )
 }
 
+function useOnlineStatus() {
+  const [online, setOnline] = React.useState(() => navigator.onLine)
+  React.useEffect(() => {
+    const on  = () => setOnline(true)
+    const off = () => setOnline(false)
+    window.addEventListener('online',  on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+  return online
+}
+
 export default function App() {
   const {
     activeCalculator, setActiveCalculator,
@@ -63,13 +76,22 @@ export default function App() {
     settings, updateSettings,
   } = useCalculatorStore()
 
+  const isOnline = useOnlineStatus()
+
   // Changing defaultTab in Settings also navigates to that tab immediately
   const handleSettingsUpdate = (partial) => {
     updateSettings(partial)
     if ('defaultTab' in partial) setActiveCalculator(partial.defaultTab)
   }
 
+  // Wraps setActiveCalculator to persist the last-used tab
+  const handleSelectCalculator = React.useCallback((id) => {
+    setActiveCalculator(id)
+    if (id) { try { localStorage.setItem('cb-lasttab', id) } catch (_) {} }
+  }, [setActiveCalculator])
+
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [searchOpen,   setSearchOpen]   = useState(false)
   const [fading, setFading] = React.useState(false)
 
   // Build ordered tab list — respects user-saved order, appends unknown new tabs at end
@@ -94,17 +116,54 @@ export default function App() {
   React.useEffect(() => {
     if (LEGACY_IDS.has(activeCalculator)) setActiveCalculator('calculator')
     if (LEGACY_IDS.has(settings.defaultTab)) handleSettingsUpdate({ defaultTab: 'calculator' })
-    // Launcher opens on the home grid; other styles always have a tool open
-    if (settings.navStyle === 'launcher') setActiveCalculator(null)
+    if (settings.navStyle === 'launcher') {
+      setActiveCalculator(null)
+    } else {
+      // Restore last-used tab for tabs/grouped mode instead of always defaulting
+      try {
+        const last = localStorage.getItem('cb-lasttab')
+        if (last && CALCULATORS.find(c => c.id === last)) setActiveCalculator(last)
+      } catch (_) {}
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // ── Accent colour ──────────────────────────────────────────────────────
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-accent', settings.accentColor || 'teal')
+  }, [settings.accentColor])
+
+  // ── High contrast ──────────────────────────────────────────────────────
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-hico', settings.highContrast ? 'true' : 'false')
+  }, [settings.highContrast])
 
   // Tabs / grouped styles must never sit on the empty launcher "home" state
   React.useEffect(() => {
     if (navStyle !== 'launcher' && !activeCalculator) {
-      setActiveCalculator(settings.defaultTab || orderedCalcs[0]?.id || 'calculator')
+      handleSelectCalculator(settings.defaultTab || orderedCalcs[0]?.id || 'calculator')
     }
-  }, [navStyle, activeCalculator, settings.defaultTab, orderedCalcs, setActiveCalculator])
+  }, [navStyle, activeCalculator, settings.defaultTab, orderedCalcs, handleSelectCalculator])
+
+  // ── Swipe gesture (grouped nav — swipe between tools in the active group) ──
+  const touchX = React.useRef(null)
+  const handleTouchStart = React.useCallback((e) => {
+    touchX.current = e.touches[0].clientX
+  }, [])
+  const handleTouchEnd = React.useCallback((e) => {
+    if (touchX.current === null) return
+    const dx = e.changedTouches[0].clientX - touchX.current
+    touchX.current = null
+    if (Math.abs(dx) < 60) return
+    const byId = Object.fromEntries(CALCULATORS.map(c => [c.id, c]))
+    const group = NAV_GROUPS.find(g => g.members.includes(activeCalculator))
+    if (!group) return
+    const members = group.members.filter(id => byId[id])
+    const idx = members.indexOf(activeCalculator)
+    if (idx < 0) return
+    const next = dx < 0 ? members[idx + 1] : members[idx - 1]
+    if (next) handleSelectCalculator(next)
+  }, [activeCalculator, handleSelectCalculator])
 
   // ── Sync darkMode → data-theme + persist ──────────────────────────────
   React.useEffect(() => {
@@ -205,6 +264,15 @@ export default function App() {
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button
+                onClick={() => setSearchOpen(true)}
+                className="cp-btn"
+                style={{ fontSize: 15, padding: '6px 12px' }}
+                title="Search tools"
+                aria-label="Search tools"
+              >
+                ⌕
+              </button>
+              <button
                 onClick={() => setSettingsOpen(true)}
                 className="cp-btn"
                 style={{ fontSize: 15, padding: '6px 12px' }}
@@ -227,23 +295,30 @@ export default function App() {
         {/* ── Navigation chrome (top) ──────────────────────────────────── */}
         {navStyle === 'tabs' && tabPosition === 'top' && (
           <TabBar calcs={orderedCalcs} activeId={activeCalculator}
-            onSelect={setActiveCalculator} position="top" />
+            onSelect={handleSelectCalculator} position="top" />
         )}
         {navStyle === 'grouped' && (
           <GroupedNav calcs={orderedCalcs} activeId={activeCalculator}
-            onSelect={setActiveCalculator} />
+            onSelect={handleSelectCalculator} />
         )}
         {navStyle === 'launcher' && !isLauncherHome && (
           <LauncherBackBar calc={currentCalc} onHome={() => setActiveCalculator(null)} />
         )}
 
         {/* ── Main content ─────────────────────────────────────────────── */}
-        <main style={{
-          maxWidth: 960, margin: '0 auto',
-          padding: landscapeCompact ? '12px 24px 24px' : '24px 24px 48px',
-        }}>
+        <main
+          style={{
+            maxWidth: 960, margin: '0 auto',
+            padding: landscapeCompact ? '12px 24px 24px' : '24px 24px 48px',
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           {isLauncherHome ? (
-            <LauncherGrid calcs={orderedCalcs} onSelect={setActiveCalculator} />
+            <>
+              <DashboardHome onSelect={handleSelectCalculator} />
+              <LauncherGrid calcs={orderedCalcs} onSelect={handleSelectCalculator} />
+            </>
           ) : (
             <div style={{
               background: 'var(--cp-bg2)',
@@ -288,11 +363,28 @@ export default function App() {
       {/* ── Navigation chrome (bottom tabs) ──────────────────────────────── */}
       {navStyle === 'tabs' && tabPosition === 'bottom' && (
         <TabBar calcs={orderedCalcs} activeId={activeCalculator}
-          onSelect={setActiveCalculator} position="bottom" />
+          onSelect={handleSelectCalculator} position="bottom" />
+      )}
+
+      {/* ── Offline banner ───────────────────────────────────────────── */}
+      {!isOnline && (
+        <div className="cp-offline-banner">
+          ⊘ OFFLINE — SHOWING CACHED DATA
+        </div>
       )}
 
       {/* ── Update prompt ────────────────────────────────────────────── */}
       <UpdatePrompt />
+
+      {/* ── Search overlay ───────────────────────────────────────────── */}
+      {searchOpen && (
+        <SearchOverlay
+          calcs={orderedCalcs}
+          onSelect={(id) => { handleSelectCalculator(id); setSearchOpen(false) }}
+          onClose={() => setSearchOpen(false)}
+          reduceMotion={settings.reduceMotion}
+        />
+      )}
 
       {/* ── Settings overlay ─────────────────────────────────────────── */}
       {settingsOpen && (
@@ -316,6 +408,242 @@ export default function App() {
           />
         </>
       )}
+    </>
+  )
+}
+
+// ── Dashboard Home ──────────────────────────────────────────────────────────
+function DashboardHome({ onSelect }) {
+  const [now, setNow] = React.useState(Date.now())
+  React.useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const utcStr  = new Date(now).toISOString().slice(11, 19) + 'Z'
+  const utcDate = new Date(now).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC',
+  })
+
+  // METAR status — read last fetch age from cache
+  const metarAge = React.useMemo(() => {
+    try {
+      const c = JSON.parse(localStorage.getItem('cb-metar-cache'))
+      if (!c?.fetchedAt) return null
+      const min = Math.floor((now - c.fetchedAt) / 60000)
+      if (min < 1)  return 'LIVE'
+      if (min < 60) return `${min}M AGO`
+      const h = Math.floor(min / 60)
+      return `${h}H AGO`
+    } catch { return null }
+  }, [now])
+
+  const metarRoute = React.useMemo(() => {
+    try {
+      const c = JSON.parse(localStorage.getItem('cb-metar-cache'))
+      const parts = [c?.dep, c?.arr].filter(Boolean)
+      return parts.length ? parts.join('→') : null
+    } catch { return null }
+  }, [])
+
+  // Prayer — next prayer from persisted store
+  const nextPrayer = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem('prayer-module-store')
+      if (!raw) return null
+      const store = JSON.parse(raw)
+      const times = store?.state?.prayerTimes
+      if (!Array.isArray(times)) return null
+      const nowMs = now
+      const refs = new Set(['Imsak', 'Sunrise'])
+      const upcoming = times
+        .filter(p => !refs.has(p.label))
+        .map(p => ({ label: p.label, t: new Date(p.time).getTime() }))
+        .filter(p => p.t > nowMs)
+        .sort((a, b) => a.t - b.t)
+      if (!upcoming.length) return null
+      const first = upcoming[0]
+      const diffMin = Math.floor((first.t - nowMs) / 60000)
+      const h = Math.floor(diffMin / 60)
+      const m = diffMin % 60
+      return { label: first.label.toUpperCase(), countdown: h > 0 ? `${h}H ${m}M` : `${m}M` }
+    } catch { return null }
+  }, [now])
+
+  const W = {
+    background: 'var(--cp-bg3)',
+    border: '1px solid var(--cp-border2)',
+    borderTop: '2px solid var(--cp-acc)',
+    borderRadius: 6, padding: '14px 16px', flex: 1, minWidth: 0,
+    boxShadow: '0 2px 10px rgba(0,0,0,0.28)',
+    cursor: 'pointer', transition: 'border-color 0.12s, background 0.12s',
+  }
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+
+        {/* UTC clock */}
+        <div className="cp-launch-card" style={W} onClick={() => onSelect('worldtime')}>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.18em',
+            color: 'var(--cp-dim)', marginBottom: 6 }}>UTC / ZULU</div>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 22, fontWeight: 700,
+            color: 'var(--cp-acc)', letterSpacing: '0.04em', lineHeight: 1,
+            fontVariantNumeric: 'tabular-nums' }}>{utcStr}</div>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)',
+            letterSpacing: '0.06em', marginTop: 5 }}>{utcDate}</div>
+        </div>
+
+        {/* Next prayer */}
+        {nextPrayer && (
+          <div className="cp-launch-card" style={W} onClick={() => onSelect('prayer')}>
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.18em',
+              color: 'var(--cp-dim)', marginBottom: 6 }}>NEXT PRAYER</div>
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 22, fontWeight: 700,
+              color: 'var(--cp-acc)', letterSpacing: '0.04em', lineHeight: 1,
+              fontVariantNumeric: 'tabular-nums' }}>{nextPrayer.countdown}</div>
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)',
+              letterSpacing: '0.1em', marginTop: 5 }}>{nextPrayer.label}</div>
+          </div>
+        )}
+
+        {/* METAR status */}
+        {metarAge && (
+          <div className="cp-launch-card" style={W} onClick={() => onSelect('metartaf')}>
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.18em',
+              color: 'var(--cp-dim)', marginBottom: 6 }}>METAR</div>
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 22, fontWeight: 700,
+              color: metarAge === 'LIVE' ? 'var(--cp-green)' : 'var(--cp-acc)',
+              letterSpacing: '0.04em', lineHeight: 1 }}>{metarAge}</div>
+            {metarRoute && (
+              <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)',
+                letterSpacing: '0.1em', marginTop: 5 }}>{metarRoute}</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Search Overlay ──────────────────────────────────────────────────────────
+function SearchOverlay({ calcs, onSelect, onClose, reduceMotion }) {
+  const [query, setQuery] = React.useState('')
+  const inputRef = React.useRef(null)
+
+  React.useEffect(() => {
+    inputRef.current?.focus()
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const results = React.useMemo(() => {
+    const q = query.trim()
+    if (!q) return []
+    const out = []
+    const qU  = q.toUpperCase()
+
+    // Tool name search
+    for (const c of calcs) {
+      if (c.name.toUpperCase().includes(qU) || c.id.toUpperCase().includes(qU)) {
+        out.push({ key: `tool-${c.id}`, icon: c.icon, label: c.name, sub: 'TOOL', action: () => onSelect(c.id) })
+      }
+    }
+
+    // Airport/zone search — produces World Time + METAR + NOTAM shortcuts
+    const zones = searchZones(q)
+    const seenIcao = new Set()
+    for (const z of zones) {
+      out.push({ key: `wt-${z.label}`, icon: '🌐', label: z.label, sub: `${z.country} · WORLD TIME`, action: () => onSelect('worldtime') })
+      if (z.icao && !seenIcao.has(z.icao)) {
+        seenIcao.add(z.icao)
+        out.push({ key: `mt-${z.icao}`, icon: '🌤️', label: `METAR/TAF · ${z.icao}`, sub: z.label, action: () => onSelect('metartaf') })
+        out.push({ key: `nt-${z.icao}`, icon: '📋', label: `NOTAM · ${z.icao}`,     sub: z.label, action: () => onSelect('notam') })
+      }
+    }
+
+    return out.slice(0, 9)
+  }, [query, calcs, onSelect])
+
+  return (
+    <>
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 150,
+        backdropFilter: 'blur(3px)',
+      }} />
+      <div className={reduceMotion ? '' : 'cp-search-anim'} style={{
+        position: 'fixed', top: 72, left: '50%', transform: 'translateX(-50%)',
+        width: 'min(520px, 92vw)', zIndex: 160,
+        background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
+        borderRadius: 8, overflow: 'hidden',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+      }}>
+        <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--cp-border)',
+          display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 16, color: 'var(--cp-dim)' }}>⌕</span>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search tools or airport…"
+            style={{
+              flex: 1, background: 'transparent', border: 'none', outline: 'none',
+              fontFamily: 'var(--cb-font-mono)', fontSize: 13, color: 'var(--cp-txt)',
+              letterSpacing: '0.04em',
+            }}
+          />
+          {query && (
+            <button onClick={() => setQuery('')} style={{
+              background: 'none', border: 'none', color: 'var(--cp-dim)',
+              cursor: 'pointer', fontSize: 14, padding: '2px 4px',
+            }}>✕</button>
+          )}
+        </div>
+        {results.length > 0 ? (
+          <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+            {results.map(r => (
+              <button key={r.key} onClick={r.action} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                width: '100%', background: 'transparent',
+                border: 'none', borderBottom: '1px solid var(--cp-border3)',
+                padding: '11px 14px', cursor: 'pointer', textAlign: 'left',
+                transition: 'background 0.1s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--cp-hover)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <span style={{ fontSize: 18, flexShrink: 0 }}>{r.icon}</span>
+                <div>
+                  <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12,
+                    color: 'var(--cp-txt)', letterSpacing: '0.06em' }}>{r.label}</div>
+                  <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+                    color: 'var(--cp-dim)', letterSpacing: '0.12em', marginTop: 2 }}>{r.sub}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : query.trim() ? (
+          <div style={{ padding: '20px 14px', fontFamily: 'var(--cb-font-mono)', fontSize: 10,
+            letterSpacing: '0.14em', color: 'var(--cp-dim)', textAlign: 'center' }}>
+            NO RESULTS FOR "{query.toUpperCase()}"
+          </div>
+        ) : (
+          <div style={{ padding: '14px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {calcs.slice(0, 6).map(c => (
+              <button key={c.id} onClick={() => onSelect(c.id)} style={{
+                background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)',
+                borderRadius: 4, padding: '5px 10px', cursor: 'pointer',
+                fontFamily: 'var(--cb-font-mono)', fontSize: 10,
+                letterSpacing: '0.1em', color: 'var(--cp-muted)',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                <span>{c.icon}</span>{c.name.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </>
   )
 }
@@ -400,9 +728,24 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
                   { value: 'compact', label: 'SM' },
                   { value: 'normal',  label: 'MD' },
                   { value: 'large',   label: 'LG' },
+                  { value: 'cockpit', label: 'XL' },
                 ]}
                 value={settings.fontScale}
                 onChange={v => onUpdate({ fontScale: v })}
+              />
+            </SettingsRow>
+            <SettingsRow label="ACCENT">
+              <SegmentedToggle
+                options={[{ value: 'teal', label: 'TEAL' }, { value: 'amber', label: 'AMBER' }]}
+                value={settings.accentColor || 'teal'}
+                onChange={v => onUpdate({ accentColor: v })}
+              />
+            </SettingsRow>
+            <SettingsRow label="HIGH CONTRAST">
+              <SegmentedToggle
+                options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
+                value={settings.highContrast || false}
+                onChange={v => onUpdate({ highContrast: v })}
               />
             </SettingsRow>
             <SettingsRow label="REDUCE MOTION">

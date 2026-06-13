@@ -113,6 +113,7 @@ input[type="number"] { -moz-appearance: textfield; }
   border: 1px solid var(--cp-border2);
   border-radius: 4px;
   padding: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.32);
 }
 
 .cp-card-accent {
@@ -121,6 +122,7 @@ input[type="number"] { -moz-appearance: textfield; }
   border-left: 3px solid var(--cp-acc);
   border-radius: 4px;
   padding: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.32);
 }
 
 .cp-input {
@@ -170,6 +172,7 @@ input[type="number"] { -moz-appearance: textfield; }
   color: var(--cp-acc);
   font-family: var(--cb-font-mono);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .cp-result-unit {
@@ -265,3 +268,63 @@ input[type="number"] { -moz-appearance: textfield; }
 /* ── Reduce motion ── */
 html[data-reduce-motion="true"] .cp-calc-fade { animation: none; }
 html[data-reduce-motion="true"] * { transition: none !important; }
+
+/* ── Amber accent theme ── */
+:root[data-accent="amber"] {
+  --cp-acc:    #f59e0b;
+  --cp-acc2:   #d97706;
+  --cp-accdim: #1f1200;
+}
+:root[data-theme="light"][data-accent="amber"],
+:root[data-accent="amber"][data-theme="light"] {
+  --cp-accdim: #fef3c7;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme])[data-accent="amber"] { --cp-accdim: #fef3c7; }
+}
+
+/* ── High contrast (cockpit) mode ── */
+html[data-hico="true"] {
+  --cp-txt:  #ffffff;
+  --cp-muted: #d8e0f0;
+  --cp-dim:  #a0aec0;
+  --cb-line-2: rgba(255,255,255,0.22);
+}
+html[data-hico="true"] .cp-input:focus {
+  box-shadow: 0 0 0 2px var(--cp-acc);
+}
+
+/* ── Tabular nums on all clock/mono number displays ── */
+.cb-mono, .cp-result-value,
+[style*="font-family: var(--cb-font-mono)"],
+[style*="fontFamily: var(--cb-font-mono)"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Dashboard widgets ── */
+.cp-dash-widget {
+  background: var(--cp-bg3);
+  border: 1px solid var(--cp-border2);
+  border-top: 2px solid var(--cp-acc);
+  border-radius: 6px;
+  padding: 14px 16px;
+  flex: 1;
+  min-width: 0;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.28);
+}
+
+/* ── Search overlay ── */
+@keyframes cpSearchIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.cp-search-anim { animation: cpSearchIn 0.14s ease; }
+
+/* ── Offline banner ── */
+.cp-offline-banner {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+  background: rgba(251,146,60,0.1);
+  border-top: 1px solid rgba(251,146,60,0.35);
+  padding: 7px 24px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--cb-font-mono); font-size: 10px; letter-spacing: 0.14em;
+  color: var(--cp-orange);
+  backdrop-filter: blur(4px);
+}
