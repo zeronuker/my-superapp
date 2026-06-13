@@ -54,7 +54,7 @@ function SubNav({ active, onChange }) {
 }
 
 // ── Module root ───────────────────────────────────────────────────────────────
-export default function PrayerModule() {
+export default function PrayerModule({ clockFormat = '24hr' }) {
   const [tab, setTab] = useState('times')
 
   // Auto-switch to FLIGHT tab when offline (on mount or when connection drops)
@@ -65,7 +65,10 @@ export default function PrayerModule() {
     return () => window.removeEventListener('offline', switchToFlight)
   }, [])
 
-  const { settings, updatePrayerSettings } = usePrayerStore()
+  const { settings: prayerSettings, updatePrayerSettings } = usePrayerStore()
+  // Clock format comes from the global app setting (passed as a prop), so the
+  // module stays self-contained but honours the one global 12/24h preference.
+  const settings = { ...prayerSettings, timeFormat: clockFormat }
 
   // Geolocation
   const { location, status: gpsStatus, error: gpsError, permissionState, locate, setManualLocation } = useGeolocation()
@@ -175,16 +178,10 @@ export function PrayerSettings() {
           settings.madhab, 'madhab')}
       </div>
 
-      {/* Time format */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <span className="cp-label" style={{ flexShrink: 0 }}>TIME FORMAT</span>
-        {seg([{ value: '24hr', label: '24 HR' }, { value: '12hr', label: '12 HR' }],
-          settings.timeFormat, 'timeFormat')}
-      </div>
-
       <div style={{ paddingTop: 4, borderTop: '1px solid var(--cp-border3)' }}>
         <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
           color: 'var(--cp-dim)', letterSpacing: '0.08em', lineHeight: 2 }}>
+          CLOCK FORMAT: SET IN APPEARANCE<br />
           ONLINE: ALADHAN API · OFFLINE: ADHAN.JS<br />
           PRAYER DATA CACHED FOR 7 DAYS
         </div>

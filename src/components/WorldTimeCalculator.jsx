@@ -194,10 +194,11 @@ function SectionHeader({ title }) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function WorldTimeCalculator() {
   const resetCount = useCalculatorStore(s => s.resetCount)
+  // Global clock format (set in Settings → Appearance)
+  const fmt = useCalculatorStore(s => s.settings.clockFormat || '24hr')
 
   const [cache]   = useState(loadCache)
   const [zones,   setZones]   = useState(cache?.zones || [])
-  const [fmt,     setFmt]     = useState(cache?.fmt   || '24hr')
   const [search,  setSearch]  = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [now,     setNow]     = useState(() => new Date())
@@ -219,8 +220,8 @@ export default function WorldTimeCalculator() {
   useEffect(() => {
     if (resetCount === prevReset.current) return
     prevReset.current = resetCount
-    setZones([]); setFmt('24hr'); setSearch(''); setShowAdd(false)
-    saveCache({ zones: [], fmt: '24hr' })
+    setZones([]); setSearch(''); setShowAdd(false)
+    saveCache({ zones: [] })
   }, [resetCount])
 
   // Local timezone (stable, detected once)
@@ -242,44 +243,24 @@ export default function WorldTimeCalculator() {
     return searchZones(search).filter(z => !addedIds.has(`${z.label}||${z.tz}`))
   }, [search, addedIds])
 
-  const persist = (nextZones, nextFmt) =>
-    saveCache({ zones: nextZones ?? zones, fmt: nextFmt ?? fmt })
+  const persist = (nextZones) =>
+    saveCache({ zones: nextZones ?? zones })
 
   const addZone = (z) => {
     if (zones.length >= MAX_ZONES) return
     const zone = { id: `${z.label}||${z.tz}`, label: z.label, country: z.country || '', tz: z.tz }
     const next = [...zones, zone]
-    setZones(next); persist(next, null)
+    setZones(next); persist(next)
     setSearch(''); setShowAdd(false)
   }
 
   const removeZone = (id) => {
     const next = zones.filter(z => z.id !== id)
-    setZones(next); persist(next, null)
+    setZones(next); persist(next)
   }
-
-  const setFormat = (f) => { setFmt(f); persist(null, f) }
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto' }}>
-
-      {/* ── Format toggle ── */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <div style={{
-          display: 'inline-flex', background: T.bg1, border: `1px solid ${T.bord}`,
-          borderRadius: 4, overflow: 'hidden',
-        }}>
-          {['24hr', '12hr'].map((f, i) => (
-            <button key={f} onClick={() => setFormat(f)} style={{
-              fontFamily: T.mono, fontSize: 9, letterSpacing: '0.12em', padding: '6px 12px',
-              border: 'none', cursor: 'pointer',
-              borderRight: i === 0 ? `1px solid ${T.bord}` : 'none',
-              background: fmt === f ? 'var(--cp-accdim)' : 'transparent',
-              color: fmt === f ? T.acc : T.dim,
-            }}>{f.toUpperCase()}</button>
-          ))}
-        </div>
-      </div>
 
       {/* ── Pinned clocks: UTC + Local ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>

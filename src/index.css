@@ -287,18 +287,34 @@ input[type="number"] { -moz-appearance: textfield; }
 html[data-reduce-motion="true"] .cp-calc-fade { animation: none; }
 html[data-reduce-motion="true"] * { transition: none !important; }
 
-/* ── Amber accent theme ── */
-:root[data-accent="amber"] {
-  --cp-acc:    #f59e0b;
-  --cp-acc2:   #d97706;
-  --cp-accdim: #1f1200;
-}
-:root[data-theme="light"][data-accent="amber"],
-:root[data-accent="amber"][data-theme="light"] {
-  --cp-accdim: #fef3c7;
-}
+/* ── Accent themes ── */
+:root[data-accent="amber"]  { --cp-acc: #f59e0b; --cp-acc2: #d97706; --cp-accdim: #1f1200; }
+:root[data-accent="cyan"]   { --cp-acc: #22d3ee; --cp-acc2: #06b6d4; --cp-accdim: #08222b; }
+:root[data-accent="violet"] { --cp-acc: #a78bfa; --cp-acc2: #8b5cf6; --cp-accdim: #1a1330; }
+:root[data-accent="green"]  { --cp-acc: #4ade80; --cp-acc2: #22c55e; --cp-accdim: #0a2417; }
+
+:root[data-theme="light"][data-accent="amber"]  { --cp-accdim: #fef3c7; }
+:root[data-theme="light"][data-accent="cyan"]   { --cp-accdim: #cffafe; }
+:root[data-theme="light"][data-accent="violet"] { --cp-accdim: #ede9fe; }
+:root[data-theme="light"][data-accent="green"]  { --cp-accdim: #dcfce7; }
+
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme])[data-accent="amber"] { --cp-accdim: #fef3c7; }
+  :root:not([data-theme])[data-accent="amber"]  { --cp-accdim: #fef3c7; }
+  :root:not([data-theme])[data-accent="cyan"]   { --cp-accdim: #cffafe; }
+  :root:not([data-theme])[data-accent="violet"] { --cp-accdim: #ede9fe; }
+  :root:not([data-theme])[data-accent="green"]  { --cp-accdim: #dcfce7; }
+}
+
+/* ── Card style (flat / elevated / glass) ── */
+html[data-card="flat"] .cp-card,
+html[data-card="flat"] .cp-card-accent { box-shadow: none; }
+
+html[data-card="glass"] .cp-card,
+html[data-card="glass"] .cp-card-accent {
+  background: color-mix(in srgb, var(--cp-bg2) 70%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.28);
 }
 
 /* ── High contrast (cockpit) mode ── */

@@ -38,6 +38,16 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
+const APP_VERSION = 'v3.6'
+
+const ACCENT_SWATCHES = [
+  { value: 'teal',   color: '#3FE0C5' },
+  { value: 'amber',  color: '#f59e0b' },
+  { value: 'cyan',   color: '#22d3ee' },
+  { value: 'violet', color: '#a78bfa' },
+  { value: 'green',  color: '#4ade80' },
+]
+
 // Fallback shown while a lazily-loaded tab chunk is fetched.
 function TabLoading({ compact }) {
   return (
@@ -92,12 +102,18 @@ function useMETARBadge() {
 export default function App() {
   const {
     activeCalculator, setActiveCalculator,
-    resetAll, resetCount, darkMode, toggleDarkMode,
-    settings, updateSettings,
+    resetAll, resetCount, darkMode, setDarkMode,
+    settings, updateSettings, resetSettings, importSettings,
   } = useCalculatorStore()
 
   const isOnline = useOnlineStatus()
   useMETARBadge()
+
+  // Reset All — optionally gated behind a confirm dialog
+  const handleResetAll = React.useCallback(() => {
+    if (settings.confirmReset && !window.confirm('Reset all calculator data? This clears inputs and cached results across every tool.')) return
+    resetAll()
+  }, [settings.confirmReset, resetAll])
 
   // Changing defaultTab in Settings also navigates to that tab immediately
   const handleSettingsUpdate = (partial) => {
@@ -108,8 +124,8 @@ export default function App() {
   // Wraps setActiveCalculator to persist the last-used tab
   const handleSelectCalculator = React.useCallback((id) => {
     setActiveCalculator(id)
-    if (id) { try { localStorage.setItem('cb-lasttab', id) } catch (_) {} }
-  }, [setActiveCalculator])
+    if (id && settings.rememberLastTab) { try { localStorage.setItem('cb-lasttab', id) } catch (_) {} }
+  }, [setActiveCalculator, settings.rememberLastTab])
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchOpen,   setSearchOpen]   = useState(false)
@@ -137,26 +153,42 @@ export default function App() {
   React.useEffect(() => {
     if (LEGACY_IDS.has(activeCalculator)) setActiveCalculator('calculator')
     if (LEGACY_IDS.has(settings.defaultTab)) handleSettingsUpdate({ defaultTab: 'calculator' })
+    const remembered = settings.rememberLastTab
+      ? (() => { try {
+          const last = localStorage.getItem('cb-lasttab')
+          return last && CALCULATORS.find(c => c.id === last) ? last : null
+        } catch (_) { return null } })()
+      : null
     if (settings.navStyle === 'launcher') {
-      try {
-        const last = localStorage.getItem('cb-lasttab')
-        if (last && CALCULATORS.find(c => c.id === last)) setActiveCalculator(last)
-        else setActiveCalculator(null)
-      } catch (_) { setActiveCalculator(null) }
-    } else {
-      // Restore last-used tab for tabs/grouped mode instead of always defaulting
-      try {
-        const last = localStorage.getItem('cb-lasttab')
-        if (last && CALCULATORS.find(c => c.id === last)) setActiveCalculator(last)
-      } catch (_) {}
+      setActiveCalculator(remembered || null)
+    } else if (remembered) {
+      setActiveCalculator(remembered)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // ── Theme mode → effective darkMode (auto follows system, live) ────────
+  React.useEffect(() => {
+    const mode = settings.themeMode || 'dark'
+    if (mode === 'auto') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)')
+      const apply = () => setDarkMode(mq.matches)
+      apply()
+      mq.addEventListener('change', apply)
+      return () => mq.removeEventListener('change', apply)
+    }
+    setDarkMode(mode === 'dark')
+  }, [settings.themeMode, setDarkMode])
 
   // ── Accent colour ──────────────────────────────────────────────────────
   React.useEffect(() => {
     document.documentElement.setAttribute('data-accent', settings.accentColor || 'teal')
   }, [settings.accentColor])
+
+  // ── Card style ─────────────────────────────────────────────────────────
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-card', settings.cardStyle || 'elevated')
+  }, [settings.cardStyle])
 
   // ── High contrast ──────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -204,10 +236,12 @@ export default function App() {
     )
   }, [settings.reduceMotion])
 
-  const handleToggleDark = () => {
+  // Theme change with a brief cross-fade
+  const handleThemeChange = (mode) => {
+    if (mode === settings.themeMode) return
     setFading(true)
     setTimeout(() => {
-      toggleDarkMode()
+      updateSettings({ themeMode: mode })
       setTimeout(() => setFading(false), 80)
     }, 140)
   }
@@ -307,7 +341,7 @@ export default function App() {
                 ⚙
               </button>
               <button
-                onClick={resetAll}
+                onClick={handleResetAll}
                 className="cp-btn cp-btn-danger"
                 style={{ fontSize: 11, letterSpacing: '0.15em' }}
               >
@@ -342,7 +376,7 @@ export default function App() {
         >
           {isLauncherHome ? (
             <>
-              <DashboardHome onSelect={handleSelectCalculator} />
+              <DashboardHome onSelect={handleSelectCalculator} widgets={settings.dashboardWidgets} />
               <LauncherGrid calcs={orderedCalcs} onSelect={handleSelectCalculator} />
             </>
           ) : (
@@ -357,7 +391,7 @@ export default function App() {
                 className={settings.reduceMotion ? '' : 'cp-calc-fade'}>
                 <ErrorBoundary name={currentCalc?.name} resetKey={activeCalculator}>
                   <Suspense fallback={<TabLoading />}>
-                    {CurrentComponent && <CurrentComponent />}
+                    {CurrentComponent && <CurrentComponent clockFormat={settings.clockFormat || '24hr'} />}
                   </Suspense>
                 </ErrorBoundary>
               </div>
@@ -377,7 +411,7 @@ export default function App() {
           lineHeight: 1.8,
         }}>
           <div>CLAUDEBORNE SUPERAPP · PWA OFFLINE CAPABLE</div>
-          <div style={{ fontSize: 9, letterSpacing: '0.16em' }}>v3.5</div>
+          <div style={{ fontSize: 9, letterSpacing: '0.16em' }}>{APP_VERSION}</div>
         </footer>
 
         {/* Reserve scroll space so content clears the fixed bottom tab bar */}
@@ -425,12 +459,13 @@ export default function App() {
             }}
           />
           <SettingsPanel
-            darkMode={darkMode}
-            onToggleDark={handleToggleDark}
+            onThemeChange={handleThemeChange}
             settings={settings}
             onUpdate={handleSettingsUpdate}
             onClose={() => setSettingsOpen(false)}
             orderedCalcs={orderedCalcs}
+            onResetSettings={resetSettings}
+            onImportSettings={importSettings}
           />
         </>
       )}
@@ -439,7 +474,7 @@ export default function App() {
 }
 
 // ── Dashboard Home ──────────────────────────────────────────────────────────
-function DashboardHome({ onSelect }) {
+function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: true } }) {
   const [now, setNow] = React.useState(Date.now())
   React.useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
@@ -505,11 +540,17 @@ function DashboardHome({ onSelect }) {
     cursor: 'pointer', transition: 'border-color 0.12s, background 0.12s',
   }
 
+  const showUtc    = widgets.utc !== false
+  const showPrayer = widgets.prayer !== false && nextPrayer
+  const showMetar  = widgets.metar !== false && metarAge
+  if (!showUtc && !showPrayer && !showMetar) return null
+
   return (
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
 
         {/* UTC clock */}
+        {showUtc && (
         <div className="cp-launch-card" style={W} onClick={() => onSelect('worldtime')}>
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.18em',
             color: 'var(--cp-dim)', marginBottom: 6 }}>UTC / ZULU</div>
@@ -519,9 +560,10 @@ function DashboardHome({ onSelect }) {
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)',
             letterSpacing: '0.06em', marginTop: 5 }}>{utcDate}</div>
         </div>
+        )}
 
         {/* Next prayer */}
-        {nextPrayer && (
+        {showPrayer && (
           <div className="cp-launch-card" style={W} onClick={() => onSelect('prayer')}>
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.18em',
               color: 'var(--cp-dim)', marginBottom: 6 }}>NEXT PRAYER</div>
@@ -534,7 +576,7 @@ function DashboardHome({ onSelect }) {
         )}
 
         {/* METAR status */}
-        {metarAge && (
+        {showMetar && (
           <div className="cp-launch-card" style={W} onClick={() => onSelect('metartaf')}>
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.18em',
               color: 'var(--cp-dim)', marginBottom: 6 }}>METAR</div>
@@ -676,10 +718,11 @@ function SearchOverlay({ calcs, onSelect, onClose, reduceMotion }) {
 
 // ── Settings tabs ───────────────────────────────────────────────────────────
 const SETTINGS_TABS = [
-  { id: 'general', label: 'GENERAL', icon: '⚙'  },
-  { id: 'weather', label: 'WEATHER', icon: '🌤' },
-  { id: 'prayer',  label: 'PRAYER',  icon: '🕌' },
-  { id: 'about',   label: 'ABOUT',   icon: 'ⓘ'  },
+  { id: 'appearance', label: 'APPEARANCE', icon: '🎨' },
+  { id: 'navigation', label: 'NAVIGATION', icon: '🧭' },
+  { id: 'tools',      label: 'TOOLS',      icon: '🛠' },
+  { id: 'prayer',     label: 'PRAYER',     icon: '🕌' },
+  { id: 'about',      label: 'ABOUT',      icon: 'ⓘ'  },
 ]
 
 const FOCUSABLE_SEL =
@@ -702,9 +745,9 @@ function useMediaQuery(query) {
 }
 
 // ── Settings Panel ──────────────────────────────────────────────────────────
-function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, orderedCalcs }) {
+function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalcs, onResetSettings, onImportSettings }) {
   const panelRef = React.useRef(null)
-  const [activeTab, setActiveTab] = React.useState('general')
+  const [activeTab, setActiveTab] = React.useState('appearance')
   const isWide = useMediaQuery('(min-width: 768px)')   // ≥768 → modal+rail, else sheet+strip
   const animate = !settings.reduceMotion
 
@@ -735,19 +778,71 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
     }
   }, [])
 
-  // ── Per-tab content (controls are identical to the old single-scroll panel) ──
+  const [orderOpen, setOrderOpen] = React.useState(false)
+  const fileRef = React.useRef(null)
+
+  const handleExport = () => {
+    try {
+      const payload = JSON.stringify({ app: 'claudeborne', version: APP_VERSION, settings }, null, 2)
+      const blob = new Blob([payload], { type: 'application/json' })
+      const url  = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'claudeborne-settings.json'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (_) {}
+  }
+
+  const handleImportFile = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const obj = JSON.parse(reader.result)
+        const incoming = obj?.settings && typeof obj.settings === 'object' ? obj.settings : obj
+        if (!incoming || typeof incoming !== 'object') throw new Error('bad')
+        onImportSettings(incoming)
+      } catch (_) {
+        window.alert('Could not read that settings file. Make sure it was exported from ClaudeBorne.')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  const units = settings.units || {}
+  const setUnit = (k, v) => onUpdate({ units: { ...units, [k]: v } })
+  const dash = settings.dashboardWidgets || {}
+  const setDash = (k, v) => onUpdate({ dashboardWidgets: { ...dash, [k]: v } })
+
+  // ── Per-tab content ──
   const tabContent = (
     <>
-      {activeTab === 'general' && (
+      {activeTab === 'appearance' && (
         <>
-          <SettingsSection title="APPEARANCE">
-            <SettingsRow label="THEME">
+          <SettingsSection title="THEME">
+            <SettingsRow label="MODE">
               <SegmentedToggle
-                options={[{ value: 'dark', label: 'DARK' }, { value: 'light', label: 'LIGHT' }]}
-                value={darkMode ? 'dark' : 'light'}
-                onChange={v => { if ((v === 'light') === darkMode) onToggleDark() }}
+                options={[{ value: 'dark', label: 'DARK' }, { value: 'light', label: 'LIGHT' }, { value: 'auto', label: 'AUTO' }]}
+                value={settings.themeMode || 'dark'}
+                onChange={v => onThemeChange(v)}
               />
             </SettingsRow>
+            <SettingsRow label="ACCENT">
+              <AccentSwatches value={settings.accentColor || 'teal'} onChange={v => onUpdate({ accentColor: v })} />
+            </SettingsRow>
+            <SettingsRow label="CARD STYLE">
+              <SegmentedToggle
+                options={[{ value: 'flat', label: 'FLAT' }, { value: 'elevated', label: 'RAISED' }, { value: 'glass', label: 'GLASS' }]}
+                value={settings.cardStyle || 'elevated'}
+                onChange={v => onUpdate({ cardStyle: v })}
+              />
+            </SettingsRow>
+          </SettingsSection>
+
+          <SettingsSection title="READABILITY">
             <SettingsRow label="FONT SIZE">
               <SegmentedToggle
                 options={[
@@ -760,13 +855,6 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
                 onChange={v => onUpdate({ fontScale: v })}
               />
             </SettingsRow>
-            <SettingsRow label="ACCENT">
-              <SegmentedToggle
-                options={[{ value: 'teal', label: 'TEAL' }, { value: 'amber', label: 'AMBER' }]}
-                value={settings.accentColor || 'teal'}
-                onChange={v => onUpdate({ accentColor: v })}
-              />
-            </SettingsRow>
             <SettingsRow label="HIGH CONTRAST">
               <SegmentedToggle
                 options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
@@ -774,6 +862,16 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
                 onChange={v => onUpdate({ highContrast: v })}
               />
             </SettingsRow>
+            <SettingsRow label="CLOCK FORMAT">
+              <SegmentedToggle
+                options={[{ value: '24hr', label: '24 HR' }, { value: '12hr', label: '12 HR' }]}
+                value={settings.clockFormat || '24hr'}
+                onChange={v => onUpdate({ clockFormat: v })}
+              />
+            </SettingsRow>
+          </SettingsSection>
+
+          <SettingsSection title="FEEDBACK">
             <SettingsRow label="REDUCE MOTION">
               <SegmentedToggle
                 options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
@@ -781,9 +879,29 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
                 onChange={v => onUpdate({ reduceMotion: v })}
               />
             </SettingsRow>
+            <SettingsRow label="HAPTIC">
+              <SegmentedToggle
+                options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
+                value={settings.haptic}
+                onChange={v => onUpdate({ haptic: v })}
+              />
+            </SettingsRow>
+            {settings.haptic && (
+              <SettingsRow label="HAPTIC STRENGTH">
+                <SegmentedToggle
+                  options={[{ value: 'light', label: 'LOW' }, { value: 'medium', label: 'MED' }, { value: 'heavy', label: 'HIGH' }]}
+                  value={settings.hapticIntensity || 'medium'}
+                  onChange={v => onUpdate({ hapticIntensity: v })}
+                />
+              </SettingsRow>
+            )}
           </SettingsSection>
+        </>
+      )}
 
-          <SettingsSection title="NAVIGATION">
+      {activeTab === 'navigation' && (
+        <>
+          <SettingsSection title="LAYOUT">
             <SettingsRow label="STYLE">
               <select
                 value={settings.navStyle}
@@ -804,9 +922,6 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
                 />
               </SettingsRow>
             )}
-          </SettingsSection>
-
-          <SettingsSection title="INTERFACE">
             <SettingsRow label="DEFAULT TAB">
               <select
                 value={settings.defaultTab}
@@ -818,17 +933,51 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
                 ))}
               </select>
             </SettingsRow>
-            <SettingsRow label="HAPTIC">
+            <SettingsRow label="REMEMBER LAST TAB">
               <SegmentedToggle
                 options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
-                value={settings.haptic}
-                onChange={v => onUpdate({ haptic: v })}
+                value={settings.rememberLastTab !== false}
+                onChange={v => onUpdate({ rememberLastTab: v })}
               />
             </SettingsRow>
+          </SettingsSection>
 
-            <div style={{ marginTop: 8 }}>
-              <span className="cp-label" style={{ display: 'block', marginBottom: 8 }}>TAB ORDER</span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <SettingsSection title="DASHBOARD WIDGETS">
+            <SettingsRow label="UTC CLOCK">
+              <SegmentedToggle
+                options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
+                value={dash.utc !== false}
+                onChange={v => setDash('utc', v)}
+              />
+            </SettingsRow>
+            <SettingsRow label="NEXT PRAYER">
+              <SegmentedToggle
+                options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
+                value={dash.prayer !== false}
+                onChange={v => setDash('prayer', v)}
+              />
+            </SettingsRow>
+            <SettingsRow label="METAR STATUS">
+              <SegmentedToggle
+                options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
+                value={dash.metar !== false}
+                onChange={v => setDash('metar', v)}
+              />
+            </SettingsRow>
+          </SettingsSection>
+
+          <SettingsSection title="TAB ORDER">
+            <button onClick={() => setOrderOpen(o => !o)} style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 4,
+              padding: '8px 12px', cursor: 'pointer',
+              fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.12em', color: 'var(--cp-muted)',
+            }}>
+              CUSTOMISE ORDER
+              <span style={{ color: 'var(--cp-dim)' }}>{orderOpen ? '▲' : '▼'}</span>
+            </button>
+            {orderOpen && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
                 {orderedCalcs.map((calc, idx) => (
                   <div key={calc.id} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -864,22 +1013,12 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
                   </div>
                 ))}
               </div>
-            </div>
-          </SettingsSection>
-
-          <SettingsSection title="CURRENCY">
-            <SettingsRow label="NUMBER FORMAT">
-              <SegmentedToggle
-                options={[{ value: 'en', label: '1,000' }, { value: 'eu', label: '1.000' }]}
-                value={settings.numberFormat}
-                onChange={v => onUpdate({ numberFormat: v })}
-              />
-            </SettingsRow>
+            )}
           </SettingsSection>
         </>
       )}
 
-      {activeTab === 'weather' && (
+      {activeTab === 'tools' && (
         <>
           <SettingsSection title="METAR / TAF">
             <SettingsRow label="DEFAULT HISTORY">
@@ -911,6 +1050,58 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
               />
             </SettingsRow>
           </SettingsSection>
+
+          <SettingsSection title="UNITS">
+            <SettingsRow label="TEMPERATURE">
+              <SegmentedToggle
+                options={[{ value: 'c', label: '°C' }, { value: 'f', label: '°F' }]}
+                value={units.temp || 'c'}
+                onChange={v => setUnit('temp', v)}
+              />
+            </SettingsRow>
+            <SettingsRow label="WIND SPEED">
+              <SegmentedToggle
+                options={[{ value: 'kt', label: 'KT' }, { value: 'kmh', label: 'KM/H' }, { value: 'ms', label: 'M/S' }]}
+                value={units.wind || 'kt'}
+                onChange={v => setUnit('wind', v)}
+              />
+            </SettingsRow>
+            <SettingsRow label="VISIBILITY">
+              <SegmentedToggle
+                options={[{ value: 'm', label: 'METRES' }, { value: 'sm', label: 'SM' }]}
+                value={units.visibility || 'm'}
+                onChange={v => setUnit('visibility', v)}
+              />
+            </SettingsRow>
+            <SettingsRow label="ALTITUDE">
+              <SegmentedToggle
+                options={[{ value: 'ft', label: 'FT' }, { value: 'm', label: 'M' }]}
+                value={units.altitude || 'ft'}
+                onChange={v => setUnit('altitude', v)}
+              />
+            </SettingsRow>
+            <SettingsRow label="PRESSURE">
+              <SegmentedToggle
+                options={[{ value: 'hpa', label: 'HPA' }, { value: 'inhg', label: 'INHG' }]}
+                value={units.pressure || 'hpa'}
+                onChange={v => setUnit('pressure', v)}
+              />
+            </SettingsRow>
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-dim)',
+              letterSpacing: '0.08em', lineHeight: 1.8 }}>
+              SAVED FOR USE BY CALCULATORS · METAR/TAF DISPLAY UNCHANGED
+            </div>
+          </SettingsSection>
+
+          <SettingsSection title="CURRENCY">
+            <SettingsRow label="NUMBER FORMAT">
+              <SegmentedToggle
+                options={[{ value: 'en', label: '1,000' }, { value: 'eu', label: '1.000' }]}
+                value={settings.numberFormat}
+                onChange={v => onUpdate({ numberFormat: v })}
+              />
+            </SettingsRow>
+          </SettingsSection>
         </>
       )}
 
@@ -927,6 +1118,30 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
           <SettingsSection title="APP UPDATE">
             <UpdateChecker />
           </SettingsSection>
+
+          <SettingsSection title="SETTINGS DATA">
+            <input ref={fileRef} type="file" accept="application/json,.json"
+              onChange={handleImportFile} style={{ display: 'none' }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="cp-btn" onClick={handleExport}
+                style={{ flex: 1, padding: '8px 0', fontSize: 10 }}>⬇ EXPORT</button>
+              <button className="cp-btn" onClick={() => fileRef.current?.click()}
+                style={{ flex: 1, padding: '8px 0', fontSize: 10 }}>⬆ IMPORT</button>
+            </div>
+            <SettingsRow label="CONFIRM RESET ALL">
+              <SegmentedToggle
+                options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
+                value={settings.confirmReset !== false}
+                onChange={v => onUpdate({ confirmReset: v })}
+              />
+            </SettingsRow>
+            <button className="cp-btn cp-btn-danger"
+              onClick={() => { if (window.confirm('Reset all settings to defaults? Your calculator data is kept.')) onResetSettings() }}
+              style={{ width: '100%', padding: '8px 0', fontSize: 10 }}>
+              ↺ RESET SETTINGS TO DEFAULTS
+            </button>
+          </SettingsSection>
+
           <SettingsSection title="CHANGELOG">
             <Changelog />
           </SettingsSection>
@@ -934,7 +1149,7 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
             textAlign: 'center', fontFamily: 'var(--cb-font-mono)',
             fontSize: 9, letterSpacing: '0.16em', color: 'var(--cp-dim)', paddingTop: 4,
           }}>
-            CLAUDEBORNE SUPERAPP · v3.5
+            CLAUDEBORNE SUPERAPP · {APP_VERSION}
           </div>
         </>
       )}
@@ -1031,6 +1246,20 @@ function SettingsPanel({ darkMode, onToggleDark, settings, onUpdate, onClose, or
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.6', date: 'Jun 2026',
+    entries: [
+      { type: 'feat', text: 'Settings reorganised into Appearance / Navigation / Tools / Prayer / About' },
+      { type: 'feat', text: 'Theme AUTO mode — follows system light/dark in real time' },
+      { type: 'feat', text: 'Five accent colours: teal, amber, cyan, violet, green' },
+      { type: 'feat', text: 'Card style: flat / raised / glass' },
+      { type: 'feat', text: 'Global clock format — one 12/24h setting for all clocks' },
+      { type: 'feat', text: 'Unit preferences (temp, wind, visibility, altitude, pressure)' },
+      { type: 'feat', text: 'Export / import settings as JSON; reset settings to defaults' },
+      { type: 'feat', text: 'Haptic strength, dashboard widget toggles, confirm-before-reset' },
+      { type: 'fix',  text: 'Auto-detect app updates without manual check' },
+    ],
+  },
   {
     version: 'v3.5', date: 'Jun 2026',
     entries: [
@@ -1260,6 +1489,27 @@ function SegmentedToggle({ options, value, onChange }) {
           }}>
             {opt.label}
           </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function AccentSwatches({ value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+      {ACCENT_SWATCHES.map(s => {
+        const active = value === s.value
+        return (
+          <button key={s.value} onClick={() => onChange(s.value)}
+            aria-label={s.value} title={s.value.toUpperCase()}
+            style={{
+              width: 24, height: 24, borderRadius: '50%', cursor: 'pointer',
+              background: s.color, padding: 0,
+              border: active ? '2px solid var(--cp-txt)' : '2px solid transparent',
+              boxShadow: active ? `0 0 0 2px ${s.color}` : 'none',
+              transition: 'box-shadow 0.12s',
+            }} />
         )
       })}
     </div>
