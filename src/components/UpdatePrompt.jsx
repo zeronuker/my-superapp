@@ -14,11 +14,15 @@ export default function UpdatePrompt() {
   } = useRegisterSW({
     onRegisteredSW(_swUrl, r) {
       if (!r) return
-      setInterval(async () => {
+      const check = async () => {
         if (r.installing) return
         if ('connection' in navigator && !navigator.onLine) return
         await r.update()
-      }, 60_000)
+      }
+      setInterval(check, 60_000)
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check()
+      })
     },
   })
 
