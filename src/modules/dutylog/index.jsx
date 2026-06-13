@@ -12,13 +12,13 @@ export default function DutyLogModule() {
   const {
     logs, createLog, updateLog, deleteLog,
     addSector, removeSector, updateSector,
-    addCrew, updateCrew,
+    addCrew, updateCrew, removeCrew,
   } = useDutyLogStore()
 
   const [editingId, setEditingId] = useState(null)
   const editing = logs.find(l => l.id === editingId)
 
-  const actions = { updateLog, deleteLog, addSector, removeSector, updateSector, addCrew, updateCrew }
+  const actions = { updateLog, deleteLog, addSector, removeSector, updateSector, addCrew, updateCrew, removeCrew }
 
   // Guard: if the edited log vanishes (deleted elsewhere), fall back to the list.
   if (editingId && !editing) {

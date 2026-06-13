@@ -188,11 +188,13 @@ export default function LogEditor({ log, actions, onBack, onDelete }) {
         <button onClick={() => actions.addCrew(log.id)} className="cp-btn" style={{ padding: '4px 8px' }}>+ ADD</button>
       </div>
       {log.crew.map((c, i) => (
-        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: 7, marginBottom: 7 }}>
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 7, alignItems: 'center' }}>
           <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={c.name}
             onChange={(e) => actions.updateCrew(log.id, i, { name: e.target.value })} />
           <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={c.position}
             onChange={(e) => actions.updateCrew(log.id, i, { position: e.target.value })} />
+          <button onClick={() => actions.removeCrew(log.id, i)} aria-label="remove crew"
+            className="cp-btn" style={{ padding: '4px 8px', color: 'var(--cp-red)' }}>✕</button>
         </div>
       ))}
 

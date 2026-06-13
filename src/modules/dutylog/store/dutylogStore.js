@@ -75,6 +75,9 @@ const useDutyLogStore = create(persist(
         ...l,
         crew: l.crew.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
       })) })),
+
+    removeCrew: (id, idx) =>
+      set((s) => ({ logs: mapLog(s.logs, id, (l) => ({ ...l, crew: l.crew.filter((_, i) => i !== idx) })) })),
   }),
   { name: 'dutylog-module-store' }   // scoped localStorage key — never collides with parent
 ))
