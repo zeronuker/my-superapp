@@ -12,11 +12,12 @@ const secLabel = {
 }
 
 // label + input cell
-function Field({ label, value, onChange }) {
+function Field({ label, value, onChange, placeholder }) {
   return (
     <div>
-      <label style={lblStyle}>{label}</label>
+      {label && <label style={lblStyle}>{label}</label>}
       <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }}
+        placeholder={placeholder}
         value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   )
@@ -79,19 +80,42 @@ function Sector({ logId, sector, index, total, actions, onRemarks }) {
 // Per-sector free-text remarks window.
 function RemarksModal({ sector, index, onSave, onCancel }) {
   const [text, setText] = useState(sector.remark || '')
+  const wrapRef = useRef()
+  const taRef = useRef()
+
+  // iOS Safari ignores the autoFocus attribute inside position:fixed — trigger focus imperatively.
+  useEffect(() => { taRef.current?.focus() }, [])
+
+  // Focus trap: keep Tab inside the modal; Escape closes it.
+  useEffect(() => {
+    const handle = (e) => {
+      if (e.key === 'Escape') { onCancel(); return }
+      if (e.key !== 'Tab') return
+      const els = wrapRef.current?.querySelectorAll('textarea, button')
+      if (!els?.length) return
+      const first = els[0], last = els[els.length - 1]
+      if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
+        e.preventDefault()
+        ;(e.shiftKey ? last : first).focus()
+      }
+    }
+    document.addEventListener('keydown', handle)
+    return () => document.removeEventListener('keydown', handle)
+  }, [onCancel])
+
   return (
-    <div style={{
-      position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)', borderRadius: 8,
+    <div ref={wrapRef} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, zIndex: 5,
     }}>
-      <div style={{ width: '100%', background: 'var(--cp-bg2)', border: '1px solid var(--cp-acc)', borderRadius: 8, padding: 14 }}>
+      <div style={{ width: '100%', maxWidth: 460, background: 'var(--cp-bg2)', border: '1px solid var(--cp-acc)', borderRadius: 8, padding: 14 }}>
         <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.12em', color: 'var(--cp-txt)', marginBottom: 4 }}>
           SECTOR #{index + 1} — REMARKS
         </div>
         <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', color: 'var(--cp-dim)', marginBottom: 10 }}>
           FREE TEXT · SAVED WITH THIS SECTOR
         </div>
-        <textarea className="cp-input" autoFocus value={text} onChange={(e) => setText(e.target.value)}
+        <textarea ref={taRef} className="cp-input" value={text} onChange={(e) => setText(e.target.value)}
           style={{ minHeight: 120, resize: 'vertical', lineHeight: 1.5 }} />
         <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
           <button onClick={onCancel} className="cp-btn" style={{ flex: 1 }}>CANCEL</button>
@@ -138,7 +162,8 @@ export default function LogEditor({ log, actions, onBack, onDelete }) {
             <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', color: 'var(--cp-acc)' }}>{saveState}</div>
           </div>
         </div>
-        <button onClick={() => onDelete(log.id)} aria-label="delete log" className="cp-btn"
+        <button onClick={() => { if (window.confirm('Delete this log? This cannot be undone.')) onDelete(log.id) }}
+          aria-label="delete log" className="cp-btn"
           style={{ padding: '4px 9px', color: 'var(--cp-red)' }}>🗑</button>
       </div>
 
@@ -187,13 +212,11 @@ export default function LogEditor({ log, actions, onBack, onDelete }) {
         <span>CREW</span>
         <button onClick={() => actions.addCrew(log.id)} className="cp-btn" style={{ padding: '4px 8px' }}>+ ADD</button>
       </div>
-      {log.crew.map((c, i) => (
-        <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 7, alignItems: 'center' }}>
-          <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={c.name}
-            onChange={(e) => actions.updateCrew(log.id, i, { name: e.target.value })} />
-          <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={c.position}
-            onChange={(e) => actions.updateCrew(log.id, i, { position: e.target.value })} />
-          <button onClick={() => actions.removeCrew(log.id, i)} aria-label="remove crew"
+      {log.crew.map((c) => (
+        <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 7, alignItems: 'center' }}>
+          <Field value={c.name} onChange={(v) => actions.updateCrew(log.id, c.id, { name: v })} placeholder="Name" />
+          <Field value={c.position} onChange={(v) => actions.updateCrew(log.id, c.id, { position: v })} placeholder="Pos" />
+          <button onClick={() => actions.removeCrew(log.id, c.id)} aria-label="remove crew"
             className="cp-btn" style={{ padding: '4px 8px', color: 'var(--cp-red)' }}>✕</button>
         </div>
       ))}

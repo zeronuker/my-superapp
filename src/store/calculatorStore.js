@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 
 export const DEFAULT_SETTINGS = {
   fontScale:      'normal',   // 'compact' | 'normal' | 'large' | 'cockpit'
@@ -133,6 +134,7 @@ export const useCalculatorStore = create((set) => ({
     try { localStorage.removeItem('cb-metar-cache') } catch (_) {}
     try { localStorage.removeItem('cb-notam-cache') } catch (_) {}
     try { localStorage.removeItem('cb-worldtime') } catch (_) {}
+    try { useDutyLogStore.getState().clearAll() } catch (_) {}
     set(s => ({
       edto: {
         aircraft: 'b737-8', variant: 'leap-1b25', weight: '',

@@ -1,33 +1,24 @@
-/**
- * Flight Duty Log module — drop into any tab in the parent app.
- * Self-contained: own persisted store, no parent store dependencies.
- * Offline-first — all data lives in localStorage via zustand persist.
- */
-import { useState } from 'react'
+import { useEffect } from 'react'
 import useDutyLogStore from './store/dutylogStore'
 import LogList from './pages/LogList'
 import LogEditor from './pages/LogEditor'
 
 export default function DutyLogModule() {
   const {
-    logs, createLog, updateLog, deleteLog,
+    logs, editingId, setEditingId, createLog,
+    updateLog, deleteLog,
     addSector, removeSector, updateSector,
     addCrew, updateCrew, removeCrew,
   } = useDutyLogStore()
 
-  const [editingId, setEditingId] = useState(null)
   const editing = logs.find(l => l.id === editingId)
 
-  const actions = { updateLog, deleteLog, addSector, removeSector, updateSector, addCrew, updateCrew, removeCrew }
+  // If the log being edited disappears (deleted or Reset All), fall back to the list.
+  useEffect(() => {
+    if (editingId && !editing) setEditingId(null)
+  }, [editingId, editing])
 
-  // Guard: if the edited log vanishes (deleted elsewhere), fall back to the list.
-  if (editingId && !editing) {
-    return (
-      <div style={{ maxWidth: 480, margin: '0 auto' }}>
-        <LogList logs={logs} onNew={() => setEditingId(createLog())} onOpen={setEditingId} onDelete={deleteLog} />
-      </div>
-    )
-  }
+  const actions = { updateLog, deleteLog, addSector, removeSector, updateSector, addCrew, updateCrew, removeCrew }
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto' }}>

@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-// Stable id for logs / sectors so list renumbering is purely positional.
 const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
 export function blankSector() {
@@ -15,6 +14,10 @@ export function blankSector() {
   }
 }
 
+function blankCrew() {
+  return { id: uid(), name: '', position: '' }
+}
+
 function blankLog() {
   const now = Date.now()
   return {
@@ -22,7 +25,7 @@ function blankLog() {
     date: '', reg: '', type: '', mtow: '', mlw: '', config: '', dow: '', doi: '',
     sectors: [blankSector()],
     notes: '',
-    crew: [{ name: '', position: '' }, { name: '', position: '' }],
+    crew: [blankCrew(), blankCrew()],
     createdAt: now,
     updatedAt: now,
   }
@@ -36,6 +39,11 @@ function mapLog(logs, id, fn) {
 const useDutyLogStore = create(persist(
   (set) => ({
     logs: [],
+    editingId: null,
+
+    setEditingId: (id) => set({ editingId: id }),
+
+    clearAll: () => set({ logs: [], editingId: null }),
 
     // Returns the new id so the caller can open it straight away.
     createLog: () => {
@@ -68,18 +76,35 @@ const useDutyLogStore = create(persist(
 
     // ── Crew ──────────────────────────────────────────────────────────────
     addCrew: (id) =>
-      set((s) => ({ logs: mapLog(s.logs, id, (l) => ({ ...l, crew: [...l.crew, { name: '', position: '' }] })) })),
+      set((s) => ({ logs: mapLog(s.logs, id, (l) => ({ ...l, crew: [...l.crew, blankCrew()] })) })),
 
-    updateCrew: (id, idx, patch) =>
+    // cid = crew entry's stable id (not array index)
+    updateCrew: (id, cid, patch) =>
       set((s) => ({ logs: mapLog(s.logs, id, (l) => ({
         ...l,
-        crew: l.crew.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
+        crew: l.crew.map((c) => (c.id === cid ? { ...c, ...patch } : c)),
       })) })),
 
-    removeCrew: (id, idx) =>
-      set((s) => ({ logs: mapLog(s.logs, id, (l) => ({ ...l, crew: l.crew.filter((_, i) => i !== idx) })) })),
+    removeCrew: (id, cid) =>
+      set((s) => ({ logs: mapLog(s.logs, id, (l) => ({ ...l, crew: l.crew.filter((c) => c.id !== cid) })) })),
   }),
-  { name: 'dutylog-module-store' }   // scoped localStorage key — never collides with parent
+  {
+    name: 'dutylog-module-store',
+    version: 1,
+    // v0 → v1: add stable id to crew entries that predate this field.
+    migrate: (state, version) => {
+      if (version === 0) {
+        return {
+          ...state,
+          logs: (state.logs ?? []).map(log => ({
+            ...log,
+            crew: (log.crew ?? []).map(c => (c.id ? c : { ...c, id: uid() })),
+          })),
+        }
+      }
+      return state
+    },
+  }
 ))
 
 export default useDutyLogStore

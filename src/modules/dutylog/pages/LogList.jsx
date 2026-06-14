@@ -6,7 +6,7 @@ function routeOf(log) {
   const pts = []
   log.sectors.forEach((s) => {
     if (s.from && pts[pts.length - 1] !== s.from) pts.push(s.from)
-    if (s.dest) pts.push(s.dest)
+    if (s.dest && pts[pts.length - 1] !== s.dest) pts.push(s.dest)
   })
   return pts.length ? pts.join(' → ') : '—'
 }
@@ -53,7 +53,7 @@ export default function LogList({ logs, onNew, onOpen, onDelete }) {
               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--cp-acc)' }}>{log.reg || '—'}</span>
                 <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(log.id) }}
+                  onClick={(e) => { e.stopPropagation(); if (window.confirm('Delete this log? This cannot be undone.')) onDelete(log.id) }}
                   aria-label="delete log"
                   className="cp-btn"
                   style={{ padding: '2px 6px', color: 'var(--cp-red)', borderColor: 'var(--cp-border)' }}
