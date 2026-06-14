@@ -12,13 +12,12 @@ const secLabel = {
 }
 
 // label + input cell
-function Field({ label, value, onChange, placeholder }) {
+function Field({ label, value, onChange }) {
   return (
     <div>
       {label && <label style={lblStyle}>{label}</label>}
       <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }}
-        placeholder={placeholder}
-        value={value} onChange={(e) => onChange(e.target.value)} />
+        value={value} onChange={(e) => onChange(e.target.value.toUpperCase())} />
     </div>
   )
 }
@@ -167,7 +166,11 @@ export default function LogEditor({ log, actions, onBack, onDelete }) {
           style={{ padding: '4px 9px', color: 'var(--cp-red)' }}>🗑</button>
       </div>
 
-      <Field label="Date" value={log.date} onChange={f('date')} />
+      <div style={{ maxWidth: 180 }}>
+        <label style={lblStyle}>Date</label>
+        <input type="date" className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }}
+          value={log.date} onChange={(e) => f('date')(e.target.value)} />
+      </div>
 
       <div style={secLabel}>AIRCRAFT</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7, marginBottom: 7 }}>
@@ -179,17 +182,17 @@ export default function LogEditor({ log, actions, onBack, onDelete }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9, marginTop: 8, alignItems: 'start' }}>
         <div style={{ paddingTop: 9 }}>
           <label style={{ ...lblStyle, color: 'var(--cp-dim)' }}>Config</label>
-          <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={log.config} onChange={(e) => f('config')(e.target.value)} />
+          <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={log.config} onChange={(e) => f('config')(e.target.value.toUpperCase())} />
         </div>
         <div style={{ gridColumn: '2 / span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9,
           background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 6, padding: '9px 10px' }}>
           <div>
             <label style={{ ...lblStyle, color: 'var(--cp-acc)' }}>DOW</label>
-            <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={log.dow} onChange={(e) => f('dow')(e.target.value)} />
+            <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={log.dow} onChange={(e) => f('dow')(e.target.value.toUpperCase())} />
           </div>
           <div>
             <label style={{ ...lblStyle, color: 'var(--cp-acc)' }}>DOI</label>
-            <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={log.doi} onChange={(e) => f('doi')(e.target.value)} />
+            <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={log.doi} onChange={(e) => f('doi')(e.target.value.toUpperCase())} />
           </div>
         </div>
       </div>
@@ -212,10 +215,15 @@ export default function LogEditor({ log, actions, onBack, onDelete }) {
         <span>CREW</span>
         <button onClick={() => actions.addCrew(log.id)} className="cp-btn" style={{ padding: '4px 8px' }}>+ ADD</button>
       </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 4 }}>
+        <label style={lblStyle}>Name</label>
+        <label style={lblStyle}>Position</label>
+        <span />
+      </div>
       {log.crew.map((c) => (
         <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 7, alignItems: 'center' }}>
-          <Field value={c.name} onChange={(v) => actions.updateCrew(log.id, c.id, { name: v })} placeholder="Name" />
-          <Field value={c.position} onChange={(v) => actions.updateCrew(log.id, c.id, { position: v })} placeholder="Pos" />
+          <Field value={c.name} onChange={(v) => actions.updateCrew(log.id, c.id, { name: v })} />
+          <Field value={c.position} onChange={(v) => actions.updateCrew(log.id, c.id, { position: v })} />
           <button onClick={() => actions.removeCrew(log.id, c.id)} aria-label="remove crew"
             className="cp-btn" style={{ padding: '4px 8px', color: 'var(--cp-red)' }}>✕</button>
         </div>

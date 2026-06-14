@@ -25,7 +25,7 @@ function blankLog() {
     date: '', reg: '', type: '', mtow: '', mlw: '', config: '', dow: '', doi: '',
     sectors: [blankSector()],
     notes: '',
-    crew: [blankCrew(), blankCrew()],
+    crew: [blankCrew(), blankCrew(), blankCrew(), blankCrew()],
     createdAt: now,
     updatedAt: now,
   }
