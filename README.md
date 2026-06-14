@@ -1,162 +1,156 @@
-# Pilot Calculator
+# ClaudeBorne SuperApp
 
-A web-based multi-function calculator designed for pilots, featuring engine inoperative (EDTO) calculations, scientific, time, currency exchange, and interpolation tools.
+An offline-capable PWA of aviation tools for pilots, plus a prayer times module. Runs as a single-page app with tabbed tools, installable on mobile and desktop.
 
-## Features
+**Current version: v3.6**
 
-### 1. **EDTO Calculator** (Engine Inoperative)
-- Calculate cruise altitude capability with one engine inoperative
-- Supports Boeing 737-8 (LEAP-1B25, LEAP-1B27) and 737-800 (CFM56-7B24, CFM56-7B26)
-- Dual outputs: Long Range Cruise Altitude & 310 KIAS Altitude
-- Anti-ice penalty adjustments (engine only / engine + wing)
-- Real-time interpolation based on weight and ISA temperature deviation
+---
 
-### 2. **Normal Calculator**
-- Basic arithmetic operations (+, −, ×, ÷)
-- Clear and decimal support
+## Tools
 
-### 3. **Scientific Calculator**
-- Trigonometric functions (sin, cos, tan in degrees)
-- Logarithmic functions (log₁₀, ln)
-- Power operations (√, x²)
-- Reciprocal (1/x)
-- Constants (π, e)
-- 10 significant figures precision
+### ✈️ EDTO Calculator
+Engine inoperative drift-down performance for B737 operators.
+- Supports B737-8 (LEAP-1B25, LEAP-1B27) and B737-800 (CFM56-7B24, CFM56-7B26)
+- Outputs: Long Range Cruise Altitude and 310 KIAS Altitude
+- Anti-ice penalty options (engine only / engine + wing)
+- Real-time interpolation from embedded Boeing performance tables
 
-### 4. **Time Calculator**
-- HH:MM format time operations
-- Quick add/subtract functions (+15 min, +30 min, +1 hour)
-- Decimal hour conversion
-- Total minutes display
+### 🌤️ METAR/TAF
+Live weather for multiple airports via aviationweather.gov.
+- Flight category colour coding: VFR / MVFR / IFR / LIFR
+- Wind severity, present weather, CB/TCU highlighting
+- Plain-English decode toggle
+- Role tagging: dep/arr/dest-alt/enroute with distinct colours
+- Auto-refresh with staleness badge on PWA icon
 
-### 5. **Currency Exchange**
-- Real-time exchange rates (with offline fallback)
-- 15 major currencies supported
-- Automatic calculation as you type
-- 2 decimal place precision
+### 📋 NOTAM Viewer
+Live NOTAMs via autorouter.aero OAuth proxy.
+- Multi-airport lookup, grouped by location
+- Relevance or category sort
+- Inputs and results persist offline in localStorage
 
-### 6. **Interpolation Calculator**
-- General linear interpolation tool
-- Formula: y = y₁ + (x - x₁) × (y₂ - y₁) / (x₂ - x₁)
-- Useful for performance table lookups beyond standard data points
+### ⏳ FTL Calculator
+CAAM flight and duty time limitations.
+- Lookup tables for max FDP, rest requirements
+- Real-time calculation against current roster
 
-## Technology Stack
+### 🛫 Duty Log
+Flight sector logger with offline persistence.
+- Per-sector: dep/arr airports, times, fuel, ENG OUT data, crew, remarks
+- Add/delete crew rows, edit inline
 
-- **Frontend**: React 18 with TypeScript support
-- **Build Tool**: Vite 5
-- **Styling**: Tailwind CSS
-- **State Management**: Zustand
-- **PWA**: Service Worker for offline capability
-- **Deployment**: Ready for Vercel/Netlify
+### 🧮 Calculator
+Combined basic + scientific calculator.
+- Arithmetic, trig (sin/cos/tan), log, √, x², π, e
+- 10 significant figure precision
 
-## Installation
+### 📐 Interpolation
+Linear 1D/2D table interpolation.
+- y = y₁ + (x − x₁) × (y₂ − y₁) / (x₂ − x₁)
+- Useful for performance table lookups
 
-```bash
-cd pilot-calculator
-npm install
-```
+### 💱 Currency Exchange
+Real-time exchange rates with offline fallback.
+- Calculates as you type
+
+### 🌐 World Time
+Multi-timezone clock with airport/city search.
+- 12h/24h toggle
+
+### 🕌 Qiblat & Solat
+Prayer times and Qibla direction.
+- Powered by [adhan](https://github.com/batoulapps/adhan-js)
+- Qibla compass with device orientation
+- Dhuha, Imsak, Sunrise as reference times
+- Auto-refresh after midnight
+
+---
+
+## Dashboard
+Launcher home screen shows live widgets:
+- UTC/Zulu clock (links to World Time)
+- Next prayer countdown (links to Qiblat & Solat)
+- METAR staleness indicator (links to METAR/TAF)
+
+---
+
+## Tech Stack
+
+| | |
+|---|---|
+| Frontend | React 18, plain JS/JSX |
+| Build | Vite 5 |
+| State | Zustand |
+| Prayer astronomy | adhan |
+| Offline/PWA | vite-plugin-pwa (Workbox) |
+| Tests | Vitest |
+| Deploy | Vercel (auto-deploy from `master`) |
+| Styling | CSS custom properties (`--cp-*`), no CSS framework |
+
+---
 
 ## Development
 
 ```bash
-npm run dev
+npm install
+npm run dev        # dev server at http://localhost:5173
+npm test           # run unit tests once
+npm run test:watch # watch mode
+npm run build      # production build → dist/
 ```
 
-Runs the app in development mode at `http://localhost:3000`
-
-## Building
-
-```bash
-npm run build
-```
-
-Builds the app for production in the `dist` folder.
+---
 
 ## Deployment
 
-### Vercel (Recommended)
+Push to `master` → Vercel builds and deploys automatically.
 
-1. Push code to GitHub/GitLab/Bitbucket
-2. Import project in Vercel dashboard
-3. Configure build command: `npm run build`
-4. Deploy
+The service worker caches aggressively. Users receive an in-app update prompt when a new build is available.
 
-### Manual Deployment
-
-1. Run `npm run build`
-2. Deploy `dist` folder to your web server
-3. Ensure service worker (`public/sw.js`) is served at the root
-
-## PWA Features
-
-- **Offline Support**: All calculator functions work offline
-- **Installable**: Add to home screen on mobile
-- **Fast Loading**: Optimized assets with service worker caching
-- **Dark Mode**: Toggle between light and dark themes
-
-## EDTO Lookup Tables
-
-Embedded lookup tables for:
-- B737-8 LEAP-1B25 (PI.13.9, PI.23.9)
-- B737-8 LEAP-1B27 (PI.33.9)
-- B737-800 CFM56-7B24 (PI.13.8, Section 3.3.2)
-- B737-800 CFM56-7B26 (PI.23.8, PI.33.8, Section 3.3.2)
-
-Tables include 310 KIAS and Long Range Cruise calculations with anti-ice penalties.
-
-## Browser Support
-
-- Chrome 90+
-- Firefox 88+
-- Safari 15+
-- Edge 90+
-
-## File Structure
-
+**Required Vercel environment variables for NOTAM:**
 ```
-pilot-calculator/
-├── public/
-│   └── sw.js                    # Service worker
-├── src/
-│   ├── components/
-│   │   ├── EDTOCalculator.jsx
-│   │   ├── NormalCalculator.jsx
-│   │   ├── ScientificCalculator.jsx
-│   │   ├── TimeCalculator.jsx
-│   │   ├── CurrencyCalculator.jsx
-│   │   └── InterpolationCalculator.jsx
-│   ├── data/
-│   │   └── lookupTables.json    # Boeing performance tables
-│   ├── store/
-│   │   └── calculatorStore.js   # Zustand state management
-│   ├── utils/
-│   │   └── interpolation.js     # Interpolation logic
-│   ├── App.jsx
-│   ├── main.jsx
-│   └── index.css
-├── index.html
-├── manifest.json                # PWA manifest
-├── package.json
-├── vite.config.js
-├── tailwind.config.js
-└── postcss.config.js
+AUTOROUTER_EMAIL=<your autorouter.aero login>
+AUTOROUTER_PASSWORD=<your autorouter.aero password>
 ```
 
-## Performance Optimization
+---
 
-- Lookup tables embedded as JSON (no server calls)
-- Real-time calculation with React hooks
-- Service worker caching strategy (network first, fallback to cache)
-- Minimal bundle size (~150KB gzipped)
+## Project Structure
+
+```
+src/
+  App.jsx                   # shell, tab registry, settings, theme
+  components/               # one file per calculator tab
+    METARTAFCalculator.jsx
+    NotamViewer.jsx
+    EDTOCalculator.jsx
+    FTLCalculator.jsx
+    InterpolationCalculator.jsx
+    CurrencyCalculator.jsx
+    CombinedCalculator.jsx
+    WorldTimeCalculator.jsx
+    Navigation.jsx
+    ErrorBoundary.jsx
+    UpdatePrompt.jsx
+  utils/                    # pure, tested logic
+    metarSeverity.js
+    metarDecode.js
+    interpolation.js
+  data/
+    ftlTables.js
+    airports.js / .json
+  store/
+    calculatorStore.js
+  modules/
+    prayer/                 # self-contained prayer module
+    dutylog/                # self-contained duty log module
+api/
+  weather.js                # Vercel proxy → aviationweather.gov
+  notam.js                  # Vercel proxy → autorouter.aero (OAuth)
+```
+
+---
 
 ## License
 
-Internal use only
-
-## Support
-
-For EDTO calculation questions, refer to Boeing 737 Flight Crew Operations Manual sections:
-- PI.13.8 / PI.13.9 (Long Range Cruise)
-- PI.23.8 / PI.23.9 (AOA-DIAL)
-- PI.33.8 / PI.33.9 (Alternate Long Range Cruise)
-- OI.10.1 / Section 3.3.2 (310 KIAS)
+Internal use only.
