@@ -510,8 +510,7 @@ export default function FlightPage({ settings }) {
             <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
               letterSpacing: '0.08em', textAlign: 'center', marginTop: 8,
               lineHeight: 1.8 }}>
-              BASED ON DEVICE LOCAL TIME · {METHOD_SHORT[settings?.calculationMethod] ?? 'JAKIM'} METHOD<br />
-              TIMES ARE APPROXIMATE — VERIFY WITH CREW
+              BASED ON DEVICE LOCAL TIME · {METHOD_SHORT[settings?.calculationMethod] ?? 'JAKIM'} METHOD
             </div>
           </Section>
 
@@ -529,7 +528,7 @@ export default function FlightPage({ settings }) {
                 ESTIMATED POSITION ONLY
               </div>
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.dim, lineHeight: 1.6 }}>
-                Prayer times and Qibla direction shown in the Flight tab are based on estimated position and altitude. Dead reckoning carries a margin of error — actual position may differ due to winds and route changes.
+                Prayer times and Qibla direction are calculated using Dead reckoning and carries a margin of error.
               </div>
             </div>
           </div>

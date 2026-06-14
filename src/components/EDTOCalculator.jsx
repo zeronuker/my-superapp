@@ -188,10 +188,8 @@ export default function EDTOCalculator() {
         textAlign: 'justify',
       }}>
         <span style={{ color: 'var(--cb-blue)', fontWeight: 700, letterSpacing: '0.15em' }}>ℹ INFO · </span>
-        Always verify performance data against your current approved flight manuals and operator documentation.
-        It is the sole responsibility of the user to verify all results against current approved aircraft flight manuals,
-        operator documentation, and applicable regulations. The developers of ClaudeBorne SuperApp make no warranty
-        as to the accuracy of these results and accept no liability for any outcome arising from their use.
+        Performance data must always be verified against your current approved aircraft flight manuals and operator documentation.
+        Compliance with all applicable regulations remains the sole responsibility of the user.
       </div>
 
       {/* Step 1 */}
