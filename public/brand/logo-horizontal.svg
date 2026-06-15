@@ -1,24 +1,4 @@
 <svg width="100%" viewBox="80 115 520 95" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="navyBg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#081420"/>
-      <stop offset="100%" stop-color="#0A1C30"/>
-    </linearGradient>
-    <pattern id="squareGrid" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#ffffff" stroke-width="0.3" opacity="0.12"/>
-    </pattern>
-    <clipPath id="logoClip">
-      <rect x="80" y="30" width="520" height="240" rx="4"/>
-    </clipPath>
-  </defs>
-
-  <!-- Background -->
-  <rect x="80" y="30" width="520" height="240" rx="4" fill="url(#navyBg)"/>
-  <rect x="80" y="30" width="520" height="240" rx="4" fill="url(#squareGrid)" clip-path="url(#logoClip)"/>
-
-  <!-- Panel rules -->
-  <line x1="80" y1="78"  x2="600" y2="78"  stroke="#162535" stroke-width="0.8"/>
-  <line x1="80" y1="252" x2="600" y2="252" stroke="#162535" stroke-width="0.8"/>
 
   <!-- Engineering corner marks -->
   <line x1="80"  y1="40"  x2="80"  y2="58"  stroke="#3dd9cc" stroke-width="1.2"/>
