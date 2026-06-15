@@ -1,0 +1,31 @@
+<svg id="logo1-mark" viewBox="0 0 200 200" width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+            <rect width="200" height="200" fill="#0c131a"></rect>
+            <circle cx="100" cy="100" r="92" fill="#0d1a24" stroke="#3FE0C5" stroke-width="2"></circle>
+            
+            <polygon points="100,10 95,24 105,24" fill="#3FE0C5"></polygon>
+            
+            <line x1="124" y1="11" x2="122" y2="19" stroke="#3FE0C5" stroke-width="1.5" opacity="0.65"></line>
+            <line x1="76" y1="11" x2="78" y2="19" stroke="#3FE0C5" stroke-width="1.5" opacity="0.65"></line>
+            
+            <line x1="146" y1="20" x2="142" y2="28" stroke="#3FE0C5" stroke-width="2" opacity="0.75"></line>
+            <line x1="54" y1="20" x2="58" y2="28" stroke="#3FE0C5" stroke-width="2" opacity="0.75"></line>
+            
+            <line x1="180" y1="54" x2="175" y2="57" stroke="#3FE0C5" stroke-width="1.5" opacity="0.45"></line>
+            <line x1="20" y1="54" x2="25" y2="57" stroke="#3FE0C5" stroke-width="1.5" opacity="0.45"></line>
+            
+            <line x1="76" y1="80" x2="124" y2="80" stroke="#3FE0C5" stroke-width="1.5" opacity="0.55"></line>
+            <line x1="76" y1="120" x2="124" y2="120" stroke="#3FE0C5" stroke-width="1.5" opacity="0.55"></line>
+            
+            <line x1="66" y1="60" x2="134" y2="60" stroke="#3FE0C5" stroke-width="1.5" opacity="0.32"></line>
+            <line x1="66" y1="140" x2="134" y2="140" stroke="#3FE0C5" stroke-width="1.5" opacity="0.32"></line>
+            
+            <line x1="12" y1="100" x2="188" y2="100" stroke="#3FE0C5" stroke-width="2.5"></line>
+            
+            <polyline points="88,100 30,100 30,115" stroke="#3FE0C5" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"></polyline>
+            
+            <polyline points="112,100 170,100 170,115" stroke="#3FE0C5" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"></polyline>
+            
+            <line x1="100" y1="100" x2="100" y2="73" stroke="#3FE0C5" stroke-width="3" stroke-linecap="round"></line>
+            
+            <circle cx="100" cy="100" r="6" fill="#0d1a24" stroke="#3FE0C5" stroke-width="2.5"></circle>
+          </svg>

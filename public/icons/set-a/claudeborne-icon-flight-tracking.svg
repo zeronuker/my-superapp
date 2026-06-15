@@ -1,0 +1,12 @@
+<svg id="icon-flight" viewBox="0 0 64 64" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+            <rect width="64" height="64" fill="#0f1419"></rect>
+            
+            <rect x="30" y="7" width="4" height="24" rx="2" fill="#3FE0C5"></rect>
+            
+            <path d="M 32 20 L 7 29 L 7 32 L 32 24 L 57 32 L 57 29 Z" fill="#3FE0C5"></path>
+            
+            <path d="M 32 27 L 19 37 L 19 40 L 32 32 L 45 40 L 45 37 Z" fill="#3FE0C5"></path>
+            
+            <path d="M 20 44 Q 32 53 44 44" fill="none" stroke="#3FE0C5" stroke-width="2.5" stroke-linecap="round"></path>
+            <path d="M 12 54 Q 32 65 52 54" fill="none" stroke="#3FE0C5" stroke-width="2" stroke-linecap="round" opacity="0.48"></path>
+          </svg>

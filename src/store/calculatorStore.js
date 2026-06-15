@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS = {
   accentColor:    'teal',     // 'teal' | 'amber' | 'cyan' | 'violet' | 'green'
   highContrast:   false,      // cockpit / bright-light readability mode
   cardStyle:      'elevated', // 'flat' | 'elevated' | 'glass'
+  iconSet:        'classic',  // 'classic' (emoji) | image set id from ICON_SETS
   clockFormat:    '24hr',     // '24hr' | '12hr' — global, applies to all clocks
   rememberLastTab:true,       // reopen last-used tool on app restart
   confirmReset:   true,       // confirm before the header RESET ALL

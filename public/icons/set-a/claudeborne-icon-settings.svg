@@ -1,0 +1,18 @@
+<svg id="icon-settings" viewBox="0 0 64 64" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+            <rect width="64" height="64" fill="#0f1419"></rect>
+            <g transform="translate(32,32)">
+              
+              <rect x="-3.5" y="-27" width="7" height="11" fill="#3FE0C5" rx="1.5"></rect>
+              <rect x="-3.5" y="-27" width="7" height="11" fill="#3FE0C5" rx="1.5" transform="rotate(45)"></rect>
+              <rect x="-3.5" y="-27" width="7" height="11" fill="#3FE0C5" rx="1.5" transform="rotate(90)"></rect>
+              <rect x="-3.5" y="-27" width="7" height="11" fill="#3FE0C5" rx="1.5" transform="rotate(135)"></rect>
+              <rect x="-3.5" y="-27" width="7" height="11" fill="#3FE0C5" rx="1.5" transform="rotate(180)"></rect>
+              <rect x="-3.5" y="-27" width="7" height="11" fill="#3FE0C5" rx="1.5" transform="rotate(225)"></rect>
+              <rect x="-3.5" y="-27" width="7" height="11" fill="#3FE0C5" rx="1.5" transform="rotate(270)"></rect>
+              <rect x="-3.5" y="-27" width="7" height="11" fill="#3FE0C5" rx="1.5" transform="rotate(315)"></rect>
+              
+              <circle r="18" fill="#3FE0C5"></circle>
+              
+              <circle r="7" fill="#0f1419"></circle>
+            </g>
+          </svg>

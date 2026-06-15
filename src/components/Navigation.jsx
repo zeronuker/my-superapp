@@ -8,14 +8,17 @@
  * id + an onSelect callback), so switching styles never loses your place.
  */
 
+import { TabIcon } from './TabIcon'
+
 // Category map for 'grouped' mode. New modules must be added to a group here
-// to appear in grouped navigation.
+// to appear in grouped navigation. `iconId` points at a representative member
+// so image icon sets reuse that tool's artwork for the group header.
 export const NAV_GROUPS = [
-  { id: 'calc', label: 'CALCULATOR',   icon: '🧮',  members: ['calculator', 'interpolation', 'currency'] },
-  { id: 'perf', label: 'PERFORMANCE',  icon: '✈️', members: ['edto'] },
-  { id: 'avn',  label: 'AVIATION',     icon: '🌤️', members: ['metartaf', 'notam', 'worldtime'] },
-  { id: 'duty', label: 'FLIGHT DUTY',  icon: '⏳',  members: ['ftl', 'dutylog'] },
-  { id: 'pray', label: 'PRAYER',       icon: '🕌',  members: ['prayer'] },
+  { id: 'calc', label: 'CALCULATOR',   icon: '🧮',  iconId: 'calculator', members: ['calculator', 'interpolation', 'currency'] },
+  { id: 'perf', label: 'PERFORMANCE',  icon: '✈️', iconId: 'edto',       members: ['edto'] },
+  { id: 'avn',  label: 'AVIATION',     icon: '🌤️', iconId: 'metartaf',   members: ['metartaf', 'notam', 'worldtime'] },
+  { id: 'duty', label: 'FLIGHT DUTY',  icon: '⏳',  iconId: 'ftl',        members: ['ftl', 'dutylog'] },
+  { id: 'pray', label: 'PRAYER',       icon: '🕌',  iconId: 'prayer',     members: ['prayer'] },
 ]
 
 // ── Tabs (top or bottom) ──────────────────────────────────────────────────────
@@ -30,7 +33,7 @@ export function TabBar({ calcs, activeId, onSelect, position = 'top' }) {
       {calcs.map(calc => (
         <button key={calc.id} onClick={() => onSelect(calc.id)}
           className={`cp-tab${activeId === calc.id ? ' active' : ''}`}>
-          <span style={{ marginRight: 6, fontSize: 18 }}>{calc.icon}</span>
+          <TabIcon id={calc.id} emoji={calc.icon} size={18} style={{ marginRight: 6 }} />
           {calc.name}
         </button>
       ))}
@@ -87,7 +90,7 @@ export function GroupedNav({ calcs, activeId, onSelect }) {
                 fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em',
                 color: on ? 'var(--cp-acc)' : 'var(--cp-dim)', transition: 'all 0.12s',
               }}>
-                <span style={{ fontSize: 15 }}>{g.icon}</span>{g.label}
+                <TabIcon id={g.iconId} emoji={g.icon} size={15} />{g.label}
               </button>
             )
           })}
@@ -140,7 +143,7 @@ export function LauncherGrid({ calcs, onSelect }) {
         <div key={group.id} style={{ marginBottom: 28 }}>
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.18em',
             color: 'var(--cp-dim)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 14, lineHeight: 1 }}>{group.icon}</span>
+            <TabIcon id={group.iconId} emoji={group.icon} size={14} />
             {group.label}
             <div style={{ flex: 1, height: 1, background: 'var(--cp-border2)' }} />
           </div>
@@ -159,7 +162,7 @@ export function LauncherGrid({ calcs, onSelect }) {
                     background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 8,
                     color: 'var(--cp-txt)', transition: 'border-color 0.12s, background 0.12s',
                   }}>
-                  <span style={{ fontSize: 30, lineHeight: 1 }}>{calc.icon}</span>
+                  <TabIcon id={calc.id} emoji={calc.icon} size={30} />
                   <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11,
                     letterSpacing: '0.1em', color: 'var(--cp-muted)', textAlign: 'center' }}>
                     {calc.name.toUpperCase()}
@@ -189,7 +192,7 @@ export function LauncherBackBar({ calc, onHome }) {
         {calc && (
           <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.14em',
             color: 'var(--cp-acc)', display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ fontSize: 16 }}>{calc.icon}</span>{calc.name.toUpperCase()}
+            <TabIcon id={calc.id} emoji={calc.icon} size={16} />{calc.name.toUpperCase()}
           </span>
         )}
       </div>

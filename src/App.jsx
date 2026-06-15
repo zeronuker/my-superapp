@@ -4,6 +4,7 @@ import { useCalculatorStore } from './store/calculatorStore'
 import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
 import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar, NAV_GROUPS } from './components/Navigation'
+import { TabIcon, ICON_SETS } from './components/TabIcon'
 import { searchZones } from './data/worldTimezones'
 
 // Each tab is code-split into its own chunk, loaded on demand when first opened.
@@ -708,7 +709,7 @@ function SearchOverlay({ calcs, onSelect, onClose, reduceMotion }) {
                 letterSpacing: '0.1em', color: 'var(--cp-muted)',
                 display: 'flex', alignItems: 'center', gap: 6,
               }}>
-                <span>{c.icon}</span>{c.name.toUpperCase()}
+                <TabIcon id={c.id} emoji={c.icon} size={13} />{c.name.toUpperCase()}
               </button>
             ))}
           </div>
@@ -840,6 +841,13 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
                 options={[{ value: 'flat', label: 'FLAT' }, { value: 'elevated', label: 'RAISED' }, { value: 'glass', label: 'GLASS' }]}
                 value={settings.cardStyle || 'elevated'}
                 onChange={v => onUpdate({ cardStyle: v })}
+              />
+            </SettingsRow>
+            <SettingsRow label="ICONS">
+              <SegmentedToggle
+                options={ICON_SETS.map(s => ({ value: s.id, label: s.label }))}
+                value={settings.iconSet || 'classic'}
+                onChange={v => onUpdate({ iconSet: v })}
               />
             </SettingsRow>
           </SettingsSection>
@@ -987,7 +995,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
                     borderRadius: 4, padding: '5px 8px',
                   }}>
                     <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-muted)', letterSpacing: '0.1em' }}>
-                      <span style={{ marginRight: 6, opacity: 0.6 }}>{calc.icon}</span>
+                      <TabIcon id={calc.id} emoji={calc.icon} size={13} style={{ marginRight: 6, opacity: 0.6 }} />
                       {calc.name.toUpperCase()}
                     </span>
                     <div style={{ display: 'flex', gap: 4 }}>

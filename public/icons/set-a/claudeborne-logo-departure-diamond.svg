@@ -1,0 +1,27 @@
+<svg id="logo3-mark" viewBox="0 0 200 200" width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <clipPath id="dclip">
+                <path d="M 100 12 L 188 100 L 100 188 L 12 100 Z"></path>
+              </clipPath>
+            </defs>
+            <rect width="200" height="200" fill="#0c131a"></rect>
+            
+            <path d="M 100 12 L 188 100 L 100 188 L 12 100 Z" fill="#0d1a24" stroke="#3FE0C5" stroke-width="2.5"></path>
+            
+            <path d="M 100 30 L 170 100 L 100 170 L 30 100 Z" fill="none" stroke="#3FE0C5" stroke-width="1" opacity="0.14"></path>
+            
+            <g clip-path="url(#dclip)">
+              
+              <line x1="60" y1="140" x2="138" y2="64" stroke="#3FE0C5" stroke-width="1.5" stroke-dasharray="5,6" opacity="0.42"></line>
+              
+              <polygon points="79,116 85,121 79,126 73,121" fill="none" stroke="#3FE0C5" stroke-width="1.5" opacity="0.38"></polygon>
+              <polygon points="100,96 107,102 100,108 93,102" fill="none" stroke="#3FE0C5" stroke-width="1.5" opacity="0.62"></polygon>
+              <polygon points="121,75 128,81 121,87 114,81" fill="none" stroke="#3FE0C5" stroke-width="2" opacity="0.88"></polygon>
+              
+              <g transform="translate(144,58) rotate(45)">
+                <line x1="0" y1="-9" x2="0" y2="7" stroke="#3FE0C5" stroke-width="2.5" stroke-linecap="round"></line>
+                <line x1="-8" y1="0" x2="8" y2="0" stroke="#3FE0C5" stroke-width="2.5" stroke-linecap="round"></line>
+                <line x1="-4" y1="5" x2="4" y2="5" stroke="#3FE0C5" stroke-width="1.5" stroke-linecap="round"></line>
+              </g>
+            </g>
+          </svg>
