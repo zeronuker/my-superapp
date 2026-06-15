@@ -33,7 +33,7 @@ export function TabBar({ calcs, activeId, onSelect, position = 'top' }) {
       {calcs.map(calc => (
         <button key={calc.id} onClick={() => onSelect(calc.id)}
           className={`cp-tab${activeId === calc.id ? ' active' : ''}`}>
-          <TabIcon id={calc.id} emoji={calc.icon} size={18} style={{ marginRight: 6 }} />
+          <TabIcon id={calc.id} emoji={calc.icon} size={26} style={{ marginRight: 6 }} />
           {calc.name}
         </button>
       ))}
@@ -90,7 +90,7 @@ export function GroupedNav({ calcs, activeId, onSelect }) {
                 fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em',
                 color: on ? 'var(--cp-acc)' : 'var(--cp-dim)', transition: 'all 0.12s',
               }}>
-                <TabIcon id={g.iconId} emoji={g.icon} size={15} />{g.label}
+                <TabIcon id={g.iconId} emoji={g.icon} size={26} />{g.label}
               </button>
             )
           })}
@@ -143,7 +143,7 @@ export function LauncherGrid({ calcs, onSelect }) {
         <div key={group.id} style={{ marginBottom: 28 }}>
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.18em',
             color: 'var(--cp-dim)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <TabIcon id={group.iconId} emoji={group.icon} size={14} />
+            <TabIcon id={group.iconId} emoji={group.icon} size={24} />
             {group.label}
             <div style={{ flex: 1, height: 1, background: 'var(--cp-border2)' }} />
           </div>
@@ -162,7 +162,7 @@ export function LauncherGrid({ calcs, onSelect }) {
                     background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 8,
                     color: 'var(--cp-txt)', transition: 'border-color 0.12s, background 0.12s',
                   }}>
-                  <TabIcon id={calc.id} emoji={calc.icon} size={30} />
+                  <TabIcon id={calc.id} emoji={calc.icon} size={52} />
                   <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11,
                     letterSpacing: '0.1em', color: 'var(--cp-muted)', textAlign: 'center' }}>
                     {calc.name.toUpperCase()}
@@ -192,7 +192,7 @@ export function LauncherBackBar({ calc, onHome }) {
         {calc && (
           <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.14em',
             color: 'var(--cp-acc)', display: 'flex', alignItems: 'center', gap: 7 }}>
-            <TabIcon id={calc.id} emoji={calc.icon} size={16} />{calc.name.toUpperCase()}
+            <TabIcon id={calc.id} emoji={calc.icon} size={24} />{calc.name.toUpperCase()}
           </span>
         )}
       </div>
