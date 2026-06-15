@@ -320,7 +320,7 @@ export default function App() {
                 WebkitBackgroundClip: 'text', backgroundClip: 'text',
                 color: 'transparent',
               }}>
-                CLAUDEBORNE SUPERAPP
+                CLAUDEBORNE PILOT UTILITY SUITE
               </span>
             </div>
 
@@ -413,7 +413,7 @@ export default function App() {
           letterSpacing: '0.12em',
           lineHeight: 1.8,
         }}>
-          <div>CLAUDEBORNE SUPERAPP · PWA OFFLINE CAPABLE</div>
+          <div>CLAUDEBORNE PILOT UTILITY SUITE · PWA OFFLINE CAPABLE</div>
           <div style={{ fontSize: 9, letterSpacing: '0.16em' }}>{APP_VERSION}</div>
         </footer>
 
@@ -1159,7 +1159,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
             textAlign: 'center', fontFamily: 'var(--cb-font-mono)',
             fontSize: 9, letterSpacing: '0.16em', color: 'var(--cp-dim)', paddingTop: 4,
           }}>
-            CLAUDEBORNE SUPERAPP · {APP_VERSION}
+            CLAUDEBORNE PILOT UTILITY SUITE · {APP_VERSION}
           </div>
         </>
       )}

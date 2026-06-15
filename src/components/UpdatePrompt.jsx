@@ -66,7 +66,7 @@ export default function UpdatePrompt() {
               fontFamily: 'var(--cb-font-mono)', fontSize: 8,
               letterSpacing: '0.12em', color: 'var(--cp-dim)',
             }}>
-              CLAUDEBORNE SUPERAPP
+              CLAUDEBORNE PILOT UTILITY SUITE
             </div>
           </div>
         </div>

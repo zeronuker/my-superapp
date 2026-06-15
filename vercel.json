@@ -3,7 +3,7 @@
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
   "env": {
-    "VITE_APP_TITLE": "ClaudeBorne SuperApp"
+    "VITE_APP_TITLE": "ClaudeBorne Pilot Utility Suite"
   },
   "headers": [
     {
