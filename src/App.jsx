@@ -308,32 +308,34 @@ export default function App() {
             <img
               src="/brand/logo-horizontal.svg"
               alt="ClaudeBorne Pilot Utility Suite"
-              style={{ width: 380, height: 69, flexShrink: 0, display: 'block' }}
+              style={{ maxWidth: 380, width: '100%', height: 'auto', flexShrink: 1, minWidth: 0, display: 'block' }}
             />
 
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => setSearchOpen(true)}
-                className="cp-btn"
-                style={{ fontSize: 15, padding: '6px 12px' }}
-                title="Search tools"
-                aria-label="Search tools"
-              >
-                ⌕
-              </button>
-              <button
-                onClick={() => setSettingsOpen(true)}
-                className="cp-btn"
-                style={{ fontSize: 15, padding: '6px 12px' }}
-                title="Settings"
-                aria-label="Open settings"
-              >
-                ⚙
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className="cp-btn"
+                  style={{ fontSize: 15, padding: '6px 12px' }}
+                  title="Search tools"
+                  aria-label="Search tools"
+                >
+                  ⌕
+                </button>
+                <button
+                  onClick={() => setSettingsOpen(true)}
+                  className="cp-btn"
+                  style={{ fontSize: 15, padding: '6px 12px' }}
+                  title="Settings"
+                  aria-label="Open settings"
+                >
+                  ⚙
+                </button>
+              </div>
               <button
                 onClick={handleResetAll}
                 className="cp-btn cp-btn-danger"
-                style={{ fontSize: 11, letterSpacing: '0.15em' }}
+                style={{ fontSize: 11, letterSpacing: '0.15em', alignSelf: 'stretch' }}
               >
                 RESET ALL
               </button>

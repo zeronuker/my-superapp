@@ -1,14 +1,14 @@
 <svg width="100%" viewBox="80 115 520 95" xmlns="http://www.w3.org/2000/svg">
 
-  <!-- Engineering corner marks -->
-  <line x1="80"  y1="40"  x2="80"  y2="58"  stroke="#3dd9cc" stroke-width="1.2"/>
-  <line x1="80"  y1="40"  x2="98"  y2="40"  stroke="#3dd9cc" stroke-width="1.2"/>
-  <line x1="600" y1="40"  x2="600" y2="58"  stroke="#3dd9cc" stroke-width="1.2"/>
-  <line x1="600" y1="40"  x2="582" y2="40"  stroke="#3dd9cc" stroke-width="1.2"/>
-  <line x1="80"  y1="260" x2="80"  y2="242" stroke="#3dd9cc" stroke-width="1.2"/>
-  <line x1="80"  y1="260" x2="98"  y2="260" stroke="#3dd9cc" stroke-width="1.2"/>
-  <line x1="600" y1="260" x2="600" y2="242" stroke="#3dd9cc" stroke-width="1.2"/>
-  <line x1="600" y1="260" x2="582" y2="260" stroke="#3dd9cc" stroke-width="1.2"/>
+  <!-- Engineering corner marks (repositioned to viewBox bounds y=115..210) -->
+  <line x1="80"  y1="118" x2="80"  y2="134" stroke="#3dd9cc" stroke-width="1.2"/>
+  <line x1="80"  y1="118" x2="96"  y2="118" stroke="#3dd9cc" stroke-width="1.2"/>
+  <line x1="600" y1="118" x2="600" y2="134" stroke="#3dd9cc" stroke-width="1.2"/>
+  <line x1="600" y1="118" x2="584" y2="118" stroke="#3dd9cc" stroke-width="1.2"/>
+  <line x1="80"  y1="207" x2="80"  y2="191" stroke="#3dd9cc" stroke-width="1.2"/>
+  <line x1="80"  y1="207" x2="96"  y2="207" stroke="#3dd9cc" stroke-width="1.2"/>
+  <line x1="600" y1="207" x2="600" y2="191" stroke="#3dd9cc" stroke-width="1.2"/>
+  <line x1="600" y1="207" x2="584" y2="207" stroke="#3dd9cc" stroke-width="1.2"/>
 
   <!-- Outlined C (paths) -->
   <path fill="none" stroke="#3dd9cc" stroke-width="2" d="M131.20600000000002 204 L120.08200000000001 192.876 L120.08200000000001 139.524 L131.20600000000002 128.4 L164.74 128.4 L175.918 139.524 L175.918 156.912 L160.636 156.912 L160.636 146.976 L157.342 143.68200000000002 L138.65800000000002 143.68200000000002 L135.364 146.976 L135.364 185.424 L138.65800000000002 188.718 L157.342 188.718 L160.636 185.424 L160.636 175.488 L175.918 175.488 L175.918 192.876 L164.74 204 Z M134.662 197.088 L161.284 197.088 L169.06 189.312 L169.06 181.536 L167.548 181.536 L167.548 188.88 L160.744 195.576 L135.202 195.576 L128.398 188.88 L128.398 143.304 L135.202 136.608 L160.744 136.608 L167.548 143.304 L167.548 150.648 L169.06 150.648 L169.06 142.872 L161.284 135.096 L134.662 135.096 L126.88600000000001 142.872 L126.88600000000001 189.312 Z"/>
