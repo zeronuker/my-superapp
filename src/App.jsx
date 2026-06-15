@@ -300,29 +300,16 @@ export default function App() {
         <header style={{
           background: 'linear-gradient(135deg, var(--cp-bghd) 0%, var(--cp-bgalt) 100%)',
           borderBottom: '1px solid var(--cp-border)',
-          padding: '18px 24px 16px',
+          padding: '12px 24px',
         }}>
           <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex',
             alignItems: 'center', justifyContent: 'space-between' }}>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <img
-                src="/brand/icons/icon-192.png"
-                width={48}
-                height={48}
-                alt="ClaudeBorne"
-                style={{ flexShrink: 0, display: 'block', borderRadius: 4 }}
-              />
-              <span style={{
-                fontFamily: 'var(--cb-font-display)', fontWeight: 700,
-                fontSize: 13, letterSpacing: '0.22em',
-                background: 'var(--cb-grad)',
-                WebkitBackgroundClip: 'text', backgroundClip: 'text',
-                color: 'transparent',
-              }}>
-                CLAUDEBORNE PILOT UTILITY SUITE
-              </span>
-            </div>
+            <img
+              src="/brand/logo-horizontal.svg"
+              alt="ClaudeBorne Pilot Utility Suite"
+              style={{ width: 380, height: 69, flexShrink: 0, display: 'block' }}
+            />
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button
