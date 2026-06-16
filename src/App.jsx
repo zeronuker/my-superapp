@@ -4,6 +4,7 @@ import { useCalculatorStore } from './store/calculatorStore'
 import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
 import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar, NAV_GROUPS } from './components/Navigation'
+import BrandBanner from './BrandBanner'
 import { TabIcon, ICON_SETS } from './components/TabIcon'
 import { searchZones } from './data/worldTimezones'
 
@@ -298,18 +299,13 @@ export default function App() {
 
         {/* ── Header ──────────────────────────────────────────────────── */}
         <header style={{
-          background: 'linear-gradient(135deg, var(--cp-bghd) 0%, var(--cp-bgalt) 100%)',
+          background: 'linear-gradient(135deg, #0a1020 0%, #0d1428 60%, #0a1020 100%)',
           borderBottom: '1px solid var(--cp-border)',
-          padding: '12px 24px',
         }}>
           <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex',
-            alignItems: 'center', justifyContent: 'space-between' }}>
+            alignItems: 'center', justifyContent: 'space-between', paddingRight: 24 }}>
 
-            <img
-              src="/brand/logo-horizontal.svg"
-              alt="ClaudeBorne Pilot Utility Suite"
-              style={{ maxWidth: 380, width: '100%', height: 'auto', flexShrink: 1, minWidth: 0, display: 'block' }}
-            />
+            <BrandBanner subtitle="PILOT UTILITY SUITE" />
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
               <div style={{ display: 'flex', gap: 8 }}>
