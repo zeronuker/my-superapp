@@ -49,7 +49,7 @@ const BTN = {
     border: '1px solid var(--cp-border)',
     borderRadius: 6,
     cursor: 'pointer',
-    padding: '22px 0',
+    padding: 'clamp(14px, 2vh, 22px) 0',
     transition: 'all 0.1s',
     userSelect: 'none',
     letterSpacing: '0.05em',
@@ -201,7 +201,7 @@ export default function TimeCalculator() {
         <Btn onClick={handleDecimal} style={BTN.util}>.</Btn>
       </div>
 
-      <Btn onClick={handleEquals} style={{ ...BTN.eq, ...BTN.base, fontSize: 26, padding: '22px 0' }} hapticType="heavy">=</Btn>
+      <Btn onClick={handleEquals} style={{ ...BTN.eq, ...BTN.base, fontSize: 26, padding: 'clamp(14px, 2vh, 22px) 0' }} hapticType="heavy">=</Btn>
 
       <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.1em', lineHeight: 1.8 }}>
         + AND − ADD/SUBTRACT HH:MM TIMES<br/>× AND ÷ MULTIPLY/DIVIDE BY A PLAIN NUMBER

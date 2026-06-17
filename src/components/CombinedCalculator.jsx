@@ -15,7 +15,7 @@ export default function CombinedCalculator() {
   return (
     <div>
       {/* ── Mode toggle ─────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'clamp(10px, 1.5vh, 20px)' }}>
         <div style={{
           display: 'inline-flex',
           background: 'var(--cp-bg3)',

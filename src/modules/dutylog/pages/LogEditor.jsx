@@ -11,13 +11,57 @@ const secLabel = {
   color: 'var(--cp-muted)', margin: '16px 0 8px',
 }
 
-// label + input cell
 function Field({ label, value, onChange }) {
   return (
     <div>
       {label && <label style={lblStyle}>{label}</label>}
       <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }}
         value={value} onChange={(e) => onChange(e.target.value.toUpperCase())} />
+    </div>
+  )
+}
+
+function Aircraft({ logId, aircraft, index, total, actions }) {
+  const set = (patch) => actions.updateAircraft(logId, aircraft.id, patch)
+  const f = (key) => (v) => set({ [key]: v })
+  return (
+    <div style={{ border: '1px solid var(--cp-border2)', borderRadius: 6, padding: 10, marginBottom: 9, background: 'var(--cp-bg2)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)',
+          background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px' }}>
+          AIRCRAFT #{index + 1}
+        </span>
+        {total > 1 && (
+          <button onClick={() => actions.removeAircraft(logId, aircraft.id)} aria-label="remove aircraft"
+            className="cp-btn" style={{ padding: '2px 7px', color: 'var(--cp-red)' }}>✕</button>
+        )}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7, marginBottom: 7 }}>
+        <Field label="Registration" value={aircraft.reg}  onChange={f('reg')} />
+        <Field label="Type"         value={aircraft.type} onChange={f('type')} />
+        <Field label="MTOW"         value={aircraft.mtow} onChange={f('mtow')} />
+        <Field label="MLW"          value={aircraft.mlw}  onChange={f('mlw')} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9, alignItems: 'start' }}>
+        <div>
+          <label style={{ ...lblStyle, color: 'var(--cp-dim)' }}>Configuration</label>
+          <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }}
+            value={aircraft.config} onChange={(e) => f('config')(e.target.value.toUpperCase())} />
+        </div>
+        <div style={{ gridColumn: '2 / span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9,
+          background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 6, padding: '9px 10px' }}>
+          <div>
+            <label style={{ ...lblStyle, color: 'var(--cp-acc)' }}>DOW</label>
+            <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }}
+              value={aircraft.dow} onChange={(e) => f('dow')(e.target.value.toUpperCase())} />
+          </div>
+          <div>
+            <label style={{ ...lblStyle, color: 'var(--cp-acc)' }}>DOI</label>
+            <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }}
+              value={aircraft.doi} onChange={(e) => f('doi')(e.target.value.toUpperCase())} />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -46,14 +90,14 @@ function Sector({ logId, sector, index, total, actions, onRemarks }) {
         <Field label="PAX"    value={sector.pax}   onChange={f('pax')} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginBottom: 7 }}>
-        <Field label="Fuel off blk" value={sector.fuelOff} onChange={f('fuelOff')} />
-        <Field label="Fuel on blk"  value={sector.fuelOn}  onChange={f('fuelOn')} />
+        <Field label="Fuel Off Block" value={sector.fuelOff} onChange={f('fuelOff')} />
+        <Field label="Fuel On Block"  value={sector.fuelOn}  onChange={f('fuelOn')} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7 }}>
-        <Field label="Off blk" value={sector.offBlk}  onChange={f('offBlk')} />
-        <Field label="T/O"     value={sector.takeoff} onChange={f('takeoff')} />
-        <Field label="LDG"     value={sector.ldg}     onChange={f('ldg')} />
-        <Field label="On blk"  value={sector.onBlk}   onChange={f('onBlk')} />
+        <Field label="Off Block" value={sector.offBlk}  onChange={f('offBlk')} />
+        <Field label="T/O"       value={sector.takeoff} onChange={f('takeoff')} />
+        <Field label="LDG"       value={sector.ldg}     onChange={f('ldg')} />
+        <Field label="On Block"  value={sector.onBlk}   onChange={f('onBlk')} />
       </div>
 
       <div style={{ display: 'flex', gap: 9, alignItems: 'center', borderTop: '1px dashed var(--cp-border2)', paddingTop: 8, marginTop: 9 }}>
@@ -70,22 +114,19 @@ function Sector({ logId, sector, index, total, actions, onRemarks }) {
         border: `1px ${hasRemark ? 'solid var(--cp-acc)' : 'dashed var(--cp-border)'}`,
         background: hasRemark ? 'var(--cp-accdim)' : 'transparent',
       }}>
-        {hasRemark ? `REMARKS · ${sector.remark.trim().length} CHARS` : '+ ADD REMARKS'}
+        {hasRemark ? 'REMARKS' : '+ ADD REMARKS'}
       </button>
     </div>
   )
 }
 
-// Per-sector free-text remarks window.
 function RemarksModal({ sector, index, onSave, onCancel }) {
   const [text, setText] = useState(sector.remark || '')
   const wrapRef = useRef()
   const taRef = useRef()
 
-  // iOS Safari ignores the autoFocus attribute inside position:fixed — trigger focus imperatively.
   useEffect(() => { taRef.current?.focus() }, [])
 
-  // Focus trap: keep Tab inside the modal; Escape closes it.
   useEffect(() => {
     const handle = (e) => {
       if (e.key === 'Escape') { onCancel(); return }
@@ -134,7 +175,6 @@ export default function LogEditor({ log, actions, onBack, onDelete }) {
   const firstRun = useRef(true)
   const timer = useRef()
 
-  // Reflect autosave (persist writes synchronously on every change to updatedAt).
   useEffect(() => {
     if (firstRun.current) { firstRun.current = false; return }
     setSaveState('SAVING…')
@@ -147,6 +187,7 @@ export default function LogEditor({ log, actions, onBack, onDelete }) {
   const f = (key) => (v) => set({ [key]: v })
   const remarkSector = log.sectors.find(s => s.id === remarkSid)
   const remarkIndex = log.sectors.findIndex(s => s.id === remarkSid)
+  const atMaxAircraft = (log.aircraft || []).length >= 2
 
   return (
     <div style={{ position: 'relative' }}>
@@ -167,35 +208,33 @@ export default function LogEditor({ log, actions, onBack, onDelete }) {
       </div>
 
       <div style={{ maxWidth: 180 }}>
-        <label style={lblStyle}>Date</label>
+        <label style={lblStyle}>Date (UTC)</label>
         <input type="date" className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }}
           value={log.date} onChange={(e) => f('date')(e.target.value)} />
       </div>
 
-      <div style={secLabel}>AIRCRAFT</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7, marginBottom: 7 }}>
-        <Field label="Reg"  value={log.reg}  onChange={f('reg')} />
-        <Field label="Type" value={log.type} onChange={f('type')} />
-        <Field label="MTOW" value={log.mtow} onChange={f('mtow')} />
-        <Field label="MLW"  value={log.mlw}  onChange={f('mlw')} />
+      <div style={{ ...secLabel, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>AIRCRAFT</span>
+        <button
+          onClick={() => !atMaxAircraft && actions.addAircraft(log.id)}
+          disabled={atMaxAircraft}
+          className="cp-btn"
+          style={{
+            padding: '4px 8px',
+            color: atMaxAircraft ? 'var(--cp-dim)' : 'var(--cp-acc)',
+            borderColor: atMaxAircraft ? 'var(--cp-border)' : 'var(--cp-acc)',
+            background: atMaxAircraft ? 'transparent' : 'var(--cp-accdim)',
+            cursor: atMaxAircraft ? 'not-allowed' : 'pointer',
+            opacity: atMaxAircraft ? 0.55 : 1,
+          }}
+        >
+          {atMaxAircraft ? 'MAX 2 AIRCRAFT PER DUTY' : '+ ADD AIRCRAFT'}
+        </button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9, marginTop: 8, alignItems: 'start' }}>
-        <div style={{ paddingTop: 9 }}>
-          <label style={{ ...lblStyle, color: 'var(--cp-dim)' }}>Config</label>
-          <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={log.config} onChange={(e) => f('config')(e.target.value.toUpperCase())} />
-        </div>
-        <div style={{ gridColumn: '2 / span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9,
-          background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 6, padding: '9px 10px' }}>
-          <div>
-            <label style={{ ...lblStyle, color: 'var(--cp-acc)' }}>DOW</label>
-            <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={log.dow} onChange={(e) => f('dow')(e.target.value.toUpperCase())} />
-          </div>
-          <div>
-            <label style={{ ...lblStyle, color: 'var(--cp-acc)' }}>DOI</label>
-            <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }} value={log.doi} onChange={(e) => f('doi')(e.target.value.toUpperCase())} />
-          </div>
-        </div>
-      </div>
+      {(log.aircraft || []).map((a, i) => (
+        <Aircraft key={a.id} logId={log.id} aircraft={a} index={i}
+          total={(log.aircraft || []).length} actions={actions} />
+      ))}
 
       <div style={{ ...secLabel, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>SECTORS</span>

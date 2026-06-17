@@ -51,7 +51,7 @@ export default function LogList({ logs, onNew, onOpen, onDelete }) {
                 {log.date || 'UNDATED'}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--cp-acc)' }}>{log.reg || '—'}</span>
+                <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--cp-acc)' }}>{log.aircraft?.[0]?.reg || '—'}</span>
                 <button
                   onClick={(e) => { e.stopPropagation(); if (window.confirm('Delete this log? This cannot be undone.')) onDelete(log.id) }}
                   aria-label="delete log"
@@ -64,7 +64,7 @@ export default function LogList({ logs, onNew, onOpen, onDelete }) {
               {routeOf(log)}
             </div>
             <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', marginTop: 4, letterSpacing: '0.08em' }}>
-              {n} SECTOR{n === 1 ? '' : 'S'} · {log.type || '—'}
+              {n} SECTOR{n === 1 ? '' : 'S'} · {log.aircraft?.[0]?.type || '—'}
             </div>
           </div>
         )

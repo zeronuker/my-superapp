@@ -14,6 +14,10 @@ export function blankSector() {
   }
 }
 
+function blankAircraft() {
+  return { id: uid(), reg: '', type: '', mtow: '', mlw: '', config: '', dow: '', doi: '' }
+}
+
 function blankCrew() {
   return { id: uid(), name: '', position: '' }
 }
@@ -22,7 +26,8 @@ function blankLog() {
   const now = Date.now()
   return {
     id: uid(),
-    date: '', reg: '', type: '', mtow: '', mlw: '', config: '', dow: '', doi: '',
+    date: '',
+    aircraft: [blankAircraft()],
     sectors: [blankSector()],
     notes: '',
     crew: [blankCrew(), blankCrew(), blankCrew(), blankCrew()],
@@ -31,7 +36,6 @@ function blankLog() {
   }
 }
 
-// Replace the matching log via an updater, stamping updatedAt.
 function mapLog(logs, id, fn) {
   return logs.map(l => (l.id === id ? { ...fn(l), updatedAt: Date.now() } : l))
 }
@@ -45,7 +49,6 @@ const useDutyLogStore = create(persist(
 
     clearAll: () => set({ logs: [], editingId: null }),
 
-    // Returns the new id so the caller can open it straight away.
     createLog: () => {
       const log = blankLog()
       set((s) => ({ logs: [log, ...s.logs] }))
@@ -57,6 +60,25 @@ const useDutyLogStore = create(persist(
 
     deleteLog: (id) =>
       set((s) => ({ logs: s.logs.filter(l => l.id !== id) })),
+
+    // ── Aircraft ──────────────────────────────────────────────────────────
+    addAircraft: (id) =>
+      set((s) => ({ logs: mapLog(s.logs, id, (l) => ({
+        ...l,
+        aircraft: l.aircraft.length < 2 ? [...l.aircraft, blankAircraft()] : l.aircraft,
+      })) })),
+
+    removeAircraft: (id, aid) =>
+      set((s) => ({ logs: mapLog(s.logs, id, (l) => ({
+        ...l,
+        aircraft: l.aircraft.length > 1 ? l.aircraft.filter(a => a.id !== aid) : l.aircraft,
+      })) })),
+
+    updateAircraft: (id, aid, patch) =>
+      set((s) => ({ logs: mapLog(s.logs, id, (l) => ({
+        ...l,
+        aircraft: l.aircraft.map(a => (a.id === aid ? { ...a, ...patch } : a)),
+      })) })),
 
     // ── Sectors ───────────────────────────────────────────────────────────
     addSector: (id) =>
@@ -78,7 +100,6 @@ const useDutyLogStore = create(persist(
     addCrew: (id) =>
       set((s) => ({ logs: mapLog(s.logs, id, (l) => ({ ...l, crew: [...l.crew, blankCrew()] })) })),
 
-    // cid = crew entry's stable id (not array index)
     updateCrew: (id, cid, patch) =>
       set((s) => ({ logs: mapLog(s.logs, id, (l) => ({
         ...l,
@@ -90,19 +111,32 @@ const useDutyLogStore = create(persist(
   }),
   {
     name: 'dutylog-module-store',
-    version: 1,
-    // v0 → v1: add stable id to crew entries that predate this field.
+    version: 2,
     migrate: (state, version) => {
+      let s = state
       if (version === 0) {
-        return {
-          ...state,
-          logs: (state.logs ?? []).map(log => ({
+        s = {
+          ...s,
+          logs: (s.logs ?? []).map(log => ({
             ...log,
             crew: (log.crew ?? []).map(c => (c.id ? c : { ...c, id: uid() })),
           })),
         }
       }
-      return state
+      if (version < 2) {
+        s = {
+          ...s,
+          logs: (s.logs ?? []).map(log => {
+            if (log.aircraft) return log
+            const { reg, type, mtow, mlw, config, dow, doi, ...rest } = log
+            return {
+              ...rest,
+              aircraft: [{ id: uid(), reg: reg||'', type: type||'', mtow: mtow||'', mlw: mlw||'', config: config||'', dow: dow||'', doi: doi||'' }],
+            }
+          }),
+        }
+      }
+      return s
     },
   }
 ))

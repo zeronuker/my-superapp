@@ -6,7 +6,7 @@ import { convert, UNIT_CATEGORIES } from '../utils/units'
 
 const BTN = {
   base: { fontFamily: 'var(--cb-font-mono)', fontWeight: 700, border: '1px solid var(--cp-border)',
-    borderRadius: 6, cursor: 'pointer', padding: '14px 0', transition: 'all 0.1s', userSelect: 'none' },
+    borderRadius: 6, cursor: 'pointer', padding: 'clamp(9px, 1.2vh, 14px) 0', transition: 'all 0.1s', userSelect: 'none' },
   num:  { fontSize: 19, background: 'var(--cp-bg3)',    color: 'var(--cp-txt)',    borderColor: 'var(--cp-border2)' },
   sci:  { fontSize: 13, background: 'var(--cp-bg2)',    color: 'var(--cp-acc2)',   borderColor: 'var(--cp-border)'  },
   op:   { fontSize: 19, background: 'var(--cp-accdim)', color: 'var(--cp-acc)',    borderColor: 'var(--cp-border)'  },
@@ -86,7 +86,7 @@ export default function ScientificCalculator() {
   }
 
   return (
-    <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 9 }}>
+    <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'clamp(5px, 0.8vh, 9px)' }}>
 
       {/* mode toggle */}
       <div style={{ display: 'flex', gap: 6 }}>
@@ -165,7 +165,7 @@ export default function ScientificCalculator() {
         <Btn style={BTN.op} onClick={() => insert('+')}>+</Btn>
       </div>
 
-      <Btn style={{ ...BTN.eq, ...BTN.base, padding: '20px 0' }} onClick={equals} hapticType="heavy">=</Btn>
+      <Btn style={{ ...BTN.eq, ...BTN.base, padding: 'clamp(12px, 1.8vh, 20px) 0' }} onClick={equals} hapticType="heavy">=</Btn>
     </div>
   )
 }

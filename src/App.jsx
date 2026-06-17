@@ -301,6 +301,7 @@ export default function App() {
         <header style={{
           background: 'linear-gradient(135deg, #0a1020 0%, #0d1428 60%, #0a1020 100%)',
           borderBottom: '1px solid var(--cp-border)',
+          paddingTop: 'env(safe-area-inset-top)',
         }}>
           <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex',
             alignItems: 'center', justifyContent: 'space-between', paddingRight: 24 }}>
