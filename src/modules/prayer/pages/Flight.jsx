@@ -223,12 +223,63 @@ function CabinDirectionDial({ cabin }) {
   )
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function formatDuration(hours) {
+  const totalMin = Math.round(hours * 60)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
+// Normalise "930" / "09:30" → "09:30"
+function fmtTime(raw) {
+  const d = String(raw ?? '').replace(/[^0-9]/g, '')
+  if (d.length < 3 || d.length > 4) return raw
+  const h = d.slice(0, d.length - 2).padStart(2, '0')
+  const m = d.slice(-2)
+  return `${h}:${m}`
+}
+
+function FlightTimeBanner({ clockInfo, dep, dest, depTime, arrTime, timeZone }) {
+  const { totalHours, depTzStr, destTzStr, tzAware } = clockInfo
+  const timeLabel = timeZone === 'utc' ? 'UTC' : 'LOCAL'
+
+  return (
+    <div style={{
+      background: T.bg1,
+      border: `1px solid ${T.bord2}`,
+      borderRadius: 6,
+      padding: '10px 12px',
+    }}>
+      {/* Row 1: tz labels + duration */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: T.mono, fontSize: 10, color: T.dim, letterSpacing: '0.1em' }}>
+          {dep && <span>{dep}</span>}
+          {tzAware && depTzStr && <span style={{ color: 'var(--cp-acc)', fontSize: 9 }}>{depTzStr}</span>}
+          <span style={{ color: T.dim, fontSize: 8 }}>→</span>
+          {dest && <span>{dest}</span>}
+          {tzAware && destTzStr && <span style={{ color: 'var(--cp-acc)', fontSize: 9 }}>{destTzStr}</span>}
+          {!tzAware && <span style={{ color: T.orange, fontSize: 8 }}>(TZ UNKNOWN)</span>}
+        </div>
+        <div style={{ fontFamily: T.mono, fontSize: 16, fontWeight: 700, color: T.ink, letterSpacing: '0.04em' }}>
+          {formatDuration(totalHours)}
+        </div>
+      </div>
+      {/* Row 2: times with label */}
+      <div style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.08em' }}>
+        {fmtTime(depTime)} {dep} {timeLabel} → {fmtTime(arrTime)} {dest} {timeLabel}
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function FlightPage({ settings }) {
   const {
     inputs, setInputs,
     depAirport, destAirport,
     isOffline,
+    clockInfo,
     result, error,
     calculate,
   } = useFlight()
@@ -338,6 +389,12 @@ export default function FlightPage({ settings }) {
                 <button key={id} onClick={() => setInputs({ timeZone: id })} style={seg(timeZone === id)}>{label}</button>
               ))}
             </div>
+            {clockInfo && <FlightTimeBanner
+              clockInfo={clockInfo}
+              dep={dep} dest={dest}
+              depTime={depTime} arrTime={arrTime}
+              timeZone={timeZone}
+            />}
           </>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, minWidth: 0 }}>

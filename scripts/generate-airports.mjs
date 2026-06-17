@@ -12,8 +12,9 @@
  */
 import { writeFileSync } from 'node:fs'
 
-const AIRPORTS_URL  = 'https://davidmegginson.github.io/ourairports-data/airports.csv'
-const COUNTRIES_URL = 'https://davidmegginson.github.io/ourairports-data/countries.csv'
+const AIRPORTS_URL    = 'https://davidmegginson.github.io/ourairports-data/airports.csv'
+const COUNTRIES_URL   = 'https://davidmegginson.github.io/ourairports-data/countries.csv'
+const OPENFLIGHTS_URL = 'https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat'
 
 // Minimal RFC-4180 CSV parser (handles quoted fields with commas + "" escapes)
 function parseCsv(text) {
@@ -52,6 +53,20 @@ const countriesCsv = await (await fetch(COUNTRIES_URL)).text()
 const countryName = {}
 for (const c of toObjects(parseCsv(countriesCsv))) countryName[c.code] = c.name
 
+// OpenFlights airports.dat: no header row, columns are:
+// 0=id 1=name 2=city 3=country 4=iata 5=icao 6=lat 7=lng 8=alt
+// 9=tz_offset 10=dst 11=tz_db(IANA) 12=type 13=source
+console.log('Fetching OpenFlights timezone data…')
+const ofRows = parseCsv(await (await fetch(OPENFLIGHTS_URL)).text())
+const tzByIcao = {}
+for (const row of ofRows) {
+  if (row.length < 12) continue
+  const icao = row[5].trim().toUpperCase()
+  const tz   = row[11].trim()
+  if (ICAO_RE.test(icao) && tz && tz !== '\\N') tzByIcao[icao] = tz
+}
+console.log(`Loaded ${Object.keys(tzByIcao).length} IANA timezone entries from OpenFlights`)
+
 console.log('Fetching airports…')
 const airportsCsv = await (await fetch(AIRPORTS_URL)).text()
 const airports = toObjects(parseCsv(airportsCsv))
@@ -72,6 +87,7 @@ for (const a of airports) {
     country: countryName[a.iso_country] || a.iso_country || '',
     lat:     Math.round(lat * 1e4) / 1e4,
     lng:     Math.round(lng * 1e4) / 1e4,
+    ...(tzByIcao[icao] ? { tz: tzByIcao[icao] } : {}),
   }
   kept++
 }

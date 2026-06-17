@@ -28,6 +28,18 @@ describe('airports database', () => {
 
   it('every entry has the expected shape', () => {
     const sample = lookupAirport('EGLL')
-    expect(Object.keys(sample).sort()).toEqual(['city', 'country', 'lat', 'lng', 'name'])
+    const keys = Object.keys(sample).sort()
+    expect(keys).toContain('city')
+    expect(keys).toContain('country')
+    expect(keys).toContain('lat')
+    expect(keys).toContain('lng')
+    expect(keys).toContain('name')
+  })
+
+  it('major airports have IANA timezone data', () => {
+    for (const icao of ['WMKK', 'OMDB', 'YBBN', 'EGLL', 'VIDP']) {
+      const a = lookupAirport(icao)
+      expect(a.tz, icao).toBeTruthy()
+    }
   })
 })
