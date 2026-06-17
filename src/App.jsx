@@ -509,10 +509,12 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
         .filter(p => !isNaN(p.t) && p.t > nowMs)
       if (!upcoming.length) return null
       const first = upcoming[0]
-      const diffMin = Math.floor((first.t - nowMs) / 60000)
-      const h = Math.floor(diffMin / 60)
-      const m = diffMin % 60
-      return { label: first.label.toUpperCase(), countdown: h > 0 ? `${h}H ${m}M` : `${m}M` }
+      const diff = first.t - nowMs
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      const countdown = h > 0 ? `${h}H ${m}M ${s}S` : m > 0 ? `${m}M ${s}S` : `${s}S`
+      return { label: first.label.toUpperCase(), countdown }
     } catch { return null }
   }, [now])
 
@@ -552,7 +554,7 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
           <div className="cp-launch-card" style={W} onClick={() => onSelect('prayer')}>
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.18em',
               color: 'var(--cp-dim)', marginBottom: 6 }}>NEXT PRAYER</div>
-            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 22, fontWeight: 700,
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 16, fontWeight: 700,
               color: 'var(--cp-acc)', letterSpacing: '0.04em', lineHeight: 1,
               fontVariantNumeric: 'tabular-nums' }}>{nextPrayer.countdown}</div>
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)',
