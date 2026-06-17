@@ -182,15 +182,12 @@ function CabinDirectionDial({ cabin }) {
           letterSpacing="2">TAIL</text>
 
         {/* ── Airplane top-down silhouette (nose = up) ── */}
-        <g transform={`translate(${cx}, ${cy})`} opacity={0.65}>
-          {/* Fuselage */}
-          <ellipse rx={7} ry={30} fill="var(--cp-muted)" />
-          {/* Nose */}
-          <ellipse rx={7} ry={8} cy={-28} fill="var(--cp-muted)" />
-          {/* Wings */}
-          <ellipse rx={40} ry={7} cy={-4} fill="var(--cp-muted)" />
-          {/* Horizontal stabiliser */}
-          <ellipse rx={20} ry={5} cy={24} fill="var(--cp-muted)" />
+        <g transform={`translate(${cx}, ${cy})`} opacity={0.65} fill="var(--cp-muted)">
+          <path d="M0,-34 C3,-34 5,-30 5,-20 L5,28 C5,30 3,32 0,32 C-3,32 -5,30 -5,28 L-5,-20 C-5,-30 -3,-34 0,-34 Z" />
+          <path d="M-5,-8 L-38,4 L-38,10 L-5,4 Z" />
+          <path d="M5,-8 L38,4 L38,10 L5,4 Z" />
+          <path d="M-4,22 L-20,30 L-20,34 L-4,28 Z" />
+          <path d="M4,22 L20,30 L20,34 L4,28 Z" />
         </g>
 
         {/* Direction arrow (rotates around centre) */}
@@ -356,8 +353,16 @@ export default function FlightPage({ settings }) {
             />
             <AirportTag airport={depAirport} icao={dep} />
           </div>
-          <span style={{ fontFamily: T.mono, fontSize: 18, color: T.dim,
-            paddingTop: 28, display: 'block', flexShrink: 0 }}>→</span>
+          <button
+            onClick={() => setInputs({ dep: dest, dest: dep })}
+            title="Swap departure and destination"
+            style={{
+              fontFamily: T.mono, fontSize: 14, color: T.dim,
+              paddingTop: 28, display: 'block', flexShrink: 0,
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              padding: '28px 4px 0', lineHeight: 1,
+            }}
+          >⇄</button>
           <div style={{ minWidth: 0 }}>
             <Field
               label="DESTINATION (ICAO)"
@@ -379,7 +384,7 @@ export default function FlightPage({ settings }) {
         {mode === 'clock' ? (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, minWidth: 0 }}>
-              <Field label="DEP TIME" value={depTime} onChange={v => setInputs({ depTime: v })}
+              <Field label="DEP TIME (ETD)" value={depTime} onChange={v => setInputs({ depTime: v })}
                 placeholder="0930" hint="HH:MM" />
               <Field label="ARR TIME (ETA)" value={arrTime} onChange={v => setInputs({ arrTime: v })}
                 placeholder="1730" hint="HH:MM" />
@@ -582,7 +587,7 @@ export default function FlightPage({ settings }) {
             <div>
               <div style={{ fontFamily: T.mono, fontSize: 8, color: T.orange,
                 letterSpacing: '0.14em', marginBottom: 4 }}>
-                ESTIMATED POSITION ONLY
+                ESTIMATED TIME AND POSITION ONLY
               </div>
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.dim, lineHeight: 1.6 }}>
                 Prayer times and Qibla direction are calculated using Dead reckoning and carries a margin of error.
