@@ -1,9 +1,8 @@
 import { create } from 'zustand'
-import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
+import usePrayerStore from '../modules/prayer/store/prayerStore'
 
 export const DEFAULT_SETTINGS = {
   fontScale:      'normal',   // 'compact' | 'normal' | 'large' | 'cockpit'
-  reduceMotion:   false,
   defaultTab:     'calculator',
   haptic:         true,
   hapticIntensity:'medium',   // 'light' | 'medium' | 'heavy' — global strength
@@ -135,7 +134,7 @@ export const useCalculatorStore = create((set) => ({
     try { localStorage.removeItem('cb-metar-cache') } catch (_) {}
     try { localStorage.removeItem('cb-notam-cache') } catch (_) {}
     try { localStorage.removeItem('cb-worldtime') } catch (_) {}
-    try { useDutyLogStore.getState().clearAll() } catch (_) {}
+    try { usePrayerStore.getState().resetFlightInputs() } catch (_) {}
     set(s => ({
       edto: {
         aircraft: 'b737-8', variant: 'leap-1b25', weight: '',

@@ -233,13 +233,6 @@ export default function App() {
     localStorage.setItem('cb-theme', theme)
   }, [darkMode])
 
-  // ── Reduce motion ─────────────────────────────────────────────────────
-  React.useEffect(() => {
-    document.documentElement.setAttribute(
-      'data-reduce-motion', settings.reduceMotion ? 'true' : 'false'
-    )
-  }, [settings.reduceMotion])
-
   // Theme change with a brief cross-fade
   const handleThemeChange = (mode) => {
     if (mode === settings.themeMode) return
@@ -293,7 +286,7 @@ export default function App() {
         background: 'var(--cp-bg)',
         fontFamily: 'var(--cb-font-body)',
         opacity: fading ? 0 : 1,
-        transition: settings.reduceMotion ? 'none' : 'opacity 0.14s ease',
+        transition: 'opacity 0.14s ease',
         ...zoomStyle,
       }}>
 
@@ -377,7 +370,7 @@ export default function App() {
               zoom: landscapeCompact ? 0.82 : undefined,
             }}>
               <div key={`${activeCalculator}-${resetCount}`}
-                className={settings.reduceMotion ? '' : 'cp-calc-fade'}>
+                className="cp-calc-fade">
                 <ErrorBoundary name={currentCalc?.name} resetKey={activeCalculator}>
                   <Suspense fallback={<TabLoading />}>
                     {CurrentComponent && <CurrentComponent clockFormat={settings.clockFormat || '24hr'} />}
@@ -431,7 +424,6 @@ export default function App() {
           calcs={orderedCalcs}
           onSelect={(id) => { handleSelectCalculator(id); setSearchOpen(false) }}
           onClose={() => setSearchOpen(false)}
-          reduceMotion={settings.reduceMotion}
         />
       )}
 
@@ -503,14 +495,18 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
       if (!raw) return null
       const store = JSON.parse(raw)
       const times = store?.state?.prayerTimes
-      if (!Array.isArray(times)) return null
+      if (!times || typeof times !== 'object') return null
       const nowMs = now
-      const refs = new Set(['Imsak', 'Sunrise'])
-      const upcoming = times
-        .filter(p => !refs.has(p.label))
-        .map(p => ({ label: p.label, t: new Date(p.time).getTime() }))
-        .filter(p => p.t > nowMs)
-        .sort((a, b) => a.t - b.t)
+      const PRAYERS = [
+        { label: 'Fajr',    key: 'fajrDate' },
+        { label: 'Dhuhr',   key: 'dhuhrDate' },
+        { label: 'Asr',     key: 'asrDate' },
+        { label: 'Maghrib', key: 'maghribDate' },
+        { label: 'Isha',    key: 'ishaDate' },
+      ]
+      const upcoming = PRAYERS
+        .map(p => ({ label: p.label, t: new Date(times[p.key]).getTime() }))
+        .filter(p => !isNaN(p.t) && p.t > nowMs)
       if (!upcoming.length) return null
       const first = upcoming[0]
       const diffMin = Math.floor((first.t - nowMs) / 60000)
@@ -584,7 +580,7 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
 }
 
 // ── Search Overlay ──────────────────────────────────────────────────────────
-function SearchOverlay({ calcs, onSelect, onClose, reduceMotion }) {
+function SearchOverlay({ calcs, onSelect, onClose }) {
   const [query, setQuery] = React.useState('')
   const inputRef = React.useRef(null)
 
@@ -629,7 +625,7 @@ function SearchOverlay({ calcs, onSelect, onClose, reduceMotion }) {
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 150,
         backdropFilter: 'blur(3px)',
       }} />
-      <div className={reduceMotion ? '' : 'cp-search-anim'} style={{
+      <div className="cp-search-anim" style={{
         position: 'fixed', top: 72, left: '50%', transform: 'translateX(-50%)',
         width: 'min(520px, 92vw)', zIndex: 160,
         background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
@@ -738,7 +734,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
   const panelRef = React.useRef(null)
   const [activeTab, setActiveTab] = React.useState('appearance')
   const isWide = useMediaQuery('(min-width: 768px)')   // ≥768 → modal+rail, else sheet+strip
-  const animate = !settings.reduceMotion
+  const animate = true
 
   // Focus trap. The keydown handler is attached to the document and queries the
   // live panelRef, so it survives the layout swap when the window crosses 768px.
@@ -801,8 +797,6 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
     e.target.value = ''
   }
 
-  const units = settings.units || {}
-  const setUnit = (k, v) => onUpdate({ units: { ...units, [k]: v } })
   const dash = settings.dashboardWidgets || {}
   const setDash = (k, v) => onUpdate({ dashboardWidgets: { ...dash, [k]: v } })
 
@@ -868,13 +862,6 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
           </SettingsSection>
 
           <SettingsSection title="FEEDBACK">
-            <SettingsRow label="REDUCE MOTION">
-              <SegmentedToggle
-                options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-                value={settings.reduceMotion}
-                onChange={v => onUpdate({ reduceMotion: v })}
-              />
-            </SettingsRow>
             <SettingsRow label="HAPTIC">
               <SegmentedToggle
                 options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
@@ -1045,48 +1032,6 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
                 onChange={v => onUpdate({ notamSort: v })}
               />
             </SettingsRow>
-          </SettingsSection>
-
-          <SettingsSection title="UNITS">
-            <SettingsRow label="TEMPERATURE">
-              <SegmentedToggle
-                options={[{ value: 'c', label: '°C' }, { value: 'f', label: '°F' }]}
-                value={units.temp || 'c'}
-                onChange={v => setUnit('temp', v)}
-              />
-            </SettingsRow>
-            <SettingsRow label="WIND SPEED">
-              <SegmentedToggle
-                options={[{ value: 'kt', label: 'KT' }, { value: 'kmh', label: 'KM/H' }, { value: 'ms', label: 'M/S' }]}
-                value={units.wind || 'kt'}
-                onChange={v => setUnit('wind', v)}
-              />
-            </SettingsRow>
-            <SettingsRow label="VISIBILITY">
-              <SegmentedToggle
-                options={[{ value: 'm', label: 'METRES' }, { value: 'sm', label: 'SM' }]}
-                value={units.visibility || 'm'}
-                onChange={v => setUnit('visibility', v)}
-              />
-            </SettingsRow>
-            <SettingsRow label="ALTITUDE">
-              <SegmentedToggle
-                options={[{ value: 'ft', label: 'FT' }, { value: 'm', label: 'M' }]}
-                value={units.altitude || 'ft'}
-                onChange={v => setUnit('altitude', v)}
-              />
-            </SettingsRow>
-            <SettingsRow label="PRESSURE">
-              <SegmentedToggle
-                options={[{ value: 'hpa', label: 'HPA' }, { value: 'inhg', label: 'INHG' }]}
-                value={units.pressure || 'hpa'}
-                onChange={v => setUnit('pressure', v)}
-              />
-            </SettingsRow>
-            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-dim)',
-              letterSpacing: '0.08em', lineHeight: 1.8 }}>
-              SAVED FOR USE BY CALCULATORS · METAR/TAF DISPLAY UNCHANGED
-            </div>
           </SettingsSection>
 
           <SettingsSection title="CURRENCY">

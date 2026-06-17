@@ -44,6 +44,12 @@ const usePrayerStore = create(persist(
     setFlightInputs: (patch) => set((s) => ({
       flightInputs: { ...s.flightInputs, ...patch },
     })),
+    resetFlightInputs: () => set({
+      flightInputs: {
+        dep: '', dest: '', mode: 'duration', elapsedHours: '', totalHours: '',
+        depTime: '', arrTime: '', timeZone: 'utc', altitudeFt: '35000', headingDeg: '',
+      },
+    }),
 
   }),
   { name: 'prayer-module-store' }   // scoped localStorage key — never collides with parent
