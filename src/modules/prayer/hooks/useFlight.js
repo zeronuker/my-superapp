@@ -16,21 +16,23 @@ function hmToMin(s) {
 // Uses a one-iteration Intl trick: accurate to within DST-transition rounding (~1 min).
 function localTzToUtcMs(dateStr, h, m, tzId) {
   const [y, mo, d] = dateStr.split('-').map(Number)
-  const approxMs = Date.UTC(y, mo - 1, d, h, m, 0)
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: tzId,
-      year: 'numeric', month: 'numeric', day: 'numeric',
-      hour: 'numeric', minute: 'numeric', second: 'numeric',
-      hour12: false,
-    }).formatToParts(new Date(approxMs))
-      .map(({ type, value }) => [type, value])
-  )
-  const localMs = Date.UTC(
-    parseInt(parts.year), parseInt(parts.month) - 1, parseInt(parts.day),
-    parseInt(parts.hour) % 24, parseInt(parts.minute), parseInt(parts.second),
-  )
-  return approxMs + (approxMs - localMs)
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: tzId,
+    year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: 'numeric', minute: 'numeric', second: 'numeric',
+    hour12: false,
+  })
+  const toLocalMs = (utcMs) => {
+    const parts = Object.fromEntries(fmt.formatToParts(new Date(utcMs)).map(({ type, value }) => [type, value]))
+    return Date.UTC(
+      parseInt(parts.year), parseInt(parts.month) - 1, parseInt(parts.day),
+      parseInt(parts.hour) % 24, parseInt(parts.minute), parseInt(parts.second),
+    )
+  }
+  const approx1 = Date.UTC(y, mo - 1, d, h, m, 0)
+  const result1 = approx1 + (approx1 - toLocalMs(approx1))
+  // Second iteration eliminates the ~1-min DST-transition rounding error
+  return result1 + (approx1 - toLocalMs(result1))
 }
 
 // Returns "UTC+8", "UTC-5", "UTC+5:30" etc. for an IANA timezone ID.

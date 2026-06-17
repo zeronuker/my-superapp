@@ -18,14 +18,13 @@ import {
  * never see a spinner while permission resolves.
  */
 export function useGeolocation() {
-  const lastPos = loadLastPosition()
-
-  const [location, setLocationState] = useState(
-    lastPos
+  const [location, setLocationState] = useState(() => {
+    const lastPos = loadLastPosition()
+    return lastPos
       ? { lat: lastPos.lat, lng: lastPos.lng, city: lastPos.city, country: lastPos.country, source: 'gps' }
       : null
-  )
-  const [status,          setStatus]          = useState(lastPos ? 'ready' : 'idle')
+  })
+  const [status,          setStatus]          = useState(() => loadLastPosition() ? 'ready' : 'idle')
   const [error,           setError]           = useState(null)
   const [permissionState, setPermissionState] = useState('unknown') // 'granted'|'denied'|'prompt'|'unknown'
 

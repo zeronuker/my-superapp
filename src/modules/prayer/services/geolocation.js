@@ -1,4 +1,4 @@
-// GPS wrapper + geocoding via Nominatim (free, no API key)
+// GPS wrapper + geocoding via /api/geocode (Nominatim proxy, sets required User-Agent server-side)
 const LAST_POS_KEY = 'prayer-last-position'
 
 /**
@@ -7,9 +7,8 @@ const LAST_POS_KEY = 'prayer-last-position'
  */
 export async function searchCities(query) {
   const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=8&featuretype=settlement`,
-    { headers: { 'Accept-Language': 'en', 'User-Agent': 'ClaudeBorne-SuperApp/1.0' },
-      signal: AbortSignal.timeout(8_000) }
+    `/api/geocode?type=search&q=${encodeURIComponent(query)}`,
+    { signal: AbortSignal.timeout(8_000) }
   )
   if (!res.ok) throw new Error('City search failed')
   const data = await res.json()
@@ -64,9 +63,8 @@ export function getCurrentPosition() {
 export async function reverseGeocode(lat, lng) {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`,
-      { headers: { 'Accept-Language': 'en', 'User-Agent': 'ClaudeBorne-SuperApp/1.0' },
-        signal: AbortSignal.timeout(8_000) }
+      `/api/geocode?type=reverse&lat=${lat}&lng=${lng}`,
+      { signal: AbortSignal.timeout(8_000) }
     )
     if (!res.ok) throw new Error('Nominatim error')
     const data = await res.json()

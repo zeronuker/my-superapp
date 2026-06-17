@@ -1,6 +1,7 @@
 import React, { useState, lazy, Suspense } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { useCalculatorStore } from './store/calculatorStore'
+import usePrayerStore from './modules/prayer/store/prayerStore'
 import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
 import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar, NAV_GROUPS } from './components/Navigation'
@@ -42,7 +43,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.6'
+const APP_VERSION = 'v3.7'
 
 const ACCENT_SWATCHES = [
   { value: 'teal',   color: '#3FE0C5' },
@@ -461,6 +462,7 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [])
+  const prayerTimes = usePrayerStore(s => s.prayerTimes)
 
   const utcStr  = new Date(now).toISOString().slice(11, 19) + 'Z'
   const utcDate = new Date(now).toLocaleDateString('en-US', {
@@ -486,15 +488,12 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
       const parts = [c?.dep, c?.arr].filter(Boolean)
       return parts.length ? parts.join('→') : null
     } catch { return null }
-  }, [])
+  }, [now])
 
-  // Prayer — next prayer from persisted store
+  // Prayer — next prayer from live in-memory store (avoids raw localStorage parsing)
   const nextPrayer = React.useMemo(() => {
     try {
-      const raw = localStorage.getItem('prayer-module-store')
-      if (!raw) return null
-      const store = JSON.parse(raw)
-      const times = store?.state?.prayerTimes
+      const times = prayerTimes
       if (!times || typeof times !== 'object') return null
       const nowMs = now
       const PRAYERS = [
@@ -516,7 +515,7 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
       const countdown = h > 0 ? `${h}H ${m}M ${s}S` : m > 0 ? `${m}M ${s}S` : `${s}S`
       return { label: first.label.toUpperCase(), countdown }
     } catch { return null }
-  }, [now])
+  }, [now, prayerTimes])
 
   const W = {
     background: 'var(--cp-bg3)',
@@ -738,30 +737,28 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
   const isWide = useMediaQuery('(min-width: 768px)')   // ≥768 → modal+rail, else sheet+strip
   const animate = true
 
-  // Focus trap. The keydown handler is attached to the document and queries the
-  // live panelRef, so it survives the layout swap when the window crosses 768px.
+  // Restore focus to previous element when panel closes
   React.useEffect(() => {
     const prevFocus = document.activeElement
     const first = panelRef.current?.querySelector(FOCUSABLE_SEL)
     if (first) first.focus()
-
-    const onKeyDown = (e) => {
-      if (e.key !== 'Tab') return
-      const panel = panelRef.current
-      if (!panel) return
-      const els = Array.from(panel.querySelectorAll(FOCUSABLE_SEL))
-      if (!els.length) return
-      const f = els[0], l = els[els.length - 1]
-      if (e.shiftKey) {
-        if (document.activeElement === f) { e.preventDefault(); l.focus() }
-      } else {
-        if (document.activeElement === l) { e.preventDefault(); f.focus() }
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.removeEventListener('keydown', onKeyDown)
       if (prevFocus && typeof prevFocus.focus === 'function') prevFocus.focus()
+    }
+  }, [])
+
+  // Focus trap — scoped to the panel element via onKeyDown prop (see panel divs below)
+  const handlePanelKeyDown = React.useCallback((e) => {
+    if (e.key !== 'Tab') return
+    const panel = panelRef.current
+    if (!panel) return
+    const els = Array.from(panel.querySelectorAll(FOCUSABLE_SEL))
+    if (!els.length) return
+    const f = els[0], l = els[els.length - 1]
+    if (e.shiftKey) {
+      if (document.activeElement === f) { e.preventDefault(); l.focus() }
+    } else {
+      if (document.activeElement === l) { e.preventDefault(); f.focus() }
     }
   }, [])
 
@@ -781,6 +778,17 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
     } catch (_) {}
   }
 
+  const SETTINGS_ALLOWED = {
+    navStyle:    ['launcher', 'tabs', 'grouped'],
+    themeMode:   ['dark', 'light', 'auto'],
+    fontScale:   ['compact', 'normal', 'large', 'cockpit'],
+    tabPosition: ['top', 'bottom'],
+    clockFormat: ['24hr', '12hr'],
+    accentColor: ['teal', 'amber', 'cyan', 'violet', 'green'],
+    cardStyle:   ['flat', 'elevated', 'glass'],
+    notamSort:   ['relevance', 'category'],
+  }
+
   const handleImportFile = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -790,6 +798,11 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
         const obj = JSON.parse(reader.result)
         const incoming = obj?.settings && typeof obj.settings === 'object' ? obj.settings : obj
         if (!incoming || typeof incoming !== 'object') throw new Error('bad')
+        for (const [key, allowed] of Object.entries(SETTINGS_ALLOWED)) {
+          if (key in incoming && !allowed.includes(incoming[key])) throw new Error(`invalid ${key}`)
+        }
+        if ('defaultHistory' in incoming && (typeof incoming.defaultHistory !== 'number' || incoming.defaultHistory < 1)) throw new Error('invalid defaultHistory')
+        if ('tabOrder' in incoming && !Array.isArray(incoming.tabOrder)) throw new Error('invalid tabOrder')
         onImportSettings(incoming)
       } catch (_) {
         window.alert('Could not read that settings file. Make sure it was exported from ClaudeBorne.')
@@ -1144,6 +1157,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
     return (
       <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
         className={animate ? 'cp-modal-anim' : ''}
+        onKeyDown={handlePanelKeyDown}
         style={{
           position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
           width: 'min(560px, 92vw)', height: 'min(620px, 86vh)',
@@ -1169,6 +1183,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
   return (
     <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
       className={animate ? 'cp-sheet-anim' : ''}
+      onKeyDown={handlePanelKeyDown}
       style={{
         position: 'fixed', inset: 0,
         background: 'var(--cp-bg2)',
@@ -1189,6 +1204,31 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.7', date: 'Jun 2026',
+    entries: [
+      { type: 'feat', text: 'Currency: all pairs available offline — rates cached on first use, auto-refreshed on open' },
+      { type: 'fix',  text: 'Currency: offline shows last downloaded rates with age and effective date (3-tier fallback)' },
+      { type: 'fix',  text: 'NOTAM: offline viewing after restart now works correctly' },
+      { type: 'fix',  text: 'METAR: weather tokens no longer appear garbled in plain-English decode' },
+      { type: 'fix',  text: 'METAR: history-window setting change now syncs to the active session immediately' },
+      { type: 'fix',  text: 'METAR: auto-refresh only fires when flight routes are entered' },
+      { type: 'fix',  text: 'Prayer: city search and GPS geocoding comply with OpenStreetMap ToS' },
+      { type: 'fix',  text: 'Prayer: GPS location no longer re-read on every render (faster startup)' },
+      { type: 'fix',  text: 'Prayer: offline mode no longer auto-switches to the flight tab' },
+      { type: 'fix',  text: 'FTL: time label corrected to "LOCAL TIME AT REPORTING"' },
+      { type: 'fix',  text: 'FTL: helicopter option greyed out with tooltip (tables not yet available)' },
+      { type: 'fix',  text: 'FTL: DST ambiguity in flight-time UTC conversion corrected (two-pass)' },
+      { type: 'fix',  text: 'Scientific calculator: scientific notation (1e-3, 2.5e6) now evaluates correctly' },
+      { type: 'fix',  text: 'Settings: import validates structure before applying; malformed files rejected' },
+      { type: 'fix',  text: 'Settings: keyboard navigation in settings panel corrected' },
+      { type: 'fix',  text: 'Dashboard: next-prayer widget reads live times (no stale display after midnight)' },
+      { type: 'fix',  text: 'Update checker: interval and visibility listener cleaned up on unmount' },
+      { type: 'fix',  text: 'Error boundary: label updated to "DEBUG INFO — copy when reporting a bug"' },
+      { type: 'fix',  text: 'Changelog badges: Android WebView compatibility improved' },
+      { type: 'fix',  text: 'Service worker: removed duplicate registration that conflicted with PWA plugin' },
+    ],
+  },
   {
     version: 'v3.6', date: 'Jun 2026',
     entries: [
@@ -1243,8 +1283,8 @@ const CHANGELOG = [
 ]
 
 const TYPE_COLOR = {
-  feat: { color: 'var(--cp-acc)',    label: 'NEW' },
-  fix:  { color: 'var(--cp-orange)', label: 'FIX' },
+  feat: { color: 'var(--cp-acc)',    label: 'NEW', bg: 'rgba(63,224,197,0.12)',   borderColor: 'rgba(63,224,197,0.30)'   },
+  fix:  { color: 'var(--cp-orange)', label: 'FIX', bg: 'rgba(253,186,116,0.12)',  borderColor: 'rgba(253,186,116,0.30)'  },
 }
 
 function Changelog() {
@@ -1278,8 +1318,8 @@ function Changelog() {
                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                       <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, fontWeight: 700,
                         letterSpacing: '0.1em', color: t.color, flexShrink: 0,
-                        background: `color-mix(in srgb, ${t.color} 12%, transparent)`,
-                        border: `1px solid color-mix(in srgb, ${t.color} 30%, transparent)`,
+                        background: t.bg,
+                        border: `1px solid ${t.borderColor}`,
                         borderRadius: 3, padding: '1px 5px' }}>{t.label}</span>
                       <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12,
                         color: 'var(--cp-muted)', lineHeight: 1.5 }}>{e.text}</span>

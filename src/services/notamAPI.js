@@ -185,13 +185,53 @@ function buildRaw(raw) {
   ].filter(Boolean).join('\n') || JSON.stringify(raw)
 }
 
+// ── Raw-row parser (used by both live fetch and cache restore) ────────────────
+const SORT_ORDER = { ACTIVE: 0, FUTURE: 1, EXPIRED: 2, UNKNOWN: 3 }
+
+/**
+ * Parse an array of `[{ icao, rows }]` raw API payloads into display-ready
+ * NOTAM objects. Called on fetch AND when restoring from cache, so validity
+ * status is always fresh (ACTIVE/FUTURE/EXPIRED recomputed at call time).
+ */
+export function parseRawNotams(rawPerIcao) {
+  const allNotams = []
+  const seen      = new Set()
+
+  for (const { icao: source, rows } of rawPerIcao) {
+    for (const raw of (rows ?? [])) {
+      const id = buildId(raw)
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+
+      const qCode    = 'Q' + (raw.code23 || '') + (raw.code45 || '')
+      const category = classifyQCode(qCode)
+      const summary  = qCodeToSummary(qCode)
+      const validity = computeValidity(raw)
+
+      allNotams.push({
+        id,
+        source,
+        icao:     raw.itema || raw.fir || source,
+        category, summary, qCode, validity,
+        startStr: validity.startStr,
+        endStr:   validity.endStr,
+        raw:      buildRaw(raw),
+      })
+    }
+  }
+
+  allNotams.sort((a, b) => SORT_ORDER[a.validity.status] - SORT_ORDER[b.validity.status])
+  return allNotams
+}
+
 // ── Main fetch ────────────────────────────────────────────────────────────────
 /**
  * Fetch NOTAMs for a list of ICAO location codes (airports or FIRs).
- * Returns parsed NOTAM objects sorted: ACTIVE → FUTURE → EXPIRED.
+ * Returns { notams, rawPerIcao } where rawPerIcao is the compact raw payload
+ * suitable for caching (re-parsed on restore so validity status stays fresh).
  */
 export async function fetchNotams(icaoList, pageSize = 100) {
-  if (!icaoList?.length) return []
+  if (!icaoList?.length) return { notams: [], rawPerIcao: [] }
 
   const results = await Promise.allSettled(
     icaoList.map(icao =>
@@ -206,49 +246,12 @@ export async function fetchNotams(icaoList, pageSize = 100) {
   const allFailed = results.every(r => r.status === 'rejected')
   if (allFailed) throw new Error(results[0]?.reason?.message ?? 'All NOTAM requests failed')
 
-  const allNotams = []
-  const seen      = new Set()
+  const rawPerIcao = results.map((r, idx) => ({
+    icao: String(icaoList[idx] || '').toUpperCase(),
+    rows: r.status === 'fulfilled' ? (r.value?.rows ?? []) : [],
+  }))
 
-  results.forEach((r, idx) => {
-    if (r.status !== 'fulfilled') return
-
-    // The queried location for this response (airport or FIR chip)
-    const source = String(icaoList[idx] || '').toUpperCase()
-
-    // autorouter returns { total, rows: [...] }
-    const rows = r.value?.rows ?? []
-
-    for (const raw of rows) {
-      const id = buildId(raw)
-      if (!id || seen.has(id)) continue
-      seen.add(id)
-
-      // Q-code is split across code23 (subject) and code45 (condition)
-      const qCode    = 'Q' + (raw.code23 || '') + (raw.code45 || '')
-      const category = classifyQCode(qCode)
-      const summary  = qCodeToSummary(qCode)
-      const validity = computeValidity(raw)
-
-      allNotams.push({
-        id,
-        source,                                  // queried location (for grouping)
-        icao:     raw.itema || raw.fir || source,
-        category,
-        summary,
-        qCode,
-        validity,
-        startStr: validity.startStr,
-        endStr:   validity.endStr,
-        raw:      buildRaw(raw),
-      })
-    }
-  })
-
-  // Sort: ACTIVE → FUTURE → EXPIRED → UNKNOWN
-  const order = { ACTIVE: 0, FUTURE: 1, EXPIRED: 2, UNKNOWN: 3 }
-  allNotams.sort((a, b) => order[a.validity.status] - order[b.validity.status])
-
-  return allNotams
+  return { notams: parseRawNotams(rawPerIcao), rawPerIcao }
 }
 
 // ── FIR route detection ───────────────────────────────────────────────────────

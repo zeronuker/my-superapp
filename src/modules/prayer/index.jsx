@@ -57,14 +57,6 @@ function SubNav({ active, onChange }) {
 export default function PrayerModule({ clockFormat = '24hr' }) {
   const [tab, setTab] = useState('times')
 
-  // Auto-switch to FLIGHT tab when offline (on mount or when connection drops)
-  useEffect(() => {
-    const switchToFlight = () => setTab(t => t !== 'flight' ? 'flight' : t)
-    if (!navigator.onLine) switchToFlight()
-    window.addEventListener('offline', switchToFlight)
-    return () => window.removeEventListener('offline', switchToFlight)
-  }, [])
-
   const { settings: prayerSettings, updatePrayerSettings } = usePrayerStore()
   // Clock format comes from the global app setting (passed as a prop), so the
   // module stays self-contained but honours the one global 12/24h preference.

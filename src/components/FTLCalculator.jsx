@@ -224,17 +224,24 @@ function Seg({ options, value, onChange }) {
   return (
     <div style={{ display: 'flex', border: '1px solid var(--cp-border)', borderRadius: 4, overflow: 'hidden', flexShrink: 0 }}>
       {options.map((opt, i) => {
-        const active = value === opt.value
+        const active   = value === opt.value
+        const disabled = !!opt.disabled
         return (
-          <button key={String(opt.value)} onClick={() => onChange(opt.value)} style={{
-            background:  active ? 'var(--cp-accdim)' : 'transparent',
-            border:      'none',
-            borderRight: i < options.length - 1 ? '1px solid var(--cp-border)' : 'none',
-            color:       active ? 'var(--cp-acc)' : 'var(--cp-dim)',
-            fontFamily:  'var(--cb-font-mono)',
-            fontSize: 10, letterSpacing: '0.1em',
-            padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
-          }}>
+          <button key={String(opt.value)}
+            onClick={() => !disabled && onChange(opt.value)}
+            disabled={disabled}
+            title={disabled ? opt.disabledTitle : undefined}
+            style={{
+              background:  active ? 'var(--cp-accdim)' : 'transparent',
+              border:      'none',
+              borderRight: i < options.length - 1 ? '1px solid var(--cp-border)' : 'none',
+              color:       active ? 'var(--cp-acc)' : 'var(--cp-dim)',
+              fontFamily:  'var(--cb-font-mono)',
+              fontSize: 10, letterSpacing: '0.1em',
+              padding: '5px 10px', whiteSpace: 'nowrap',
+              cursor:   disabled ? 'not-allowed' : 'pointer',
+              opacity:  disabled ? 0.4 : 1,
+            }}>
             {opt.label}
           </button>
         )
@@ -370,7 +377,10 @@ export default function FTLCalculator() {
           <Section title="CREW">
             <Row label="AIRCRAFT">
               <Seg
-                options={[{ value: 'aeroplane', label: 'AEROPLANE' }, { value: 'helicopter', label: 'HELICOPTER' }]}
+                options={[
+                  { value: 'aeroplane', label: 'AEROPLANE' },
+                  { value: 'helicopter', label: 'HELICOPTER', disabled: true, disabledTitle: 'Helicopter FTL not yet implemented — aeroplane tables only' },
+                ]}
                 value={aircraft} onChange={setAircraft}
               />
             </Row>
@@ -588,7 +598,7 @@ export default function FTLCalculator() {
                   <div className="cp-label" style={{ marginBottom: 6 }}>FDP EXPIRES</div>
                   <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 30, fontWeight: 700, color: 'var(--cp-txt)', lineHeight: 1 }}>
                     {result.endTime}
-                    <span style={{ fontSize: 12, color: 'var(--cp-dim)', marginLeft: 8, letterSpacing: '0.1em' }}>LOCAL</span>
+                    <span style={{ fontSize: 12, color: 'var(--cp-dim)', marginLeft: 8, letterSpacing: '0.1em' }}>LOCAL TIME AT REPORTING</span>
                   </div>
                 </div>
               </div>

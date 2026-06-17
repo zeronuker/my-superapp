@@ -46,9 +46,9 @@ export default defineConfig({
               networkTimeoutSeconds: 10,
             },
           },
-          // Nominatim reverse geocoding (location → city name)
+          // Geocoding proxy (Nominatim via /api/geocode)
           {
-            urlPattern: /^https:\/\/nominatim\.openstreetmap\.org\/.*/i,
+            urlPattern: /\/api\/geocode\b/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'geocode-cache',

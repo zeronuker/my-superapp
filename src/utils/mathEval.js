@@ -29,6 +29,16 @@ function tokenize(src) {
     if (/[0-9.]/.test(c)) {
       let num = ''
       while (i < s.length && /[0-9.]/.test(s[i])) num += s[i++]
+      // Scientific notation: 1.5e6, 2E-3, 1e+10
+      if (i < s.length && (s[i] === 'e' || s[i] === 'E')) {
+        let j = i + 1
+        if (j < s.length && (s[j] === '+' || s[j] === '-')) j++
+        if (j < s.length && /\d/.test(s[j])) {
+          num += s[i++]
+          if (s[i] === '+' || s[i] === '-') num += s[i++]
+          while (i < s.length && /\d/.test(s[i])) num += s[i++]
+        }
+      }
       if ((num.match(/\./g) || []).length > 1) throw new Error('bad number')
       tokens.push({ t: 'num', v: parseFloat(num) })
       continue

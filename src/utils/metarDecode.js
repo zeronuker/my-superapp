@@ -152,10 +152,13 @@ export function decodeMetar(m) {
     if (!vis) { const v = decodeVisToken(t); if (v) { vis = v; continue } }
     const c = decodeCloudToken(t); if (c) { cloud.push(c); continue }
   }
-  // weather pass (avoid mis-reading cloud as wx — clouds already consumed)
+  // weather pass — skip cloud, visibility, wind, and known structural tokens
   for (const t of toks) {
     if (/^(FEW|SCT|BKN|OVC|VV)/.test(t)) continue
     if (decodeVisToken(t)) continue
+    if (decodeWindToken(t)) continue
+    if (/^\d{6}Z$/.test(t)) continue           // date-time group e.g. "261220Z"
+    if (/^(METAR|SPECI|AUTO|COR|TAF|NIL|NOSIG|CAVOK)$/.test(t)) continue  // structural words
     const w = decodeWeather(t)
     if (w && w !== t) wx.push(w)
   }

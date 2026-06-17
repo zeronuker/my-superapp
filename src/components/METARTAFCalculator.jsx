@@ -111,6 +111,14 @@ export default function METARTAFCalculator() {
     setFetchedAt(null)
   }, [resetCount, settings.defaultHistory])
 
+  // ── Sync hours when defaultHistory setting changes (e.g. after import) ──
+  const prevDefaultHistory = useRef(settings.defaultHistory)
+  useEffect(() => {
+    if (settings.defaultHistory === prevDefaultHistory.current) return
+    prevDefaultHistory.current = settings.defaultHistory
+    setHours(settings.defaultHistory)
+  }, [settings.defaultHistory])
+
   // ── Build ordered target list ─────────────────────────────────────────
   const buildTargets = useCallback((s) => {
     const list = []
@@ -193,7 +201,8 @@ export default function METARTAFCalculator() {
         ? (30 - mins) * 60_000 - secs * 1000
         : (60 - mins) * 60_000 - secs * 1000
       timerRef.current = setTimeout(() => {
-        doFetch(stateRef.current)
+        const s = stateRef.current
+        if (s.dep || s.arr || s.destAlts?.alt1 || s.destAlts?.alt2) doFetch(s)
         schedule()
       }, ms)
     }

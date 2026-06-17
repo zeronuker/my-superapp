@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react'
-import { fetchNotams, detectRouteFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
+import { fetchNotams, parseRawNotams, detectRouteFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
 import { icaoToFir } from '../data/firLookup'
@@ -185,10 +185,14 @@ export default function NotamViewer() {
   const [customInput,  setCustomInput]  = useState('')
   const [detecting,    setDetecting]    = useState(false)
 
-  // Results
+  // Results — restore from raw cache (re-parsed so validity status is fresh)
   const [view,         setView]         = useState('parsed')
   const [loading,      setLoading]      = useState(false)
-  const [notams,       setNotams]       = useState(cache?.notams       ?? null)
+  const [notams,       setNotams]       = useState(() => {
+    if (cache?.rawPerIcao) return parseRawNotams(cache.rawPerIcao)
+    if (cache?.notams)     return cache.notams   // backwards compat: old cache format
+    return null
+  })
   const [error,        setError]        = useState('')
 
   // Filters
@@ -275,9 +279,9 @@ export default function NotamViewer() {
     if (!t.length) { setError('Enter at least one airport or FIR.'); return }
     setError(''); setLoading(true); setNotams(null); setCollapsedMap({})
     try {
-      const result = await fetchNotams(t.map(x => x.icao))
+      const { notams: result, rawPerIcao } = await fetchNotams(t.map(x => x.icao))
       setNotams(result)
-      saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, notams: result })
+      saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao })
       haptic('medium')
     } catch (e) {
       setError(`Failed to fetch NOTAMs: ${e.message}`)

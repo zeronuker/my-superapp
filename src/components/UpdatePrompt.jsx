@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 
 /**
@@ -8,6 +9,9 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
  * appears automatically without needing a page reload.
  */
 export default function UpdatePrompt() {
+  const intervalRef        = useRef(null)
+  const visibilityHandler  = useRef(null)
+
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
@@ -19,12 +23,20 @@ export default function UpdatePrompt() {
         if ('connection' in navigator && !navigator.onLine) return
         await r.update()
       }
-      setInterval(check, 60_000)
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') check()
-      })
+      intervalRef.current = setInterval(check, 60_000)
+      visibilityHandler.current = () => { if (document.visibilityState === 'visible') check() }
+      document.addEventListener('visibilitychange', visibilityHandler.current)
     },
   })
+
+  useEffect(() => {
+    return () => {
+      clearInterval(intervalRef.current)
+      if (visibilityHandler.current) {
+        document.removeEventListener('visibilitychange', visibilityHandler.current)
+      }
+    }
+  }, [])
 
   if (!needRefresh) return null
 

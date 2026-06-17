@@ -96,7 +96,7 @@ export default class ErrorBoundary extends React.Component {
             fontSize: 10, letterSpacing: '0.12em', color: 'var(--cp-dim)',
             cursor: 'pointer', userSelect: 'none',
           }}>
-            TECHNICAL DETAILS
+            DEBUG INFO — copy when reporting a bug
           </summary>
           <pre style={{
             marginTop: 8, padding: '10px 12px',
