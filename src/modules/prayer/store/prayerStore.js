@@ -47,7 +47,7 @@ const usePrayerStore = create(persist(
     resetFlightInputs: () => set({
       flightInputs: {
         dep: '', dest: '', mode: 'duration', elapsedHours: '', totalHours: '',
-        depTime: '', arrTime: '', timeZone: 'utc', altitudeFt: '35000', headingDeg: '',
+        depTime: '', arrTime: '', timeZone: 'utc', altitudeFt: '', headingDeg: '',
       },
     }),
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getPrayerTimes } from '../services/prayerTimes'
+import usePrayerStore from '../store/prayerStore'
 
 /** Local calendar date as YYYY-MM-DD (respects device timezone) */
 function localDateStr(d = new Date()) {
@@ -42,6 +43,7 @@ export function usePrayerTimes(location, settings) {
       )
       setTimes(result)
       timesRef.current = result
+      usePrayerStore.getState().setPrayerTimes(result, result.source)
     } catch (err) {
       setError(err.message ?? 'Failed to load prayer times')
     } finally {
