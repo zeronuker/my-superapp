@@ -169,7 +169,7 @@ function RemarksModal({ sector, index, onSave, onCancel }) {
   )
 }
 
-export default function LogEditor({ log, actions, onBack, onDelete }) {
+export default function LogEditor({ log, actions, onBack }) {
   const [remarkSid, setRemarkSid] = useState(null)
   const [saveState, setSaveState] = useState('SAVED')
   const firstRun = useRef(true)
@@ -202,9 +202,6 @@ export default function LogEditor({ log, actions, onBack, onDelete }) {
             <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', color: 'var(--cp-acc)' }}>{saveState}</div>
           </div>
         </div>
-        <button onClick={() => { if (window.confirm('Delete this log? This cannot be undone.')) onDelete(log.id) }}
-          aria-label="delete log" className="cp-btn"
-          style={{ padding: '4px 9px', color: 'var(--cp-red)' }}>🗑</button>
       </div>
 
       <div style={{ maxWidth: 180 }}>

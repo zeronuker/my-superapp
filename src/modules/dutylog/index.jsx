@@ -7,6 +7,7 @@ export default function DutyLogModule() {
   const {
     logs, editingId, setEditingId, createLog,
     updateLog, deleteLog,
+    addAircraft, removeAircraft, updateAircraft,
     addSector, removeSector, updateSector,
     addCrew, updateCrew, removeCrew,
   } = useDutyLogStore()
@@ -18,7 +19,7 @@ export default function DutyLogModule() {
     if (editingId && !editing) setEditingId(null)
   }, [editingId, editing])
 
-  const actions = { updateLog, deleteLog, addSector, removeSector, updateSector, addCrew, updateCrew, removeCrew }
+  const actions = { updateLog, deleteLog, addAircraft, removeAircraft, updateAircraft, addSector, removeSector, updateSector, addCrew, updateCrew, removeCrew }
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto' }}>
