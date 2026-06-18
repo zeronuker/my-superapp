@@ -1,8 +1,10 @@
-import Header       from '../components/Header'
+import { useState, useMemo } from 'react'
+import { calculateLocal } from '../services/adhanLocal'
+import Header        from '../components/Header'
 import NextPrayerCard from '../components/NextPrayerCard'
-import PrayerRow    from '../components/PrayerRow'
-import OfflinePill  from '../components/OfflinePill'
-import { T }        from '../components/tokens'
+import PrayerRow     from '../components/PrayerRow'
+import OfflinePill   from '../components/OfflinePill'
+import { T }         from '../components/tokens'
 
 const METHOD_LABELS = {
   jakim:        'JAKIM (Malaysia)',
@@ -13,7 +15,7 @@ const METHOD_LABELS = {
   uaq:          'Umm Al-Qura (Makkah)',
 }
 
-function buildRows(times) {
+function buildRows(times, isToday) {
   if (!times) return []
   const now = new Date()
   const prayers = [
@@ -26,26 +28,80 @@ function buildRows(times) {
     { name: 'Isha',    time: times.Isha,    date: times.ishaDate,    isSunrise: false, isImsak: false },
   ]
 
-  // Next active prayer — excludes reference rows (Sunrise); Imsak counts
   const isRef = p => p.isSunrise
   const activePrayers = prayers.filter(p => !isRef(p))
-  const nextPrayer    = activePrayers.find(p => p.date instanceof Date && p.date > now)
-    ?? activePrayers[0] // after Isha: wrap to tomorrow's Imsak/Fajr
+  const nextPrayer = isToday
+    ? (activePrayers.find(p => p.date instanceof Date && p.date > now) ?? activePrayers[0])
+    : null
 
   return prayers.map(p => ({
     ...p,
-    done:   p.date instanceof Date && p.date < now && !isRef(p) && !p.isImsak,
-    isNext: !isRef(p) && !p.isImsak && p.name === nextPrayer?.name,
+    done:   isToday && p.date instanceof Date && p.date < now && !isRef(p) && !p.isImsak,
+    isNext: isToday && !isRef(p) && !p.isImsak && p.name === nextPrayer?.name,
   }))
+}
+
+function DayStrip({ selected, onChange }) {
+  const days = Array.from({ length: 5 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() + i)
+    return {
+      offset: i,
+      top:   i === 0 ? 'TODAY' : d.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase(),
+      num:   d.getDate(),
+      month: d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+    }
+  })
+  return (
+    <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+      {days.map(({ offset, top, num, month }) => {
+        const active = offset === selected
+        return (
+          <button
+            key={offset}
+            onClick={() => onChange(offset)}
+            style={{
+              flex: 1, padding: '8px 4px', borderRadius: 6,
+              border: `1px solid ${active ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
+              background: active ? 'rgba(var(--cp-acc-rgb,63,224,197),0.12)' : 'var(--cp-bg3)',
+              cursor: 'pointer', textAlign: 'center',
+            }}
+          >
+            <div style={{ fontFamily: T.mono, fontSize: 8, letterSpacing: '0.12em',
+              color: active ? 'var(--cp-acc)' : T.dim, marginBottom: 2 }}>{top}</div>
+            <div style={{ fontFamily: T.mono, fontSize: 16, fontWeight: 700,
+              color: active ? 'var(--cp-acc)' : T.ink, lineHeight: 1 }}>{num}</div>
+            <div style={{ fontFamily: T.mono, fontSize: 7, color: T.dim,
+              letterSpacing: '0.1em', marginTop: 2 }}>{month}</div>
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 export default function PrayerTimesPage({
   location, gpsStatus, gpsError, permissionState, onGpsLocate, onManualSelect,
   times, loading, source, settings,
 }) {
-  const rows = buildRows(times)
+  const [dayOffset, setDayOffset] = useState(0)
 
-  // First-visit card content varies by permission state
+  const displayTimes = useMemo(() => {
+    if (dayOffset === 0 || !times) return times
+    if (!location?.lat || !location?.lng) return times
+    const d = new Date()
+    d.setDate(d.getDate() + dayOffset)
+    return calculateLocal(
+      location.lat, location.lng, d,
+      settings?.calculationMethod ?? 'jakim',
+      settings?.madhab ?? 'shafi',
+      settings?.timeFormat ?? '24hr',
+    )
+  }, [dayOffset, times, location, settings])
+
+  const isToday = dayOffset === 0
+  const rows = buildRows(displayTimes, isToday)
+
   const denied = permissionState === 'denied'
 
   return (
@@ -133,7 +189,8 @@ export default function PrayerTimesPage({
 
       {times && (
         <>
-          <NextPrayerCard times={times} />
+          <DayStrip selected={dayOffset} onChange={setDayOffset} />
+          {isToday && <NextPrayerCard times={displayTimes} />}
           <OfflinePill source={source} />
           <div style={{ margin: '8px 0' }}>
             {rows.map(row => <PrayerRow key={row.name} {...row} />)}
