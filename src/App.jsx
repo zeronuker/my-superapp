@@ -165,7 +165,7 @@ export default function App() {
         } catch (_) { return null } })()
       : null
     if (settings.navStyle === 'launcher') {
-      setActiveCalculator(remembered || null)
+      setActiveCalculator(null)
     } else if (remembered) {
       setActiveCalculator(remembered)
     }
@@ -206,6 +206,12 @@ export default function App() {
       handleSelectCalculator(settings.defaultTab || orderedCalcs[0]?.id || 'calculator')
     }
   }, [navStyle, activeCalculator, settings.defaultTab, orderedCalcs, handleSelectCalculator])
+
+  // Switching TO launcher always returns to the dashboard (ignore last-visited tab)
+  React.useEffect(() => {
+    if (navStyle === 'launcher') setActiveCalculator(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navStyle])
 
   // ── Swipe gesture (grouped nav — swipe between tools in the active group) ──
   const touchX = React.useRef(null)
@@ -506,8 +512,15 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
       const upcoming = PRAYERS
         .map(p => ({ label: p.label, t: new Date(times[p.key]).getTime() }))
         .filter(p => !isNaN(p.t) && p.t > nowMs)
-      if (!upcoming.length) return null
-      const first = upcoming[0]
+      let first
+      if (!upcoming.length) {
+        // All prayers passed — show next day's Fajr
+        const fajrMs = new Date(times.fajrDate).getTime()
+        if (isNaN(fajrMs)) return null
+        first = { label: 'Fajr', t: fajrMs + 86_400_000 }
+      } else {
+        first = upcoming[0]
+      }
       const diff = first.t - nowMs
       const h = Math.floor(diff / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
