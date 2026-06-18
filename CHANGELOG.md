@@ -1,6 +1,6 @@
 # Changelog
 
-## v3.8.0 — 2026-06-18
+## v3.8 — 2026-06-18
 
 ### Prayer Module
 
@@ -45,7 +45,7 @@
 
 ---
 
-## v3.7.0 — 2026-06-13
+## v3.7 — 2026-06-13
 
 - 20-issue reliability, offline, and ToS compliance audit pass
 - Next prayer widget live countdown with seconds

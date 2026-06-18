@@ -43,7 +43,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.7'
+const APP_VERSION = 'v3.8'
 
 const ACCENT_SWATCHES = [
   { value: 'teal',   color: '#3FE0C5' },
@@ -1217,6 +1217,20 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.8', date: 'Jun 2026',
+    entries: [
+      { type: 'feat', text: 'Prayer: 5-day prayer times — day selector strip shows today + 4 days, computed offline instantly' },
+      { type: 'fix',  text: 'Prayer: next prayer widget now counts down to next day\'s Fajr after Isha (no more disappearing)' },
+      { type: 'fix',  text: 'Prayer: launcher style always opens dashboard home, ignoring remembered last tab' },
+      { type: 'feat', text: 'Flight: clock mode local time is timezone-aware — dep/arr interpreted in airport\'s own timezone' },
+      { type: 'feat', text: 'Flight: live flight time banner shows total duration + UTC offsets as you type' },
+      { type: 'feat', text: 'Flight: swap button (⇄) swaps dep/dest for quick return-leg entry' },
+      { type: 'feat', text: 'Flight: cabin direction dial updated to narrow-body airliner silhouette' },
+      { type: 'fix',  text: 'Flight: departure label updated to DEP TIME (ETD); disclaimer updated' },
+      { type: 'fix',  text: 'Airport database: 4,906 airports; 4,345 now carry IANA timezone data' },
+    ],
+  },
   {
     version: 'v3.7', date: 'Jun 2026',
     entries: [
