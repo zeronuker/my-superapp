@@ -172,10 +172,10 @@ function CurrentPositionCard({ elapsedHours, position, elapsedNm, remainNm, frac
       border: `1px dashed ${T.bord2}`, borderRadius: 6, padding: '8px 10px',
     }}>
       <span ref={markerRef} style={{
-        position: 'absolute', left: -23, top: 6, width: 20, height: 20, borderRadius: '50%',
-        background: 'rgba(var(--cp-acc-rgb,63,224,197),0.15)', boxShadow: `0 0 0 3px ${T.bg1}`,
+        position: 'absolute', left: -24, top: 5, width: 22, height: 22, borderRadius: '50%',
+        background: T.bg1, border: '2px solid var(--cp-acc)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 11, transform: 'rotate(90deg)',
+        fontSize: 11, lineHeight: 1,
       }}>✈️</span>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.08em' }}>
