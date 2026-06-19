@@ -1,5 +1,27 @@
 # Changelog
 
+## v3.9 — 2026-06-19
+
+### Flight Module (Prayer Tab)
+
+#### In-Flight Prayer Timeline
+- Replaces the single frozen "current position" snapshot with a vertical timeline plotting every Imsak, Fajr, Sunrise, Dhuhr, Asr, Maghrib, and Isha that falls during the flight
+- Each prayer is solved self-consistently against the aircraft's moving position (dead reckoning) rather than estimated once at a single point in time
+- Long-haul flights spanning more than one calendar day correctly show repeated occurrences (e.g. two Fajrs on an 18h+ flight), each tagged "DAY 2" etc.
+- Timeline rows are spaced proportionally to elapsed time (not row count), so the connecting progress line lines up exactly with the live current-position marker
+- A dashed "current position" card sits inline at its correct chronological slot, showing live coordinates, NM flown/remaining, % complete, and a manual refresh button
+- Auto-refreshes when returning to the Flight tab or when the app is foregrounded (screen unlock, switching back from another app) — no longer goes stale or disappears on tab switch
+
+#### Departure / Arrival Clock Toggle
+- New DEP TIME / ARR TIME toggle on the prayer list — the same in-flight prayer moment can now be read on either the departure-zone or arrival-zone watch
+- Resolves confusion over which timezone the displayed prayer times were in
+
+#### Bug Fix — Local-Time Progress Calculation
+- Clock-mode local-time elapsed/total calculation anchored dep/arr time conversion to the device's UTC calendar date instead of each airport's own local date
+- Could inflate elapsed time by a full day and show the flight as 100% complete shortly after a departure during UTC+8 morning hours (e.g. Malaysia-based flights)
+
+---
+
 ## v3.8 — 2026-06-18
 
 ### Prayer Module

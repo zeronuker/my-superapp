@@ -43,7 +43,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.8'
+const APP_VERSION = 'v3.9'
 
 const ACCENT_SWATCHES = [
   { value: 'teal',   color: '#3FE0C5' },
@@ -1217,6 +1217,16 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.9', date: 'Jun 2026',
+    entries: [
+      { type: 'fix',  text: 'Flight: clock-mode local-time elapsed calc anchored to the wrong calendar date, could show 100% complete shortly after a UTC+8 morning departure' },
+      { type: 'feat', text: 'Flight: in-flight prayer timeline — plots every Imsak/Fajr/Sunrise/Dhuhr/Asr/Maghrib/Isha along the route (replaces the single position snapshot), including repeats on long-haul flights' },
+      { type: 'feat', text: 'Flight: DEP TIME / ARR TIME toggle — read the same in-flight prayer moment on either the departure or arrival watch' },
+      { type: 'feat', text: 'Flight: current-position card with manual refresh button; auto-refreshes when returning to the tab or the app is foregrounded' },
+      { type: 'fix',  text: 'Flight: timeline rows now spaced proportionally to elapsed time so the progress line lines up exactly with the current-position marker' },
+    ],
+  },
   {
     version: 'v3.8', date: 'Jun 2026',
     entries: [
