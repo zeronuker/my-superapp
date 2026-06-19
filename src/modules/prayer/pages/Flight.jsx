@@ -1,5 +1,11 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { T } from '../components/tokens'
-import { useFlight } from '../hooks/useFlight'
+import { useFlight, formatInTz, getUtcOffsetStr } from '../hooks/useFlight'
+
+// Vertical pixels per hour of flight time, for spacing timeline rows
+// proportionally to the real time gap between events (not just row count).
+const PX_PER_HOUR = 14
+const MIN_GAP = 14
 
 // Short labels for the footer note
 const METHOD_SHORT = {
@@ -105,33 +111,87 @@ function AirportTag({ airport, icao }) {
   )
 }
 
-function PrayerRow({ name, time, done, isNext, isSunrise, isImsak }) {
+// Departure/arrival anchor at either end of the timeline.
+function TimelineEndpoint({ label, time, isDeparture, marginBottom }) {
+  return (
+    <div style={{ position: 'relative', marginBottom, opacity: isDeparture ? 0.5 : 1 }}>
+      <span style={{
+        position: 'absolute', left: -28, top: 2, width: 14, height: 14, borderRadius: '50%',
+        background: isDeparture ? T.ink : 'transparent',
+        border: `2px solid ${isDeparture ? T.ink : T.border}`,
+      }} />
+      <span style={{ fontFamily: T.sans, fontSize: 13, color: T.ink }}>
+        {label}{time ? ` · ${isDeparture ? 'departed' : 'arrives'} ${time}` : ''}
+      </span>
+    </div>
+  )
+}
+
+// One prayer event along the route — dimmed once past, accented if it's next.
+function TimelinePrayerRow({ name, dayIndex, time, elapsedHours, position, done, isNext, isSunrise, marginBottom }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '8px 12px',
-      background: isNext ? 'rgba(var(--cp-acc-rgb,63,224,197),0.07)' : 'transparent',
-      border: `1px solid ${isNext ? 'rgba(var(--cp-acc-rgb,63,224,197),0.25)' : T.border}`,
-      borderRadius: 6,
+      position: 'relative', marginBottom,
       opacity: isSunrise ? 0.55 : done ? 0.38 : 1,
+      ...(isNext ? {
+        background: 'rgba(var(--cp-acc-rgb,63,224,197),0.07)',
+        border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.25)',
+        borderRadius: 6, padding: '8px 10px', marginLeft: -10,
+      } : {}),
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {isNext && (
-          <span style={{ width: 6, height: 6, borderRadius: '50%',
-            background: 'var(--cp-acc)', display: 'inline-block', flexShrink: 0 }} />
-        )}
-        <span style={{
-          fontFamily: T.sans, fontSize: 13,
-          color: isNext ? 'var(--cp-acc)' : T.ink,
-          marginLeft: isNext ? 0 : 14,
-        }}>{name}</span>
-        {isSunrise && (
-          <span style={{ fontFamily: T.mono, fontSize: 7,
-            color: T.dim, letterSpacing: '0.1em' }}>SUNRISE</span>
-        )}
+      <span style={{
+        position: 'absolute', left: isNext ? -19 : -25, top: isNext ? 12 : 4,
+        width: isNext ? 10 : 8, height: isNext ? 10 : 8, borderRadius: '50%',
+        background: isNext ? 'var(--cp-acc)' : T.dim,
+      }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <span style={{ fontFamily: T.sans, fontSize: 13, color: isNext ? 'var(--cp-acc)' : T.ink }}>
+          {name}
+          {dayIndex > 1 && (
+            <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, marginLeft: 5 }}>DAY {dayIndex}</span>
+          )}
+          {isSunrise && (
+            <span style={{ fontFamily: T.mono, fontSize: 7, color: T.dim, letterSpacing: '0.1em', marginLeft: 6 }}>SUNRISE</span>
+          )}
+        </span>
+        <span style={{ fontFamily: T.mono, fontSize: 13, color: isNext ? 'var(--cp-acc)' : T.ink2 }}>{time}</span>
       </div>
-      <span style={{ fontFamily: T.mono, fontSize: 13,
-        color: isNext ? 'var(--cp-acc)' : T.ink2 }}>{time}</span>
+      <div style={{ fontFamily: T.mono, fontSize: 10, color: isNext ? 'var(--cp-acc)' : T.dim,
+        opacity: isNext ? 0.85 : 1, marginTop: 2 }}>
+        {fmtElapsed(elapsedHours)} · {latStr(position.lat)} {lngStr(position.lng)}
+      </div>
+    </div>
+  )
+}
+
+// Live aircraft position, inserted into the timeline at its chronological slot.
+function CurrentPositionCard({ elapsedHours, position, elapsedNm, remainNm, fraction, onRefresh, marginBottom, markerRef }) {
+  return (
+    <div style={{
+      position: 'relative', marginBottom, marginLeft: -10,
+      border: `1px dashed ${T.bord2}`, borderRadius: 6, padding: '8px 10px',
+    }}>
+      <span ref={markerRef} style={{
+        position: 'absolute', left: -23, top: 6, width: 20, height: 20, borderRadius: '50%',
+        background: 'rgba(var(--cp-acc-rgb,63,224,197),0.15)', boxShadow: `0 0 0 3px ${T.bg1}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 11, transform: 'rotate(90deg)',
+      }}>✈️</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.08em' }}>
+          CURRENT POSITION · {fmtElapsed(elapsedHours)}
+        </span>
+        <button onClick={onRefresh} title="Refresh current position" style={{
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          color: 'var(--cp-acc)', fontSize: 13, padding: 0, lineHeight: 1,
+        }}>↻</button>
+      </div>
+      <div style={{ fontFamily: T.mono, fontSize: 13, color: T.ink, marginTop: 2 }}>
+        {latStr(position.lat)} {lngStr(position.lng)}
+      </div>
+      <div style={{ fontFamily: T.mono, fontSize: 10, color: T.dim, marginTop: 2 }}>
+        {elapsedNm} NM flown · {remainNm} NM remaining · {Math.round(fraction * 100)}% complete
+      </div>
     </div>
   )
 }
@@ -237,6 +297,25 @@ function fmtTime(raw) {
   return `${h}:${m}`
 }
 
+// "T+4:25" — elapsed time since departure, for timeline rows.
+function fmtElapsed(hours) {
+  const totalMin = Math.round(hours * 60)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return `T+${h}:${String(m).padStart(2, '0')}`
+}
+
+// Calendar-day number for `date` as seen in tzId's own clock — used to tag
+// repeated prayers ("day 2") on flights long enough to span midnight.
+function localDayNum(date, tzId) {
+  if (!tzId) return Math.floor(date.getTime() / 86_400_000)
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { timeZone: tzId, year: 'numeric', month: 'numeric', day: 'numeric' })
+      .formatToParts(date).map(({ type, value }) => [type, value])
+  )
+  return Date.UTC(parts.year, parts.month - 1, parts.day) / 86_400_000
+}
+
 function FlightTimeBanner({ clockInfo, dep, dest, depTime, arrTime, timeZone }) {
   const { totalHours, depTzStr, destTzStr, tzAware } = clockInfo
   const timeLabel = timeZone === 'utc' ? 'UTC' : 'LOCAL'
@@ -282,7 +361,13 @@ export default function FlightPage({ settings }) {
   } = useFlight()
 
   const { dep, dest, mode = 'duration', elapsedHours, totalHours,
-          depTime = '', arrTime = '', timeZone = 'utc', altitudeFt, headingDeg } = inputs
+          depTime = '', arrTime = '', timeZone = 'utc', altitudeFt, headingDeg,
+          prayerTzView = 'dep' } = inputs
+
+  // Which watch the prayer-time list is shown on: departure-zone or arrival-zone.
+  const prayerTzId    = prayerTzView === 'dep' ? depAirport?.tz : destAirport?.tz
+  const prayerTzAware = !!prayerTzId
+  const timeFmt       = settings?.timeFormat ?? '24hr'
 
   const seg = (on) => ({
     flex: 1, fontFamily: T.mono, fontSize: 9, letterSpacing: '0.12em',
@@ -292,25 +377,77 @@ export default function FlightPage({ settings }) {
     color: on ? 'var(--cp-acc)' : T.dim,
   })
 
-  // Build prayer rows from result times
+  // The line fill is measured against the current-position marker's actual
+  // rendered position rather than a flat time-fraction percentage, since
+  // rows are now spaced proportionally to elapsed time (not row count) and
+  // a CSS percentage of container height wouldn't line up with that exactly.
+  const timelineContainerRef = useRef(null)
+  const currentMarkerRef     = useRef(null)
+  const [fillHeight, setFillHeight] = useState(0)
+
+  // Merge the precomputed prayer timeline with a live "current position"
+  // marker, inserted at its correct chronological slot.
   const now = new Date()
-  const prayerRows = result ? [
-    { name: 'Imsak',   time: result.times.Imsak,   date: result.times.imsakDate,   isSunrise: false, isImsak: true  },
-    { name: 'Fajr',    time: result.times.Fajr,    date: result.times.fajrDate,    isSunrise: false, isImsak: false },
-    { name: 'Sunrise', time: result.times.Sunrise,  date: result.times.sunriseDate, isSunrise: true,  isImsak: false },
-    { name: 'Dhuhr',   time: result.times.Dhuhr,   date: result.times.dhuhrDate,   isSunrise: false, isImsak: false },
-    { name: 'Asr',     time: result.times.Asr,     date: result.times.asrDate,     isSunrise: false, isImsak: false },
-    { name: 'Maghrib', time: result.times.Maghrib,  date: result.times.maghribDate, isSunrise: false, isImsak: false },
-    { name: 'Isha',    time: result.times.Isha,    date: result.times.ishaDate,    isSunrise: false, isImsak: false },
-  ].map((p, _, arr) => {
-    const active = arr.filter(x => !x.isSunrise)
-    const next   = active.find(x => x.date instanceof Date && x.date > now) ?? active[0]
-    return {
-      ...p,
-      done:   p.date instanceof Date && p.date < now && !p.isSunrise,
-      isNext: !p.isSunrise && p.name === next?.name,
+  const depClock = result ? formatInTz(new Date(result.depInstantMs), prayerTzId, timeFmt) : ''
+  const arrClock = result
+    ? formatInTz(new Date(result.depInstantMs + result.totalHours * 3_600_000), prayerTzId, timeFmt)
+    : ''
+
+  const timelineRows = result ? (() => {
+    const depDate = new Date(result.depInstantMs)
+    const events = result.timeline.map(ev => ({
+      kind:         'prayer',
+      name:         ev.name,
+      date:         ev.date,
+      elapsedHours: ev.elapsedHours,
+      position:     ev.position,
+      isSunrise:    ev.name === 'Sunrise',
+      dayIndex:     localDayNum(ev.date, prayerTzId) - localDayNum(depDate, prayerTzId) + 1,
+    }))
+
+    const nextPrayer = events.find(e => !e.isSunrise && e.date > now)
+
+    const current = {
+      kind:         'current',
+      elapsedHours: result.elapsedHours,
+      position:     result.position,
     }
-  }) : []
+    const insertAt = events.findIndex(e => e.elapsedHours > result.elapsedHours)
+    const merged = insertAt === -1
+      ? [...events, current]
+      : [...events.slice(0, insertAt), current, ...events.slice(insertAt)]
+
+    return merged.map(row => row.kind === 'current' ? row : {
+      ...row,
+      time:   formatInTz(row.date, prayerTzId, timeFmt),
+      done:   row.date < now,
+      isNext: row === nextPrayer,
+    })
+  })() : []
+
+  // Gap (px) below each row, proportional to the elapsed-time distance to
+  // the next anchor (departure → ...rows... → arrival) — floored so close
+  // events stay readable. This is what makes the line fill above line up
+  // with the current-position card's actual rendered position.
+  const rowGaps = result ? (() => {
+    const anchors = [0, ...timelineRows.map(r => r.elapsedHours), result.totalHours]
+    return anchors.slice(0, -1).map((t, i) => Math.max(MIN_GAP, (anchors[i + 1] - t) * PX_PER_HOUR))
+  })() : []
+
+  useLayoutEffect(() => {
+    if (!result || !currentMarkerRef.current || !timelineContainerRef.current) {
+      setFillHeight(0)
+      return
+    }
+    const measure = () => {
+      const containerTop = timelineContainerRef.current.getBoundingClientRect().top
+      const markerRect   = currentMarkerRef.current.getBoundingClientRect()
+      setFillHeight(Math.max(0, markerRect.top + markerRect.height / 2 - containerTop - 6))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [result, timelineRows])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -464,56 +601,6 @@ export default function FlightPage({ settings }) {
       {/* Results */}
       {result && (
         <>
-          {/* Progress bar */}
-          <div style={{ marginBottom: 18 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between',
-              fontFamily: T.mono, fontSize: 8, color: T.dim,
-              letterSpacing: '0.1em', marginBottom: 6 }}>
-              <span>{depAirport?.city}</span>
-              <span style={{ color: 'var(--cp-acc)' }}>
-                {Math.round(result.fraction * 100)}% COMPLETE
-              </span>
-              <span>{destAirport?.city}</span>
-            </div>
-            <div style={{ height: 4, background: T.bg2, borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', borderRadius: 2,
-                width: `${result.fraction * 100}%`,
-                background: 'linear-gradient(90deg, var(--cp-acc), rgba(var(--cp-acc-rgb,63,224,197),0.4))',
-                transition: 'width 0.4s ease',
-              }} />
-            </div>
-            <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
-              letterSpacing: '0.08em', marginTop: 5, textAlign: 'center' }}>
-              {result.elapsedNm} NM FLOWN · {result.remainNm} NM REMAINING · {result.totalNm} NM TOTAL
-            </div>
-          </div>
-
-          {/* Estimated position */}
-          <Section title="ESTIMATED POSITION">
-            <div style={{
-              background: T.bg1, border: `1px solid ${T.bord2}`,
-              borderRadius: 6, padding: '12px 14px',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
-              <div>
-                <div style={{ fontFamily: T.mono, fontSize: 20, fontWeight: 700,
-                  color: T.ink, letterSpacing: '0.04em', lineHeight: 1.2 }}>
-                  {latStr(result.position.lat)}
-                </div>
-                <div style={{ fontFamily: T.mono, fontSize: 20, fontWeight: 700,
-                  color: T.ink, letterSpacing: '0.04em', lineHeight: 1.2 }}>
-                  {lngStr(result.position.lng)}
-                </div>
-                <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
-                  letterSpacing: '0.1em', marginTop: 6 }}>
-                  DEAD RECKONING · APPROXIMATE
-                </div>
-              </div>
-              <span style={{ fontSize: 28 }}>🌏</span>
-            </div>
-          </Section>
-
           {/* Qibla */}
           <Section title="QIBLA FROM CURRENT POSITION">
             <div style={{
@@ -556,6 +643,17 @@ export default function FlightPage({ settings }) {
 
           {/* Prayer times */}
           <Section title="IN-FLIGHT PRAYER TIMES">
+            {/* Watch toggle — same in-flight prayer moment, shown on either zone's clock */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+              <button
+                onClick={() => setInputs({ prayerTzView: 'dep' })}
+                style={seg(prayerTzView === 'dep')}
+              >DEP TIME{depAirport?.tz ? ` (${getUtcOffsetStr(depAirport.tz)})` : ''}</button>
+              <button
+                onClick={() => setInputs({ prayerTzView: 'arr' })}
+                style={seg(prayerTzView === 'arr')}
+              >ARR TIME{destAirport?.tz ? ` (${getUtcOffsetStr(destAirport.tz)})` : ''}</button>
+            </div>
             <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
               letterSpacing: '0.1em', marginBottom: 4,
               display: 'flex', justifyContent: 'space-between' }}>
@@ -566,13 +664,42 @@ export default function FlightPage({ settings }) {
                 </span>
               )}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {prayerRows.map(row => <PrayerRow key={row.name} {...row} />)}
+            <div ref={timelineContainerRef} style={{ position: 'relative', paddingLeft: 28, marginTop: 14 }}>
+              <div style={{
+                position: 'absolute', left: 9, top: 6, bottom: 6, width: 3,
+                background: T.bord2, borderRadius: 2,
+              }} />
+              <div style={{
+                position: 'absolute', left: 9, top: 6, width: 3, borderRadius: 2,
+                height: `${fillHeight}px`,
+                background: 'var(--cp-acc)',
+              }} />
+
+              <TimelineEndpoint label={dep} time={depClock} isDeparture marginBottom={rowGaps[0]} />
+              {timelineRows.map((row, i) => row.kind === 'current'
+                ? (
+                  <CurrentPositionCard
+                    key="current"
+                    elapsedHours={row.elapsedHours}
+                    position={row.position}
+                    elapsedNm={result.elapsedNm}
+                    remainNm={result.remainNm}
+                    fraction={result.fraction}
+                    onRefresh={calculate}
+                    marginBottom={rowGaps[i + 1]}
+                    markerRef={currentMarkerRef}
+                  />
+                )
+                : <TimelinePrayerRow key={`${row.name}-${i}`} {...row} marginBottom={rowGaps[i + 1]} />
+              )}
+              <TimelineEndpoint label={dest} time={arrClock} marginBottom={0} />
             </div>
             <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
               letterSpacing: '0.08em', textAlign: 'center', marginTop: 8,
               lineHeight: 1.8 }}>
-              BASED ON DEVICE LOCAL TIME · {METHOD_SHORT[settings?.calculationMethod] ?? 'JAKIM'} METHOD
+              {prayerTzAware
+                ? `${prayerTzView === 'dep' ? 'DEPARTURE' : 'ARRIVAL'} TIME (${getUtcOffsetStr(prayerTzId)})`
+                : 'DEVICE LOCAL TIME — TZ UNKNOWN'} · {METHOD_SHORT[settings?.calculationMethod] ?? 'JAKIM'} METHOD
             </div>
           </Section>
 

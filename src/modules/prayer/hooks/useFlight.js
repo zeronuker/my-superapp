@@ -35,6 +35,16 @@ function localTzToUtcMs(dateStr, h, m, tzId) {
   return result1 + (approx1 - toLocalMs(result1))
 }
 
+// "YYYY-MM-DD" of `now` as seen in tzId's own calendar (not the device/UTC date).
+function localDateStr(tzId, now) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: tzId, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(now).map(({ type, value }) => [type, value])
+  )
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
 // Returns "UTC+8", "UTC-5", "UTC+5:30" etc. for an IANA timezone ID.
 export function getUtcOffsetStr(tzId) {
   if (!tzId) return ''
@@ -59,6 +69,28 @@ export function getUtcOffsetStr(tzId) {
   return mm > 0 ? `UTC${sign}${hh}:${String(mm).padStart(2, '0')}` : `UTC${sign}${hh}`
 }
 
+// Formats a Date instant as "HH:MM" (or 12hr) in tzId — e.g. the same in-flight
+// prayer moment shown on a departure-zone watch vs an arrival-zone watch.
+// Falls back to device-local formatting when tzId is unavailable.
+export function formatInTz(date, tzId, timeFormat = '24hr') {
+  if (!(date instanceof Date)) return '--:--'
+  let h, m
+  if (tzId) {
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: tzId, hour: 'numeric', minute: '2-digit', hour12: false,
+      }).formatToParts(date).map(({ type, value }) => [type, value])
+    )
+    h = parseInt(parts.hour) % 24
+    m = parts.minute
+  } else {
+    h = date.getHours()
+    m = String(date.getMinutes()).padStart(2, '0')
+  }
+  if (timeFormat === '12hr') return `${h % 12 || 12}:${m} ${h >= 12 ? 'PM' : 'AM'}`
+  return `${String(h).padStart(2, '0')}:${m}`
+}
+
 // From dep/arr clock times → elapsed + total hours.
 // tz: 'utc' | 'local'
 // depTzId / destTzId: IANA strings (e.g. "Asia/Kuala_Lumpur"). Required for
@@ -78,11 +110,14 @@ export function clockToElapsedTotal(depTime, arrTime, tz, now = new Date(), depT
     if (durMin === 0) durMin = 1440
     arrMs = depMs + durMin * 60_000
   } else if (tz === 'local' && depTzId && destTzId) {
-    // Timezone-aware: dep in depTzId, arr in destTzId
-    const todayStr = now.toISOString().slice(0, 10)
-    depMs = localTzToUtcMs(todayStr, Math.floor(dM / 60), dM % 60, depTzId)
+    // Timezone-aware: dep in depTzId, arr in destTzId.
+    // Anchor each to its OWN current local calendar date — using the device's
+    // UTC date here would misfire whenever the dep/arr tz's calendar day has
+    // already rolled over relative to UTC (e.g. UTC+8 mornings), throwing the
+    // elapsed-time calculation off by a full day.
+    depMs = localTzToUtcMs(localDateStr(depTzId, now), Math.floor(dM / 60), dM % 60, depTzId)
     if (depMs > nowMs) depMs -= 86_400_000
-    arrMs = localTzToUtcMs(todayStr, Math.floor(aM / 60), aM % 60, destTzId)
+    arrMs = localTzToUtcMs(localDateStr(destTzId, now), Math.floor(aM / 60), aM % 60, destTzId)
     if (arrMs <= depMs) arrMs += 86_400_000
   } else {
     // Fallback: device local time (original behaviour, no tz data)
@@ -202,6 +237,27 @@ export function useFlight() {
       setError('Calculation failed. Please check your inputs.')
     }
   }, [depAirport, destAirport, mode, elapsedHours, totalHours, depTime, arrTime, timeZone, altitudeFt, headingDeg, settings])
+
+  // ── Auto-refresh ──────────────────────────────────────────────────────────────
+  // Result state is local to this hook, so it's lost whenever the Flight tab
+  // unmounts (switching to Solat/Qiblat and back). Recompute on mount so it
+  // reappears instead of requiring another CALCULATE press. Skipped on a
+  // blank first-time form so no error flashes before a route is entered.
+  useEffect(() => {
+    if (dep && dest) calculate()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // The component above stays mounted while the OS backgrounds the app (screen
+  // lock, switching to another app) — no remount to catch that, so listen for
+  // the tab/app coming back to the foreground instead.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && dep && dest) calculate()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [calculate, dep, dest])
 
   return {
     inputs:       flightInputs,

@@ -89,6 +89,20 @@ describe('clockToElapsedTotal (local, tz-aware)', () => {
     expect(r.totalHours).toBeCloseTo(11, 1)
   })
 
+  it('UTC+8 morning rollover: dep 0430 KL, arr 0945 KL, now 0655 KL → ~2h25m elapsed, not 100%', () => {
+    // now = 06:55 KL (UTC+8) = 22:55 UTC on the PREVIOUS UTC calendar day —
+    // regression test for the bug where the conversion anchored to the UTC
+    // date instead of KL's own date, throwing elapsed off by a full day and
+    // clamping the flight to 100% complete shortly after departure.
+    const now = new Date('2026-01-10T22:55:00Z')
+    const r = clockToElapsedTotal(
+      '0430', '0945', 'local', now,
+      'Asia/Kuala_Lumpur', 'Asia/Kuala_Lumpur'
+    )
+    expect(r.totalHours).toBeCloseTo(5.25, 2)
+    expect(r.elapsedHours).toBeCloseTo(2 + 25 / 60, 2)
+  })
+
   it('falls back gracefully when tzId absent', () => {
     // Without tz IDs, uses device local time (same as old local behaviour)
     const r = clockToElapsedTotal('0900', '1700', 'local', utc(13))
