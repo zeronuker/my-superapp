@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { T } from '../components/tokens'
 import { useFlight, formatInTz, getUtcOffsetStr } from '../hooks/useFlight'
 
@@ -6,10 +6,15 @@ import { useFlight, formatInTz, getUtcOffsetStr } from '../hooks/useFlight'
 // proportionally to the real time gap between events (not just row count).
 const PX_PER_HOUR = 14
 const MIN_GAP = 14
-// Gap (px) left between the background line and the hollow arrival ring's
-// top edge, so the line visibly stops short of it instead of running
-// through its transparent center.
-const ARRIVAL_LINE_GAP = 4
+// Every marker is one of two sizes — most are uniform rings so the line
+// only ever has to deal with one shape; the live position badge is bigger
+// since it's the one marker meant to stand out.
+const MARKER_SIZE  = 14
+const CURRENT_SIZE = 24
+// Clearance (px) the connecting line leaves on either side of a marker's
+// edge — segments are measured against markers' real rendered positions, so
+// this gap is a hard guarantee, not a hope that z-order hides the overlap.
+const MARKER_GAP = 4
 
 // Short labels for the footer note
 const METHOD_SHORT = {
@@ -115,17 +120,18 @@ function AirportTag({ airport, icao }) {
   )
 }
 
-// Departure/arrival anchor at either end of the timeline.
-// left offsets below are centered on the line at container-x 10.5 (line runs
-// from x:9 to x:12), accounting for each row's own box origin in container
-// coordinates — see comment above the line divs in the main render.
+// Departure/arrival anchor at either end of the timeline. Same ring family
+// as every other marker — solid border for departure (already happened),
+// dashed for arrival (not reached yet) — rather than a flat filled disc or a
+// fully transparent hollow circle, so the connecting line never needs to
+// hide behind (or visibly cross) a different shape than everywhere else.
 function TimelineEndpoint({ label, time, isDeparture, marginBottom, markerRef }) {
   return (
-    <div style={{ position: 'relative', marginBottom, opacity: isDeparture ? 0.5 : 1 }}>
+    <div style={{ position: 'relative', marginBottom, opacity: isDeparture ? 0.6 : 1 }}>
       <span ref={markerRef} style={{
-        position: 'absolute', left: -24.5, top: 2, width: 14, height: 14, borderRadius: '50%',
-        background: isDeparture ? T.ink : 'transparent',
-        border: `2px solid ${isDeparture ? T.ink : T.border}`,
+        position: 'absolute', left: -24.5, top: 2, width: MARKER_SIZE, height: MARKER_SIZE, borderRadius: '50%',
+        background: T.bg1,
+        border: isDeparture ? `2px solid ${T.ink}` : `2px dashed ${T.border}`,
       }} />
       <span style={{ fontFamily: T.sans, fontSize: 13, color: T.ink }}>
         {label}{time ? ` · ${isDeparture ? 'departed' : 'arrives'} ${time}` : ''}
@@ -135,7 +141,8 @@ function TimelineEndpoint({ label, time, isDeparture, marginBottom, markerRef })
 }
 
 // One prayer event along the route — dimmed once past, accented if it's next.
-function TimelinePrayerRow({ name, dayIndex, time, elapsedHours, position, done, isNext, isSunrise, marginBottom }) {
+// Same ring shape/size as the endpoints; only border color signals state.
+function TimelinePrayerRow({ name, dayIndex, time, elapsedHours, position, done, isNext, isSunrise, marginBottom, markerRef }) {
   return (
     <div style={{
       position: 'relative', marginBottom,
@@ -146,10 +153,10 @@ function TimelinePrayerRow({ name, dayIndex, time, elapsedHours, position, done,
         borderRadius: 6, padding: '8px 10px', marginLeft: -10,
       } : {}),
     }}>
-      <span style={{
-        position: 'absolute', left: isNext ? -12.5 : -21.5, top: isNext ? 12 : 4,
-        width: isNext ? 10 : 8, height: isNext ? 10 : 8, borderRadius: '50%',
-        background: isNext ? 'var(--cp-acc)' : T.dim,
+      <span ref={markerRef} style={{
+        position: 'absolute', left: isNext ? -14.5 : -24.5, top: isNext ? 10 : 2,
+        width: MARKER_SIZE, height: MARKER_SIZE, borderRadius: '50%',
+        background: T.bg1, border: `2px solid ${isNext ? 'var(--cp-acc)' : T.dim}`,
       }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span style={{ fontFamily: T.sans, fontSize: 13, color: isNext ? 'var(--cp-acc)' : T.ink }}>
@@ -179,7 +186,7 @@ function CurrentPositionCard({ elapsedHours, position, elapsedNm, remainNm, frac
       border: `1px dashed ${T.bord2}`, borderRadius: 6, padding: '8px 10px',
     }}>
       <span ref={markerRef} style={{
-        position: 'absolute', left: -18.5, top: 5, width: 22, height: 22, borderRadius: '50%',
+        position: 'absolute', left: -19.5, top: 4, width: CURRENT_SIZE, height: CURRENT_SIZE, borderRadius: '50%',
         background: T.bg1, border: '2px solid var(--cp-acc)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 11, lineHeight: 1,
@@ -384,25 +391,29 @@ export default function FlightPage({ settings }) {
     color: on ? 'var(--cp-acc)' : T.dim,
   })
 
-  // The line fill is measured against the current-position marker's actual
-  // rendered position rather than a flat time-fraction percentage, since
-  // rows are now spaced proportionally to elapsed time (not row count) and
-  // a CSS percentage of container height wouldn't line up with that exactly.
+  // The connecting line is rendered as discrete segments between markers'
+  // actual rendered positions (not a flat time-fraction percentage, and not
+  // one continuous bar relying on z-order to hide behind each marker) — so
+  // it is geometrically impossible for the line to touch a marker's edge.
   const timelineContainerRef = useRef(null)
-  const currentMarkerRef     = useRef(null)
-  const arrivalMarkerRef     = useRef(null)
-  const [fillHeight, setFillHeight] = useState(0)
-  const [bgHeight, setBgHeight]     = useState(0)
+  const markerRefs = useRef([])
+  const [segments, setSegments] = useState([])
 
   // Merge the precomputed prayer timeline with a live "current position"
   // marker, inserted at its correct chronological slot.
-  const now = new Date()
   const depClock = result ? formatInTz(new Date(result.depInstantMs), prayerTzId, timeFmt) : ''
   const arrClock = result
     ? formatInTz(new Date(result.depInstantMs + result.totalHours * 3_600_000), prayerTzId, timeFmt)
     : ''
 
-  const timelineRows = result ? (() => {
+  // Memoized so this array keeps a stable reference across re-renders that
+  // don't actually change the underlying data — the line-segment effect
+  // below depends on it, and a fresh array identity every render would
+  // re-trigger that effect's setState forever (arrays never compare equal
+  // by reference the way the old numeric fillHeight/bgHeight state did).
+  const timelineRows = useMemo(() => {
+    if (!result) return []
+    const now = new Date()
     const depDate = new Date(result.depInstantMs)
     const events = result.timeline.map(ev => ({
       kind:         'prayer',
@@ -432,7 +443,7 @@ export default function FlightPage({ settings }) {
       done:   row.date < now,
       isNext: row === nextPrayer,
     })
-  })() : []
+  }, [result, prayerTzId, timeFmt])
 
   // Gap (px) below each row, proportional to the elapsed-time distance to
   // the next anchor (departure → ...rows... → arrival) — floored so close
@@ -444,20 +455,29 @@ export default function FlightPage({ settings }) {
   })() : []
 
   useLayoutEffect(() => {
-    if (!result || !currentMarkerRef.current || !timelineContainerRef.current || !arrivalMarkerRef.current) {
-      setFillHeight(0)
-      setBgHeight(0)
+    if (!result || !timelineContainerRef.current) {
+      setSegments([])
       return
     }
     const measure = () => {
       const containerTop = timelineContainerRef.current.getBoundingClientRect().top
-      const markerRect   = currentMarkerRef.current.getBoundingClientRect()
-      const arrivalRect  = arrivalMarkerRef.current.getBoundingClientRect()
-      setFillHeight(Math.max(0, markerRect.top + markerRect.height / 2 - containerTop - 6))
-      // Stop the (gray) background line just short of the hollow arrival
-      // ring's top edge, with a small gap, instead of running it straight
-      // through the ring's transparent center.
-      setBgHeight(Math.max(0, arrivalRect.top - ARRIVAL_LINE_GAP - containerTop - 6))
+      const boxes = markerRefs.current.map(el => {
+        if (!el) return null
+        const r = el.getBoundingClientRect()
+        return { top: r.top - containerTop, bottom: r.bottom - containerTop }
+      })
+      // dep is index 0, arr is the last index — current position's index
+      // among timelineRows shifts by +1 to match that offset.
+      const currentIdx = 1 + timelineRows.findIndex(r => r.kind === 'current')
+      const segs = []
+      for (let i = 0; i < boxes.length - 1; i++) {
+        const a = boxes[i], b = boxes[i + 1]
+        if (!a || !b) continue
+        const top    = a.bottom + MARKER_GAP
+        const height = Math.max(0, (b.top - MARKER_GAP) - top)
+        segs.push({ top, height, accent: i + 1 <= currentIdx })
+      }
+      setSegments(segs)
     }
     measure()
     window.addEventListener('resize', measure)
@@ -680,18 +700,18 @@ export default function FlightPage({ settings }) {
               )}
             </div>
             <div ref={timelineContainerRef} style={{ position: 'relative', paddingLeft: 28, marginTop: 14 }}>
-              <div style={{
-                position: 'absolute', left: 9, top: 6, width: 3, borderRadius: 2,
-                height: `${bgHeight}px`,
-                background: T.bord2,
-              }} />
-              <div style={{
-                position: 'absolute', left: 9, top: 6, width: 3, borderRadius: 2,
-                height: `${fillHeight}px`,
-                background: 'var(--cp-acc)',
-              }} />
+              {segments.map((seg, i) => (
+                <div key={i} style={{
+                  position: 'absolute', left: 9.75, width: 1.5, borderRadius: 1,
+                  top: `${seg.top}px`, height: `${seg.height}px`,
+                  background: seg.accent ? 'var(--cp-acc)' : T.bord2,
+                }} />
+              ))}
 
-              <TimelineEndpoint label={dep} time={depClock} isDeparture marginBottom={rowGaps[0]} />
+              <TimelineEndpoint
+                label={dep} time={depClock} isDeparture marginBottom={rowGaps[0]}
+                markerRef={el => { markerRefs.current[0] = el }}
+              />
               {timelineRows.map((row, i) => row.kind === 'current'
                 ? (
                   <CurrentPositionCard
@@ -703,12 +723,20 @@ export default function FlightPage({ settings }) {
                     fraction={result.fraction}
                     onRefresh={calculate}
                     marginBottom={rowGaps[i + 1]}
-                    markerRef={currentMarkerRef}
+                    markerRef={el => { markerRefs.current[i + 1] = el }}
                   />
                 )
-                : <TimelinePrayerRow key={`${row.name}-${i}`} {...row} marginBottom={rowGaps[i + 1]} />
+                : (
+                  <TimelinePrayerRow
+                    key={`${row.name}-${i}`} {...row} marginBottom={rowGaps[i + 1]}
+                    markerRef={el => { markerRefs.current[i + 1] = el }}
+                  />
+                )
               )}
-              <TimelineEndpoint label={dest} time={arrClock} marginBottom={0} markerRef={arrivalMarkerRef} />
+              <TimelineEndpoint
+                label={dest} time={arrClock} marginBottom={0}
+                markerRef={el => { markerRefs.current[timelineRows.length + 1] = el }}
+              />
             </div>
             <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
               letterSpacing: '0.08em', textAlign: 'center', marginTop: 8,
