@@ -380,7 +380,20 @@ export default function FlightPage({ settings }) {
     clockInfo,
     result, error,
     calculate,
+    isStale,
   } = useFlight()
+
+  // Purely cosmetic delay so CALCULATE visibly "does work" even though the
+  // underlying math is instant — otherwise results swap in with no feedback
+  // that anything happened.
+  const [isCalculating, setIsCalculating] = useState(false)
+  const handleCalculate = () => {
+    setIsCalculating(true)
+    setTimeout(() => {
+      calculate()
+      setIsCalculating(false)
+    }, 500)
+  }
 
   const { dep, dest, mode = 'duration', elapsedHours, totalHours,
           depTime = '', arrTime = '', timeZone = 'utc', altitudeFt, headingDeg,
@@ -625,20 +638,39 @@ export default function FlightPage({ settings }) {
         </div>
       )}
 
-      {/* Calculate button */}
+      {/* Calculate button — orange "stale" state once any input changes
+          after a calculation, so old results on screen are never mistaken
+          for current; spinner is a cosmetic delay since the math itself is
+          instant and would otherwise swap in with no feedback. */}
       <button
-        onClick={calculate}
+        onClick={handleCalculate}
+        disabled={isCalculating}
         style={{
           width: '100%', padding: '12px',
-          background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
-          border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)',
-          borderRadius: 6, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          background: isCalculating
+            ? 'rgba(255,255,255,0.04)'
+            : isStale ? 'rgba(251,146,60,0.12)' : 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
+          border: `1px solid ${isCalculating
+            ? T.bord2
+            : isStale ? 'rgba(251,146,60,0.35)' : 'rgba(var(--cp-acc-rgb,63,224,197),0.35)'}`,
+          borderRadius: 6, cursor: isCalculating ? 'default' : 'pointer',
           fontFamily: T.mono, fontSize: 10,
-          letterSpacing: '0.16em', color: 'var(--cp-acc)',
+          letterSpacing: '0.16em',
+          color: isCalculating ? T.dim : isStale ? T.orange : 'var(--cp-acc)',
           marginBottom: 20,
         }}
       >
-        ⊕ CALCULATE
+        {isCalculating ? (
+          <>
+            <span style={{
+              width: 12, height: 12, borderRadius: '50%',
+              border: '2px solid var(--cp-border)', borderTopColor: 'var(--cp-acc)',
+              display: 'inline-block', animation: 'cp-spin 0.7s linear infinite',
+            }} />
+            CALCULATING…
+          </>
+        ) : isStale ? '⊕ RECALCULATE' : '⊕ CALCULATE'}
       </button>
 
       {/* Results */}

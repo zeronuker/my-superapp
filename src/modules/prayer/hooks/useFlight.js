@@ -216,6 +216,14 @@ export function useFlight() {
   // ── Calculation result ────────────────────────────────────────────────────────
   const [result, setResult] = useState(null)
   const [error,  setError]  = useState(null)
+  // Snapshot of the inputs that produced `result`, so the UI can tell the
+  // user when the form has since changed and the numbers on screen are stale.
+  const [calculatedKey, setCalculatedKey] = useState(null)
+
+  const inputsKey = JSON.stringify({
+    dep, dest, mode, elapsedHours, totalHours, depTime, arrTime, timeZone, altitudeFt, headingDeg,
+  })
+  const isStale = result != null && calculatedKey !== null && calculatedKey !== inputsKey
 
   const calculate = useCallback(() => {
     setError(null)
@@ -253,10 +261,11 @@ export function useFlight() {
         depInstantMs,
       })
       setResult(res)
+      setCalculatedKey(inputsKey)
     } catch (e) {
       setError('Calculation failed. Please check your inputs.')
     }
-  }, [depAirport, destAirport, mode, elapsedHours, totalHours, depTime, arrTime, timeZone, altitudeFt, headingDeg, settings])
+  }, [depAirport, destAirport, mode, elapsedHours, totalHours, depTime, arrTime, timeZone, altitudeFt, headingDeg, settings, inputsKey])
 
   // ── Auto-refresh ──────────────────────────────────────────────────────────────
   // Result state is local to this hook, so it's lost whenever the Flight tab
@@ -289,5 +298,6 @@ export function useFlight() {
     result,
     error,
     calculate,
+    isStale,
   }
 }
