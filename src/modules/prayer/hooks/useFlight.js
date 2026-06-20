@@ -91,11 +91,27 @@ export function formatInTz(date, tzId, timeFormat = '24hr') {
   return `${String(h).padStart(2, '0')}:${m}`
 }
 
-// From dep/arr clock times → elapsed + total hours.
+// Picks which occurrence of a daily-repeating [dep, dep+duration] window
+// `now` actually belongs to. Candidates are TODAY's scheduled departure and
+// YESTERDAY's (an overnight flight that's still going). Prefers YESTERDAY
+// only if `now` falls inside that window; otherwise defaults to TODAY —
+// even when today's departure is still in the future. Without this, a
+// same-day flight checked before its departure time would always roll back
+// to "yesterday", find `now` past that (imaginary) flight's arrival, and
+// clamp it to 100% complete / already landed before it ever left.
+function resolveOccurrence(depMsToday, totalMs, nowMs) {
+  if (depMsToday <= nowMs) return { depMs: depMsToday, arrMs: depMsToday + totalMs }
+  const depMsYesterday = depMsToday - 86_400_000
+  const arrMsYesterday = depMsYesterday + totalMs
+  if (nowMs <= arrMsYesterday) return { depMs: depMsYesterday, arrMs: arrMsYesterday }
+  return { depMs: depMsToday, arrMs: depMsToday + totalMs }
+}
+
+// From dep/arr clock times → elapsed + total hours + the resolved absolute
+// departure instant.
 // tz: 'utc' | 'local'
 // depTzId / destTzId: IANA strings (e.g. "Asia/Kuala_Lumpur"). Required for
 //   timezone-aware local mode; falls back to device local time when absent.
-// dep assumed most-recent occurrence; arr before dep (UTC) wraps to next day.
 export function clockToElapsedTotal(depTime, arrTime, tz, now = new Date(), depTzId = null, destTzId = null) {
   const dM = hmToMin(depTime), aM = hmToMin(arrTime)
   if (dM == null || aM == null) return null
@@ -104,38 +120,37 @@ export function clockToElapsedTotal(depTime, arrTime, tz, now = new Date(), depT
   let depMs, arrMs
 
   if (tz === 'utc') {
-    depMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), Math.floor(dM / 60), dM % 60)
-    if (depMs > nowMs) depMs -= 86_400_000
+    const depMsToday = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), Math.floor(dM / 60), dM % 60)
     let durMin = ((aM - dM) % 1440 + 1440) % 1440
     if (durMin === 0) durMin = 1440
-    arrMs = depMs + durMin * 60_000
+    ;({ depMs, arrMs } = resolveOccurrence(depMsToday, durMin * 60_000, nowMs))
   } else if (tz === 'local' && depTzId && destTzId) {
     // Timezone-aware: dep in depTzId, arr in destTzId.
     // Anchor dep to its OWN current local calendar date — using the device's
     // UTC date here would misfire whenever the dep tz's calendar day has
     // already rolled over relative to UTC (e.g. UTC+8 mornings), throwing the
     // elapsed-time calculation off by a full day.
-    depMs = localTzToUtcMs(localDateStr(depTzId, now), Math.floor(dM / 60), dM % 60, depTzId)
-    if (depMs > nowMs) depMs -= 86_400_000
+    const depMsToday = localTzToUtcMs(localDateStr(depTzId, now), Math.floor(dM / 60), dM % 60, depTzId)
     // Anchor arr to the DEPARTURE INSTANT's calendar date in destTzId, not to
     // "today" — anchoring both ends independently to "today" let them land on
-    // different days whenever only one side needed its rollback applied,
+    // different days whenever only one side needed a day adjustment,
     // inflating total flight time by up to 24h.
-    arrMs = localTzToUtcMs(localDateStr(destTzId, new Date(depMs)), Math.floor(aM / 60), aM % 60, destTzId)
-    if (arrMs <= depMs) arrMs += 86_400_000
+    let arrMsToday = localTzToUtcMs(localDateStr(destTzId, new Date(depMsToday)), Math.floor(aM / 60), aM % 60, destTzId)
+    if (arrMsToday <= depMsToday) arrMsToday += 86_400_000
+    ;({ depMs, arrMs } = resolveOccurrence(depMsToday, arrMsToday - depMsToday, nowMs))
   } else {
     // Fallback: device local time (original behaviour, no tz data)
-    const d = new Date(now); d.setHours(Math.floor(dM / 60), dM % 60, 0, 0); depMs = d.getTime()
-    if (depMs > nowMs) depMs -= 86_400_000
+    const d = new Date(now); d.setHours(Math.floor(dM / 60), dM % 60, 0, 0)
+    const depMsToday = d.getTime()
     let durMin = ((aM - dM) % 1440 + 1440) % 1440
     if (durMin === 0) durMin = 1440
-    arrMs = depMs + durMin * 60_000
+    ;({ depMs, arrMs } = resolveOccurrence(depMsToday, durMin * 60_000, nowMs))
   }
 
   const totalMs = arrMs - depMs
   if (totalMs <= 0) return null
   const elapsedMs = Math.max(0, Math.min(totalMs, nowMs - depMs))
-  return { elapsedHours: elapsedMs / 3.6e6, totalHours: totalMs / 3.6e6 }
+  return { elapsedHours: elapsedMs / 3.6e6, totalHours: totalMs / 3.6e6, depInstantMs: depMs }
 }
 
 /**
@@ -212,11 +227,11 @@ export function useFlight() {
     const alt     = parseFloat(altitudeFt)   || 0
     const heading = headingDeg !== '' ? parseFloat(headingDeg) : null
 
-    let elapsed, total
+    let elapsed, total, depInstantMs
     if (mode === 'clock') {
       const r = clockToElapsedTotal(depTime, arrTime, timeZone, new Date(), depAirport?.tz ?? null, destAirport?.tz ?? null)
       if (!r) return setError('Enter valid departure and arrival times (HH:MM).')
-      elapsed = r.elapsedHours; total = r.totalHours
+      elapsed = r.elapsedHours; total = r.totalHours; depInstantMs = r.depInstantMs
     } else {
       elapsed = parseFloat(elapsedHours)
       total   = parseFloat(totalHours)
@@ -235,6 +250,7 @@ export function useFlight() {
         headingDeg:   heading,
         settings,
         date: new Date(),
+        depInstantMs,
       })
       setResult(res)
     } catch (e) {

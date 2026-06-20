@@ -231,6 +231,11 @@ export function buildPrayerTimeline({ depPos, destPos, depInstantMs, totalHours,
  * @param {number|null}  params.headingDeg     — aircraft true heading (deg)
  * @param {object}       params.settings       — prayer settings (method, madhab, etc.)
  * @param {Date}         params.date           — current moment (default: now)
+ * @param {number|null}  params.depInstantMs   — known absolute departure instant
+ *   (epoch ms), when available (clock mode). Takes precedence over deriving it
+ *   from `date - elapsedHours`, which is only correct when elapsedHours is the
+ *   *unclamped* time since departure — not true once elapsed has been capped
+ *   to 0 (not yet departed) or to totalHours (already landed).
  */
 export function calculateFlight({
   depPos, destPos,
@@ -238,6 +243,7 @@ export function calculateFlight({
   altitudeFt, headingDeg,
   settings,
   date = new Date(),
+  depInstantMs: depInstantMsOverride = null,
 }) {
   const fraction = totalHours > 0 ? elapsedHours / totalHours : 0
   const position = interpolateGreatCircle(
@@ -256,7 +262,7 @@ export function calculateFlight({
     ? cabinRelativeQibla(bearing, headingDeg)
     : null
 
-  const depInstantMs = date.getTime() - elapsedHours * 3_600_000
+  const depInstantMs = depInstantMsOverride ?? (date.getTime() - elapsedHours * 3_600_000)
   const timeline = buildPrayerTimeline({ depPos, destPos, depInstantMs, totalHours, altitudeFt, settings })
 
   const corrMin = Math.round(altitudeCorrectionMinutes(altitudeFt))
