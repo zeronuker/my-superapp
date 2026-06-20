@@ -302,6 +302,14 @@ function formatDuration(hours) {
   return m > 0 ? `${h}h ${m}m` : `${h}h`
 }
 
+// "20 JUN 2026" — the calendar date prayer times were calculated for, in tzId.
+function fmtCalcDate(date, tzId) {
+  if (!(date instanceof Date)) return ''
+  const opts = { day: '2-digit', month: 'short', year: 'numeric' }
+  if (tzId) opts.timeZone = tzId
+  return new Intl.DateTimeFormat('en-GB', opts).format(date).toUpperCase()
+}
+
 // Normalise "930" / "09:30" → "09:30"
 function fmtTime(raw) {
   const d = String(raw ?? '').replace(/[^0-9]/g, '')
@@ -744,6 +752,8 @@ export default function FlightPage({ settings }) {
               {prayerTzAware
                 ? `${prayerTzView === 'dep' ? 'DEPARTURE' : 'ARRIVAL'} TIME (${getUtcOffsetStr(prayerTzId)})`
                 : 'DEVICE LOCAL TIME — TZ UNKNOWN'} · {METHOD_SHORT[settings?.calculationMethod] ?? 'JAKIM'} METHOD
+              <br />
+              CALCULATED FOR {fmtCalcDate(new Date(result.depInstantMs), prayerTzId)}
             </div>
           </Section>
 
@@ -761,7 +771,8 @@ export default function FlightPage({ settings }) {
                 ESTIMATED TIME AND POSITION ONLY
               </div>
               <div style={{ fontFamily: T.sans, fontSize: 11, color: T.dim, lineHeight: 1.6 }}>
-                Prayer times and Qibla direction are calculated using Dead reckoning and carries a margin of error.
+                Prayer times and Qibla direction are calculated using dead reckoning and carry a margin of error.
+                Recheck closer to departure or while inflight for the best accuracy.
               </div>
             </div>
           </div>
