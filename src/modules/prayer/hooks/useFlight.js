@@ -111,13 +111,17 @@ export function clockToElapsedTotal(depTime, arrTime, tz, now = new Date(), depT
     arrMs = depMs + durMin * 60_000
   } else if (tz === 'local' && depTzId && destTzId) {
     // Timezone-aware: dep in depTzId, arr in destTzId.
-    // Anchor each to its OWN current local calendar date — using the device's
-    // UTC date here would misfire whenever the dep/arr tz's calendar day has
+    // Anchor dep to its OWN current local calendar date — using the device's
+    // UTC date here would misfire whenever the dep tz's calendar day has
     // already rolled over relative to UTC (e.g. UTC+8 mornings), throwing the
     // elapsed-time calculation off by a full day.
     depMs = localTzToUtcMs(localDateStr(depTzId, now), Math.floor(dM / 60), dM % 60, depTzId)
     if (depMs > nowMs) depMs -= 86_400_000
-    arrMs = localTzToUtcMs(localDateStr(destTzId, now), Math.floor(aM / 60), aM % 60, destTzId)
+    // Anchor arr to the DEPARTURE INSTANT's calendar date in destTzId, not to
+    // "today" — anchoring both ends independently to "today" let them land on
+    // different days whenever only one side needed its rollback applied,
+    // inflating total flight time by up to 24h.
+    arrMs = localTzToUtcMs(localDateStr(destTzId, new Date(depMs)), Math.floor(aM / 60), aM % 60, destTzId)
     if (arrMs <= depMs) arrMs += 86_400_000
   } else {
     // Fallback: device local time (original behaviour, no tz data)
@@ -174,9 +178,9 @@ export function useFlight() {
 
     // Local mode with tz data
     if (depAirport?.tz && destAirport?.tz) {
-      const todayStr = new Date().toISOString().slice(0, 10)
-      const depMs = localTzToUtcMs(todayStr, Math.floor(dM / 60), dM % 60, depAirport.tz)
-      let arrMs   = localTzToUtcMs(todayStr, Math.floor(aM / 60), aM % 60, destAirport.tz)
+      const now = new Date()
+      const depMs = localTzToUtcMs(localDateStr(depAirport.tz, now), Math.floor(dM / 60), dM % 60, depAirport.tz)
+      let arrMs   = localTzToUtcMs(localDateStr(destAirport.tz, new Date(depMs)), Math.floor(aM / 60), aM % 60, destAirport.tz)
       if (arrMs <= depMs) arrMs += 86_400_000
       const totalHrs = (arrMs - depMs) / 3_600_000
       if (totalHrs <= 0) return null
