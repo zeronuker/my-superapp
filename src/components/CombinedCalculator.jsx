@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
+import { TabIcon } from './TabIcon'
 import NormalCalculator from './NormalCalculator'
 import ScientificCalculator from './ScientificCalculator'
 import TimeCalculator from './TimeCalculator'
@@ -7,10 +8,10 @@ import Converter from './Converter'
 import ResetButton from './ResetButton'
 
 const MODES = [
-  { id: 'basic',      label: 'BASIC' },
-  { id: 'scientific', label: 'SCIENTIFIC' },
-  { id: 'time',       label: 'TIME' },
-  { id: 'convert',    label: 'CONVERT' },
+  { id: 'basic',      label: 'BASIC',      icon: '🔢' },
+  { id: 'scientific', label: 'SCIENTIFIC', icon: '🔬' },
+  { id: 'time',       label: 'TIME',       icon: '⏱️' },
+  { id: 'convert',    label: 'CONVERT',    icon: '🔄' },
 ]
 
 export default function CombinedCalculator() {
@@ -42,7 +43,7 @@ export default function CombinedCalculator() {
           padding: 3,
           gap: 3,
         }}>
-          {MODES.map(({ id, label }) => (
+          {MODES.map(({ id, label, icon }) => (
             <button
               key={id}
               onClick={() => setMode(id)}
@@ -58,8 +59,12 @@ export default function CombinedCalculator() {
                 background: mode === id ? 'var(--cp-accdim)' : 'transparent',
                 color: mode === id ? 'var(--cp-acc)' : 'var(--cp-dim)',
                 transition: 'all 0.12s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
+              <TabIcon id={id} emoji={icon} size={14} />
               {label}
             </button>
           ))}
