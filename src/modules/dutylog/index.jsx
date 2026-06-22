@@ -14,7 +14,7 @@ export default function DutyLogModule() {
 
   const editing = logs.find(l => l.id === editingId)
 
-  // If the log being edited disappears (deleted or Reset All), fall back to the list.
+  // If the log being edited disappears (e.g. deleted), fall back to the list.
   useEffect(() => {
     if (editingId && !editing) setEditingId(null)
   }, [editingId, editing])

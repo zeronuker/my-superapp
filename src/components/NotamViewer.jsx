@@ -169,9 +169,8 @@ function LocationSection({ target, all, shown, collapsed, onToggle }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function NotamViewer() {
-  const { sortMode, resetCount } = useCalculatorStore(s => ({
+  const { sortMode } = useCalculatorStore(s => ({
     sortMode: s.settings.notamSort || 'relevance',
-    resetCount: s.resetCount,
   }))
 
   const [cache]        = useState(loadCache)
@@ -211,10 +210,7 @@ export default function NotamViewer() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
-  const prevReset = useRef(resetCount)
-  useEffect(() => {
-    if (resetCount === prevReset.current) return
-    prevReset.current = resetCount
+  const handleReset = () => {
     setDep(''); setArr('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(0)
@@ -223,7 +219,8 @@ export default function NotamViewer() {
     setNotams(null)
     setError('')
     setCollapsedMap({})
-  }, [resetCount])
+    try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
+  }
 
   // ── Ordered, deduped target list (role-tagged) ──
   const buildTargets = () => {
@@ -352,7 +349,16 @@ export default function NotamViewer() {
             onChange={e => setDep(upper(e.target.value))}
             onKeyDown={e => e.key === 'Enter' && handleFetch()} />
         </div>
-        <div style={{ color: 'var(--cp-acc)', fontSize: 20, paddingBottom: 9, flexShrink: 0, fontFamily: T.mono }}>✈</div>
+        <button
+          onClick={() => { setDep(arr); setArr(dep) }}
+          title="Swap departure and arrival"
+          aria-label="Swap departure and arrival"
+          style={{
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: 'var(--cp-acc)', fontSize: 20, paddingBottom: 9, flexShrink: 0,
+            fontFamily: T.mono, lineHeight: 1,
+          }}
+        >⇄</button>
         <div style={{ flex: 1 }}>
           <div className="cp-label" style={{ marginBottom: 4 }}>ARRIVAL</div>
           <input className="cp-input" style={monoInput} placeholder="e.g. RJBB" value={arr} maxLength={4}
@@ -445,14 +451,20 @@ export default function NotamViewer() {
           border: '1px solid rgba(251,146,60,0.25)', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>⚠ {error}</div>
       )}
 
-      {/* ── Fetch ── */}
-      <button onClick={handleFetch} disabled={loading || !targets.length} style={{
-        width: '100%', padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
-        border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)', borderRadius: 6,
-        cursor: targets.length ? 'pointer' : 'default', fontFamily: T.mono, fontSize: 10,
-        letterSpacing: '0.16em', color: T.acc, marginBottom: 20, opacity: targets.length ? 1 : 0.5 }}>
-        {loading ? '⊙ FETCHING NOTAMs…' : '⊕ FETCH NOTAMs'}
-      </button>
+      {/* ── Fetch / Reset ── */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <button onClick={handleFetch} disabled={loading || !targets.length} style={{
+          flex: 1, padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
+          border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)', borderRadius: 6,
+          cursor: targets.length ? 'pointer' : 'default', fontFamily: T.mono, fontSize: 10,
+          letterSpacing: '0.16em', color: T.acc, opacity: targets.length ? 1 : 0.5 }}>
+          {loading ? '⊙ FETCHING NOTAMs…' : '⊕ FETCH NOTAMs'}
+        </button>
+        <button onClick={handleReset} className="cp-btn cp-btn-danger"
+          style={{ padding: '0 16px', letterSpacing: '0.15em' }}>
+          ↺ RESET
+        </button>
+      </div>
 
       {/* ── Results ── */}
       {notams && (

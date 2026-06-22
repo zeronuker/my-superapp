@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import usePrayerStore from '../modules/prayer/store/prayerStore'
 
 export const DEFAULT_SETTINGS = {
   fontScale:      'normal',   // 'compact' | 'normal' | 'large' | 'cockpit'
@@ -20,7 +19,6 @@ export const DEFAULT_SETTINGS = {
   iconSet:        'classic',  // 'classic' (emoji) | image set id from ICON_SETS
   clockFormat:    '24hr',     // '24hr' | '12hr' — global, applies to all clocks
   rememberLastTab:true,       // reopen last-used tool on app restart
-  confirmReset:   true,       // confirm before the header RESET ALL
   dashboardWidgets: { utc: true, prayer: true, metar: true },
   units: {                    // stored preference for future calculators
     temp:       'c',          // 'c' | 'f'
@@ -87,9 +85,6 @@ export const useCalculatorStore = create((set) => ({
   // ── Settings ────────────────────────────────────────────────────────────
   settings: loadSettings(),
 
-  // resetCount increments on every resetAll so components can react
-  resetCount: 0,
-
   // ── Actions ─────────────────────────────────────────────────────────────
   setEDTOAircraft:   (aircraft)  => set(s => ({ edto: { ...s.edto, aircraft, variant: null } })),
   setEDTOVariant:    (variant)   => set(s => ({ edto: { ...s.edto, variant } })),
@@ -129,33 +124,4 @@ export const useCalculatorStore = create((set) => ({
     try { localStorage.setItem('cb-settings', JSON.stringify(next)) } catch (_) {}
     return { settings: next }
   }),
-
-  resetAll: () => {
-    try { localStorage.removeItem('cb-metar-cache') } catch (_) {}
-    try { localStorage.removeItem('cb-notam-cache') } catch (_) {}
-    try { localStorage.removeItem('cb-worldtime') } catch (_) {}
-    try { usePrayerStore.getState().resetFlightInputs() } catch (_) {}
-    set(s => ({
-      edto: {
-        aircraft: 'b737-8', variant: 'leap-1b25', weight: '',
-        isaDeviation: '', antiIce: 'none',
-        longRangeCruiseAlt: null, kias310Alt: null,
-      },
-      normal:     { display: '0', previousValue: 0, operation: null, expression: '', clearNext: false },
-      scientific: { display: '0' },
-      time: {
-        digits: '', multiplier: '', prevMinutes: null, operation: null,
-        isMultiplierMode: false, expression: '', result: null, justCalculated: false,
-      },
-      currency:      { amount: '', fromCurrency: 'USD', toCurrency: 'EUR', rate: 1.0, result: '' },
-      interpolation: {
-        zValues: [''],
-        rows: [{ x: '', ys: [''] }, { x: '', ys: [''] }, { x: '', ys: [''] }],
-        lookupX: '', lookupZ: '', result: '',
-      },
-      // Note: activeCalculator is deliberately left unchanged — Reset All clears
-      // calculator data but should not navigate the user away from their tab.
-      resetCount: s.resetCount + 1,
-    }))
-  },
 }))

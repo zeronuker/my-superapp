@@ -157,7 +157,7 @@ export function clockToElapsedTotal(depTime, arrTime, tz, now = new Date(), depT
  * Manages flight mode state, offline detection, and calculation.
  */
 export function useFlight() {
-  const { flightInputs, setFlightInputs, settings } = usePrayerStore()
+  const { flightInputs, setFlightInputs, resetFlightInputs, settings } = usePrayerStore()
   const { dep, dest, mode = 'duration', elapsedHours, totalHours,
           depTime, arrTime, timeZone = 'utc', altitudeFt, headingDeg } = flightInputs
 
@@ -288,9 +288,17 @@ export function useFlight() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [calculate, dep, dest])
 
+  const resetInputs = () => {
+    resetFlightInputs()
+    setResult(null)
+    setError(null)
+    setCalculatedKey(null)
+  }
+
   return {
     inputs:       flightInputs,
     setInputs:    setFlightInputs,
+    resetInputs,
     depAirport,
     destAirport,
     isOffline,

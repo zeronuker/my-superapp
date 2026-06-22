@@ -50,9 +50,8 @@ function saveCache(data) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function METARTAFCalculator() {
-  const { settings, resetCount } = useCalculatorStore(s => ({
-    settings:   s.settings,
-    resetCount: s.resetCount,
+  const { settings } = useCalculatorStore(s => ({
+    settings: s.settings,
   }))
 
   // Initialise state from cache (synchronous read — no flash)
@@ -97,11 +96,8 @@ export default function METARTAFCalculator() {
     return () => clearInterval(t)
   }, [isOffline])
 
-  // ── React to Reset All ─────────────────────────────────────────────────
-  const prevReset = useRef(resetCount)
-  useEffect(() => {
-    if (resetCount === prevReset.current) return
-    prevReset.current = resetCount
+  // ── Reset this tab ──────────────────────────────────────────────────────
+  const handleReset = () => {
     setDep(''); setArr('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(0)
@@ -109,7 +105,8 @@ export default function METARTAFCalculator() {
     setHours(settings.defaultHistory)
     setResults(null)
     setFetchedAt(null)
-  }, [resetCount, settings.defaultHistory])
+    try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
+  }
 
   // ── Sync hours when defaultHistory setting changes (e.g. after import) ──
   const prevDefaultHistory = useRef(settings.defaultHistory)
@@ -251,8 +248,16 @@ export default function METARTAFCalculator() {
             onKeyDown={e => e.key === 'Enter' && handleFetch()} />
         </div>
 
-        <div style={{ color: 'var(--cp-acc)', fontSize: 20, paddingBottom: 9, flexShrink: 0,
-          fontFamily: 'var(--cb-font-mono)' }}>✈</div>
+        <button
+          onClick={() => { setDep(arr); setArr(dep) }}
+          title="Swap departure and arrival"
+          aria-label="Swap departure and arrival"
+          style={{
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: 'var(--cp-acc)', fontSize: 20, paddingBottom: 9, flexShrink: 0,
+            fontFamily: 'var(--cb-font-mono)', lineHeight: 1,
+          }}
+        >⇄</button>
 
         <div style={{ flex: 1 }}>
           <div className="cp-label" style={{ marginBottom: 4 }}>ARRIVAL</div>
@@ -322,10 +327,14 @@ export default function METARTAFCalculator() {
           </span>
         )}
 
+        <button className="cp-btn cp-btn-danger" onClick={handleReset}
+          style={{ marginLeft: 'auto', letterSpacing: '0.15em' }}>
+          ↺ RESET
+        </button>
+
         <button className="cp-btn" onClick={handleFetch}
           disabled={!hasInput || loading}
           style={{
-            marginLeft: 'auto',
             borderColor: hasInput && !loading ? 'var(--cp-acc)' : undefined,
             color:       hasInput && !loading ? 'var(--cp-acc)' : undefined,
             opacity: loading ? 0.6 : 1,

@@ -193,7 +193,6 @@ function SectionHeader({ title }) {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function WorldTimeCalculator() {
-  const resetCount = useCalculatorStore(s => s.resetCount)
   // Global clock format (set in Settings → Appearance)
   const fmt = useCalculatorStore(s => s.settings.clockFormat || '24hr')
 
@@ -214,15 +213,6 @@ export default function WorldTimeCalculator() {
   useEffect(() => {
     if (showAdd) searchRef.current?.focus()
   }, [showAdd])
-
-  // Reset All
-  const prevReset = useRef(resetCount)
-  useEffect(() => {
-    if (resetCount === prevReset.current) return
-    prevReset.current = resetCount
-    setZones([]); setSearch(''); setShowAdd(false)
-    saveCache({ zones: [] })
-  }, [resetCount])
 
   // Local timezone (stable, detected once)
   const localTz    = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])

@@ -77,6 +77,15 @@ export default function CurrencyCalculator() {
   const [fetchTrigger, setFetchTrigger] = useState(0)
   const calcRef = useRef(null)
 
+  const handleReset = () => {
+    setCurrencyValues('', 'USD', 'EUR')
+    setCurrencyResult(1.0, '')
+    setRateSource(null)
+    setRateDate(null)
+    setRateFetchedAt(null)
+    setFetchedRate(1)
+  }
+
   // ── Re-fetch live rate when connectivity is restored ───────────────────
   useEffect(() => {
     const handleOnline = () => setFetchTrigger(t => t + 1)
@@ -187,6 +196,11 @@ export default function CurrencyCalculator() {
 
   return (
     <div style={{ maxWidth: 400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button onClick={handleReset} className="cp-btn cp-btn-danger" style={{ letterSpacing: '0.15em' }}>
+          ↺ RESET
+        </button>
+      </div>
       <div>
         <div className="cp-label" style={{ marginBottom: 6 }}>Amount</div>
         <input

@@ -4,7 +4,7 @@ import { useCalculatorStore } from './store/calculatorStore'
 import usePrayerStore from './modules/prayer/store/prayerStore'
 import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
-import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar, NAV_GROUPS } from './components/Navigation'
+import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar } from './components/Navigation'
 import BrandBanner from './BrandBanner'
 import { TabIcon, ICON_SETS } from './components/TabIcon'
 import { searchZones } from './data/worldTimezones'
@@ -107,18 +107,12 @@ function useMETARBadge() {
 export default function App() {
   const {
     activeCalculator, setActiveCalculator,
-    resetAll, resetCount, darkMode, setDarkMode,
+    darkMode, setDarkMode,
     settings, updateSettings, resetSettings, importSettings,
   } = useCalculatorStore()
 
   const isOnline = useOnlineStatus()
   useMETARBadge()
-
-  // Reset All — optionally gated behind a confirm dialog
-  const handleResetAll = React.useCallback(() => {
-    if (settings.confirmReset && !window.confirm('Reset all calculator data? This clears inputs and cached results across every tool.')) return
-    resetAll()
-  }, [settings.confirmReset, resetAll])
 
   // Changing defaultTab in Settings also navigates to that tab immediately
   const handleSettingsUpdate = (partial) => {
@@ -213,26 +207,6 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navStyle])
 
-  // ── Swipe gesture (grouped nav — swipe between tools in the active group) ──
-  const touchX = React.useRef(null)
-  const handleTouchStart = React.useCallback((e) => {
-    touchX.current = e.touches[0].clientX
-  }, [])
-  const handleTouchEnd = React.useCallback((e) => {
-    if (touchX.current === null) return
-    const dx = e.changedTouches[0].clientX - touchX.current
-    touchX.current = null
-    if (Math.abs(dx) < 60) return
-    const byId = Object.fromEntries(CALCULATORS.map(c => [c.id, c]))
-    const group = NAV_GROUPS.find(g => g.members.includes(activeCalculator))
-    if (!group) return
-    const members = group.members.filter(id => byId[id])
-    const idx = members.indexOf(activeCalculator)
-    if (idx < 0) return
-    const next = dx < 0 ? members[idx + 1] : members[idx - 1]
-    if (next) handleSelectCalculator(next)
-  }, [activeCalculator, handleSelectCalculator])
-
   // ── Sync darkMode → data-theme + persist ──────────────────────────────
   React.useEffect(() => {
     const theme = darkMode ? 'dark' : 'light'
@@ -299,7 +273,7 @@ export default function App() {
 
         {/* ── Header ──────────────────────────────────────────────────── */}
         <header style={{
-          background: 'linear-gradient(135deg, #0a1020 0%, #0d1428 60%, #0a1020 100%)',
+          background: 'linear-gradient(135deg, var(--cb-surface-0) 0%, var(--cb-surface-1) 60%, var(--cb-surface-0) 100%)',
           borderBottom: '1px solid var(--cp-border)',
           paddingTop: 'env(safe-area-inset-top)',
         }}>
@@ -308,33 +282,24 @@ export default function App() {
 
             <BrandBanner subtitle="PILOT UTILITY SUITE" />
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  className="cp-btn"
-                  style={{ fontSize: 15, padding: '6px 12px' }}
-                  title="Search tools"
-                  aria-label="Search tools"
-                >
-                  ⌕
-                </button>
-                <button
-                  onClick={() => setSettingsOpen(true)}
-                  className="cp-btn"
-                  style={{ fontSize: 15, padding: '6px 12px' }}
-                  title="Settings"
-                  aria-label="Open settings"
-                >
-                  ⚙
-                </button>
-              </div>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
               <button
-                onClick={handleResetAll}
-                className="cp-btn cp-btn-danger"
-                style={{ fontSize: 11, letterSpacing: '0.15em', alignSelf: 'stretch' }}
+                onClick={() => setSearchOpen(true)}
+                className="cp-btn"
+                style={{ fontSize: 15, padding: '6px 12px' }}
+                title="Search tools"
+                aria-label="Search tools"
               >
-                RESET ALL
+                ⌕
+              </button>
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="cp-btn"
+                style={{ fontSize: 15, padding: '6px 12px' }}
+                title="Settings"
+                aria-label="Open settings"
+              >
+                ⚙
               </button>
             </div>
           </div>
@@ -360,8 +325,6 @@ export default function App() {
             maxWidth: 960, margin: '0 auto',
             padding: landscapeCompact ? '12px 24px 24px' : '24px 24px 48px',
           }}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
         >
           {isLauncherHome ? (
             <>
@@ -376,7 +339,7 @@ export default function App() {
               padding: landscapeCompact ? '16px' : '24px',
               zoom: landscapeCompact ? 0.82 : undefined,
             }}>
-              <div key={`${activeCalculator}-${resetCount}`}
+              <div key={activeCalculator}
                 className="cp-calc-fade">
                 <ErrorBoundary name={currentCalc?.name} resetKey={activeCalculator}>
                   <Suspense fallback={<TabLoading />}>
@@ -1097,13 +1060,6 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
               <button className="cp-btn" onClick={() => fileRef.current?.click()}
                 style={{ flex: 1, padding: '8px 0', fontSize: 10 }}>⬆ IMPORT</button>
             </div>
-            <SettingsRow label="CONFIRM RESET ALL">
-              <SegmentedToggle
-                options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
-                value={settings.confirmReset !== false}
-                onChange={v => onUpdate({ confirmReset: v })}
-              />
-            </SettingsRow>
             <button className="cp-btn cp-btn-danger"
               onClick={() => { if (window.confirm('Reset all settings to defaults? Your calculator data is kept.')) onResetSettings() }}
               style={{ width: '100%', padding: '8px 0', fontSize: 10 }}>

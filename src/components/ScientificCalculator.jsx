@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
 import { evaluate } from '../utils/mathEval'
-import { convert, UNIT_CATEGORIES } from '../utils/units'
 
 const BTN = {
   base: { fontFamily: 'var(--cb-font-mono)', fontWeight: 700, border: '1px solid var(--cp-border)',
@@ -32,11 +31,6 @@ function Btn({ style, children, onClick, colSpan, hapticType = 'light' }) {
 }
 
 const fmt = v => (!isFinite(v) || isNaN(v)) ? 'Error' : parseFloat(v.toPrecision(10)).toString()
-const selStyle = {
-  background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)', borderRadius: 6,
-  color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)', fontSize: 13, padding: '9px 10px',
-  outline: 'none', cursor: 'pointer', width: '100%',
-}
 
 export default function ScientificCalculator() {
   const { scientific, setScientificDisplay } = useCalculatorStore()
@@ -45,7 +39,6 @@ export default function ScientificCalculator() {
   const [angle, setAngle] = useState('deg')   // 'deg' | 'rad'
   const [mem, setMem]     = useState(0)
   const [ans, setAns]     = useState(0)
-  const [mode, setMode]   = useState('calc')  // 'calc' | 'convert'
 
   const terminal = d === '0' || d === 'Error'
   const insert = s => setScientificDisplay(terminal ? s : d + s)
@@ -80,25 +73,8 @@ export default function ScientificCalculator() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // ── CONVERT mode ──
-  if (mode === 'convert') {
-    return <Converter onBack={() => setMode('calc')} />
-  }
-
   return (
     <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'clamp(5px, 0.8vh, 9px)' }}>
-
-      {/* mode toggle */}
-      <div style={{ display: 'flex', gap: 6 }}>
-        {[['calc', 'CALC'], ['convert', 'CONVERT']].map(([id, label]) => (
-          <button key={id} onClick={() => setMode(id)} style={{
-            flex: 1, fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.14em',
-            padding: '8px 0', borderRadius: 6, cursor: 'pointer',
-            border: `1px solid ${mode === id ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
-            background: mode === id ? 'var(--cp-accdim)' : 'transparent',
-            color: mode === id ? 'var(--cp-acc)' : 'var(--cp-dim)' }}>{label}</button>
-        ))}
-      </div>
 
       {/* display */}
       <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
@@ -166,89 +142,6 @@ export default function ScientificCalculator() {
       </div>
 
       <Btn style={{ ...BTN.eq, ...BTN.base, padding: 'clamp(12px, 1.8vh, 20px) 0' }} onClick={equals} hapticType="heavy">=</Btn>
-    </div>
-  )
-}
-
-// ── Unit converter ────────────────────────────────────────────────────────────
-function Converter({ onBack }) {
-  const cats = Object.keys(UNIT_CATEGORIES)
-  const [cat, setCat] = useState('length')
-  const units = Object.keys(UNIT_CATEGORIES[cat].units)
-  const [from, setFrom] = useState(units[0])
-  const [to, setTo]     = useState(units[1] || units[0])
-  const [val, setVal]   = useState('')
-
-  const pickCat = (c) => {
-    const u = Object.keys(UNIT_CATEGORIES[c].units)
-    setCat(c); setFrom(u[0]); setTo(u[1] || u[0])
-  }
-  const out = convert(cat, val, from, to)
-  const swap = () => { setFrom(to); setTo(from) }
-
-  return (
-    <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', gap: 6 }}>
-        {[['calc', 'CALC'], ['convert', 'CONVERT']].map(([id, label]) => (
-          <button key={id} onClick={() => id === 'calc' && onBack()} style={{
-            flex: 1, fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.14em',
-            padding: '8px 0', borderRadius: 6, cursor: 'pointer',
-            border: `1px solid ${id === 'convert' ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
-            background: id === 'convert' ? 'var(--cp-accdim)' : 'transparent',
-            color: id === 'convert' ? 'var(--cp-acc)' : 'var(--cp-dim)' }}>{label}</button>
-        ))}
-      </div>
-
-      {/* category */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cats.length}, 1fr)`, gap: 6 }}>
-        {cats.map(c => (
-          <button key={c} onClick={() => pickCat(c)} style={{
-            fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.08em', padding: '8px 0',
-            borderRadius: 6, cursor: 'pointer',
-            border: `1px solid ${cat === c ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
-            background: cat === c ? 'var(--cp-accdim)' : 'transparent',
-            color: cat === c ? 'var(--cp-acc)' : 'var(--cp-dim)' }}>
-            {UNIT_CATEGORIES[c].label.toUpperCase()}
-          </button>
-        ))}
-      </div>
-
-      {/* value */}
-      <div>
-        <div className="cp-label" style={{ marginBottom: 5 }}>VALUE</div>
-        <input className="cp-input" type="number" inputMode="decimal" value={val}
-          onChange={e => setVal(e.target.value)} placeholder="0"
-          style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 18 }} />
-      </div>
-
-      {/* from / to */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'end' }}>
-        <div>
-          <div className="cp-label" style={{ marginBottom: 5 }}>FROM</div>
-          <select value={from} onChange={e => setFrom(e.target.value)} style={selStyle}>
-            {units.map(u => <option key={u} value={u}>{u}</option>)}
-          </select>
-        </div>
-        <button onClick={swap} style={{ background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
-          borderRadius: 6, color: 'var(--cp-acc)', fontSize: 16, cursor: 'pointer', padding: '9px 12px' }}>⇄</button>
-        <div>
-          <div className="cp-label" style={{ marginBottom: 5 }}>TO</div>
-          <select value={to} onChange={e => setTo(e.target.value)} style={selStyle}>
-            {units.map(u => <option key={u} value={u}>{u}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* result */}
-      <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)',
-        borderLeft: `3px solid ${out != null ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
-        borderRadius: 6, padding: '16px 18px' }}>
-        <div className="cp-label" style={{ marginBottom: 6 }}>RESULT</div>
-        <div style={{ fontFamily: 'var(--cb-font-mono)', fontWeight: 700, fontSize: 28,
-          color: out != null ? 'var(--cp-acc)' : 'var(--cp-dim)', lineHeight: 1 }}>
-          {out != null ? `${parseFloat(out.toPrecision(8))} ${to}` : '—'}
-        </div>
-      </div>
     </div>
   )
 }

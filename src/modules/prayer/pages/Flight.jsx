@@ -25,11 +25,22 @@ const METHOD_SHORT = {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// Degrees + decimal minutes (e.g. "N 12° 20.74'"). Rounding the minutes can
+// carry to 60.00 right at a whole degree, so bump the degree in that case.
+function toDegMin(value) {
+  const abs = Math.abs(value)
+  let deg = Math.floor(abs)
+  let min = Math.round((abs - deg) * 60 * 100) / 100
+  if (min >= 60) { min -= 60; deg += 1 }
+  return { deg, min }
+}
 function latStr(lat) {
-  return `${Math.abs(lat).toFixed(2)}° ${lat >= 0 ? 'N' : 'S'}`
+  const { deg, min } = toDegMin(lat)
+  return `${lat >= 0 ? 'N' : 'S'} ${String(deg).padStart(2, '0')}° ${min.toFixed(2)}'`
 }
 function lngStr(lng) {
-  return `${Math.abs(lng).toFixed(2)}° ${lng >= 0 ? 'E' : 'W'}`
+  const { deg, min } = toDegMin(lng)
+  return `${lng >= 0 ? 'E' : 'W'} ${String(deg).padStart(3, '0')}° ${min.toFixed(2)}'`
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -399,6 +410,7 @@ function FlightTimeBanner({ clockInfo, dep, dest, depTime, arrTime, timeZone }) 
 export default function FlightPage({ settings }) {
   const {
     inputs, setInputs,
+    resetInputs,
     depAirport, destAirport,
     isOffline,
     clockInfo,
@@ -518,6 +530,19 @@ export default function FlightPage({ settings }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+      {/* Reset */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button
+          onClick={resetInputs}
+          style={{
+            fontFamily: T.mono, fontSize: 9, letterSpacing: '0.14em',
+            color: T.orange, background: 'rgba(251,146,60,0.08)',
+            border: '1px solid rgba(251,146,60,0.3)', borderRadius: 6,
+            padding: '7px 14px', cursor: 'pointer',
+          }}
+        >↺ RESET</button>
+      </div>
 
       {/* Offline / manual detection banner */}
       <div style={{

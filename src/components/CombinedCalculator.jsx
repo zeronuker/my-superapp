@@ -1,21 +1,34 @@
 import React, { useState } from 'react'
+import { useCalculatorStore } from '../store/calculatorStore'
 import NormalCalculator from './NormalCalculator'
 import ScientificCalculator from './ScientificCalculator'
 import TimeCalculator from './TimeCalculator'
+import Converter from './Converter'
 
 const MODES = [
   { id: 'basic',      label: 'BASIC' },
   { id: 'scientific', label: 'SCIENTIFIC' },
   { id: 'time',       label: 'TIME' },
+  { id: 'convert',    label: 'CONVERT' },
 ]
 
 export default function CombinedCalculator() {
   const [mode, setMode] = useState('basic')
+  const { setNormal, setScientificDisplay, setTime } = useCalculatorStore()
+
+  const handleReset = () => {
+    setNormal({ display: '0', previousValue: 0, operation: null, expression: '', clearNext: false })
+    setScientificDisplay('0')
+    setTime({
+      digits: '', multiplier: '', prevMinutes: null, operation: null,
+      isMultiplierMode: false, expression: '', result: null, justCalculated: false,
+    })
+  }
 
   return (
     <div>
       {/* ── Mode toggle ─────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 'clamp(10px, 1.5vh, 20px)' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 'clamp(10px, 1.5vh, 20px)' }}>
         <div style={{
           display: 'inline-flex',
           background: 'var(--cp-bg3)',
@@ -46,12 +59,16 @@ export default function CombinedCalculator() {
             </button>
           ))}
         </div>
+        <button onClick={handleReset} className="cp-btn cp-btn-danger" style={{ letterSpacing: '0.15em' }}>
+          ↺ RESET
+        </button>
       </div>
 
       {/* ── Active calculator ───────────────────────────────────────────── */}
       {mode === 'basic'      && <NormalCalculator />}
       {mode === 'scientific' && <ScientificCalculator />}
       {mode === 'time'       && <TimeCalculator />}
+      {mode === 'convert'    && <Converter />}
     </div>
   )
 }

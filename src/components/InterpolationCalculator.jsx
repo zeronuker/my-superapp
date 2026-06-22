@@ -109,8 +109,21 @@ export default function InterpolationCalculator() {
   const hasEnoughData = rows.filter(r => r.x !== '').length >= 2 && zValues.filter(z => z !== '').length >= 1
   const hasLookup = lookupX !== '' && lookupZ !== ''
 
+  const handleReset = () => setInterpolation({
+    zValues: [''],
+    rows: [{ x: '', ys: [''] }, { x: '', ys: [''] }, { x: '', ys: [''] }],
+    lookupX: '', lookupZ: '', result: '',
+  })
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* ── Reset ── */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button onClick={handleReset} className="cp-btn cp-btn-danger" style={{ letterSpacing: '0.15em' }}>
+          ↺ RESET
+        </button>
+      </div>
 
       {/* ── How-to banner ── */}
       <div style={{

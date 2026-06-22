@@ -34,6 +34,18 @@ export default function EDTOCalculator() {
   const [weightWarning, setWeightWarning] = useState('')
   const [calcDetails, setCalcDetails] = useState(null)
 
+  const handleReset = () => {
+    setEDTOAircraft('b737-8')
+    setEDTOVariant('leap-1b25')
+    setEDTOWeight('')
+    setEDTOIsaDeviation('')
+    setEDTOAntiIce('none')
+    setEDTOResults(null, null)
+    setWeightDisplay('')
+    setWeightWarning('')
+    setCalcDetails(null)
+  }
+
   const aircraft = lookupTables[edto.aircraft]
   const variants = aircraft ? Object.entries(aircraft.variants) : []
   const currentVariant = aircraft && edto.variant ? aircraft.variants[edto.variant] : null
@@ -172,6 +184,13 @@ export default function EDTOCalculator() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+      {/* ── Reset ── */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button onClick={handleReset} className="cp-btn cp-btn-danger" style={{ letterSpacing: '0.15em' }}>
+          ↺ RESET
+        </button>
+      </div>
 
       {/* ── Disclaimer banner ──────────────────────────────────────────────── */}
       <div style={{

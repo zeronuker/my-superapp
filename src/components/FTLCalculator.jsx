@@ -301,6 +301,27 @@ export default function FTLCalculator() {
   const [picDisc,        setPicDisc]        = useState(false)
   const [picExtStr,      setPicExtStr]      = useState('')
 
+  const handleReset = () => {
+    setAircraft('aeroplane')
+    setCrewCat('flight')
+    setCrewType('2crew')
+    setAcclimatised(true)
+    setReportTime('')
+    setSectors(1)
+    setPrecedingRest('')
+    setLongRange(false)
+    setLongestSector('')
+    setStandby(false)
+    setStandbyStart('')
+    setIfr(false)
+    setIfrType('bunk')
+    setIfrRest('')
+    setSplitDuty(false)
+    setSplitRest('')
+    setPicDisc(false)
+    setPicExtStr('')
+  }
+
   const effectiveCrew  = crewCat === 'cabin' ? '2crew' : crewType
   const needsTableB    = effectiveCrew === '2crew' && !acclimatised
   const maxSectors     = 8
@@ -366,6 +387,9 @@ export default function FTLCalculator() {
         <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', whiteSpace: 'nowrap', letterSpacing: '0.1em' }}>
           CAD 1901 · CAAM MALAYSIA
         </span>
+        <button onClick={handleReset} className="cp-btn cp-btn-danger" style={{ letterSpacing: '0.15em', flexShrink: 0 }}>
+          ↺ RESET
+        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, alignItems: 'start' }}>
