@@ -24,14 +24,29 @@ function hardcodedRates(base) {
   return out
 }
 
-// ── Rate cache (per base currency) ───────────────────────────────────────────
-function loadRatesCache(base) {
-  try { const r = localStorage.getItem(`cb-rates-${base}`); return r ? JSON.parse(r) : null }
+// ── Rate cache ────────────────────────────────────────────────────────────
+// A single cached rate table, anchored to whichever base was last fetched
+// live. Currency rates are transitive — rate(B→X) = rate(A→X) / rate(A→B) —
+// so this one table lets us derive accurate offline conversions for ANY
+// base the user switches to, not just the one that happened to be cached.
+const ANCHOR_KEY = 'cb-rates-anchor'
+function loadAnchorCache() {
+  try { const r = localStorage.getItem(ANCHOR_KEY); return r ? JSON.parse(r) : null }
   catch { return null }
 }
-function saveRatesCache(base, rates, date) {
-  try { localStorage.setItem(`cb-rates-${base}`, JSON.stringify({ rates, date, fetchedAt: Date.now() })) }
+function saveAnchorCache(anchor, rates, date) {
+  try { localStorage.setItem(ANCHOR_KEY, JSON.stringify({ anchor, rates, date, fetchedAt: Date.now() })) }
   catch {}
+}
+function deriveRates(anchorCache, base) {
+  if (!anchorCache) return null
+  const { anchor, rates } = anchorCache
+  if (base === anchor) return rates
+  const baseRate = rates[base]
+  if (!baseRate) return null
+  const derived = {}
+  for (const [code, rate] of Object.entries(rates)) derived[code] = rate / baseRate
+  return derived
 }
 function formatCacheAge(fetchedAt) {
   if (!fetchedAt) return ''
@@ -139,32 +154,35 @@ export default function CurrencyCalculator() {
     return () => window.removeEventListener('online', handleOnline)
   }, [])
 
-  // Fetch once per base currency — the API returns rates for every currency at once.
+  // Fetch live rates for the current base, falling back to the anchor cache
+  // (derived cross-rates) when offline, and to the static table only if no
+  // anchor has ever been cached at all.
   useEffect(() => {
     let cancelled = false
     const doFetch = async () => {
-      const cached = loadRatesCache(base)
-      if (cached) {
-        setRateSource('cached'); setRateDate(cached.date); setRateFetchedAt(cached.fetchedAt); setRates(cached.rates)
+      const anchorCache = loadAnchorCache()
+      const derived = deriveRates(anchorCache, base)
+      if (derived) {
+        setRateSource('cached'); setRateDate(anchorCache.date); setRateFetchedAt(anchorCache.fetchedAt); setRates(derived)
       }
 
       if (!navigator.onLine) {
-        if (!cached) { setRateSource('offline'); setRateDate(null); setRateFetchedAt(null); setRates(hardcodedRates(base)) }
+        if (!derived) { setRateSource(anchorCache ? 'offline' : 'never-cached'); setRateDate(null); setRateFetchedAt(null); setRates(hardcodedRates(base)) }
         setLoading(false)
         return
       }
 
-      if (!cached) setLoading(true)
+      if (!derived) setLoading(true)
       try {
         const response = await fetch(`https://api.exchangerate-api.com/v4/latest/${base}`, { signal: AbortSignal.timeout(5000) })
         if (!response.ok) throw new Error('non-200')
         const data = await response.json()
         if (cancelled) return
-        saveRatesCache(base, data.rates, data.date)
+        saveAnchorCache(base, data.rates, data.date)
         setRateSource('live'); setRateDate(data.date || new Date().toISOString().split('T')[0]); setRateFetchedAt(null); setRates(data.rates)
       } catch {
         if (cancelled) return
-        if (!cached) { setRateSource('offline'); setRateDate(null); setRateFetchedAt(null); setRates(hardcodedRates(base)) }
+        if (!derived) { setRateSource(anchorCache ? 'offline' : 'never-cached'); setRateDate(null); setRateFetchedAt(null); setRates(hardcodedRates(base)) }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -291,17 +309,19 @@ export default function CurrencyCalculator() {
       {rateSource && !loading && (
         <div style={{
           background: 'var(--cp-bg3)',
-          border: `1px solid ${rateSource === 'offline' ? 'rgba(245,197,66,0.3)' : rateSource === 'cached' ? 'rgba(63,224,197,0.2)' : 'var(--cp-border2)'}`,
+          border: `1px solid ${rateSource === 'cached' ? 'rgba(63,224,197,0.2)' : rateSource === 'live' ? 'var(--cp-border2)' : 'rgba(245,197,66,0.3)'}`,
           borderRadius: 4, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4,
         }}>
-          <div style={{ fontSize: 10, color: rateSource === 'offline' ? 'var(--cp-yellow)' : rateSource === 'cached' ? 'var(--cp-acc)' : 'var(--cp-green)', letterSpacing: '0.15em', fontWeight: 700 }}>
-            {rateSource === 'live' ? '● LIVE RATE' : rateSource === 'cached' ? '● CACHED RATE' : '⚠ OFFLINE RATE'}
+          <div style={{ fontSize: 10, color: rateSource === 'cached' ? 'var(--cp-acc)' : rateSource === 'live' ? 'var(--cp-green)' : 'var(--cp-yellow)', letterSpacing: '0.15em', fontWeight: 700 }}>
+            {rateSource === 'live' ? '● LIVE RATE' : rateSource === 'cached' ? '● CACHED RATE' : rateSource === 'never-cached' ? '⚠ NO RATES CACHED YET' : '⚠ OFFLINE RATE'}
           </div>
           <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em', lineHeight: 1.6 }}>
             {rateSource === 'live' ? (
               <>Source: ExchangeRate-API (exchangerate-api.com)<br />Effective date: {rateDate} (UTC) · Rates updated daily</>
             ) : rateSource === 'cached' ? (
               <>Source: ExchangeRate-API (last downloaded {formatCacheAge(rateFetchedAt)})<br />Effective date: {rateDate} (UTC) · Connect to refresh</>
+            ) : rateSource === 'never-cached' ? (
+              <>Connect to the internet once to download accurate exchange rates.<br />Showing rough built-in estimates for major currencies only</>
             ) : (
               <>Source: Built-in fallback rates (no internet connection)<br />These rates are approximate and may not reflect current market values</>
             )}
