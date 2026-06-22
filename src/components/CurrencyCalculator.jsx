@@ -57,11 +57,27 @@ function formatCacheAge(fetchedAt) {
   return `${Math.floor(h / 24)}d ago`
 }
 
-function formatAmount(value, format) {
+function formatAmount(value, format, symbol) {
   const num = parseFloat(value)
   if (isNaN(num)) return '—'
   const locale = format === 'eu' ? 'de-DE' : 'en-US'
-  return num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const formatted = num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return symbol ? `${symbol}${formatted}` : formatted
+}
+
+// Derived from the browser's built-in ICU data (Intl), not a hand-maintained
+// table — works fully offline and covers every ISO 4217 code automatically.
+const symbolCache = {}
+function currencySymbol(code) {
+  if (code in symbolCache) return symbolCache[code]
+  let symbol = null
+  try {
+    const parts = new Intl.NumberFormat('en', { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' }).formatToParts(1)
+    symbol = parts.find(p => p.type === 'currency')?.value || null
+  } catch { symbol = null }
+  if (symbol && symbol.toUpperCase() === code) symbol = null // no distinct glyph — code would just repeat
+  symbolCache[code] = symbol
+  return symbol
 }
 function formatRate(rate, format) {
   const locale = format === 'eu' ? 'de-DE' : 'en-US'
@@ -244,6 +260,7 @@ export default function CurrencyCalculator() {
         >
           <FlagIcon code={base} />
           <span style={{ fontSize: 14, fontWeight: 700 }}>{base}</span>
+          {currencySymbol(base) && <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>{currencySymbol(base)}</span>}
           <span style={{ fontSize: 12, color: 'var(--cp-dim)', flex: 1 }}>{baseMeta?.name}</span>
           <span style={{ color: 'var(--cp-dim)' }}>▾</span>
         </button>
@@ -266,7 +283,8 @@ export default function CurrencyCalculator() {
         )}
         {list.map((code, i) => {
           const rate = rates[code]
-          const converted = (!isNaN(amountNum) && rate) ? formatAmount(amountNum * rate, settings.numberFormat) : '—'
+          const symbol = currencySymbol(code)
+          const converted = (!isNaN(amountNum) && rate) ? formatAmount(amountNum * rate, settings.numberFormat, symbol) : '—'
           const meta = CURRENCY_BY_CODE[code]
           return (
             <div
@@ -285,6 +303,7 @@ export default function CurrencyCalculator() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--cb-font-mono)' }}>{code}</span>
+                  {symbol && <span style={{ fontSize: 11, color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)' }}>{symbol}</span>}
                   <span style={{ fontSize: 10, color: 'var(--cp-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta?.name}</span>
                 </div>
                 {rate && (
@@ -348,6 +367,7 @@ export default function CurrencyCalculator() {
               >
                 <FlagIcon code={c.code} />
                 <span style={{ fontSize: 13, fontWeight: 700, width: 44 }}>{c.code}</span>
+                <span style={{ fontSize: 12, color: 'var(--cp-dim)', width: 20 }}>{currencySymbol(c.code)}</span>
                 <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>{c.name}</span>
               </button>
             ))}
@@ -379,6 +399,7 @@ export default function CurrencyCalculator() {
                   <input type="checkbox" checked={checked} onChange={() => toggleInList(c.code)} style={{ accentColor: 'var(--cp-acc)' }} />
                   <FlagIcon code={c.code} />
                   <span style={{ fontSize: 13, fontWeight: 700, width: 44, fontFamily: 'var(--cb-font-mono)' }}>{c.code}</span>
+                  <span style={{ fontSize: 12, color: 'var(--cp-dim)', width: 20 }}>{currencySymbol(c.code)}</span>
                   <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>{c.name}</span>
                 </label>
               )
