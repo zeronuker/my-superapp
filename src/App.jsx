@@ -43,7 +43,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.9'
+const APP_VERSION = 'v3.10'
 
 const ACCENT_SWATCHES = [
   { value: 'teal',   color: '#3FE0C5' },
@@ -1173,6 +1173,21 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.10', date: 'Jun 2026',
+    entries: [
+      { type: 'fix',  text: 'Header banner color now updates correctly in light mode' },
+      { type: 'fix',  text: 'Removed swipe gesture navigation (was triggering unintended tab changes)' },
+      { type: 'fix',  text: 'Flight prayer tab coordinates now shown in N/E degree-minute notation' },
+      { type: 'feat', text: 'Per-module RESET buttons (Calculator, METAR/TAF, NOTAM, Interpolation, EDTO, Currency, FTL, Flight prayer) replace the old global "Reset All", each confirming before clearing' },
+      { type: 'feat', text: 'Duty Log: past entries auto-group into collapsible year › month banners; current month and undated entries stay flat' },
+      { type: 'feat', text: 'Duty Log: disclaimer that logs are stored on-device only and are not synced' },
+      { type: 'feat', text: 'Calculator: new Volume, Area, Pressure, Time, and Angle conversion categories, plus a Fuel mass/volume converter with a density input' },
+      { type: 'feat', text: 'Calculator: unit converter moved out of Scientific mode into its own CONVERT mode' },
+      { type: 'feat', text: 'METAR/TAF and NOTAM: swap (⇄) button for departure/arrival fields' },
+      { type: 'fix',  text: 'Combined Calculator and FTL: RESET button no longer clips into the row below it' },
+    ],
+  },
   {
     version: 'v3.9', date: 'Jun 2026',
     entries: [
