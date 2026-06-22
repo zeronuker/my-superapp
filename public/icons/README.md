@@ -15,6 +15,16 @@ public/icons/<set>/
   prayer.{svg,png}
 ```
 
+In-tab sub-nav tabs also resolve icons by id the same way (Calculator's
+mode toggle, Qiblat & Solat's sub-nav):
+
+```
+public/icons/<set>/
+  basic.{svg,png}        scientific.{svg,png}      time.{svg,png}
+  convert.{svg,png}      times.{svg,png}           qiblat.{svg,png}
+  flight.{svg,png}
+```
+
 Grouped/launcher headers reuse a member's icon (calculator, edto, metartaf,
 ftl, prayer), so no extra group files are needed.
 

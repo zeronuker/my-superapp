@@ -12,11 +12,12 @@ import PrayerTimesPage         from './pages/PrayerTimes'
 import QiblaPage               from './pages/Qibla'
 import FlightPage              from './pages/Flight'
 import { T }                   from './components/tokens'
+import { TabIcon }             from '../../components/TabIcon'
 
 // ── Sub-nav ──────────────────────────────────────────────────────────────────
 function SubNav({ active, onChange }) {
   const tabs = [
-    { id: 'times',  label: 'SOLAT',  icon: '◷'  },
+    { id: 'times',  label: 'SOLAT',  icon: '🕐' },
     { id: 'qiblat', label: 'QIBLAT', icon: '🧭' },
     { id: 'flight', label: 'FLIGHT', icon: '✈️' },
   ]
@@ -43,7 +44,7 @@ function SubNav({ active, onChange }) {
               transition: 'all 0.12s',
               display: 'flex', alignItems: 'center', gap: 6,
             }}>
-              <span style={{ fontSize: 13 }}>{t.icon}</span>
+              <TabIcon id={t.id} emoji={t.icon} size={13} />
               {t.label}
             </button>
           )
