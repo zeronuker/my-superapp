@@ -29,6 +29,24 @@ export const DEFAULT_SETTINGS = {
   },
 }
 
+export const DEFAULT_CURRENCY_BASE = 'USD'
+export const DEFAULT_CURRENCY_LIST = ['EUR', 'GBP', 'JPY', 'AUD', 'AED', 'SGD', 'INR', 'CHF']
+
+function loadCurrencyPrefs() {
+  try {
+    const raw = localStorage.getItem('cb-currency-prefs')
+    if (!raw) return { base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST }
+    const parsed = JSON.parse(raw)
+    return {
+      base: parsed.base || DEFAULT_CURRENCY_BASE,
+      list: Array.isArray(parsed.list) && parsed.list.length ? parsed.list : DEFAULT_CURRENCY_LIST,
+    }
+  } catch (_) { return { base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST } }
+}
+function saveCurrencyPrefs(base, list) {
+  try { localStorage.setItem('cb-currency-prefs', JSON.stringify({ base, list })) } catch (_) {}
+}
+
 function loadSettings() {
   try {
     const s = localStorage.getItem('cb-settings')
@@ -62,7 +80,7 @@ export const useCalculatorStore = create((set) => ({
     digits: '', multiplier: '', prevMinutes: null, operation: null,
     isMultiplierMode: false, expression: '', result: null, justCalculated: false,
   },
-  currency:      { amount: '', fromCurrency: 'USD', toCurrency: 'EUR', rate: 1.0, result: '' },
+  currency:      { amount: '', ...loadCurrencyPrefs() },
   interpolation: {
     zValues: [''],
     rows: [{ x: '', ys: [''] }, { x: '', ys: [''] }, { x: '', ys: [''] }],
@@ -95,8 +113,20 @@ export const useCalculatorStore = create((set) => ({
   setNormal:         (partial)   => set(s => ({ normal: { ...s.normal, ...partial } })),
   setScientificDisplay: (d)      => set(s => ({ scientific: { ...s.scientific, display: d } })),
   setTime:           (partial)   => set(s => ({ time: { ...s.time, ...partial } })),
-  setCurrencyValues: (a, f, t)   => set(s => ({ currency: { ...s.currency, amount: a, fromCurrency: f, toCurrency: t } })),
-  setCurrencyResult: (r, res)    => set(s => ({ currency: { ...s.currency, rate: r, result: res } })),
+  setCurrencyAmount: (amount)    => set(s => ({ currency: { ...s.currency, amount } })),
+  setCurrencyBase:   (base)      => set(s => {
+    const list = s.currency.list.filter(c => c !== base) // base can't also appear in the output list
+    saveCurrencyPrefs(base, list)
+    return { currency: { ...s.currency, base, list } }
+  }),
+  setCurrencyList:   (list)      => set(s => {
+    saveCurrencyPrefs(s.currency.base, list)
+    return { currency: { ...s.currency, list } }
+  }),
+  resetCurrency:     ()          => set(() => {
+    saveCurrencyPrefs(DEFAULT_CURRENCY_BASE, DEFAULT_CURRENCY_LIST)
+    return { currency: { amount: '', base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST } }
+  }),
   setInterpolation:  (partial)   => set(s => ({ interpolation: { ...s.interpolation, ...partial } })),
   toggleDarkMode:    ()          => set(s => ({ darkMode: !s.darkMode })),
   setDarkMode:       (v)         => set({ darkMode: v }),

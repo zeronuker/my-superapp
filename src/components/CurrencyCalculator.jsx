@@ -1,18 +1,13 @@
-import React, { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import * as Flags from 'country-flag-icons/react/3x2'
+import { CURRENCIES, CURRENCY_BY_CODE } from '../data/currencies.js'
 import { useCalculatorStore } from '../store/calculatorStore'
 import ResetButton from './ResetButton'
 
-const REGIONS = [
-  { label: 'Americas',              codes: ['USD','CAD','MXN'] },
-  { label: 'Europe',                codes: ['EUR','GBP','CHF','SEK','NOK'] },
-  { label: 'Middle East',           codes: ['AED','SAR','QAR','KWD','BHD','OMR'] },
-  { label: 'South Asia',            codes: ['INR','PKR','BDT'] },
-  { label: 'East & Southeast Asia', codes: ['CNY','JPY','KRW','TWD','HKD','SGD','THB','MYR','IDR','PHP','VND'] },
-  { label: 'Oceania',               codes: ['AUD','NZD'] },
-]
-
-// Last-resort hardcoded rates (USD base, circa 2024) — used only when no
-// cached live rates exist AND the device is offline.
+// Last-resort hardcoded rates (USD base, circa 2024) — used only when a base
+// currency has never been fetched AND the device is offline. Once a base has
+// been fetched once, its full rate set is cached (see cb-rates-${base}) and
+// used instead, regardless of which currencies are in the visible list.
 const USD_RATES = {
   USD:1.000, CAD:1.360, MXN:17.05,
   EUR:0.920, GBP:0.730, CHF:0.880, SEK:10.48, NOK:10.48,
@@ -22,11 +17,11 @@ const USD_RATES = {
   SGD:1.340, THB:36.00, MYR:4.700, IDR:16000, PHP:56.00, VND:25000,
   AUD:1.520, NZD:1.650,
 }
-
-function hardcodedRate(from, to) {
-  const fromUSD = USD_RATES[from] || 1
-  const toUSD   = USD_RATES[to]   || 1
-  return toUSD / fromUSD
+function hardcodedRates(base) {
+  const baseUSD = USD_RATES[base] || 1
+  const out = {}
+  for (const [code, usd] of Object.entries(USD_RATES)) out[code] = usd / baseUSD
+  return out
 }
 
 // ── Rate cache (per base currency) ───────────────────────────────────────────
@@ -38,12 +33,6 @@ function saveRatesCache(base, rates, date) {
   try { localStorage.setItem(`cb-rates-${base}`, JSON.stringify({ rates, date, fetchedAt: Date.now() })) }
   catch {}
 }
-function getCachedRate(from, to) {
-  const c = loadRatesCache(from)
-  const rate = c?.rates?.[to]
-  if (!rate) return null
-  return { rate, date: c.date, fetchedAt: c.fetchedAt }
-}
 function formatCacheAge(fetchedAt) {
   if (!fetchedAt) return ''
   const mins = Math.floor((Date.now() - fetchedAt) / 60_000)
@@ -53,38 +42,94 @@ function formatCacheAge(fetchedAt) {
   return `${Math.floor(h / 24)}d ago`
 }
 
-function formatResult(value, format) {
+function formatAmount(value, format) {
   const num = parseFloat(value)
-  if (isNaN(num)) return ''
+  if (isNaN(num)) return '—'
   const locale = format === 'eu' ? 'de-DE' : 'en-US'
   return num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
-
 function formatRate(rate, format) {
   const locale = format === 'eu' ? 'de-DE' : 'en-US'
   return parseFloat(rate).toLocaleString(locale, { minimumFractionDigits: 4, maximumFractionDigits: 4 })
 }
 
+function FlagIcon({ code, size = 22 }) {
+  const meta = CURRENCY_BY_CODE[code]
+  const Flag = meta && Flags[meta.country]
+  if (!Flag) {
+    return <span style={{ width: size, height: size * 0.667, borderRadius: 3, display: 'inline-block', background: 'var(--cp-bg3)', flexShrink: 0 }} />
+  }
+  return (
+    <Flag
+      title={meta.name}
+      style={{ width: size, height: size * 0.667, borderRadius: 3, display: 'block', flexShrink: 0, boxShadow: '0 0 0 1px var(--cp-border2)' }}
+    />
+  )
+}
+
+// Backdrop + panel wrapper shared by the base-currency picker and the edit-list picker
+function Overlay({ onClose, children }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 1000, padding: 16,
+      }}
+    >
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--cp-bg2)', border: '1px solid var(--cp-border2)', borderRadius: 8,
+        width: '100%', maxWidth: 380, maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+      }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function SearchInput({ value, onChange, placeholder }) {
+  return (
+    <input
+      autoFocus
+      type="text"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="cp-input"
+      style={{ margin: 12, marginBottom: 8 }}
+    />
+  )
+}
+
+function matches(c, q) {
+  if (!q) return true
+  const s = q.trim().toLowerCase()
+  return c.code.toLowerCase().includes(s) || c.name.toLowerCase().includes(s)
+}
+
 export default function CurrencyCalculator() {
-  const { currency, setCurrencyValues, setCurrencyResult, settings } = useCalculatorStore()
+  const { currency, setCurrencyAmount, setCurrencyBase, setCurrencyList, resetCurrency, settings } = useCalculatorStore()
+  const { amount, base, list } = currency
+
+  const [rates, setRates] = useState({})
   const [loading, setLoading] = useState(false)
   const [rateSource, setRateSource] = useState(null)
   const [rateDate, setRateDate] = useState(null)
   const [rateFetchedAt, setRateFetchedAt] = useState(null)
-
-  // Local rate mirrors Zustand — avoids extra round-trip through the store
-  // when recalculating on amount/format changes.
-  const [fetchedRate, setFetchedRate] = useState(() => currency.rate || 1)
   const [fetchTrigger, setFetchTrigger] = useState(0)
-  const calcRef = useRef(null)
+
+  const [baseOpen, setBaseOpen] = useState(false)
+  const [baseSearch, setBaseSearch] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerSearch, setPickerSearch] = useState('')
+
+  const dragIndex = useRef(null)
 
   const handleReset = () => {
-    setCurrencyValues('', 'USD', 'EUR')
-    setCurrencyResult(1.0, '')
-    setRateSource(null)
-    setRateDate(null)
-    setRateFetchedAt(null)
-    setFetchedRate(1)
+    resetCurrency()
+    setRateSource(null); setRateDate(null); setRateFetchedAt(null); setRates({})
   }
 
   // ── Re-fetch live rate when connectivity is restored ───────────────────
@@ -94,180 +139,160 @@ export default function CurrencyCalculator() {
     return () => window.removeEventListener('online', handleOnline)
   }, [])
 
-  // ── Effect A: fetch rate when currencies change (not debounced — triggered by clicks, not keystrokes) ──
+  // Fetch once per base currency — the API returns rates for every currency at once.
   useEffect(() => {
     let cancelled = false
-
     const doFetch = async () => {
-      // Show cached rates immediately for instant display
-      const cached = getCachedRate(currency.fromCurrency, currency.toCurrency)
+      const cached = loadRatesCache(base)
       if (cached) {
-        setRateSource('cached')
-        setRateDate(cached.date)
-        setRateFetchedAt(cached.fetchedAt)
-        setFetchedRate(cached.rate)
+        setRateSource('cached'); setRateDate(cached.date); setRateFetchedAt(cached.fetchedAt); setRates(cached.rates)
       }
 
-      // Guard: if offline, use cache or fall back to hardcoded rates
       if (!navigator.onLine) {
-        if (!cached) {
-          setRateSource('offline')
-          setRateDate(null)
-          setRateFetchedAt(null)
-          setFetchedRate(hardcodedRate(currency.fromCurrency, currency.toCurrency))
-        }
+        if (!cached) { setRateSource('offline'); setRateDate(null); setRateFetchedAt(null); setRates(hardcodedRates(base)) }
         setLoading(false)
         return
       }
 
-      // Only show spinner when there's nothing cached to display yet
       if (!cached) setLoading(true)
       try {
-        const response = await fetch(
-          `https://api.exchangerate-api.com/v4/latest/${currency.fromCurrency}`,
-          { signal: AbortSignal.timeout(5000) }
-        )
+        const response = await fetch(`https://api.exchangerate-api.com/v4/latest/${base}`, { signal: AbortSignal.timeout(5000) })
         if (!response.ok) throw new Error('non-200')
         const data = await response.json()
         if (cancelled) return
-        const rate = data.rates[currency.toCurrency] || hardcodedRate(currency.fromCurrency, currency.toCurrency)
-        saveRatesCache(currency.fromCurrency, data.rates, data.date)
-        setRateSource('live')
-        setRateDate(data.date || new Date().toISOString().split('T')[0])
-        setRateFetchedAt(null)
-        setFetchedRate(rate)
+        saveRatesCache(base, data.rates, data.date)
+        setRateSource('live'); setRateDate(data.date || new Date().toISOString().split('T')[0]); setRateFetchedAt(null); setRates(data.rates)
       } catch {
         if (cancelled) return
-        if (!cached) {
-          setRateSource('offline')
-          setRateDate(null)
-          setRateFetchedAt(null)
-          setFetchedRate(hardcodedRate(currency.fromCurrency, currency.toCurrency))
-        }
-        // else keep cached rates already shown
+        if (!cached) { setRateSource('offline'); setRateDate(null); setRateFetchedAt(null); setRates(hardcodedRates(base)) }
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
-
     doFetch()
     return () => { cancelled = true }
-  }, [currency.fromCurrency, currency.toCurrency, fetchTrigger])
+  }, [base, fetchTrigger])
 
-  // ── Effect B: recalculate result when amount, rate, or format changes ──
-  // Debounced (300 ms) so rapid amount typing doesn't fire on every keystroke.
-  // Rate and format changes are infrequent, so the 300 ms delay is imperceptible.
-  useEffect(() => {
-    clearTimeout(calcRef.current)
-    calcRef.current = setTimeout(() => {
-      if (!currency.amount) {
-        setCurrencyResult(fetchedRate, '')
-        return
-      }
-      const num = parseFloat(currency.amount)
-      if (isNaN(num)) {
-        setCurrencyResult(fetchedRate, '')
-        return
-      }
-      setCurrencyResult(fetchedRate, formatResult(num * fetchedRate, settings.numberFormat))
-    }, 300)
-    return () => clearTimeout(calcRef.current)
-  }, [currency.amount, fetchedRate, settings.numberFormat])
-
-  const selectStyle = {
-    background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)',
-    borderRadius: 4, color: 'var(--cp-txt)', fontFamily: "var(--cb-font-mono)",
-    fontSize: 13, padding: '8px 10px', width: '100%', outline: 'none',
+  const moveItem = (from, to) => {
+    if (to < 0 || to >= list.length) return
+    const next = [...list]
+    const [item] = next.splice(from, 1)
+    next.splice(to, 0, item)
+    setCurrencyList(next)
   }
 
-  const CurrencySelect = ({ value, onChange }) => (
-    <select value={value} onChange={e => onChange(e.target.value)} style={selectStyle}>
-      {REGIONS.map(region => (
-        <optgroup key={region.label} label={region.label}>
-          {region.codes.map(code => (
-            <option key={code} value={code}>{code}</option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
-  )
+  const removeFromList = (code) => setCurrencyList(list.filter(c => c !== code))
+  const toggleInList = (code) => setCurrencyList(list.includes(code) ? list.filter(c => c !== code) : [...list, code])
 
-  // Validate amount — number inputs return '' for non-numeric values
-  const amountInvalid = currency.amount !== '' && isNaN(parseFloat(currency.amount))
+  const selectBase = (code) => {
+    setCurrencyBase(code)
+    setBaseOpen(false); setBaseSearch('')
+  }
+
+  const baseMeta = CURRENCY_BY_CODE[base]
+  const amountNum = parseFloat(amount)
+  const amountInvalid = amount !== '' && isNaN(amountNum)
+
+  const baseResults = CURRENCIES.filter(c => c.code !== base && matches(c, baseSearch))
+  const pickerResults = CURRENCIES.filter(c => c.code !== base && matches(c, pickerSearch))
 
   return (
-    <div style={{ maxWidth: 400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <ResetButton onReset={handleReset} />
+
       <div>
         <div className="cp-label" style={{ marginBottom: 6 }}>Amount</div>
         <input
           type="number"
-          value={currency.amount}
-          onChange={e => setCurrencyValues(e.target.value, currency.fromCurrency, currency.toCurrency)}
+          value={amount}
+          onChange={e => setCurrencyAmount(e.target.value)}
           placeholder="Enter amount"
           className="cp-input"
           style={{ fontSize: 18, borderColor: amountInvalid ? 'var(--cp-red)' : undefined }}
         />
         {amountInvalid && (
-          <div style={{ fontSize: 11, color: 'var(--cp-red)', marginTop: 4,
-            letterSpacing: '0.06em', fontFamily: 'var(--cb-font-mono)' }}>
+          <div style={{ fontSize: 11, color: 'var(--cp-red)', marginTop: 4, letterSpacing: '0.06em', fontFamily: 'var(--cb-font-mono)' }}>
             Enter a valid number
           </div>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'end' }}>
-        <div>
-          <div className="cp-label" style={{ marginBottom: 6 }}>From</div>
-          <CurrencySelect value={currency.fromCurrency} onChange={v => setCurrencyValues(currency.amount, v, currency.toCurrency)} />
-        </div>
+      <div>
+        <div className="cp-label" style={{ marginBottom: 6 }}>Default currency</div>
         <button
-          onClick={() => setCurrencyValues(currency.amount, currency.toCurrency, currency.fromCurrency)}
-          className="cp-btn"
-          style={{ padding: '8px 10px', fontSize: 16, lineHeight: 1 }}
-          title="Swap currencies"
+          onClick={() => setBaseOpen(true)}
+          className="cp-input"
+          style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--cb-font-mono)' }}
         >
-          ⇄
+          <FlagIcon code={base} />
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{base}</span>
+          <span style={{ fontSize: 12, color: 'var(--cp-dim)', flex: 1 }}>{baseMeta?.name}</span>
+          <span style={{ color: 'var(--cp-dim)' }}>▾</span>
         </button>
-        <div>
-          <div className="cp-label" style={{ marginBottom: 6 }}>To</div>
-          <CurrencySelect value={currency.toCurrency} onChange={v => setCurrencyValues(currency.amount, currency.fromCurrency, v)} />
-        </div>
       </div>
 
-      {/* Result */}
-      <div style={{
-        background: 'var(--cp-bg3)',
-        border: '1px solid var(--cp-border2)',
-        borderLeft: `3px solid ${rateSource === 'offline' ? 'var(--cp-yellow)' : rateSource === 'live' ? 'var(--cp-green)' : rateSource === 'cached' ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
-        borderRadius: 4, padding: 20, textAlign: 'center',
-      }}>
-        {loading ? (
-          <div style={{ color: 'var(--cp-dim)', fontSize: 12, letterSpacing: '0.15em' }}>FETCHING RATES...</div>
-        ) : (
-          <>
-            <div style={{ fontSize: 36, fontWeight: 700, color: 'var(--cp-green)', fontFamily: "var(--cb-font-mono)", lineHeight: 1, marginBottom: 8 }}>
-              {currency.result || '—'}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--cp-dim)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-              {currency.fromCurrency} → {currency.toCurrency}
-            </div>
-            {rateSource && fetchedRate && (
-              <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.1em', marginTop: 6 }}>
-                1 {currency.fromCurrency} = {formatRate(fetchedRate, settings.numberFormat)} {currency.toCurrency}
-              </div>
-            )}
-          </>
+      <div className="cp-divider" />
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="cp-section-header" style={{ margin: 0 }}>Converted to</div>
+        <button onClick={() => setPickerOpen(true)} className="cp-btn" style={{ fontSize: 11, padding: '6px 12px' }}>
+          + Edit list
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {list.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center', padding: '20px 0' }}>
+            No currencies in your list — tap "+ Edit list" to add some.
+          </div>
         )}
+        {list.map((code, i) => {
+          const rate = rates[code]
+          const converted = (!isNaN(amountNum) && rate) ? formatAmount(amountNum * rate, settings.numberFormat) : '—'
+          const meta = CURRENCY_BY_CODE[code]
+          return (
+            <div
+              key={code}
+              draggable
+              onDragStart={() => { dragIndex.current = i }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={() => { if (dragIndex.current !== null) { moveItem(dragIndex.current, i); dragIndex.current = null } }}
+              style={{
+                background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 6,
+                padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10,
+              }}
+            >
+              <span style={{ cursor: 'grab', color: 'var(--cp-dim)', fontSize: 14, lineHeight: 1 }} title="Drag to reorder">⠿</span>
+              <FlagIcon code={code} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--cb-font-mono)' }}>{code}</span>
+                  <span style={{ fontSize: 10, color: 'var(--cp-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta?.name}</span>
+                </div>
+                {rate && (
+                  <div style={{ fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.05em', marginTop: 2 }}>
+                    1 {base} = {formatRate(rate, settings.numberFormat)} {code}
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--cp-green)', fontFamily: 'var(--cb-font-mono)', whiteSpace: 'nowrap' }}>
+                {loading && !rate ? '···' : converted}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <button onClick={() => moveItem(i, i - 1)} disabled={i === 0} className="cp-btn" style={{ padding: '0 6px', fontSize: 9, lineHeight: '14px', border: 'none', opacity: i === 0 ? 0.3 : 1 }}>▲</button>
+                <button onClick={() => moveItem(i, i + 1)} disabled={i === list.length - 1} className="cp-btn" style={{ padding: '0 6px', fontSize: 9, lineHeight: '14px', border: 'none', opacity: i === list.length - 1 ? 0.3 : 1 }}>▼</button>
+              </div>
+              <button onClick={() => removeFromList(code)} className="cp-btn-danger" style={{ padding: '4px 8px', fontSize: 12, border: 'none' }} title="Remove">×</button>
+            </div>
+          )
+        })}
       </div>
 
-      {/* Rate source notice */}
       {rateSource && !loading && (
         <div style={{
           background: 'var(--cp-bg3)',
           border: `1px solid ${rateSource === 'offline' ? 'rgba(245,197,66,0.3)' : rateSource === 'cached' ? 'rgba(63,224,197,0.2)' : 'var(--cp-border2)'}`,
-          borderRadius: 4, padding: '10px 14px',
-          display: 'flex', flexDirection: 'column', gap: 4,
+          borderRadius: 4, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4,
         }}>
           <div style={{ fontSize: 10, color: rateSource === 'offline' ? 'var(--cp-yellow)' : rateSource === 'cached' ? 'var(--cp-acc)' : 'var(--cp-green)', letterSpacing: '0.15em', fontWeight: 700 }}>
             {rateSource === 'live' ? '● LIVE RATE' : rateSource === 'cached' ? '● CACHED RATE' : '⚠ OFFLINE RATE'}
@@ -282,6 +307,65 @@ export default function CurrencyCalculator() {
             )}
           </div>
         </div>
+      )}
+
+      {baseOpen && (
+        <Overlay onClose={() => { setBaseOpen(false); setBaseSearch('') }}>
+          <div className="cp-label" style={{ padding: '12px 12px 0' }}>Select default currency</div>
+          <SearchInput value={baseSearch} onChange={setBaseSearch} placeholder="Search code or name…" />
+          <div style={{ overflowY: 'auto', flex: 1, padding: '0 6px 6px' }}>
+            {baseResults.map(c => (
+              <button
+                key={c.code}
+                onClick={() => selectBase(c.code)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                  padding: '8px 8px', background: 'transparent', border: 'none', borderRadius: 4,
+                  cursor: 'pointer', color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--cp-bg3)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <FlagIcon code={c.code} />
+                <span style={{ fontSize: 13, fontWeight: 700, width: 44 }}>{c.code}</span>
+                <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>{c.name}</span>
+              </button>
+            ))}
+            {baseResults.length === 0 && <div style={{ padding: 16, fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center' }}>No matches</div>}
+          </div>
+        </Overlay>
+      )}
+
+      {pickerOpen && (
+        <Overlay onClose={() => { setPickerOpen(false); setPickerSearch('') }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 0' }}>
+            <div className="cp-label" style={{ margin: 0 }}>Currencies to show ({list.length})</div>
+            <button onClick={() => { setPickerOpen(false); setPickerSearch('') }} className="cp-btn" style={{ padding: '4px 10px', fontSize: 11 }}>Done</button>
+          </div>
+          <SearchInput value={pickerSearch} onChange={setPickerSearch} placeholder="Search code or name…" />
+          <div style={{ overflowY: 'auto', flex: 1, padding: '0 6px 6px' }}>
+            {pickerResults.map(c => {
+              const checked = list.includes(c.code)
+              return (
+                <label
+                  key={c.code}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    padding: '8px 8px', borderRadius: 4, cursor: 'pointer',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--cp-bg3)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <input type="checkbox" checked={checked} onChange={() => toggleInList(c.code)} style={{ accentColor: 'var(--cp-acc)' }} />
+                  <FlagIcon code={c.code} />
+                  <span style={{ fontSize: 13, fontWeight: 700, width: 44, fontFamily: 'var(--cb-font-mono)' }}>{c.code}</span>
+                  <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>{c.name}</span>
+                </label>
+              )
+            })}
+            {pickerResults.length === 0 && <div style={{ padding: 16, fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center' }}>No matches</div>}
+          </div>
+        </Overlay>
       )}
     </div>
   )

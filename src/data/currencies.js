@@ -1,9 +1,6 @@
 // ISO 4217 currency codes mapped to a representative ISO 3166-1 country code
 // (used to look up a flag) and a display name. Currencies shared by several
 // countries (EUR, XOF, XAF, XCD…) point at one representative flag.
-//
-// PROTOTYPE DATA — lives outside src/data/currencies.js (the eventual real
-// location) so this sample never touches existing app files.
 export const CURRENCIES = [
   { code: 'AED', name: 'UAE Dirham',                 country: 'AE' },
   { code: 'AFN', name: 'Afghan Afghani',              country: 'AF' },
