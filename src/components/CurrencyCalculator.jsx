@@ -65,8 +65,20 @@ function formatAmount(value, format, symbol) {
   return symbol ? `${symbol}${formatted}` : formatted
 }
 
-// Derived from the browser's built-in ICU data (Intl), not a hand-maintained
-// table — works fully offline and covers every ISO 4217 code automatically.
+// Browser ICU data (Intl) has no distinct Latin-script symbol for these —
+// only the bare code, or a non-Latin abbreviation (Arabic/Cyrillic/Amharic...)
+// that would look inconsistent next to the rest of the list. Common informal
+// Latin abbreviations, filling the gap Intl leaves for these currencies.
+const SYMBOL_FALLBACKS = {
+  AED: 'Dhs', ALL: 'L', ANG: 'ƒ', AWG: 'Afl.', BGN: 'lv', BHD: 'BD', BIF: 'FBu',
+  BTN: 'Nu.', BYN: 'Br', CDF: 'FC', CHF: 'Fr.', CVE: 'Esc.', DJF: 'Fdj', DZD: 'DA',
+  ERN: 'Nfk', ETB: 'Br', GMD: 'D', HTG: 'G', IQD: 'ID', IRR: 'Rls', JOD: 'JD',
+  KES: 'KSh', KWD: 'KD', LSL: 'L', LYD: 'LD', MAD: 'DH', MDL: 'L', MKD: 'den.',
+  MOP: 'P', MRU: 'UM', MVR: 'Rf', MWK: 'MK', MZN: 'MT', OMR: 'RO', PAB: 'B/.',
+  PEN: 'S/', PGK: 'K', QAR: 'QR', RSD: 'din.', SAR: 'SR', SCR: 'SR', SDG: 'LS',
+  SLE: 'Le', SOS: 'Sh', SZL: 'E', TJS: 'SM', TMT: 'm.', TND: 'DT', TZS: 'TSh',
+  UGX: 'USh', UZS: "so'm", VES: 'Bs.', VUV: 'VT', WST: 'WS$', YER: 'YR',
+}
 const symbolCache = {}
 function currencySymbol(code) {
   if (code in symbolCache) return symbolCache[code]
@@ -75,7 +87,7 @@ function currencySymbol(code) {
     const parts = new Intl.NumberFormat('en', { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' }).formatToParts(1)
     symbol = parts.find(p => p.type === 'currency')?.value || null
   } catch { symbol = null }
-  if (symbol && symbol.toUpperCase() === code) symbol = null // no distinct glyph — code would just repeat
+  if (symbol && symbol.toUpperCase() === code) symbol = SYMBOL_FALLBACKS[code] || null
   symbolCache[code] = symbol
   return symbol
 }
