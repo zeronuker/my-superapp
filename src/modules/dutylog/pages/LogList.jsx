@@ -170,7 +170,6 @@ export default function LogList({ logs, onNew, onOpen, onDelete }) {
       }}>
         <span style={{ color: 'var(--cb-blue)', fontWeight: 700, letterSpacing: '0.15em' }}>ℹ INFO · </span>
         Duty logs are stored locally on this device only and are not synced or backed up to any server.
-        To move them to another device, use Export in Settings, then Import on the new device.
       </div>
 
       <div className="cp-label" style={{ marginBottom: 10 }}>Saved · offline</div>
