@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { T } from '../components/tokens'
 import { useFlight, formatInTz, getUtcOffsetStr } from '../hooks/useFlight'
+import ResetButton from '../../../components/ResetButton'
 
 // Vertical pixels per hour of flight time, for spacing timeline rows
 // proportionally to the real time gap between events (not just row count).
@@ -532,16 +533,8 @@ export default function FlightPage({ settings }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
       {/* Reset */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button
-          onClick={resetInputs}
-          style={{
-            fontFamily: T.mono, fontSize: 9, letterSpacing: '0.14em',
-            color: T.orange, background: 'rgba(251,146,60,0.08)',
-            border: '1px solid rgba(251,146,60,0.3)', borderRadius: 6,
-            padding: '7px 14px', cursor: 'pointer',
-          }}
-        >↺ RESET</button>
+      <div style={{ marginBottom: 12 }}>
+        <ResetButton onReset={resetInputs} />
       </div>
 
       {/* Offline / manual detection banner */}

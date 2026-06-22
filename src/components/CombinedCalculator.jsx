@@ -4,6 +4,7 @@ import NormalCalculator from './NormalCalculator'
 import ScientificCalculator from './ScientificCalculator'
 import TimeCalculator from './TimeCalculator'
 import Converter from './Converter'
+import ResetButton from './ResetButton'
 
 const MODES = [
   { id: 'basic',      label: 'BASIC' },
@@ -27,6 +28,8 @@ export default function CombinedCalculator() {
 
   return (
     <div>
+      <ResetButton onReset={handleReset} />
+
       {/* ── Mode toggle ─────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 'clamp(10px, 1.5vh, 20px)' }}>
         <div style={{
@@ -59,9 +62,6 @@ export default function CombinedCalculator() {
             </button>
           ))}
         </div>
-        <button onClick={handleReset} className="cp-btn cp-btn-danger" style={{ letterSpacing: '0.15em' }}>
-          ↺ RESET
-        </button>
       </div>
 
       {/* ── Active calculator ───────────────────────────────────────────── */}

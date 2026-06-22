@@ -7,6 +7,7 @@ import {
   tokenizeRaw, parseTafSegments,
 } from '../utils/metarSeverity'
 import { decodeMetar, decodeTaf } from '../utils/metarDecode'
+import ResetButton from './ResetButton'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const HOURS_OPTIONS  = [1, 2, 3, 6, 12, 24]
@@ -236,6 +237,8 @@ export default function METARTAFCalculator() {
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
+      <ResetButton onReset={handleReset} />
+
       {/* ── ROUTE ────────────────────────────────────────────────────────── */}
       <SectionHeader title="Route" />
 
@@ -327,14 +330,10 @@ export default function METARTAFCalculator() {
           </span>
         )}
 
-        <button className="cp-btn cp-btn-danger" onClick={handleReset}
-          style={{ marginLeft: 'auto', letterSpacing: '0.15em' }}>
-          ↺ RESET
-        </button>
-
         <button className="cp-btn" onClick={handleFetch}
           disabled={!hasInput || loading}
           style={{
+            marginLeft: 'auto',
             borderColor: hasInput && !loading ? 'var(--cp-acc)' : undefined,
             color:       hasInput && !loading ? 'var(--cp-acc)' : undefined,
             opacity: loading ? 0.6 : 1,

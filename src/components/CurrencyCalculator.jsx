@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
+import ResetButton from './ResetButton'
 
 const REGIONS = [
   { label: 'Americas',              codes: ['USD','CAD','MXN'] },
@@ -196,11 +197,7 @@ export default function CurrencyCalculator() {
 
   return (
     <div style={{ maxWidth: 400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button onClick={handleReset} className="cp-btn cp-btn-danger" style={{ letterSpacing: '0.15em' }}>
-          ↺ RESET
-        </button>
-      </div>
+      <ResetButton onReset={handleReset} />
       <div>
         <div className="cp-label" style={{ marginBottom: 6 }}>Amount</div>
         <input

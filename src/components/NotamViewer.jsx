@@ -4,6 +4,7 @@ import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
 import { icaoToFir } from '../data/firLookup'
 import { haptic } from '../utils/haptic'
+import ResetButton from './ResetButton'
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const T = {
@@ -340,6 +341,8 @@ export default function NotamViewer() {
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
+      <ResetButton onReset={handleReset} />
+
       {/* ── ROUTE ── */}
       <SectionHeader title="Route" />
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 20 }}>
@@ -451,7 +454,7 @@ export default function NotamViewer() {
           border: '1px solid rgba(251,146,60,0.25)', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>⚠ {error}</div>
       )}
 
-      {/* ── Fetch / Reset ── */}
+      {/* ── Fetch ── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <button onClick={handleFetch} disabled={loading || !targets.length} style={{
           flex: 1, padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
@@ -459,10 +462,6 @@ export default function NotamViewer() {
           cursor: targets.length ? 'pointer' : 'default', fontFamily: T.mono, fontSize: 10,
           letterSpacing: '0.16em', color: T.acc, opacity: targets.length ? 1 : 0.5 }}>
           {loading ? '⊙ FETCHING NOTAMs…' : '⊕ FETCH NOTAMs'}
-        </button>
-        <button onClick={handleReset} className="cp-btn cp-btn-danger"
-          style={{ padding: '0 16px', letterSpacing: '0.15em' }}>
-          ↺ RESET
         </button>
       </div>
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { interpolateAltitude2D } from '../utils/interpolation'
 import lookupTables from '../data/lookupTables.json'
+import ResetButton from './ResetButton'
 
 export default function EDTOCalculator() {
   const {
@@ -186,11 +187,7 @@ export default function EDTOCalculator() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
       {/* ── Reset ── */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button onClick={handleReset} className="cp-btn cp-btn-danger" style={{ letterSpacing: '0.15em' }}>
-          ↺ RESET
-        </button>
-      </div>
+      <ResetButton onReset={handleReset} />
 
       {/* ── Disclaimer banner ──────────────────────────────────────────────── */}
       <div style={{

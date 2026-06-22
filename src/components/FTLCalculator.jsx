@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { lookupFDP, getBandLabelForResult } from '../data/ftlTables'
+import ResetButton from './ResetButton'
 
 // ── Time helpers ──────────────────────────────────────────────────────────────
 
@@ -360,6 +361,8 @@ export default function FTLCalculator() {
 
   return (
     <div>
+      <ResetButton onReset={handleReset} />
+
       {/* ── Disclaimer banner ──────────────────────────────────────────────── */}
       <div style={{
         background: 'rgba(59,141,255,0.06)',
@@ -387,9 +390,6 @@ export default function FTLCalculator() {
         <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', whiteSpace: 'nowrap', letterSpacing: '0.1em' }}>
           CAD 1901 · CAAM MALAYSIA
         </span>
-        <button onClick={handleReset} className="cp-btn cp-btn-danger" style={{ letterSpacing: '0.15em', flexShrink: 0 }}>
-          ↺ RESET
-        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, alignItems: 'start' }}>

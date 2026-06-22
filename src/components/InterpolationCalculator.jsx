@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
+import ResetButton from './ResetButton'
 
 function bilinearInterpolate(rows, zValues, lookupX, lookupZ) {
   const x = parseFloat(lookupX)
@@ -119,11 +120,7 @@ export default function InterpolationCalculator() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       {/* ── Reset ── */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button onClick={handleReset} className="cp-btn cp-btn-danger" style={{ letterSpacing: '0.15em' }}>
-          ↺ RESET
-        </button>
-      </div>
+      <ResetButton onReset={handleReset} />
 
       {/* ── How-to banner ── */}
       <div style={{
