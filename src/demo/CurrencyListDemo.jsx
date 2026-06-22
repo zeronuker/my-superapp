@@ -13,6 +13,25 @@ const RATES_KEY_PREFIX = 'cb-demo-rates-'
 const DEFAULT_BASE = 'USD'
 const DEFAULT_LIST = ['EUR', 'GBP', 'JPY', 'AUD', 'AED', 'SGD', 'INR', 'CHF']
 
+// Same last-resort approach as the existing CurrencyCalculator.jsx (USD base,
+// approximate, used only when offline with nothing cached). Ports the same
+// 26-currency table; the real implementation would extend this to the full list.
+const USD_RATES = {
+  USD:1.000, CAD:1.360, MXN:17.05,
+  EUR:0.920, GBP:0.730, CHF:0.880, SEK:10.48, NOK:10.48,
+  AED:3.673, SAR:3.750, QAR:3.640, KWD:0.307, BHD:0.376, OMR:0.385,
+  INR:83.12, PKR:278.0, BDT:110.0,
+  CNY:7.240, JPY:149.5, KRW:1350.0, TWD:32.00, HKD:7.810,
+  SGD:1.340, THB:36.00, MYR:4.700, IDR:16000, PHP:56.00, VND:25000,
+  AUD:1.520, NZD:1.650,
+}
+function hardcodedRates(base) {
+  const baseUSD = USD_RATES[base] || 1
+  const out = {}
+  for (const [code, usd] of Object.entries(USD_RATES)) out[code] = usd / baseUSD
+  return out
+}
+
 function loadPrefs() {
   try {
     const raw = localStorage.getItem(PREFS_KEY)
@@ -149,7 +168,7 @@ export default function CurrencyListDemo() {
         setRateSource('cached'); setRateDate(cached.date); setRateFetchedAt(cached.fetchedAt); setRates(cached.rates)
       }
       if (!navigator.onLine) {
-        if (!cached) { setRateSource('offline'); setRateDate(null); setRateFetchedAt(null); setRates({}) }
+        if (!cached) { setRateSource('offline'); setRateDate(null); setRateFetchedAt(null); setRates(hardcodedRates(base)) }
         setLoading(false)
         return
       }
@@ -163,7 +182,7 @@ export default function CurrencyListDemo() {
         setRateSource('live'); setRateDate(data.date || new Date().toISOString().split('T')[0]); setRateFetchedAt(null); setRates(data.rates)
       } catch {
         if (cancelled) return
-        if (!cached) { setRateSource('offline'); setRateDate(null); setRateFetchedAt(null); setRates({}) }
+        if (!cached) { setRateSource('offline'); setRateDate(null); setRateFetchedAt(null); setRates(hardcodedRates(base)) }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -301,7 +320,7 @@ export default function CurrencyListDemo() {
           borderRadius: 4, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4,
         }}>
           <div style={{ fontSize: 10, color: rateSource === 'offline' ? 'var(--cp-yellow)' : rateSource === 'cached' ? 'var(--cp-acc)' : 'var(--cp-green)', letterSpacing: '0.15em', fontWeight: 700 }}>
-            {rateSource === 'live' ? '● LIVE RATE' : rateSource === 'cached' ? '● CACHED RATE' : '⚠ OFFLINE — NO CACHED RATE'}
+            {rateSource === 'live' ? '● LIVE RATE' : rateSource === 'cached' ? '● CACHED RATE' : '⚠ OFFLINE RATE'}
           </div>
           <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em', lineHeight: 1.6 }}>
             {rateSource === 'live' ? (
@@ -309,7 +328,7 @@ export default function CurrencyListDemo() {
             ) : rateSource === 'cached' ? (
               <>Source: ExchangeRate-API (last downloaded {formatCacheAge(rateFetchedAt)})<br />Effective date: {rateDate} (UTC) · Connect to refresh</>
             ) : (
-              <>No internet connection and no cached rates for {base} yet.<br />Connect once to download rates for offline use.</>
+              <>Source: Built-in fallback rates (no internet connection)<br />These rates are approximate and may not reflect current market values</>
             )}
           </div>
         </div>
