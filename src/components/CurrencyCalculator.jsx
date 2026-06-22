@@ -62,7 +62,7 @@ function formatAmount(value, format, symbol) {
   if (isNaN(num)) return '—'
   const locale = format === 'eu' ? 'de-DE' : 'en-US'
   const formatted = num.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  return symbol ? `${symbol} ${formatted}` : formatted
+  return symbol ? `${symbol} ${formatted}` : formatted
 }
 
 // Browser ICU data (Intl) has no distinct Latin-script symbol for these —
