@@ -28,7 +28,9 @@ export default function CombinedCalculator() {
 
   return (
     <div>
-      <ResetButton onReset={handleReset} />
+      <div style={{ marginBottom: 20 }}>
+        <ResetButton onReset={handleReset} />
+      </div>
 
       {/* ── Mode toggle ─────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 'clamp(10px, 1.5vh, 20px)' }}>

@@ -361,7 +361,9 @@ export default function FTLCalculator() {
 
   return (
     <div>
-      <ResetButton onReset={handleReset} />
+      <div style={{ marginBottom: 20 }}>
+        <ResetButton onReset={handleReset} />
+      </div>
 
       {/* ── Disclaimer banner ──────────────────────────────────────────────── */}
       <div style={{
