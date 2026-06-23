@@ -287,22 +287,37 @@ input[type="number"] { -moz-appearance: textfield; }
 html[data-reduce-motion="true"] .cp-calc-fade { animation: none; }
 html[data-reduce-motion="true"] * { transition: none !important; }
 
-/* ── Accent themes ── */
-:root[data-accent="amber"]  { --cp-acc: #f59e0b; --cp-acc2: #d97706; --cp-accdim: #1f1200; }
-:root[data-accent="cyan"]   { --cp-acc: #22d3ee; --cp-acc2: #06b6d4; --cp-accdim: #08222b; }
-:root[data-accent="violet"] { --cp-acc: #a78bfa; --cp-acc2: #8b5cf6; --cp-accdim: #1a1330; }
-:root[data-accent="green"]  { --cp-acc: #4ade80; --cp-acc2: #22c55e; --cp-accdim: #0a2417; }
+/* ── Accent themes ──
+   Hex values match elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) so both
+   apps offer the same 10 accents. "gradient" and "mint" share one color and
+   need no override block — they fall through to the --cp-acc default above. */
+:root[data-accent="blue"]    { --cp-acc: #3B8DFF; --cp-acc2: #1F76E8; --cp-accdim: #0d2840; }
+:root[data-accent="violet"]  { --cp-acc: #5B6BFF; --cp-acc2: #4554DA; --cp-accdim: #15173d; }
+:root[data-accent="amber"]   { --cp-acc: #FFB37C; --cp-acc2: #f59e0b; --cp-accdim: #2a1700; }
+:root[data-accent="emerald"] { --cp-acc: #10d983; --cp-acc2: #059669; --cp-accdim: #052e1f; }
+:root[data-accent="rose"]    { --cp-acc: #f43f5e; --cp-acc2: #e11d48; --cp-accdim: #2a0a10; }
+:root[data-accent="cyan"]    { --cp-acc: #06b6d4; --cp-acc2: #0891b2; --cp-accdim: #062a30; }
+:root[data-accent="gold"]    { --cp-acc: #eab308; --cp-acc2: #ca8a04; --cp-accdim: #2a2000; }
+:root[data-accent="coral"]   { --cp-acc: #f97316; --cp-acc2: #ea580c; --cp-accdim: #2a1200; }
 
-:root[data-theme="light"][data-accent="amber"]  { --cp-accdim: #fef3c7; }
-:root[data-theme="light"][data-accent="cyan"]   { --cp-accdim: #cffafe; }
-:root[data-theme="light"][data-accent="violet"] { --cp-accdim: #ede9fe; }
-:root[data-theme="light"][data-accent="green"]  { --cp-accdim: #dcfce7; }
+:root[data-theme="light"][data-accent="blue"]    { --cp-accdim: #d4eaf8; }
+:root[data-theme="light"][data-accent="violet"]  { --cp-accdim: #ede9fe; }
+:root[data-theme="light"][data-accent="amber"]   { --cp-accdim: #fef3c7; }
+:root[data-theme="light"][data-accent="emerald"] { --cp-accdim: #d1fae5; }
+:root[data-theme="light"][data-accent="rose"]    { --cp-accdim: #ffe4e6; }
+:root[data-theme="light"][data-accent="cyan"]    { --cp-accdim: #cffafe; }
+:root[data-theme="light"][data-accent="gold"]    { --cp-accdim: #fef9c3; }
+:root[data-theme="light"][data-accent="coral"]   { --cp-accdim: #ffedd5; }
 
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme])[data-accent="amber"]  { --cp-accdim: #fef3c7; }
-  :root:not([data-theme])[data-accent="cyan"]   { --cp-accdim: #cffafe; }
-  :root:not([data-theme])[data-accent="violet"] { --cp-accdim: #ede9fe; }
-  :root:not([data-theme])[data-accent="green"]  { --cp-accdim: #dcfce7; }
+  :root:not([data-theme])[data-accent="blue"]    { --cp-accdim: #d4eaf8; }
+  :root:not([data-theme])[data-accent="violet"]  { --cp-accdim: #ede9fe; }
+  :root:not([data-theme])[data-accent="amber"]   { --cp-accdim: #fef3c7; }
+  :root:not([data-theme])[data-accent="emerald"] { --cp-accdim: #d1fae5; }
+  :root:not([data-theme])[data-accent="rose"]    { --cp-accdim: #ffe4e6; }
+  :root:not([data-theme])[data-accent="cyan"]    { --cp-accdim: #cffafe; }
+  :root:not([data-theme])[data-accent="gold"]    { --cp-accdim: #fef9c3; }
+  :root:not([data-theme])[data-accent="coral"]   { --cp-accdim: #ffedd5; }
 }
 
 /* ── Card style (flat / elevated / glass) ── */

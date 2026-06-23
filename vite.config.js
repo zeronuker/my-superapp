@@ -56,15 +56,6 @@ export default defineConfig({
               networkTimeoutSeconds: 8,
             },
           },
-          // Brand fonts — cached for a year (CacheFirst is safe; URLs are versioned)
-          {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'brand-fonts',
-              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
-          },
         ],
       },
     }),

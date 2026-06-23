@@ -45,13 +45,24 @@ const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
 const APP_VERSION = 'v3.10'
 
+// Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
-  { value: 'teal',   color: '#3FE0C5' },
-  { value: 'amber',  color: '#f59e0b' },
-  { value: 'cyan',   color: '#22d3ee' },
-  { value: 'violet', color: '#a78bfa' },
-  { value: 'green',  color: '#4ade80' },
+  { value: 'gradient', color: '#3FE0C5', colors: ['#3FE0C5', '#3B8DFF', '#5B6BFF'] },
+  { value: 'mint',     color: '#3FE0C5' },
+  { value: 'blue',     color: '#3B8DFF' },
+  { value: 'violet',   color: '#5B6BFF' },
+  { value: 'amber',    color: '#FFB37C' },
+  { value: 'emerald',  color: '#10d983' },
+  { value: 'rose',     color: '#f43f5e' },
+  { value: 'cyan',     color: '#06b6d4' },
+  { value: 'gold',     color: '#eab308' },
+  { value: 'coral',    color: '#f97316' },
 ]
+
+// Old swatch ids from before the cross-app palette merge — kept so previously
+// saved/exported settings still resolve to a valid accent.
+const ACCENT_MIGRATION = { teal: 'gradient', green: 'emerald' }
+const resolveAccentId = (id) => ACCENT_MIGRATION[id] || id || 'gradient'
 
 // Fallback shown while a lazily-loaded tab chunk is fetched.
 function TabLoading({ compact }) {
@@ -181,7 +192,7 @@ export default function App() {
 
   // ── Accent colour ──────────────────────────────────────────────────────
   React.useEffect(() => {
-    document.documentElement.setAttribute('data-accent', settings.accentColor || 'teal')
+    document.documentElement.setAttribute('data-accent', resolveAccentId(settings.accentColor))
   }, [settings.accentColor])
 
   // ── Card style ─────────────────────────────────────────────────────────
@@ -760,7 +771,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
     fontScale:   ['compact', 'normal', 'large', 'cockpit'],
     tabPosition: ['top', 'bottom'],
     clockFormat: ['24hr', '12hr'],
-    accentColor: ['teal', 'amber', 'cyan', 'violet', 'green'],
+    accentColor: ['gradient', 'mint', 'blue', 'violet', 'amber', 'emerald', 'rose', 'cyan', 'gold', 'coral', 'teal', 'green'],
     cardStyle:   ['flat', 'elevated', 'glass'],
     notamSort:   ['relevance', 'category'],
   }
@@ -805,7 +816,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
               />
             </SettingsRow>
             <SettingsRow label="ACCENT">
-              <AccentSwatches value={settings.accentColor || 'teal'} onChange={v => onUpdate({ accentColor: v })} />
+              <AccentSwatches value={resolveAccentId(settings.accentColor)} onChange={v => onUpdate({ accentColor: v })} />
             </SettingsRow>
             <SettingsRow label="CARD STYLE">
               <SegmentedToggle
@@ -1497,7 +1508,7 @@ function AccentSwatches({ value, onChange }) {
             aria-label={s.value} title={s.value.toUpperCase()}
             style={{
               width: 24, height: 24, borderRadius: '50%', cursor: 'pointer',
-              background: s.color, padding: 0,
+              background: s.colors ? `linear-gradient(135deg, ${s.colors.join(', ')})` : s.color, padding: 0,
               border: active ? '2px solid var(--cp-txt)' : '2px solid transparent',
               boxShadow: active ? `0 0 0 2px ${s.color}` : 'none',
               transition: 'box-shadow 0.12s',

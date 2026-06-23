@@ -1,5 +1,3 @@
-import React from 'react'
-
 const MINT = 'var(--cb-mint)'
 
 const chev = (top, right, bottom, left) => ({
@@ -16,7 +14,7 @@ const chev = (top, right, bottom, left) => ({
 
 export default function BrandBanner({ subtitle = 'PILOT UTILITY SUITE' }) {
   return (
-    <div style={{
+    <div className="cb-banner" style={{
       position: 'relative',
       display: 'inline-flex',
       alignItems: 'center',
@@ -29,7 +27,7 @@ export default function BrandBanner({ subtitle = 'PILOT UTILITY SUITE' }) {
       <div style={chev(undefined, undefined, 8, 8)} />
       <div style={chev(undefined, 8, 8, undefined)} />
 
-      <div style={{
+      <div className="cb-banner-bigc" style={{
         fontFamily: "'Tourney', sans-serif",
         fontWeight: 900,
         fontSize: 58,
@@ -40,7 +38,7 @@ export default function BrandBanner({ subtitle = 'PILOT UTILITY SUITE' }) {
       }}>C</div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center' }}>
-        <svg width="242" height="30" viewBox="0 0 560 70" xmlns="http://www.w3.org/2000/svg">
+        <svg className="cb-banner-wordmark" width="242" height="30" viewBox="0 0 560 70" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="cb-banner-grad" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%"   style={{ stopColor: 'var(--cb-mint)' }} />
