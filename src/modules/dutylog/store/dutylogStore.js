@@ -44,10 +44,15 @@ const useDutyLogStore = create(persist(
   (set) => ({
     logs: [],
     editingId: null,
+    syncCode: null,
 
     setEditingId: (id) => set({ editingId: id }),
 
     clearAll: () => set({ logs: [], editingId: null }),
+
+    setSyncCode: (code) => set({ syncCode: code }),
+
+    replaceLogs: (logs) => set({ logs }),
 
     createLog: () => {
       const log = blankLog()
