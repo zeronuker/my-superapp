@@ -101,6 +101,70 @@ function LogCard({ log, onOpen, onDelete }) {
   )
 }
 
+// PREVIEW ONLY — mockup of the planned backup/sync panel, not wired to a backend yet.
+function BackupSyncPanel() {
+  const [code] = useState(() => 'PWA-7K2X-9QRM')
+  const [copied, setCopied] = useState(false)
+  const [restoreCode, setRestoreCode] = useState('')
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div onClick={() => setExpanded(e => !e)} style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 6,
+        padding: '9px 11px', cursor: 'pointer',
+      }}>
+        <span style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'var(--cp-txt)' }}>
+          BACKUP & SYNC
+        </span>
+        <span style={{ color: 'var(--cp-acc)', fontSize: 11 }}>{expanded ? '▾' : '▸'}</span>
+      </div>
+
+      {expanded && (
+        <div style={{
+          marginTop: 9, padding: 12, borderRadius: 6,
+          background: 'var(--cp-bg2)', border: '1px solid var(--cp-border2)',
+        }}>
+          <div className="cp-label" style={{ marginBottom: 6 }}>Your backup code</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 }}>
+            <div style={{
+              flex: 1, fontFamily: mono, fontSize: 13, letterSpacing: '0.1em',
+              color: 'var(--cp-acc)', background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
+              borderRadius: 4, padding: '8px 10px',
+            }}>{code}</div>
+            <button
+              onClick={() => { setCopied(true); setTimeout(() => setCopied(false), 1200) }}
+              className="cp-btn"
+              style={{ padding: '8px 10px' }}
+            >{copied ? 'COPIED' : 'COPY'}</button>
+          </div>
+          <div style={{
+            fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.06em',
+            lineHeight: 1.6, marginBottom: 14,
+          }}>
+            Save this code somewhere safe. Anyone with this code can view or restore these logs.
+          </div>
+
+          <div className="cp-divider" style={{ margin: '14px 0' }} />
+
+          <div className="cp-label" style={{ marginBottom: 6 }}>Restore from a code</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={restoreCode}
+              onChange={(e) => setRestoreCode(e.target.value)}
+              placeholder="PWA-XXXX-XXXX"
+              className="cp-input"
+              style={{ flex: 1 }}
+            />
+            <button className="cp-btn" style={{ padding: '8px 10px' }}>RESTORE</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CollapsibleBanner({ label, count, expanded, onToggle, children }) {
   return (
     <div style={{ marginBottom: 9 }}>
@@ -171,6 +235,8 @@ export default function LogList({ logs, onNew, onOpen, onDelete }) {
         <span style={{ color: 'var(--cb-blue)', fontWeight: 700, letterSpacing: '0.15em' }}>ℹ INFO · </span>
         Duty logs are stored locally on this device only and are not synced or backed up to any server.
       </div>
+
+      <BackupSyncPanel />
 
       <div className="cp-label" style={{ marginBottom: 10 }}>Saved · offline</div>
 
