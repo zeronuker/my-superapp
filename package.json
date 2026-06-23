@@ -7,7 +7,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "brand:fonts": "node brand-kit/scripts/download-fonts.mjs",
+    "brand:icons": "node brand-kit/scripts/generate-brand-icons.mjs"
   },
   "dependencies": {
     "adhan": "^4.4.3",
