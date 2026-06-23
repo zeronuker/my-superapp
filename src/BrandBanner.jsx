@@ -21,7 +21,7 @@ export default function BrandBanner({ subtitle = 'PILOT UTILITY SUITE' }) {
       display: 'inline-flex',
       alignItems: 'center',
       gap: 10,
-      padding: '16px 20px',
+      padding: '1px 20px',
       flexShrink: 0,
     }}>
       <div style={chev(8, undefined, undefined, 8)} />
