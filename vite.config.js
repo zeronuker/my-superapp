@@ -1,13 +1,27 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { viteStaticCopy } from 'vite-plugin-static-copy'
+import { resolve } from 'path'
 
 export default defineConfig({
   // Emit JSON imports as JSON.parse('…') rather than an object literal with a
   // named export per key — far smaller/faster for the large airports.json.
   json: { namedExports: false, stringify: true },
+  resolve: {
+    alias: {
+      '@brand/BrandBanner': resolve(__dirname, 'brand-kit/component/BrandBanner.jsx'),
+    },
+  },
   plugins: [
     react(),
+    viteStaticCopy({
+      targets: [
+        { src: 'brand-kit/static/css/brand.css',  dest: 'brand' },
+        { src: 'brand-kit/static/logo/logo-mark.svg',       dest: 'brand' },
+        { src: 'brand-kit/static/logo/logo-mark-light.svg', dest: 'brand' },
+      ],
+    }),
     VitePWA({
       registerType: 'prompt',
       // Brand manifest lives at /brand/manifest.webmanifest — disable plugin generation
@@ -62,5 +76,6 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
+    fs: { allow: ['.'] },
   },
 })

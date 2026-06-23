@@ -5,7 +5,7 @@ import usePrayerStore from './modules/prayer/store/prayerStore'
 import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
 import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar } from './components/Navigation'
-import BrandBanner from './BrandBanner'
+import BrandBanner from '@brand/BrandBanner'
 import { TabIcon, ICON_SETS } from './components/TabIcon'
 import { searchZones } from './data/worldTimezones'
 
