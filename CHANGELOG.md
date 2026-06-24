@@ -1,5 +1,16 @@
 # Changelog
 
+## Preview — 2026-06-24
+
+### Duty Log Module
+
+#### Backup & Sync Redesign (Preview)
+- Interactive mockup at `/dutylog-sync-demo.html` previews a redesigned Backup & Sync flow for review — not yet wired into the real app
+- Demonstrates: per-entry sync status indicators, a sync prompt on new-log creation, an always-visible sync code/QR in Settings, and a Duty-Log-screen "view a code" panel with a confirm-gated "import to this device" action that warns it overwrites local logs and transfers ownership
+- Uses local component state and fake data only — does not call Firebase and has no effect on real duty logs or sync codes
+
+---
+
 ## v3.11 — 2026-06-24
 
 ### Duty Log Module
