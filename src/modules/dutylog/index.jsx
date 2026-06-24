@@ -5,7 +5,6 @@ import LogList from './pages/LogList'
 import LogEditor from './pages/LogEditor'
 import { generateSyncCode, pushLogs, viewLogs, claimAndRestore } from './services/sync'
 import { relativeTimeFromNow } from './utils/relativeTime'
-import QrScanner from './components/QrScanner'
 
 const mono = 'var(--cb-font-mono)'
 
@@ -115,15 +114,11 @@ export function DutyLogBackupSync() {
   const syncCode = useDutyLogStore(s => s.syncCode)
   const lastSyncedAt = useDutyLogStore(s => s.lastSyncedAt)
   const markSynced = useDutyLogStore(s => s.markSynced)
-  const replaceLogs = useDutyLogStore(s => s.replaceLogs)
   const ensureDeviceId = useDutyLogStore(s => s.ensureDeviceId)
 
   const [copied, setCopied] = useState(false)
-  const [restoreCode, setRestoreCode] = useState('')
-  const [confirmRestore, setConfirmRestore] = useState(false)
-  const [busy, setBusy] = useState(null) // null | 'backup' | 'restore'
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [scanning, setScanning] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [now, setNow] = useState(() => Date.now())
 
@@ -141,7 +136,7 @@ export function DutyLogBackupSync() {
 
   const runBackup = async () => {
     setError('')
-    setBusy('backup')
+    setBusy(true)
     try {
       const code = syncCode || generateSyncCode()
       const deviceId = ensureDeviceId()
@@ -152,7 +147,7 @@ export function DutyLogBackupSync() {
         ? 'This device no longer owns this code — ownership was transferred to another device.'
         : e.message)
     } finally {
-      setBusy(null)
+      setBusy(false)
     }
   }
 
@@ -161,32 +156,6 @@ export function DutyLogBackupSync() {
     navigator.clipboard?.writeText(syncCode)
     setCopied(true)
     setTimeout(() => setCopied(false), 1200)
-  }
-
-  const runRestore = async (rawCode) => {
-    const code = rawCode.trim().toUpperCase()
-    if (!code) return
-    if (!confirmRestore) { setConfirmRestore(true); return }
-    setError('')
-    setBusy('restore')
-    try {
-      const deviceId = ensureDeviceId()
-      const restored = await claimAndRestore(code, deviceId)
-      replaceLogs(restored)
-      markSynced(code)
-      setRestoreCode('')
-      setConfirmRestore(false)
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  const handleScanResult = (data) => {
-    setScanning(false)
-    setRestoreCode(data)
-    setConfirmRestore(false)
   }
 
   const relTime = relativeTimeFromNow(lastSyncedAt, now)
@@ -216,10 +185,10 @@ export function DutyLogBackupSync() {
         {syncCode && (
           <button
             onClick={runBackup}
-            disabled={busy === 'backup'}
+            disabled={busy}
             className="cp-btn"
             style={{ padding: '6px 10px', fontSize: 9, flexShrink: 0 }}
-          >{busy === 'backup' ? '…' : 'SYNC'}</button>
+          >{busy ? '…' : 'SYNC'}</button>
         )}
       </div>
 
@@ -252,58 +221,26 @@ export function DutyLogBackupSync() {
           </div>
           <button
             onClick={runBackup}
-            disabled={busy === 'backup'}
+            disabled={busy}
             className="cp-btn"
             style={{ width: '100%', padding: '8px 10px' }}
-          >{busy === 'backup' ? 'CREATING…' : 'CREATE CLOUD SYNC CODE'}</button>
+          >{busy ? 'CREATING…' : 'CREATE CLOUD SYNC CODE'}</button>
         </div>
       )}
 
       <div className="cp-divider" style={{ margin: '16px 0' }} />
 
-      <div className="cp-label" style={{ marginBottom: 6 }}>Restore from a code</div>
       <div style={{
-        fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em',
-        lineHeight: 1.5, marginBottom: 8,
+        fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.06em', lineHeight: 1.6,
       }}>
-        Replaces logs on this device and makes this device the owner of the code. The previous owner device will stop being able to push until it links a new code.
+        To pull in another device's logs using a code, go to the Duty Log screen and use "Have a code? Enter here to view it."
       </div>
-      <button
-        onClick={() => setScanning(true)}
-        disabled={busy === 'restore'}
-        className="cp-btn"
-        style={{ width: '100%', padding: '8px 10px', marginBottom: 10 }}
-      >TAP TO SCAN</button>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input
-          value={restoreCode}
-          onChange={(e) => { setRestoreCode(e.target.value); setConfirmRestore(false) }}
-          placeholder="XXXX-XXXX-XXXX"
-          className="cp-input"
-          style={{ flex: 1 }}
-        />
-        <button
-          onClick={() => runRestore(restoreCode)}
-          disabled={busy === 'restore' || !restoreCode.trim()}
-          className="cp-btn-danger cp-btn"
-          style={{ padding: '8px 10px' }}
-        >{busy === 'restore' ? 'RESTORING…' : (confirmRestore ? 'CONFIRM' : 'RESTORE')}</button>
-      </div>
-      {confirmRestore && (
-        <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>
-          This overwrites all logs on this device. Tap CONFIRM to proceed.
-        </div>
-      )}
 
       {error && (
         <div style={{
           fontFamily: mono, fontSize: 9, color: 'var(--cp-red)', letterSpacing: '0.06em',
           lineHeight: 1.6, marginTop: 10,
         }}>{error}</div>
-      )}
-
-      {scanning && (
-        <QrScanner onResult={handleScanResult} onClose={() => setScanning(false)} />
       )}
     </div>
   )
