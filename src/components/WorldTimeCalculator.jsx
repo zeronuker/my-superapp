@@ -294,7 +294,7 @@ export default function WorldTimeCalculator() {
       {/* ── Add zone ── */}
       {zones.length < MAX_ZONES ? (
         showAdd ? (
-          <div style={{ background: T.bg1, border: `1px solid ${T.bord}`, borderRadius: 6, padding: 12 }}>
+          <div className="cp-card-bg3" style={{ border: `1px solid ${T.bord}`, borderRadius: 6, padding: 12 }}>
             <input
               ref={searchRef}
               value={search}

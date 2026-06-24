@@ -350,8 +350,7 @@ export default function App() {
               <LauncherGrid calcs={orderedCalcs} onSelect={handleSelectCalculator} />
             </>
           ) : (
-            <div style={{
-              background: 'var(--cp-bg2)',
+            <div className="cp-card-bg2" style={{
               border: '1px solid var(--cp-border)',
               borderRadius: 4,
               padding: landscapeCompact ? '16px' : '24px',
@@ -516,11 +515,9 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
   }, [now, prayerTimes])
 
   const W = {
-    background: 'var(--cp-bg3)',
     border: '1px solid var(--cp-border2)',
     borderTop: '2px solid var(--cp-acc)',
     borderRadius: 6, padding: '14px 16px', flex: 1, minWidth: 0,
-    boxShadow: '0 2px 10px rgba(0,0,0,0.28)',
     cursor: 'pointer', transition: 'border-color 0.12s, background 0.12s',
   }
 

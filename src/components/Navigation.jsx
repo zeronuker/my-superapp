@@ -159,7 +159,7 @@ export function LauncherGrid({ calcs, onSelect }) {
                     animationDelay: `${delay}ms`, animationFillMode: 'both',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                     gap: 10, padding: '22px 12px', cursor: 'pointer',
-                    background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 8,
+                    border: '1px solid var(--cp-border2)', borderRadius: 8,
                     color: 'var(--cp-txt)', transition: 'border-color 0.12s, background 0.12s',
                   }}>
                   <TabIcon id={calc.id} emoji={calc.icon} size={52} />

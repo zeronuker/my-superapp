@@ -123,8 +123,7 @@ export default function InterpolationCalculator() {
       <ResetButton onReset={handleReset} />
 
       {/* ── How-to banner ── */}
-      <div style={{
-        background: 'var(--cp-bg3)',
+      <div className="cp-card-bg3" style={{
         border: '1px solid var(--cp-border2)',
         borderLeft: '3px solid var(--cp-acc)',
         borderRadius: 4,
@@ -322,8 +321,7 @@ export default function InterpolationCalculator() {
         </div>
 
         {/* Result card */}
-        <div style={{
-          background: 'var(--cp-bg3)',
+        <div className="cp-card-bg3" style={{
           border: '1px solid var(--cp-border2)',
           borderLeft: `3px solid ${result && result !== 'out of range' ? 'var(--cp-green)' : result === 'out of range' ? 'var(--cp-yellow)' : 'var(--cp-border2)'}`,
           borderRadius: 4,

@@ -125,6 +125,13 @@ input[type="number"] { -moz-appearance: textfield; }
   box-shadow: 0 2px 12px rgba(0,0,0,0.32);
 }
 
+/* Card-style-aware panel backgrounds for boxed sections that keep their own
+   border/radius/padding (legend banners, result panels, etc.) — only the
+   background + shadow respond to data-card, same as .cp-card/.cp-launch-card. */
+.cp-card-bg2, .cp-card-bg3 { box-shadow: 0 2px 12px rgba(0,0,0,0.32); }
+.cp-card-bg2 { background: var(--cp-bg2); }
+.cp-card-bg3 { background: var(--cp-bg3); }
+
 .cp-input {
   background: var(--cp-bginput);
   border: 1px solid var(--cp-border);
@@ -255,6 +262,7 @@ input[type="number"] { -moz-appearance: textfield; }
 @keyframes cp-spin { to { transform: rotate(360deg); } }
 
 /* ── Launcher tool cards ── */
+.cp-launch-card { background: var(--cp-bg3); box-shadow: 0 2px 12px rgba(0,0,0,0.32); }
 @media (hover: hover) {
   .cp-launch-card:hover {
     border-color: var(--cp-acc) !important;
@@ -322,11 +330,25 @@ html[data-reduce-motion="true"] * { transition: none !important; }
 
 /* ── Card style (flat / elevated / glass) ── */
 html[data-card="flat"] .cp-card,
-html[data-card="flat"] .cp-card-accent { box-shadow: none; }
+html[data-card="flat"] .cp-card-accent,
+html[data-card="flat"] .cp-launch-card,
+html[data-card="flat"] .cp-card-bg2,
+html[data-card="flat"] .cp-card-bg3 { box-shadow: none; }
 
 html[data-card="glass"] .cp-card,
-html[data-card="glass"] .cp-card-accent {
+html[data-card="glass"] .cp-card-accent,
+html[data-card="glass"] .cp-card-bg2 {
   background: color-mix(in srgb, var(--cp-bg2) 70%, transparent);
+}
+html[data-card="glass"] .cp-launch-card,
+html[data-card="glass"] .cp-card-bg3 {
+  background: color-mix(in srgb, var(--cp-bg3) 70%, transparent);
+}
+html[data-card="glass"] .cp-card,
+html[data-card="glass"] .cp-card-accent,
+html[data-card="glass"] .cp-launch-card,
+html[data-card="glass"] .cp-card-bg2,
+html[data-card="glass"] .cp-card-bg3 {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 2px 12px rgba(0,0,0,0.28);

@@ -460,8 +460,7 @@ function SeverityLegend() {
   )
 
   return (
-    <div style={{
-      background: 'var(--cp-bg3)',
+    <div className="cp-card-bg3" style={{
       border: '1px solid var(--cp-border)',
       borderRadius: 6, padding: '10px 14px',
       marginBottom: 20,
@@ -761,9 +760,8 @@ function AirportCard({ data, now }) {
 // ── Decoded-report panel helpers ─────────────────────────────────────────────
 function DecodeBox({ role, children }) {
   return (
-    <div style={{
+    <div className="cp-card-bg3" style={{
       marginTop: 6,
-      background: 'var(--cp-bg3)',
       border: `1px solid ${role.borderDim}`,
       borderLeft: `3px solid ${role.color}`,
       borderRadius: 4, padding: '10px 14px',

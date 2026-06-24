@@ -81,7 +81,7 @@ export default function Converter() {
       )}
 
       {/* result */}
-      <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)',
+      <div className="cp-card-bg3" style={{ border: '1px solid var(--cp-border2)',
         borderLeft: `3px solid ${out != null ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
         borderRadius: 6, padding: '16px 18px' }}>
         <div className="cp-label" style={{ marginBottom: 6 }}>RESULT</div>

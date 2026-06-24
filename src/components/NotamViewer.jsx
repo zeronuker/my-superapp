@@ -589,7 +589,7 @@ export default function NotamViewer() {
           )}
 
           {view === 'raw' && notams.length > 0 && (
-            <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: '14px 16px' }}>
+            <div className="cp-card-bg3" style={{ border: '1px solid var(--cp-border)', borderRadius: 6, padding: '14px 16px' }}>
               <div style={{ fontFamily: T.mono, fontSize: 8, color: T.acc, letterSpacing: '0.18em', marginBottom: 12 }}>
                 NOTAM BRIEFING — {new Date().toISOString().slice(0, 16).replace('T', ' ')}Z
               </div>

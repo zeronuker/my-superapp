@@ -131,8 +131,7 @@ export default function EDTOCalculator() {
   )
 
   const ResultCard = ({ title, value, unit, details, accentColor = 'var(--cp-acc)' }) => (
-    <div style={{
-      background: 'var(--cp-bg3)',
+    <div className="cp-card-bg3" style={{
       border: '1px solid var(--cp-border2)',
       borderLeft: `3px solid ${accentColor}`,
       borderRadius: 4,
@@ -300,8 +299,7 @@ export default function EDTOCalculator() {
           <div>
             <SectionHeader title="Results" />
             {(!edto.weight || edto.isaDeviation === '') ? (
-              <div style={{
-                background: 'var(--cp-bg3)',
+              <div className="cp-card-bg3" style={{
                 border: '1px solid var(--cp-border2)',
                 borderRadius: 4,
                 padding: '28px 20px',

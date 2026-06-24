@@ -121,8 +121,8 @@ function Overlay({ onClose, children }) {
         zIndex: 1000, padding: 16,
       }}
     >
-      <div onClick={e => e.stopPropagation()} style={{
-        background: 'var(--cp-bg2)', border: '1px solid var(--cp-border2)', borderRadius: 8,
+      <div className="cp-card-bg2" onClick={e => e.stopPropagation()} style={{
+        border: '1px solid var(--cp-border2)', borderRadius: 8,
         width: '100%', maxWidth: 380, maxHeight: '80vh', display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
       }}>
@@ -338,8 +338,7 @@ export default function CurrencyCalculator() {
       </div>
 
       {rateSource && !loading && (
-        <div style={{
-          background: 'var(--cp-bg3)',
+        <div className="cp-card-bg3" style={{
           border: `1px solid ${rateSource === 'cached' ? 'rgba(63,224,197,0.2)' : rateSource === 'live' ? 'var(--cp-border2)' : 'rgba(245,197,66,0.3)'}`,
           borderRadius: 4, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4,
         }}>
