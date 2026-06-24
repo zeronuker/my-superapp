@@ -1024,7 +1024,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
             <UpdateChecker />
           </SettingsSection>
 
-          <SettingsSection title="BACKUP & SYNC">
+          <SettingsSection title="CLOUD SYNC">
             <Suspense fallback={<TabLoading compact />}>
               <DutyLogBackupSync />
             </Suspense>
