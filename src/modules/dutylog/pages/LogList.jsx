@@ -282,7 +282,7 @@ export default function LogList({
         marginBottom: 14,
       }}>
         <span style={{ color: 'var(--cb-blue)', fontWeight: 700, letterSpacing: '0.15em' }}>ℹ INFO · </span>
-        Duty logs are stored locally on this device. Use Backup & Sync in Settings for an optional online sync.
+        Duty logs are stored locally on this device. Use Cloud Sync in Settings for an optional online sync.
       </div>
 
       {promptLog && (
@@ -307,7 +307,7 @@ export default function LogList({
             >GO TO SETTINGS</button>
             <button onClick={onDismissSyncPrompt} className="cp-btn" style={{ fontSize: 9, padding: '5px 10px' }}>LATER</button>
           </>}>
-            New duty log saved locally. Set up cloud sync in Settings to back it up.
+            New duty log saved locally. Set up a cloud sync code in Settings to sync it.
           </SyncToast>
         )
       )}
@@ -421,7 +421,7 @@ export default function LogList({
           </div>
           {viewedLogs.length === 0 ? (
             <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.06em', padding: '8px 0' }}>
-              NO LOGS IN THIS BACKUP
+              NO LOGS FOUND FOR THIS CODE
             </div>
           ) : (
             <div style={{ marginBottom: 10 }}>

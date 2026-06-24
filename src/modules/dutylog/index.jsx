@@ -205,7 +205,7 @@ export function DutyLogBackupSync() {
         }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.06em', color: 'var(--cp-txt)' }}>
-            {syncCode ? (relTime ? `LAST SYNCED · ${relTime}` : 'BACKUP READY') : 'NO BACKUP ON THIS DEVICE'}
+            {syncCode ? (relTime ? `LAST SYNCED · ${relTime}` : 'CLOUD SYNC READY') : 'NO CLOUD SYNC CODE DETECTED FOR THIS DEVICE'}
           </div>
           {syncCode && (
             <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em', marginTop: 2 }}>
@@ -248,14 +248,14 @@ export function DutyLogBackupSync() {
             fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.06em',
             lineHeight: 1.6, marginBottom: 10,
           }}>
-            Back up your logs to the cloud and get a code you can use to restore them on another device.
+            Create a cloud sync code to copy your logs to the cloud, then enter it on another device to load them there.
           </div>
           <button
             onClick={runBackup}
             disabled={busy === 'backup'}
             className="cp-btn"
             style={{ width: '100%', padding: '8px 10px' }}
-          >{busy === 'backup' ? 'BACKING UP…' : 'BACKUP NOW'}</button>
+          >{busy === 'backup' ? 'CREATING…' : 'CREATE CLOUD SYNC CODE'}</button>
         </div>
       )}
 
