@@ -9,7 +9,7 @@ const MONTH_NAMES = [
 ]
 
 // Build a "WMKK → VOMM → WMKK" route string from a log's sectors.
-function routeOf(log) {
+export function routeOf(log) {
   const pts = []
   log.sectors.forEach((s) => {
     if (s.from && pts[pts.length - 1] !== s.from) pts.push(s.from)
@@ -70,7 +70,33 @@ function groupLogs(logs) {
   return { undated, flat, pastMonthsArr, pastYearsArr }
 }
 
-function LogCard({ log, onOpen, onDelete }) {
+// Per-entry sync status — derived from existing store fields, no new per-log
+// data needed: a log counts as synced once the store's lastSyncedAt (set by
+// any successful push) is at or after that log's own updatedAt.
+function SyncBadge({ log, syncCode, lastSyncedAt, onSyncNow, syncBusy }) {
+  if (!syncCode) {
+    return <span style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.06em', flexShrink: 0 }}>NOT BACKED UP</span>
+  }
+  const synced = lastSyncedAt && log.updatedAt <= lastSyncedAt
+  if (synced) {
+    return (
+      <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cp-green)' }} />
+        <span style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-green)', letterSpacing: '0.06em' }}>SYNCED</span>
+      </span>
+    )
+  }
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onSyncNow?.() }}
+      disabled={syncBusy}
+      className="cp-btn"
+      style={{ fontSize: 8, padding: '4px 8px', flexShrink: 0 }}
+    >{syncBusy ? '…' : '○ SYNC'}</button>
+  )
+}
+
+function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syncBusy }) {
   const n = log.sectors.length
   return (
     <div onClick={() => onOpen(log.id)} style={{
@@ -94,9 +120,44 @@ function LogCard({ log, onOpen, onDelete }) {
       <div style={{ fontFamily: mono, fontSize: 11, color: 'var(--cp-muted)', letterSpacing: '0.08em' }}>
         {routeOf(log)}
       </div>
-      <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', marginTop: 4, letterSpacing: '0.08em' }}>
-        {n} SECTOR{n === 1 ? '' : 'S'} · {log.aircraft?.[0]?.type || '—'}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+        <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em' }}>
+          {n} SECTOR{n === 1 ? '' : 'S'} · {log.aircraft?.[0]?.type || '—'}
+        </span>
+        <SyncBadge log={log} syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy} />
       </div>
+    </div>
+  )
+}
+
+// Read-only summary row for a viewed (not-yet-imported) snapshot's logs.
+function ViewedLogRow({ log }) {
+  const n = log.sectors?.length || 0
+  return (
+    <div style={{
+      background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 4,
+      padding: '8px 10px', marginBottom: 7,
+    }}>
+      <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 500, color: 'var(--cp-txt)', letterSpacing: '0.06em' }}>
+        {log.date || 'UNDATED'}
+      </div>
+      <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', marginTop: 2, letterSpacing: '0.06em' }}>
+        {routeOf(log)} · {n} SECTOR{n === 1 ? '' : 'S'}
+      </div>
+    </div>
+  )
+}
+
+function SyncToast({ children, actions }) {
+  return (
+    <div style={{
+      background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 6,
+      padding: '10px 12px', marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 8,
+    }}>
+      <div style={{ fontFamily: mono, fontSize: 10, color: 'var(--cp-txt)', letterSpacing: '0.04em', lineHeight: 1.5 }}>
+        {children}
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>{actions}</div>
     </div>
   )
 }
@@ -128,13 +189,65 @@ function CollapsibleBanner({ label, count, expanded, onToggle, children }) {
   )
 }
 
-export default function LogList({ logs, onNew, onOpen, onDelete }) {
+export default function LogList({
+  logs, onNew, onOpen, onDelete,
+  syncCode, lastSyncedAt, onSyncNow, syncBusy, syncError,
+  syncPromptId, onDismissSyncPrompt, onOpenSettings,
+  onView, onImport,
+}) {
   const [expanded, setExpanded] = useState(() => new Set())
   const toggle = (key) => setExpanded(prev => {
     const next = new Set(prev)
     next.has(key) ? next.delete(key) : next.add(key)
     return next
   })
+
+  const [viewInput, setViewInput] = useState('')
+  const [viewBusy, setViewBusy] = useState(false)
+  const [viewError, setViewError] = useState('')
+  const [viewedCode, setViewedCode] = useState(null)
+  const [viewedLogs, setViewedLogs] = useState([])
+  const [confirmImport, setConfirmImport] = useState(false)
+  const [importBusy, setImportBusy] = useState(false)
+  const [importError, setImportError] = useState('')
+
+  const handleViewCode = async () => {
+    const code = viewInput.trim().toUpperCase()
+    if (!code) return
+    setViewError('')
+    setViewBusy(true)
+    try {
+      const result = await onView(code)
+      setViewedLogs(result)
+      setViewedCode(code)
+      setConfirmImport(false)
+    } catch (e) {
+      setViewError(e.message)
+    } finally {
+      setViewBusy(false)
+    }
+  }
+
+  const handleImportClick = async () => {
+    if (!confirmImport) { setConfirmImport(true); return }
+    setImportError('')
+    setImportBusy(true)
+    try {
+      await onImport(viewedCode)
+      setViewedCode(null)
+      setViewedLogs([])
+      setConfirmImport(false)
+      setViewInput('')
+    } catch (e) {
+      setImportError(e.message)
+    } finally {
+      setImportBusy(false)
+    }
+  }
+
+  const closeView = () => { setViewedCode(null); setViewedLogs([]); setConfirmImport(false); setImportError('') }
+
+  const promptLog = syncPromptId ? logs.find(l => l.id === syncPromptId) : null
 
   const { undated, flat, pastMonthsArr, pastYearsArr } = useMemo(() => groupLogs(logs), [logs])
 
@@ -172,6 +285,39 @@ export default function LogList({ logs, onNew, onOpen, onDelete }) {
         Duty logs are stored locally on this device. Use Backup & Sync in Settings for an optional online sync.
       </div>
 
+      {promptLog && (
+        syncCode ? (
+          <SyncToast actions={<>
+            <button
+              onClick={() => { onSyncNow(); onDismissSyncPrompt() }}
+              disabled={syncBusy}
+              className="cp-btn"
+              style={{ fontSize: 9, padding: '5px 10px' }}
+            >{syncBusy ? '…' : 'SYNC NOW'}</button>
+            <button onClick={onDismissSyncPrompt} className="cp-btn" style={{ fontSize: 9, padding: '5px 10px' }}>LATER</button>
+          </>}>
+            New duty log saved locally. Sync it to the cloud now?
+          </SyncToast>
+        ) : (
+          <SyncToast actions={<>
+            <button
+              onClick={() => { onOpenSettings(); onDismissSyncPrompt() }}
+              className="cp-btn"
+              style={{ fontSize: 9, padding: '5px 10px' }}
+            >GO TO SETTINGS</button>
+            <button onClick={onDismissSyncPrompt} className="cp-btn" style={{ fontSize: 9, padding: '5px 10px' }}>LATER</button>
+          </>}>
+            New duty log saved locally. Set up cloud sync in Settings to back it up.
+          </SyncToast>
+        )
+      )}
+
+      {syncError && (
+        <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-red)', letterSpacing: '0.06em', lineHeight: 1.6, marginBottom: 14 }}>
+          {syncError}
+        </div>
+      )}
+
       <div className="cp-label" style={{ marginBottom: 10 }}>Saved · offline</div>
 
       {logs.length === 0 && (
@@ -183,8 +329,14 @@ export default function LogList({ logs, onNew, onOpen, onDelete }) {
         </div>
       )}
 
-      {undated.map(log => <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete} />)}
-      {flat.map(log => <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete} />)}
+      {undated.map(log => (
+        <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete}
+          syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy} />
+      ))}
+      {flat.map(log => (
+        <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete}
+          syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy} />
+      ))}
 
       {pastMonthsArr.map(({ year, month, logs: monthLogs }) => {
         const key = `month:${year}-${month}`
@@ -196,7 +348,10 @@ export default function LogList({ logs, onNew, onOpen, onDelete }) {
             expanded={expanded.has(key)}
             onToggle={() => toggle(key)}
           >
-            {monthLogs.map(log => <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete} />)}
+            {monthLogs.map(log => (
+              <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete}
+                syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy} />
+            ))}
           </CollapsibleBanner>
         )
       })}
@@ -222,13 +377,72 @@ export default function LogList({ logs, onNew, onOpen, onDelete }) {
                   expanded={expanded.has(key)}
                   onToggle={() => toggle(key)}
                 >
-                  {monthLogs.map(log => <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete} />)}
+                  {monthLogs.map(log => (
+                    <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete}
+                      syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy} />
+                  ))}
                 </CollapsibleBanner>
               )
             })}
           </CollapsibleBanner>
         )
       })}
+
+      <div className="cp-divider" style={{ margin: '18px 0' }} />
+
+      <div className="cp-label" style={{ marginBottom: 6 }}>Have a code? Enter here to view it</div>
+      <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.5, marginBottom: 8 }}>
+        View another device's synced logs without changing anything on this device. You can choose to import them below.
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          value={viewInput}
+          onChange={(e) => setViewInput(e.target.value)}
+          placeholder="XXXX-XXXX-XXXX"
+          className="cp-input"
+          style={{ flex: 1 }}
+        />
+        <button onClick={handleViewCode} disabled={viewBusy || !viewInput.trim()} className="cp-btn" style={{ padding: '8px 10px' }}>
+          {viewBusy ? '…' : 'VIEW'}
+        </button>
+      </div>
+
+      {viewError && (
+        <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>
+          {viewError}
+        </div>
+      )}
+
+      {viewedCode && (
+        <div style={{ marginTop: 14, border: '1px solid var(--cp-border)', borderRadius: 6, padding: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-acc)', letterSpacing: '0.08em' }}>VIEWING · {viewedCode} · READ-ONLY</span>
+            <button onClick={closeView} className="cp-btn" style={{ fontSize: 8, padding: '3px 7px' }}>CLOSE</button>
+          </div>
+          {viewedLogs.length === 0 ? (
+            <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.06em', padding: '8px 0' }}>
+              NO LOGS IN THIS BACKUP
+            </div>
+          ) : (
+            <div style={{ marginBottom: 10 }}>
+              {viewedLogs.map(log => <ViewedLogRow key={log.id} log={log} />)}
+            </div>
+          )}
+          <button onClick={handleImportClick} disabled={importBusy} className="cp-btn-danger cp-btn" style={{ width: '100%', padding: '8px 10px' }}>
+            {importBusy ? 'IMPORTING…' : (confirmImport ? 'CONFIRM IMPORT' : 'IMPORT TO THIS DEVICE')}
+          </button>
+          {confirmImport && (
+            <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>
+              This will overwrite all logs currently on this device and make this device the owner of {viewedCode}. This action is not reversible.
+            </div>
+          )}
+          {importError && (
+            <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>
+              {importError}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -41,11 +41,12 @@ function mapLog(logs, id, fn) {
 }
 
 const useDutyLogStore = create(persist(
-  (set) => ({
+  (set, get) => ({
     logs: [],
     editingId: null,
     syncCode: null,
     lastSyncedAt: null,
+    deviceId: null,
 
     setEditingId: (id) => set({ editingId: id }),
 
@@ -54,6 +55,16 @@ const useDutyLogStore = create(persist(
     markSynced: (code) => set({ syncCode: code, lastSyncedAt: Date.now() }),
 
     replaceLogs: (logs) => set({ logs }),
+
+    // Lazily generates and persists a per-device id, used to claim/verify
+    // ownership of a sync code without any account system.
+    ensureDeviceId: () => {
+      const existing = get().deviceId
+      if (existing) return existing
+      const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : uid()
+      set({ deviceId: id })
+      return id
+    },
 
     createLog: () => {
       const log = blankLog()
