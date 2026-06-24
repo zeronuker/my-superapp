@@ -15,17 +15,43 @@ export default function QrScanner({ onResult, onClose }) {
   useEffect(() => {
     let cancelled = false
 
-    navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment' } })
-      .then((stream) => {
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return }
-        streamRef.current = stream
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          videoRef.current.play()
-          rafRef.current = requestAnimationFrame(tick)
-        }
+    const start = (stream) => {
+      if (cancelled) { stream.getTracks().forEach(t => t.stop()); return }
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+        rafRef.current = requestAnimationFrame(tick)
+      }
+    }
+
+    const messageFor = (err) => {
+      switch (err?.name) {
+        case 'NotAllowedError':
+        case 'PermissionDeniedError':
+          return 'Camera permission denied — check your browser/app site settings and allow camera access for this site, then try again.'
+        case 'NotFoundError':
+        case 'DevicesNotFoundError':
+          return 'No camera found on this device.'
+        case 'NotReadableError':
+        case 'TrackStartError':
+          return 'Camera is in use by another app — close it and try again.'
+        case 'SecurityError':
+          return 'Camera blocked by browser security settings.'
+        default:
+          return 'Camera unavailable — type the code instead.'
+      }
+    }
+
+    navigator.mediaDevices?.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+      .then(start)
+      .catch((err) => {
+        // Some Android browsers/PWAs reject facingMode constraints (e.g. OverconstrainedError)
+        // even when a usable camera exists — retry with no constraints before giving up.
+        navigator.mediaDevices?.getUserMedia({ video: true })
+          .then(start)
+          .catch(() => setError(messageFor(err)))
       })
-      .catch(() => setError('Camera unavailable — type the code instead.'))
 
     function tick() {
       const video = videoRef.current
