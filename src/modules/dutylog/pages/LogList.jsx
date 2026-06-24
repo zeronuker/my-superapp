@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import QrScanner from '../components/QrScanner'
 
 // Saved duty logs — newest first. Tap to open, trash to delete, NEW to create.
 const mono = 'var(--cb-font-mono)'
@@ -412,6 +413,7 @@ export default function LogList({
   const [importBusy, setImportBusy] = useState(false)
   const [importError, setImportError] = useState('')
   const [openViewedLog, setOpenViewedLog] = useState(null)
+  const [scanning, setScanning] = useState(false)
 
   const [viewedExpanded, setViewedExpanded] = useState(() => new Set())
   const toggleViewed = (key) => setViewedExpanded(prev => {
@@ -435,6 +437,11 @@ export default function LogList({
     } finally {
       setViewBusy(false)
     }
+  }
+
+  const handleScanResult = (data) => {
+    setScanning(false)
+    setViewInput(data)
   }
 
   const handleImportClick = async () => {
@@ -559,6 +566,11 @@ export default function LogList({
       <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.5, marginBottom: 8 }}>
         View another device's synced logs without changing anything on this device. You can choose to import them below.
       </div>
+      <button
+        onClick={() => setScanning(true)}
+        className="cp-btn"
+        style={{ width: '100%', padding: '8px 10px', marginBottom: 8 }}
+      >TAP TO SCAN</button>
       <div style={{ display: 'flex', gap: 8 }}>
         <input
           value={viewInput}
@@ -576,6 +588,10 @@ export default function LogList({
         <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>
           {viewError}
         </div>
+      )}
+
+      {scanning && (
+        <QrScanner onResult={handleScanResult} onClose={() => setScanning(false)} />
       )}
 
       {viewedCode && (
