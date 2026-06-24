@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.11 — 2026-06-24
+
+### Duty Log Module
+
+#### Backup & Sync
+- Back up your duty logs to the cloud and restore them on another device using a short anonymous code — no account required, the code is the only credential
+- Backup & Sync moved into Settings, with a status card showing last-synced time (relative, e.g. "2 MIN AGO") and a BACKUP / RESTORE tab switcher
+- Generate a QR code for your backup code, or scan one with the camera to restore — manual code entry still works as a fallback if the camera is unavailable
+
+#### Settings Cleanup
+- Removed the JSON export/import and reset-to-defaults section, superseded by Duty Log Backup & Sync
+
+---
+
 ## v3.9 — 2026-06-19
 
 ### Flight Module (Prayer Tab)

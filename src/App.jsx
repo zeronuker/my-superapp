@@ -45,7 +45,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.10'
+const APP_VERSION = 'v3.11'
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -1125,6 +1125,15 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.11', date: 'Jun 2026',
+    entries: [
+      { type: 'feat', text: 'Duty Log: Backup & Sync — back up your logs to the cloud and restore them on another device using a short anonymous code (no account required)' },
+      { type: 'feat', text: 'Duty Log: Backup & Sync moved into Settings, with a status card showing last-synced time and a BACKUP / RESTORE tab switcher' },
+      { type: 'feat', text: 'Duty Log: generate a QR code for your backup code, or scan one with the camera to restore — manual code entry still works as a fallback' },
+      { type: 'fix',  text: 'Settings: removed the JSON export/import and reset-to-defaults section, superseded by Duty Log Backup & Sync' },
+    ],
+  },
   {
     version: 'v3.10', date: 'Jun 2026',
     entries: [
