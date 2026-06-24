@@ -59,6 +59,7 @@ export const TIMEZONES = [
   { label: 'Muscat',             country: 'OM', tz: 'Asia/Muscat',                        icao: 'OOMS' },
   { label: 'Tehran',             country: 'IR', tz: 'Asia/Tehran',                        icao: 'OIIE' },
   // ── South / Central Asia ────────────────────────────────────────────────
+  { label: 'Kabul',              country: 'AF', tz: 'Asia/Kabul',                         icao: 'OAKB' },
   { label: 'Karachi',            country: 'PK', tz: 'Asia/Karachi',                       icao: 'OPKC' },
   { label: 'Lahore',             country: 'PK', tz: 'Asia/Karachi',                       icao: 'OPLA' },
   { label: 'Delhi',              country: 'IN', tz: 'Asia/Kolkata',                       icao: 'VIDP' },
@@ -99,6 +100,7 @@ export const TIMEZONES = [
   { label: 'Sydney',             country: 'AU', tz: 'Australia/Sydney',                   icao: 'YSSY' },
   { label: 'Melbourne',          country: 'AU', tz: 'Australia/Melbourne',                icao: 'YMML' },
   { label: 'Nadi',               country: 'FJ', tz: 'Pacific/Fiji',                       icao: 'NFFN' },
+  { label: 'Nouméa',             country: 'NC', tz: 'Pacific/Noumea',                     icao: 'NWWW' },
   { label: 'Auckland',           country: 'NZ', tz: 'Pacific/Auckland',                   icao: 'NZAA' },
 ]
 

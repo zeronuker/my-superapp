@@ -299,7 +299,7 @@ export default function WorldTimeCalculator() {
               ref={searchRef}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search city or ICAO…"
+              placeholder="Search City"
               autoComplete="off" spellCheck="false" autoCapitalize="none"
               style={{
                 width: '100%', boxSizing: 'border-box',
