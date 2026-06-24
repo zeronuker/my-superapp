@@ -40,13 +40,6 @@ describe('convert', () => {
     expect(convert('pressure', 1, 'atm', 'hPa')).toBeCloseTo(1013.25, 2)
     expect(convert('pressure', 29.92, 'inHg', 'hPa')).toBeCloseTo(1013.25, 0)
   })
-  it('time', () => {
-    expect(convert('time', 1, 'hr', 'min')).toBe(60)
-    expect(convert('time', 90, 'min', 's')).toBe(5400)
-  })
-  it('angle', () => {
-    expect(convert('angle', Math.PI, 'rad', 'deg')).toBeCloseTo(180, 6)
-  })
 })
 
 describe('convertFuel', () => {

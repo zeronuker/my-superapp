@@ -40,16 +40,6 @@ export const UNIT_CATEGORIES = {
     base: 'hPa',
     units: { hPa: 1, inHg: 33.8639, mmHg: 1.33322, psi: 68.9476, atm: 1013.25 },
   },
-  time: {
-    label: 'Time',
-    base: 's',
-    units: { s: 1, min: 60, hr: 3600 },
-  },
-  angle: {
-    label: 'Angle',
-    base: 'deg',
-    units: { deg: 1, rad: 57.29577951308232 },
-  },
 }
 
 function toCelsius(v, from) {
