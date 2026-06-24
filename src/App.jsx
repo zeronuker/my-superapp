@@ -24,6 +24,8 @@ const DutyLogModule           = lazy(() => import('./modules/dutylog'))
 // Named export → adapt to the default shape React.lazy expects (same chunk as PrayerModule)
 const PrayerSettings = lazy(() =>
   import('./modules/prayer').then(m => ({ default: m.PrayerSettings })))
+const DutyLogBackupSync = lazy(() =>
+  import('./modules/dutylog').then(m => ({ default: m.DutyLogBackupSync })))
 
 export const CALCULATORS = [
   { id: 'calculator',    icon: '🧮',  name: 'Calculator',     component: CombinedCalculator },
@@ -119,7 +121,7 @@ export default function App() {
   const {
     activeCalculator, setActiveCalculator,
     darkMode, setDarkMode,
-    settings, updateSettings, resetSettings, importSettings,
+    settings, updateSettings,
   } = useCalculatorStore()
 
   const isOnline = useOnlineStatus()
@@ -426,8 +428,6 @@ export default function App() {
             onUpdate={handleSettingsUpdate}
             onClose={() => setSettingsOpen(false)}
             orderedCalcs={orderedCalcs}
-            onResetSettings={resetSettings}
-            onImportSettings={importSettings}
           />
         </>
       )}
@@ -718,7 +718,7 @@ function useMediaQuery(query) {
 }
 
 // ── Settings Panel ──────────────────────────────────────────────────────────
-function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalcs, onResetSettings, onImportSettings }) {
+function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalcs }) {
   const panelRef = React.useRef(null)
   const [activeTab, setActiveTab] = React.useState('appearance')
   const isWide = useMediaQuery('(min-width: 768px)')   // ≥768 → modal+rail, else sheet+strip
@@ -750,55 +750,6 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
   }, [])
 
   const [orderOpen, setOrderOpen] = React.useState(false)
-  const fileRef = React.useRef(null)
-
-  const handleExport = () => {
-    try {
-      const payload = JSON.stringify({ app: 'claudeborne', version: APP_VERSION, settings }, null, 2)
-      const blob = new Blob([payload], { type: 'application/json' })
-      const url  = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'claudeborne-settings.json'
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (_) {}
-  }
-
-  const SETTINGS_ALLOWED = {
-    navStyle:    ['launcher', 'tabs', 'grouped'],
-    themeMode:   ['dark', 'light', 'auto'],
-    fontScale:   ['compact', 'normal', 'large', 'cockpit'],
-    tabPosition: ['top', 'bottom'],
-    clockFormat: ['24hr', '12hr'],
-    accentColor: ['gradient', 'mint', 'blue', 'violet', 'amber', 'emerald', 'rose', 'cyan', 'gold', 'coral', 'teal', 'green'],
-    cardStyle:   ['flat', 'elevated', 'glass'],
-    notamSort:   ['relevance', 'category'],
-  }
-
-  const handleImportFile = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const obj = JSON.parse(reader.result)
-        const incoming = obj?.settings && typeof obj.settings === 'object' ? obj.settings : obj
-        if (!incoming || typeof incoming !== 'object') throw new Error('bad')
-        for (const [key, allowed] of Object.entries(SETTINGS_ALLOWED)) {
-          if (key in incoming && !allowed.includes(incoming[key])) throw new Error(`invalid ${key}`)
-        }
-        if ('defaultHistory' in incoming && (typeof incoming.defaultHistory !== 'number' || incoming.defaultHistory < 1)) throw new Error('invalid defaultHistory')
-        if ('tabOrder' in incoming && !Array.isArray(incoming.tabOrder)) throw new Error('invalid tabOrder')
-        onImportSettings(incoming)
-      } catch (_) {
-        window.alert('Could not read that settings file. Make sure it was exported from ClaudeBorne.')
-      }
-    }
-    reader.readAsText(file)
-    e.target.value = ''
-  }
-
   const dash = settings.dashboardWidgets || {}
   const setDash = (k, v) => onUpdate({ dashboardWidgets: { ...dash, [k]: v } })
 
@@ -1062,20 +1013,10 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
             <UpdateChecker />
           </SettingsSection>
 
-          <SettingsSection title="SETTINGS DATA">
-            <input ref={fileRef} type="file" accept="application/json,.json"
-              onChange={handleImportFile} style={{ display: 'none' }} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="cp-btn" onClick={handleExport}
-                style={{ flex: 1, padding: '8px 0', fontSize: 10 }}>⬇ EXPORT</button>
-              <button className="cp-btn" onClick={() => fileRef.current?.click()}
-                style={{ flex: 1, padding: '8px 0', fontSize: 10 }}>⬆ IMPORT</button>
-            </div>
-            <button className="cp-btn cp-btn-danger"
-              onClick={() => { if (window.confirm('Reset all settings to defaults? Your calculator data is kept.')) onResetSettings() }}
-              style={{ width: '100%', padding: '8px 0', fontSize: 10 }}>
-              ↺ RESET SETTINGS TO DEFAULTS
-            </button>
+          <SettingsSection title="BACKUP & SYNC">
+            <Suspense fallback={<TabLoading compact />}>
+              <DutyLogBackupSync />
+            </Suspense>
           </SettingsSection>
 
           <SettingsSection title="CHANGELOG">

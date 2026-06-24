@@ -137,21 +137,4 @@ export const useCalculatorStore = create((set) => ({
     try { localStorage.setItem('cb-settings', JSON.stringify(next)) } catch (_) {}
     return { settings: next }
   }),
-
-  // Restore every preference to defaults (keeps calculator data + tab position).
-  resetSettings: () => set(() => {
-    try { localStorage.setItem('cb-settings', JSON.stringify(DEFAULT_SETTINGS)) } catch (_) {}
-    return { settings: DEFAULT_SETTINGS }
-  }),
-
-  // Replace settings wholesale from an imported object (merged onto defaults).
-  importSettings: (obj) => set(() => {
-    const next = {
-      ...DEFAULT_SETTINGS, ...obj,
-      units: { ...DEFAULT_SETTINGS.units, ...(obj?.units || {}) },
-      dashboardWidgets: { ...DEFAULT_SETTINGS.dashboardWidgets, ...(obj?.dashboardWidgets || {}) },
-    }
-    try { localStorage.setItem('cb-settings', JSON.stringify(next)) } catch (_) {}
-    return { settings: next }
-  }),
 }))
