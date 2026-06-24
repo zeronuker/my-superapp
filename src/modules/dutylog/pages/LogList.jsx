@@ -169,7 +169,7 @@ export default function LogList({ logs, onNew, onOpen, onDelete }) {
         marginBottom: 14,
       }}>
         <span style={{ color: 'var(--cb-blue)', fontWeight: 700, letterSpacing: '0.15em' }}>ℹ INFO · </span>
-        Duty logs are stored locally on this device by default. Use Backup & Sync in Settings for an optional off-device copy.
+        Duty logs are stored locally on this device. Use Backup & Sync in Settings for an optional online sync.
       </div>
 
       <div className="cp-label" style={{ marginBottom: 10 }}>Saved · offline</div>
