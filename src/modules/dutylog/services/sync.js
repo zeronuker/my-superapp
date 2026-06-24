@@ -15,23 +15,45 @@ export function generateSyncCode() {
   return groups.join('-')
 }
 
-export async function pushLogs(code, logs) {
+export async function pushLogs(code, logs, deviceId) {
   const res = await fetch(`/api/dutylog-sync?code=${encodeURIComponent(code)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ logs }),
+    body: JSON.stringify({ logs, deviceId }),
   })
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
-    throw new Error(data.error || `sync failed (${res.status})`)
+    const err = new Error(data.error || `sync failed (${res.status})`)
+    err.status = res.status
+    throw err
   }
 }
 
-export async function pullLogs(code) {
+// Read-only — no ownership check, no side effects on either device.
+export async function viewLogs(code) {
   const res = await fetch(`/api/dutylog-sync?code=${encodeURIComponent(code)}`)
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
-    throw new Error(data.error || `restore failed (${res.status})`)
+    const err = new Error(data.error || `view failed (${res.status})`)
+    err.status = res.status
+    throw err
+  }
+  const data = await res.json()
+  return data.logs ?? []
+}
+
+// Force-claims ownership of the code for this device, then returns its logs.
+export async function claimAndRestore(code, deviceId) {
+  const res = await fetch(`/api/dutylog-sync?code=${encodeURIComponent(code)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deviceId }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    const err = new Error(data.error || `restore failed (${res.status})`)
+    err.status = res.status
+    throw err
   }
   const data = await res.json()
   return data.logs ?? []

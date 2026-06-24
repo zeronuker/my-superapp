@@ -1,13 +1,16 @@
 # Changelog
 
-## Preview — 2026-06-24
+## v3.12 — 2026-06-24
 
 ### Duty Log Module
 
-#### Backup & Sync Redesign (Preview)
-- Interactive mockup at `/dutylog-sync-demo.html` previews a redesigned Backup & Sync flow for review — not yet wired into the real app
-- Demonstrates: per-entry sync status indicators, a sync prompt on new-log creation, an always-visible sync code/QR in Settings, and a Duty-Log-screen "view a code" panel with a confirm-gated "import to this device" action that warns it overwrites local logs and transfers ownership
-- Uses local component state and fake data only — does not call Firebase and has no effect on real duty logs or sync codes
+#### Backup & Sync Redesign
+- Each device now has a persistent ownership claim on a sync code: only the owning device can push backups, and restoring/importing from a code transfers ownership to the device that did it
+- Per-entry sync status shown right on each log card — a green SYNCED dot, or a one-tap ○ SYNC button for anything pushed since the last backup
+- Creating a new log now prompts to sync it immediately (or jump to Settings to set up sync first if none exists yet)
+- Sync code and QR are now always visible in Settings once created, instead of being hidden behind a tab
+- New "Have a code? Enter here to view it" panel directly in the Duty Log screen — view another device's backed-up logs read-only with no effect on this device, with an optional, confirm-gated "Import to this device" action that overwrites local logs and transfers ownership (clearly warned as not reversible)
+- Restoring from Settings now requires an explicit two-tap confirmation (replacing the old browser confirm dialog) and carries the same ownership-transfer warning
 
 ---
 

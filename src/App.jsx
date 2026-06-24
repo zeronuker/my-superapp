@@ -45,7 +45,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.11'
+const APP_VERSION = 'v3.12'
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -140,6 +140,11 @@ export default function App() {
   }, [setActiveCalculator, settings.rememberLastTab])
 
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsInitialTab, setSettingsInitialTab] = useState('appearance')
+  const openSettingsAbout = React.useCallback(() => {
+    setSettingsInitialTab('about')
+    setSettingsOpen(true)
+  }, [])
   const [searchOpen,   setSearchOpen]   = useState(false)
   const [fading, setFading] = React.useState(false)
 
@@ -306,7 +311,7 @@ export default function App() {
                 ⌕
               </button>
               <button
-                onClick={() => setSettingsOpen(true)}
+                onClick={() => { setSettingsInitialTab('appearance'); setSettingsOpen(true) }}
                 className="cp-btn"
                 style={{ fontSize: 15, padding: '6px 12px' }}
                 title="Settings"
@@ -356,7 +361,12 @@ export default function App() {
                 className="cp-calc-fade">
                 <ErrorBoundary name={currentCalc?.name} resetKey={activeCalculator}>
                   <Suspense fallback={<TabLoading />}>
-                    {CurrentComponent && <CurrentComponent clockFormat={settings.clockFormat || '24hr'} />}
+                    {CurrentComponent && (
+                      <CurrentComponent
+                        clockFormat={settings.clockFormat || '24hr'}
+                        {...(currentCalc.id === 'dutylog' ? { onOpenSettings: openSettingsAbout } : {})}
+                      />
+                    )}
                   </Suspense>
                 </ErrorBoundary>
               </div>
@@ -428,6 +438,7 @@ export default function App() {
             onUpdate={handleSettingsUpdate}
             onClose={() => setSettingsOpen(false)}
             orderedCalcs={orderedCalcs}
+            initialTab={settingsInitialTab}
           />
         </>
       )}
@@ -718,9 +729,9 @@ function useMediaQuery(query) {
 }
 
 // ── Settings Panel ──────────────────────────────────────────────────────────
-function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalcs }) {
+function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalcs, initialTab = 'appearance' }) {
   const panelRef = React.useRef(null)
-  const [activeTab, setActiveTab] = React.useState('appearance')
+  const [activeTab, setActiveTab] = React.useState(initialTab)
   const isWide = useMediaQuery('(min-width: 768px)')   // ≥768 → modal+rail, else sheet+strip
   const animate = true
 
@@ -1125,6 +1136,15 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.12', date: 'Jun 2026',
+    entries: [
+      { type: 'feat', text: 'Duty Log: Backup & Sync redesign — each device claims ownership of a sync code; only the owner can push, and restoring/importing transfers ownership to the new device' },
+      { type: 'feat', text: 'Duty Log: per-entry sync status on each log card (SYNCED dot or a one-tap ○ SYNC), plus a prompt to sync right after creating a new log' },
+      { type: 'feat', text: 'Duty Log: new "Have a code? Enter here to view it" panel — view another device\'s backed-up logs read-only, with an optional confirm-gated import that overwrites local logs and transfers ownership' },
+      { type: 'feat', text: 'Settings: sync code & QR now always visible once created, instead of hidden behind a tab; restore now requires a two-tap in-place confirmation instead of a browser dialog' },
+    ],
+  },
   {
     version: 'v3.11', date: 'Jun 2026',
     entries: [

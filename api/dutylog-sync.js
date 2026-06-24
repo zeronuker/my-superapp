@@ -8,8 +8,9 @@
  *   FIREBASE_CLIENT_EMAIL
  *   FIREBASE_PRIVATE_KEY  – service-account key, with literal \n line breaks
  *
- * GET  /api/dutylog-sync?code=XXXX-XXXX-XXXX   -> { logs, updatedAt }
- * PUT  /api/dutylog-sync?code=XXXX-XXXX-XXXX   body: { logs: [...] }
+ * GET  /api/dutylog-sync?code=XXXX-XXXX-XXXX   -> { logs, updatedAt }                  read-only view, no ownership check
+ * PUT  /api/dutylog-sync?code=XXXX-XXXX-XXXX   body: { logs: [...], deviceId }         push — owner-only, auto-claims if unowned
+ * POST /api/dutylog-sync?code=XXXX-XXXX-XXXX   body: { deviceId }                      claim + restore — transfers ownership
  */
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
@@ -60,20 +61,45 @@ export default async function handler(req, res) {
 
   if (req.method === 'PUT') {
     const logs = req.body?.logs
+    const deviceId = req.body?.deviceId
     if (!Array.isArray(logs)) {
       return res.status(400).json({ error: 'logs array required' })
+    }
+    if (!deviceId) {
+      return res.status(400).json({ error: 'deviceId required' })
     }
     if (Buffer.byteLength(JSON.stringify(logs)) > MAX_PAYLOAD_BYTES) {
       return res.status(413).json({ error: 'backup too large' })
     }
     try {
-      await ref.set({ logs, updatedAt: Date.now() })
+      const snap = await ref.get()
+      const existingOwner = snap.exists ? snap.data().ownerDeviceId : null
+      if (existingOwner && existingOwner !== deviceId) {
+        return res.status(403).json({ error: 'this code is owned by another device' })
+      }
+      await ref.set({ logs, updatedAt: Date.now(), ownerDeviceId: existingOwner || deviceId })
       return res.status(200).json({ ok: true })
     } catch (e) {
       return res.status(502).json({ error: String(e) })
     }
   }
 
-  res.setHeader('Allow', 'GET, PUT')
+  if (req.method === 'POST') {
+    const deviceId = req.body?.deviceId
+    if (!deviceId) {
+      return res.status(400).json({ error: 'deviceId required' })
+    }
+    try {
+      const snap = await ref.get()
+      if (!snap.exists) return res.status(404).json({ error: 'no backup found for this code' })
+      const data = snap.data()
+      await ref.set({ ...data, ownerDeviceId: deviceId })
+      return res.status(200).json({ logs: data.logs ?? [], updatedAt: data.updatedAt })
+    } catch (e) {
+      return res.status(502).json({ error: String(e) })
+    }
+  }
+
+  res.setHeader('Allow', 'GET, PUT, POST')
   return res.status(405).json({ error: 'method not allowed' })
 }
