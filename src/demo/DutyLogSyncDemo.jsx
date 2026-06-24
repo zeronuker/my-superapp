@@ -48,6 +48,7 @@ export default function DutyLogSyncDemo() {
   const [viewInput, setViewInput] = useState('')
   const [viewedCode, setViewedCode] = useState(null)
   const [confirmRestore, setConfirmRestore] = useState(false)
+  const [confirmImport, setConfirmImport] = useState(false)
 
   useEffect(() => {
     if (!myCode) { setQrDataUrl(''); return }
@@ -55,8 +56,8 @@ export default function DutyLogSyncDemo() {
   }, [myCode])
 
   // ── Demo scenario presets — just for exploring the design, not real state ──
-  const presetNone = () => { setMyCode(null); setLogs([]); setViewedCode(null); setNewLogPrompt(false) }
-  const presetOwner = () => { setMyCode(FAKE_CODE); setLogs(seedOwnerLogs()); setViewedCode(null); setNewLogPrompt(false) }
+  const presetNone = () => { setMyCode(null); setLogs([]); setViewedCode(null); setConfirmImport(false); setNewLogPrompt(false) }
+  const presetOwner = () => { setMyCode(FAKE_CODE); setLogs(seedOwnerLogs()); setViewedCode(null); setConfirmImport(false); setNewLogPrompt(false) }
 
   const createCode = () => { setMyCode(FAKE_CODE); setLogs(seedOwnerLogs()) }
 
@@ -81,6 +82,13 @@ export default function DutyLogSyncDemo() {
   const handleView = () => {
     if (!viewInput.trim()) return
     setViewedCode(viewInput.trim().toUpperCase())
+  }
+
+  const handleImport = () => {
+    setMyCode(viewedCode)
+    setLogs(FAKE_CLOUD_SNAPSHOT.map(l => ({ ...l, synced: true, updatedAt: Date.now() - 3600_000 })))
+    setViewedCode(null)
+    setConfirmImport(false)
   }
 
   const unsyncedCount = logs.filter(l => !l.synced).length
@@ -167,6 +175,43 @@ export default function DutyLogSyncDemo() {
               Tapping SYNC on any entry pushes all {unsyncedCount} unsynced log{unsyncedCount === 1 ? '' : 's'} at once — the cloud copy is a single snapshot, not synced entry-by-entry.
             </div>
           )}
+
+          <div className="cp-divider" style={{ margin: '18px 0' }} />
+
+          {/* View — read-only, no ownership change, with an optional import escalation */}
+          <div className="cp-label" style={{ marginBottom: 6 }}>Have a code? Enter here to view it</div>
+          <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.5, marginBottom: 8 }}>
+            View another device's synced logs without changing anything on this device. You can choose to import them below.
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={viewInput} onChange={e => setViewInput(e.target.value)} placeholder="XXXX-XXXX-XXXX" className="cp-input" style={{ flex: 1 }} />
+            <button onClick={handleView} disabled={!viewInput.trim()} className="cp-btn" style={{ padding: '8px 10px' }}>VIEW</button>
+          </div>
+
+          {viewedCode && (
+            <div style={{ marginTop: 14, border: '1px solid var(--cp-border)', borderRadius: 6, padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-acc)', letterSpacing: '0.08em' }}>VIEWING · {viewedCode} · READ-ONLY</span>
+                <button onClick={() => { setViewedCode(null); setConfirmImport(false) }} className="cp-btn" style={{ fontSize: 8, padding: '3px 7px' }}>CLOSE</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                {FAKE_CLOUD_SNAPSHOT.map(l => (
+                  <div key={l.id} style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 4, padding: '8px 10px' }}>
+                    <div style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: 'var(--cp-txt)' }}>{l.date}</div>
+                    <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', marginTop: 2 }}>{l.route}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => (confirmImport ? handleImport() : setConfirmImport(true))} className="cp-btn-danger cp-btn" style={{ width: '100%', padding: '8px 10px' }}>
+                {confirmImport ? 'CONFIRM IMPORT' : 'IMPORT TO THIS DEVICE'}
+              </button>
+              {confirmImport && (
+                <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>
+                  This will overwrite all logs currently on this device and make this device the owner of {viewedCode}. This action is not reversible.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div>
@@ -233,35 +278,6 @@ export default function DutyLogSyncDemo() {
           {confirmRestore && (
             <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6 }}>
               This overwrites all logs on this device. Tap CONFIRM to proceed.
-            </div>
-          )}
-
-          <div className="cp-divider" style={{ margin: '16px 0' }} />
-
-          {/* View — read-only, no ownership change */}
-          <div className="cp-label" style={{ marginBottom: 6 }}>View a code (read-only)</div>
-          <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.5, marginBottom: 8 }}>
-            Check another device's synced logs without changing anything on this device or affecting who owns the code.
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input value={viewInput} onChange={e => setViewInput(e.target.value)} placeholder="XXXX-XXXX-XXXX" className="cp-input" style={{ flex: 1 }} />
-            <button onClick={handleView} disabled={!viewInput.trim()} className="cp-btn" style={{ padding: '8px 10px' }}>VIEW</button>
-          </div>
-
-          {viewedCode && (
-            <div style={{ marginTop: 14, border: '1px solid var(--cp-border)', borderRadius: 6, padding: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-acc)', letterSpacing: '0.08em' }}>VIEWING · {viewedCode} · READ-ONLY</span>
-                <button onClick={() => setViewedCode(null)} className="cp-btn" style={{ fontSize: 8, padding: '3px 7px' }}>CLOSE</button>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {FAKE_CLOUD_SNAPSHOT.map(l => (
-                  <div key={l.id} style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 4, padding: '8px 10px' }}>
-                    <div style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: 'var(--cp-txt)' }}>{l.date}</div>
-                    <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', marginTop: 2 }}>{l.route}</div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </div>
