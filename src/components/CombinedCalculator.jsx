@@ -64,7 +64,7 @@ export default function CombinedCalculator() {
                 gap: 6,
               }}
             >
-              <TabIcon id={id} emoji={icon} size={14} />
+              <TabIcon id={id} emoji={icon} size={id === 'convert' ? 16 : 14} />
               {label}
             </button>
           ))}

@@ -31,11 +31,11 @@ function getGregorianDate(date = new Date()) {
 
 // ── Quick-pick cities shown before the user starts typing ─────────────────────
 const QUICK_PICKS = [
-  { name: 'Kuala Lumpur', country: 'Malaysia',   lat: 3.139,  lng: 101.687 },
-  { name: 'Singapore',    country: 'Singapore',  lat: 1.352,  lng: 103.820 },
-  { name: 'Dubai',        country: 'UAE',         lat: 25.204, lng: 55.270  },
-  { name: 'London',       country: 'UK',          lat: 51.507, lng: -0.128  },
-  { name: 'Istanbul',     country: 'Turkey',      lat: 41.015, lng: 28.979  },
+  { name: 'Kuala Lumpur', country: 'Malaysia',   lat: 3.139,   lng: 101.687 },
+  { name: 'Melbourne',    country: 'Australia',  lat: -37.813, lng: 144.963 },
+  { name: 'Narita',       country: 'Japan',       lat: 35.776,  lng: 140.318 },
+  { name: 'Dubai',        country: 'UAE',         lat: 25.204,  lng: 55.270  },
+  { name: 'Mumbai',       country: 'India',       lat: 19.076,  lng: 72.877  },
 ]
 
 // ── Header ────────────────────────────────────────────────────────────────────

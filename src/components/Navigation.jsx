@@ -14,11 +14,9 @@ import { TabIcon } from './TabIcon'
 // to appear in grouped navigation. `iconId` points at a representative member
 // so image icon sets reuse that tool's artwork for the group header.
 export const NAV_GROUPS = [
-  { id: 'calc', label: 'CALCULATOR',   icon: '🧮',  iconId: 'calculator', members: ['calculator', 'interpolation', 'currency'] },
-  { id: 'perf', label: 'PERFORMANCE',  icon: '✈️', iconId: 'edto',       members: ['edto'] },
-  { id: 'avn',  label: 'AVIATION',     icon: '🌤️', iconId: 'metartaf',   members: ['metartaf', 'notam', 'worldtime'] },
-  { id: 'duty', label: 'FLIGHT DUTY',  icon: '⏳',  iconId: 'ftl',        members: ['ftl', 'dutylog'] },
-  { id: 'pray', label: 'PRAYER',       icon: '🕌',  iconId: 'prayer',     members: ['prayer'] },
+  { id: 'calc', label: 'CALCULATOR(s)', icon: '🧮',  iconId: 'calculator', members: ['calculator', 'interpolation', 'currency'] },
+  { id: 'avn',  label: 'AVIATION',      icon: '🌤️', iconId: 'metartaf',   members: ['metartaf', 'notam', 'ftl', 'edto', 'dutylog', 'worldtime'] },
+  { id: 'pray', label: 'PRAYER',        icon: '🕌',  iconId: 'prayer',     members: ['prayer'] },
 ]
 
 // ── Tabs (top or bottom) ──────────────────────────────────────────────────────
