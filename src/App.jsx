@@ -6,6 +6,7 @@ import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
 import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar } from './components/Navigation'
 import BrandBanner from '@brand/BrandBanner'
+import SplashScreen from '@brand/SplashScreen'
 import { TabIcon, ICON_SETS } from './components/TabIcon'
 import { searchZones } from './data/worldTimezones'
 
@@ -45,7 +46,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.12'
+const APP_VERSION = 'v3.13'
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -139,6 +140,7 @@ export default function App() {
     if (id && settings.rememberLastTab) { try { localStorage.setItem('cb-lasttab', id) } catch (_) {} }
   }, [setActiveCalculator, settings.rememberLastTab])
 
+  const [showSplash, setShowSplash] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsInitialTab, setSettingsInitialTab] = useState('appearance')
   const openSettingsAbout = React.useCallback(() => {
@@ -280,6 +282,7 @@ export default function App() {
 
   return (
     <>
+      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
       <div style={{
         minHeight: '100vh',
         background: 'var(--cp-bg)',
@@ -1133,6 +1136,12 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.13', date: 'Jun 2026',
+    entries: [
+      { type: 'feat', text: 'Animated splash screen on launch — the C mark fades in, the chamfered double-line frame draws on around it, then the CLAUDEBORNE wordmark fades in, before settling into the app' },
+    ],
+  },
   {
     version: 'v3.12', date: 'Jun 2026',
     entries: [
