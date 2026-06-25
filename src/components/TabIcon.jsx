@@ -30,6 +30,13 @@ export function TabIcon({ id, emoji, size = 18, style }) {
   // Re-probe when the set or tab changes.
   React.useEffect(() => { setExtIdx(0); setFailed(false) }, [iconSet, id])
 
+  // The 🔄 emoji glyph renders noticeably thinner/smaller than sibling emoji
+  // on some OS fonts (e.g. Windows Segoe UI Emoji) — use a custom SVG instead
+  // of the emoji so its visual weight stays consistent everywhere.
+  if (id === 'convert' && (iconSet === 'classic' || failed)) {
+    return <ConvertIcon size={size} style={style} />
+  }
+
   if (iconSet === 'classic' || failed || !id) {
     return <span style={{ fontSize: size, lineHeight: 1, ...style }}>{emoji}</span>
   }
@@ -46,5 +53,18 @@ export function TabIcon({ id, emoji, size = 18, style }) {
         else setFailed(true)
       }}
     />
+  )
+}
+
+function ConvertIcon({ size, style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none"
+      style={{ display: 'inline-block', verticalAlign: 'middle', ...style }}
+      xmlns="http://www.w3.org/2000/svg">
+      <path d="M 10 16 L 46 16 L 46 30" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <polygon points="46,40 38,28 54,28" fill="currentColor" />
+      <path d="M 54 48 L 18 48 L 18 34" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.75" />
+      <polygon points="18,26 10,36 26,36" fill="currentColor" opacity="0.75" />
+    </svg>
   )
 }

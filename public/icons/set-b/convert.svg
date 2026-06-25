@@ -1,6 +1,6 @@
 <svg id="col-convert" viewBox="0 0 64 64" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
-  <path d="M 16 24 L 44 24 L 44 34" fill="none" stroke="#26C6DA" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
-  <polygon points="44,40 38,30 50,30" fill="#26C6DA"></polygon>
-  <path d="M 48 40 L 20 40 L 20 30" fill="none" stroke="#80DEEA" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
-  <polygon points="20,24 14,34 26,34" fill="#80DEEA"></polygon>
+  <path d="M 10 16 L 46 16 L 46 30" fill="none" stroke="#26C6DA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+  <polygon points="46,40 38,28 54,28" fill="#26C6DA"></polygon>
+  <path d="M 54 48 L 18 48 L 18 34" fill="none" stroke="#80DEEA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+  <polygon points="18,26 10,36 26,36" fill="#80DEEA"></polygon>
 </svg>
