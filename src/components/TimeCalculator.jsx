@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
-import { haptic } from '../utils/haptic'
+import CalcButton from './CalcButton'
 
 function formatDigits(digits) {
   if (!digits) return '0:00'
@@ -62,28 +62,8 @@ const BTN = {
   eq:  { background: 'rgba(34,197,94,0.12)', color: 'var(--cp-green)', borderColor: 'rgba(34,197,94,0.4)' },
 }
 
-function Btn({ style, children, onClick, colSpan, rowSpan, hapticType = 'light' }) {
-  const [hover, setHover] = useState(false)
-  const [pressed, setPressed] = useState(false)
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => { setHover(false); setPressed(false) }}
-      onPointerDown={() => { setPressed(true); haptic(hapticType) }}
-      onPointerUp={() => setPressed(false)}
-      style={{
-        ...BTN.base,
-        ...style,
-        opacity: pressed ? 0.65 : hover ? 0.85 : 1,
-        transform: pressed ? 'scale(0.91)' : hover ? 'scale(0.97)' : 'scale(1)',
-        gridColumn: colSpan ? `span ${colSpan}` : undefined,
-        gridRow: rowSpan ? `span ${rowSpan}` : undefined,
-      }}
-    >
-      {children}
-    </button>
-  )
+function Btn({ style, ...props }) {
+  return <CalcButton style={{ ...BTN.base, ...style }} {...props} />
 }
 
 export default function TimeCalculator() {

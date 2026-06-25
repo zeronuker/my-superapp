@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
-import { haptic } from '../utils/haptic'
 import { evaluate } from '../utils/mathEval'
+import CalcButton from './CalcButton'
 
 const BTN = {
   base: { fontFamily: 'var(--cb-font-mono)', fontWeight: 700, border: '1px solid var(--cp-border)',
@@ -15,19 +15,8 @@ const BTN = {
   pi:   { fontSize: 14, background: 'rgba(167,139,250,0.12)', color: 'var(--cp-purple)', borderColor: 'rgba(167,139,250,0.4)' },
 }
 
-function Btn({ style, children, onClick, colSpan, hapticType = 'light' }) {
-  const [hover, setHover] = useState(false)
-  const [pressed, setPressed] = useState(false)
-  return (
-    <button onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => { setHover(false); setPressed(false) }}
-      onPointerDown={() => { setPressed(true); haptic(hapticType) }}
-      onPointerUp={() => setPressed(false)}
-      style={{ ...BTN.base, ...style, opacity: pressed ? 0.65 : hover ? 0.85 : 1,
-        transform: pressed ? 'scale(0.91)' : hover ? 'scale(0.97)' : 'scale(1)',
-        gridColumn: colSpan ? `span ${colSpan}` : undefined }}>{children}</button>
-  )
+function Btn({ style, ...props }) {
+  return <CalcButton style={{ ...BTN.base, ...style }} {...props} />
 }
 
 const fmt = v => (!isFinite(v) || isNaN(v)) ? 'Error' : parseFloat(v.toPrecision(10)).toString()

@@ -57,7 +57,7 @@ export function useGeolocation() {
       setPermissionState(result.state)
 
       // Already granted → safe to auto-locate without triggering a popup
-      if (result.state === 'granted' && !lastPos) locate()
+      if (result.state === 'granted' && !location) locate()
 
       // Listen for the user granting/denying from the browser settings page
       result.onchange = () => setPermissionState(result.state)
