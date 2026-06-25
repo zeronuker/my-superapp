@@ -46,7 +46,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.13'
+const APP_VERSION = 'v3.14'
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -1136,6 +1136,21 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.14', date: 'Jun 2026',
+    entries: [
+      { type: 'fix',  text: 'FTL: standby Max FDP now correctly compares the standby-start time band against the report-time band and uses whichever is more limiting (Ch. 2.9.1) — was previously ignoring the standby-start band entirely' },
+      { type: 'feat', text: 'FTL: added Delayed Reporting (Ch. 2.7) — models planned vs actual report time, with the correct <4h vs ≥4h delay rules' },
+      { type: 'feat', text: 'FTL: added Positioning (Ch. 2.8) — FDP now correctly commences at the positioning report time instead of the flight\'s own report time' },
+      { type: 'feat', text: 'FTL: added standby location (Home / Airport) and the home ≤2h-notice exception (Ch. 2.9.1/2.9.2) — airport standby shows Max FDP immediately from standby start, with FDP Expires pending the actual call-out time' },
+      { type: 'feat', text: 'FTL: added "Reduced Preceding Rest" toggle, gating the Split Duty prohibition, PIC discretion restriction, and mandatory CAAM reporting rules (Ch. 2.13.4 / 2.15.3 / 2.15.4)' },
+      { type: 'feat', text: 'FTL: cabin crew can now report at a different time than flight crew (Ch. 2.21.2a) — the table band uses flight crew\'s report time, the FDP clock uses cabin crew\'s own' },
+      { type: 'feat', text: 'FTL: result panel now distinguishes pending inputs (amber) from mandatory CAAM reporting and rule violations (red)' },
+      { type: 'fix',  text: 'FTL: PIC discretion before/after the last sector now caps correctly at 2h/3h using the real sector count, not the long-range-modified count' },
+      { type: 'fix',  text: 'FTL: long range sector boundary corrected to trigger only above 7h (was triggering at exactly 7h)' },
+      { type: 'fix',  text: 'FTL: single-pilot operations no longer allow "Not Acclimatised" — CAD 1901 defines no such table for single-pilot ops' },
+    ],
+  },
   {
     version: 'v3.13', date: 'Jun 2026',
     entries: [

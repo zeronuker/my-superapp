@@ -1,5 +1,25 @@
 # Changelog
 
+## v3.14 — 2026-06-25
+
+### FTL Calculator (CAD 1901 Compliance Audit)
+
+#### New Features
+- **Delayed Reporting (Ch. 2.7)** — models planned vs. actual report time. Delay <4h: Max FDP based on the original report-time band, clock starts at the actual report time. Delay ≥4h: Max FDP based on the more limiting of planned/actual bands, clock starts exactly 4h after the original report time.
+- **Positioning (Ch. 2.8)** — FDP now correctly commences at the positioning report time instead of the flight's own report time; no longer requires a separate report time at all. Counts as a sector when combined with Split Duty, per Ch. 2.8.2.
+- **Standby location (Ch. 2.9.1 / 2.9.2)** — new Home/Airport selector. Airport standby always uses the standby-start band; home standby keeps the general comparison logic, plus a ≤2h-notice exception. Airport standby now shows Max FDP immediately from standby start, with FDP Expires marked pending until the actual call-out time is entered.
+- **Reduced Preceding Rest toggle** — gates three previously-untracked rules: blocks Split Duty outright (Ch. 2.13.4), restricts PIC discretion to immediately-before-the-last-sector (Ch. 2.15.3), and forces mandatory CAAM reporting regardless of extension size (Ch. 2.15.4).
+- **Cabin crew separate report time (Ch. 2.21.2a)** — the table band uses flight crew's report time, but the FDP clock (start/end, standby duration) uses cabin crew's own report time when they differ.
+- **Result panel color coding** — pending/incomplete inputs now shown in amber; mandatory CAAM reporting and rule violations shown in red, distinct from purely explanatory notes.
+
+#### Bug Fixes
+- Standby Max FDP was using only the report-time band, ignoring the standby-start band entirely. Now correctly compares both and uses whichever is more limiting (Ch. 2.9.1).
+- PIC discretion's 2h/3h sector-position cap was reading the long-range-modified sector count instead of the real sector count.
+- Long range sector modifier was triggering at exactly 7h instead of strictly above 7h (Ch. 2.11).
+- Single-pilot operations no longer allow "Not Acclimatised" to be selected — CAD 1901 defines no such table for single-pilot ops.
+
+---
+
 ## v3.12 — 2026-06-24
 
 ### Duty Log Module
