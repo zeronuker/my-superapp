@@ -146,8 +146,7 @@ export function LauncherGrid({ calcs, onSelect }) {
             <div style={{ flex: 1, height: 1, background: 'var(--cp-border2)' }} />
           </div>
 
-          <div style={{ display: 'grid', gap: 12,
-            gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
+          <div className="cp-launcher-grid">
             {group.calcs.map(calc => {
               const delay = (cardIdx++) * 35
               return (

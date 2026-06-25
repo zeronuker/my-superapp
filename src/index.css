@@ -261,6 +261,15 @@ input[type="number"] { -moz-appearance: textfield; }
 /* ── Lazy-load spinner ── */
 @keyframes cp-spin { to { transform: rotate(360deg); } }
 
+/* ── Launcher grid ── */
+.cp-launcher-grid {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+}
+@media (max-width: 600px) {
+  .cp-launcher-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* ── Launcher tool cards ── */
 .cp-launch-card { background: var(--cp-bg3); box-shadow: 0 2px 12px rgba(0,0,0,0.32); }
 @media (hover: hover) {
