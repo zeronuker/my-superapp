@@ -20,13 +20,6 @@ export const DEFAULT_SETTINGS = {
   clockFormat:    '24hr',     // '24hr' | '12hr' — global, applies to all clocks
   rememberLastTab:true,       // reopen last-used tool on app restart
   dashboardWidgets: { utc: true, prayer: true, metar: true },
-  units: {                    // stored preference for future calculators
-    temp:       'c',          // 'c' | 'f'
-    wind:       'kt',         // 'kt' | 'kmh' | 'ms'
-    visibility: 'm',          // 'm' | 'sm'
-    altitude:   'ft',         // 'ft' | 'm'
-    pressure:   'hpa',        // 'hpa' | 'inhg'
-  },
 }
 
 export const DEFAULT_CURRENCY_BASE = 'USD'
@@ -54,7 +47,6 @@ function loadSettings() {
     const parsed = JSON.parse(s)
     const merged = { ...DEFAULT_SETTINGS, ...parsed }
     // Deep-merge nested objects so partial saved values don't drop new keys
-    merged.units = { ...DEFAULT_SETTINGS.units, ...(parsed.units || {}) }
     merged.dashboardWidgets = { ...DEFAULT_SETTINGS.dashboardWidgets, ...(parsed.dashboardWidgets || {}) }
     // Migrate: derive themeMode from the old cb-theme flag on first run
     if (!parsed.themeMode) {

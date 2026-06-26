@@ -733,7 +733,6 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
   const panelRef = React.useRef(null)
   const [activeTab, setActiveTab] = React.useState(initialTab)
   const isWide = useMediaQuery('(min-width: 768px)')   // ≥768 → modal+rail, else sheet+strip
-  const animate = true
 
   // Restore focus to previous element when panel closes
   React.useEffect(() => {
@@ -1088,7 +1087,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
   if (isWide) {
     return (
       <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
-        className={animate ? 'cp-modal-anim' : ''}
+        className="cp-modal-anim"
         onKeyDown={handlePanelKeyDown}
         style={{
           position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
@@ -1114,7 +1113,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
   // ── Mobile: full-height sheet with top tab strip ──
   return (
     <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
-      className={animate ? 'cp-sheet-anim' : ''}
+      className="cp-sheet-anim"
       onKeyDown={handlePanelKeyDown}
       style={{
         position: 'fixed', inset: 0,
