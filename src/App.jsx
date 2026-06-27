@@ -141,6 +141,7 @@ export default function App() {
   }, [setActiveCalculator, settings.rememberLastTab])
 
   const [showSplash, setShowSplash] = useState(true)
+  const onSplashFinish = React.useCallback(() => setShowSplash(false), [])
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsInitialTab, setSettingsInitialTab] = useState('appearance')
   const openSettingsAbout = React.useCallback(() => {
@@ -282,7 +283,7 @@ export default function App() {
 
   return (
     <>
-      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+      {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <div style={{
         minHeight: '100vh',
         background: 'var(--cp-bg)',
