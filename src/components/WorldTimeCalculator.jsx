@@ -2,8 +2,19 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { TIMEZONES, searchZones } from '../data/worldTimezones'
 
-const CACHE_KEY = 'cb-worldtime'
+const CACHE_KEY = 'cb-worldtime-v2'
 const MAX_ZONES = 10
+
+const DEFAULT_ZONES = [
+  { id: 'Dubai||Asia/Dubai',               label: 'Dubai',     country: 'AE', tz: 'Asia/Dubai' },
+  { id: 'Melbourne||Australia/Melbourne',  label: 'Melbourne', country: 'AU', tz: 'Australia/Melbourne' },
+  { id: 'Tokyo||Asia/Tokyo',               label: 'Tokyo',     country: 'JP', tz: 'Asia/Tokyo' },
+  { id: 'Delhi||Asia/Kolkata',             label: 'Delhi',     country: 'IN', tz: 'Asia/Kolkata' },
+  { id: 'Riyadh||Asia/Riyadh',             label: 'Riyadh',    country: 'SA', tz: 'Asia/Riyadh' },
+  { id: 'Karachi||Asia/Karachi',           label: 'Karachi',   country: 'PK', tz: 'Asia/Karachi' },
+  { id: 'London||Europe/London',           label: 'London',    country: 'GB', tz: 'Europe/London' },
+  { id: 'Auckland||Pacific/Auckland',      label: 'Auckland',  country: 'NZ', tz: 'Pacific/Auckland' },
+]
 
 const T = {
   mono: 'var(--cb-font-mono)', sans: 'var(--cb-font-body)',
@@ -197,7 +208,7 @@ export default function WorldTimeCalculator() {
   const fmt = useCalculatorStore(s => s.settings.clockFormat || '24hr')
 
   const [cache]   = useState(loadCache)
-  const [zones,   setZones]   = useState(cache?.zones || [])
+  const [zones,   setZones]   = useState(cache?.zones || DEFAULT_ZONES)
   const [search,  setSearch]  = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [now,     setNow]     = useState(() => new Date())

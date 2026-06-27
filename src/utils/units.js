@@ -8,7 +8,7 @@ export const UNIT_CATEGORIES = {
   length: {
     label: 'Length',
     base: 'm',
-    units: { m: 1, ft: 0.3048, km: 1000, nm: 1852, mi: 1609.344 },
+    units: { m: 1, cm: 0.01, mm: 0.001, ft: 0.3048, in: 0.0254, yd: 0.9144, km: 1000, nm: 1852, mi: 1609.344 },
   },
   speed: {
     label: 'Speed',
@@ -18,7 +18,7 @@ export const UNIT_CATEGORIES = {
   mass: {
     label: 'Mass',
     base: 'kg',
-    units: { kg: 1, lb: 0.453592, t: 1000 },
+    units: { kg: 1, g: 0.001, lb: 0.453592, oz: 0.0283495, stone: 6.35029, t: 1000 },
   },
   temp: {
     label: 'Temp',
@@ -28,12 +28,12 @@ export const UNIT_CATEGORIES = {
   volume: {
     label: 'Volume',
     base: 'L',
-    units: { L: 1, USG: 3.785411784, impgal: 4.54609 },
+    units: { L: 1, mL: 0.001, cup: 0.236588, floz: 0.0295735, USG: 3.785411784, impgal: 4.54609 },
   },
   area: {
     label: 'Area',
     base: 'm²',
-    units: { 'm²': 1, 'km²': 1e6, 'ft²': 0.09290304, acre: 4046.8564224 },
+    units: { 'm²': 1, 'km²': 1e6, 'ft²': 0.09290304, 'yd²': 0.836127, acre: 4046.8564224, hectare: 10000, 'mi²': 2589988.110336 },
   },
   pressure: {
     label: 'Pressure',

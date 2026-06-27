@@ -2,6 +2,7 @@ import React, { useState, lazy, Suspense } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { useCalculatorStore } from './store/calculatorStore'
 import usePrayerStore from './modules/prayer/store/prayerStore'
+import { loadLastPosition } from './modules/prayer/services/geolocation'
 import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
 import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar } from './components/Navigation'
@@ -27,6 +28,7 @@ const PrayerSettings = lazy(() =>
   import('./modules/prayer').then(m => ({ default: m.PrayerSettings })))
 const DutyLogBackupSync = lazy(() =>
   import('./modules/dutylog').then(m => ({ default: m.DutyLogBackupSync })))
+const PrayerBackgroundSync = lazy(() => import('./modules/prayer/PrayerBackgroundSync'))
 
 export const CALCULATORS = [
   { id: 'calculator',    icon: '🧮',  name: 'Calculator',     component: CombinedCalculator },
@@ -284,6 +286,14 @@ export default function App() {
   return (
     <>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
+      {/* Keeps prayer times fresh app-wide so the dashboard widget works without
+          opening the Qiblat & Solat tab. Gated on an already-known location so
+          users who've never set one don't pay for the adhan.js chunk. */}
+      {loadLastPosition() && (
+        <Suspense fallback={null}>
+          <PrayerBackgroundSync />
+        </Suspense>
+      )}
       <div style={{
         minHeight: '100vh',
         background: 'var(--cp-bg)',

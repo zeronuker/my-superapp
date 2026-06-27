@@ -1063,15 +1063,6 @@ export default function FTLCalculator() {
             </>
           ) : null}
 
-          {/* Regulatory reference */}
-          <div style={{ marginTop: 14, padding: '10px 12px', border: '1px solid var(--cp-border2)', borderRadius: 4 }}>
-            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em', lineHeight: 1.8 }}>
-              CAD 1901 ISS01 REV01 — CAAM MALAYSIA<br />
-              Ch. 2.9 Standby · Ch. 2.10 Max FDP · Ch. 2.11 Long Range<br />
-              Ch. 2.12 In-Flight Relief · Ch. 2.13 Split Duty
-            </div>
-          </div>
-
         </div>
       </div>
     </div>

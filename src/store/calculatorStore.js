@@ -22,12 +22,12 @@ export const DEFAULT_SETTINGS = {
   dashboardWidgets: { utc: true, prayer: true, metar: true },
 }
 
-export const DEFAULT_CURRENCY_BASE = 'USD'
-export const DEFAULT_CURRENCY_LIST = ['EUR', 'GBP', 'JPY', 'AUD', 'AED', 'SGD', 'INR', 'CHF']
+export const DEFAULT_CURRENCY_BASE = 'MYR'
+export const DEFAULT_CURRENCY_LIST = ['AUD', 'JPY', 'IDR', 'SGD', 'CNY', 'AED', 'USD', 'INR', 'KRW']
 
 function loadCurrencyPrefs() {
   try {
-    const raw = localStorage.getItem('cb-currency-prefs')
+    const raw = localStorage.getItem('cb-currency-prefs-v2')
     if (!raw) return { base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST }
     const parsed = JSON.parse(raw)
     return {
@@ -37,7 +37,7 @@ function loadCurrencyPrefs() {
   } catch (_) { return { base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST } }
 }
 function saveCurrencyPrefs(base, list) {
-  try { localStorage.setItem('cb-currency-prefs', JSON.stringify({ base, list })) } catch (_) {}
+  try { localStorage.setItem('cb-currency-prefs-v2', JSON.stringify({ base, list })) } catch (_) {}
 }
 
 function loadSettings() {
