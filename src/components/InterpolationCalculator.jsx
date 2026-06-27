@@ -215,6 +215,7 @@ export default function InterpolationCalculator() {
         <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.1em', lineHeight: 1.6, marginBottom: 10, marginTop: -6 }}>
           ROW VARIABLE (left) × COLUMN VARIABLE (top) → Y VALUES (cells)
         </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 6 }}>
         <div style={{ overflowX: 'auto' }}>
           <table className="cp-table">
             <thead>
@@ -246,12 +247,6 @@ export default function InterpolationCalculator() {
                     </div>
                   </th>
                 ))}
-                <th style={{ width: 36, borderLeft: '1px solid var(--cp-border3)' }}>
-                  <button onClick={addCol} style={{ background: 'none', border: 'none', color: 'var(--cp-dim)', cursor: 'pointer', fontSize: 16, padding: '4px 8px' }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--cp-acc)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--cp-dim)'}
-                  >+</button>
-                </th>
                 <th style={{ width: 28 }} />
               </tr>
             </thead>
@@ -269,12 +264,9 @@ export default function InterpolationCalculator() {
                         style={{ background: 'transparent', border: 'none', color: S.cellText(ri, ci), fontFamily: "var(--cb-font-mono)", fontSize: 13, textAlign: 'center', width: '100%', padding: '8px 4px', outline: 'none' }} />
                     </td>
                   ))}
-                  <td />
                   <td style={{ textAlign: 'center' }}>
                     <button onClick={() => removeRow(ri)} disabled={rows.length <= 3}
-                      style={{ background: 'none', border: 'none', color: 'var(--cp-dim)', cursor: rows.length <= 3 ? 'default' : 'pointer', fontSize: 16, padding: '4px 6px', opacity: rows.length <= 3 ? 0 : 1 }}
-                      onMouseEnter={e => { if (rows.length > 3) e.currentTarget.style.color = 'var(--cp-red)' }}
-                      onMouseLeave={e => e.currentTarget.style.color = 'var(--cp-dim)'}
+                      style={{ background: 'none', border: 'none', color: 'var(--cp-red)', cursor: rows.length <= 3 ? 'default' : 'pointer', fontSize: 16, padding: '4px 6px', opacity: rows.length <= 3 ? 0.3 : 1 }}
                     >×</button>
                   </td>
                 </tr>
@@ -283,8 +275,20 @@ export default function InterpolationCalculator() {
           </table>
         </div>
 
+        <button onClick={addCol} style={{
+          writingMode: 'vertical-rl', textOrientation: 'mixed',
+          padding: '8px 6px', background: 'transparent',
+          border: '1px dashed var(--cp-border)', borderRadius: 4,
+          color: 'var(--cp-dim)', fontFamily: "var(--cb-font-mono)",
+          fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase',
+          cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s',
+        }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--cp-acc)'; e.currentTarget.style.color = 'var(--cp-acc)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--cp-border)'; e.currentTarget.style.color = 'var(--cp-dim)' }}
+        >+ Add Column</button>
+
         <button onClick={addRow} style={{
-          width: '100%', padding: '8px', background: 'transparent', marginTop: 6,
+          width: '100%', padding: '8px', background: 'transparent',
           border: '1px dashed var(--cp-border)', borderRadius: 4,
           color: 'var(--cp-dim)', fontFamily: "var(--cb-font-mono)",
           fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase',
@@ -293,6 +297,7 @@ export default function InterpolationCalculator() {
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--cp-acc)'; e.currentTarget.style.color = 'var(--cp-acc)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--cp-border)'; e.currentTarget.style.color = 'var(--cp-dim)' }}
         >+ Add Row</button>
+        </div>
       </div>
 
       {/* ── Lookup panel ── */}
