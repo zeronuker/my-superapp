@@ -6,6 +6,7 @@ import { icaoToFir } from '../data/firLookup'
 import { haptic } from '../utils/haptic'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
+import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const T = {
@@ -17,10 +18,6 @@ const T = {
 
 const ERA_MAX = 5
 const CACHE_KEY = 'cb-notam-cache'
-function loadCache() {
-  try { const r = localStorage.getItem(CACHE_KEY); return r ? JSON.parse(r) : null }
-  catch (_) { return null }
-}
 function saveCache(data) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch (_) {}
 }
@@ -175,7 +172,7 @@ export default function NotamViewer() {
     sortMode: s.settings.notamSort || 'relevance',
   }))
 
-  const [cache]        = useState(loadCache)
+  const [cache]        = useState(() => loadWithExpiry(CACHE_KEY))
   // Inputs (mirror METAR/TAF)
   const [dep,          setDep]          = useState(cache?.dep          || '')
   const [arr,          setArr]          = useState(cache?.arr          || '')
@@ -204,6 +201,7 @@ export default function NotamViewer() {
 
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [savedRaw, setSavedRaw] = useState(cache?.rawPerIcao || null)
+  const [fetchedAt, setFetchedAt] = useState(cache?.fetchedAt || null)
 
   useEffect(() => {
     const on  = () => setIsOnline(true)
@@ -216,8 +214,8 @@ export default function NotamViewer() {
   // Persist airport inputs as they're typed (not just after a fetch) so the
   // METAR/TAF module's copy-airports button always sees current values
   useEffect(() => {
-    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw })
-  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw])
+    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw, fetchedAt })
+  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw, fetchedAt])
 
   const applyCopiedAirports = (data) => {
     setDep(data.dep)
@@ -234,10 +232,14 @@ export default function NotamViewer() {
     setEnrouteAlts(Array(ERA_MAX).fill(''))
     setExtraChips([])
     setNotams(null)
+    setSavedRaw(null)
+    setFetchedAt(null)
     setError('')
     setCollapsedMap({})
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
   }
+
+  useExpiry(fetchedAt, handleReset)
 
   // ── Ordered, deduped target list (role-tagged) ──
   const buildTargets = () => {
@@ -296,6 +298,7 @@ export default function NotamViewer() {
       const { notams: result, rawPerIcao } = await fetchNotams(t.map(x => x.icao))
       setNotams(result)
       setSavedRaw(rawPerIcao)
+      setFetchedAt(Date.now())
       haptic('medium')
     } catch (e) {
       setError(`Failed to fetch NOTAMs: ${e.message}`)

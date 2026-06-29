@@ -9,6 +9,7 @@ import {
 import { decodeMetar, decodeTaf } from '../utils/metarDecode'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
+import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const HOURS_OPTIONS  = [1, 2, 3, 6, 12, 24]
@@ -41,11 +42,6 @@ async function fetchWeather(icao, hours) {
   }
 }
 
-function loadCache() {
-  try { const r = localStorage.getItem(CACHE_KEY); return r ? JSON.parse(r) : null }
-  catch (_) { return null }
-}
-
 function saveCache(data) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch (_) {}
 }
@@ -57,7 +53,7 @@ export default function METARTAFCalculator() {
   }))
 
   // Initialise state from cache (synchronous read — no flash)
-  const [cache]        = useState(loadCache)
+  const [cache]        = useState(() => loadWithExpiry(CACHE_KEY))
   const [dep,          setDep]          = useState(cache?.dep          || '')
   const [arr,          setArr]          = useState(cache?.arr          || '')
   const [destAlts,     setDestAlts]     = useState(cache?.destAlts     || { alt1: '', alt2: '' })
@@ -124,6 +120,8 @@ export default function METARTAFCalculator() {
     setFetchedAt(null)
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
   }
+
+  useExpiry(fetchedAt, handleReset)
 
   // ── Sync hours when defaultHistory setting changes (e.g. after import) ──
   const prevDefaultHistory = useRef(settings.defaultHistory)
