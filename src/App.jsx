@@ -422,7 +422,7 @@ export default function App() {
       )}
 
       {/* ── Update prompt ────────────────────────────────────────────── */}
-      <UpdatePrompt />
+      <UpdatePrompt ready={!showSplash} />
 
       {/* ── Search overlay ───────────────────────────────────────────── */}
       {searchOpen && (
