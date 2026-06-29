@@ -5,6 +5,7 @@ import { lookupAirport } from '../data/airports'
 import { icaoToFir } from '../data/firLookup'
 import { haptic } from '../utils/haptic'
 import ResetButton from './ResetButton'
+import CopyAirportsButton from './CopyAirportsButton'
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const T = {
@@ -202,6 +203,7 @@ export default function NotamViewer() {
   const [collapsedMap, setCollapsedMap] = useState({})
 
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
+  const [savedRaw, setSavedRaw] = useState(cache?.rawPerIcao || null)
 
   useEffect(() => {
     const on  = () => setIsOnline(true)
@@ -210,6 +212,20 @@ export default function NotamViewer() {
     window.addEventListener('offline', off)
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
+
+  // Persist airport inputs as they're typed (not just after a fetch) so the
+  // METAR/TAF module's copy-airports button always sees current values
+  useEffect(() => {
+    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw })
+  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw])
+
+  const applyCopiedAirports = (data) => {
+    setDep(data.dep)
+    setArr(data.arr)
+    setDestAlts(data.destAlts)
+    setEnrouteCount(data.enrouteCount)
+    setEnrouteAlts(Array.from({ length: ERA_MAX }, (_, i) => data.enrouteAlts[i] || ''))
+  }
 
   const handleReset = () => {
     setDep(''); setArr('')
@@ -279,7 +295,7 @@ export default function NotamViewer() {
     try {
       const { notams: result, rawPerIcao } = await fetchNotams(t.map(x => x.icao))
       setNotams(result)
-      saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao })
+      setSavedRaw(rawPerIcao)
       haptic('medium')
     } catch (e) {
       setError(`Failed to fetch NOTAMs: ${e.message}`)
@@ -341,7 +357,10 @@ export default function NotamViewer() {
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
-      <ResetButton onReset={handleReset} />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
+        <CopyAirportsButton sourceModule="metar" sourceLabel="METAR/TAF" onApply={applyCopiedAirports} />
+        <ResetButton onReset={handleReset} />
+      </div>
 
       {/* ── ROUTE ── */}
       <SectionHeader title="Route" />

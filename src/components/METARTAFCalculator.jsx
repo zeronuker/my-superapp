@@ -8,6 +8,7 @@ import {
 } from '../utils/metarSeverity'
 import { decodeMetar, decodeTaf } from '../utils/metarDecode'
 import ResetButton from './ResetButton'
+import CopyAirportsButton from './CopyAirportsButton'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const HOURS_OPTIONS  = [1, 2, 3, 6, 12, 24]
@@ -78,6 +79,12 @@ export default function METARTAFCalculator() {
     stateRef.current = { dep, arr, destAlts, enrouteCount, enrouteAlts, hours }
   })
 
+  // Persist airport inputs as they're typed (not just after a fetch) so the
+  // NOTAM module's copy-airports button always sees current values
+  useEffect(() => {
+    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt })
+  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt])
+
   // ── Track connectivity ─────────────────────────────────────────────────
   useEffect(() => {
     const handleOnline  = () => setIsOffline(false)
@@ -96,6 +103,15 @@ export default function METARTAFCalculator() {
     const t = setInterval(() => setNow(Date.now()), 60_000)
     return () => clearInterval(t)
   }, [isOffline])
+
+  // ── Copy airports from NOTAM module ─────────────────────────────────────
+  const applyCopiedAirports = (data) => {
+    setDep(data.dep)
+    setArr(data.arr)
+    setDestAlts(data.destAlts)
+    setEnrouteCount(data.enrouteCount)
+    setEnrouteAlts(Array.from({ length: ERA_MAX }, (_, i) => data.enrouteAlts[i] || ''))
+  }
 
   // ── Reset this tab ──────────────────────────────────────────────────────
   const handleReset = () => {
@@ -165,8 +181,6 @@ export default function METARTAFCalculator() {
     setNow(ts)
     setLoading(false)
     haptic(hasError ? 'heavy' : 'medium')
-
-    saveCache({ ...s, results: out, fetchedAt: ts })
   }, [buildTargets])
 
   const handleFetch = () => {
@@ -237,7 +251,10 @@ export default function METARTAFCalculator() {
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
-      <ResetButton onReset={handleReset} />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
+        <CopyAirportsButton sourceModule="notam" sourceLabel="NOTAM" onApply={applyCopiedAirports} />
+        <ResetButton onReset={handleReset} />
+      </div>
 
       {/* ── ROUTE ────────────────────────────────────────────────────────── */}
       <SectionHeader title="Route" />
