@@ -261,6 +261,10 @@ input[type="number"] { -moz-appearance: textfield; }
 /* ── Lazy-load spinner ── */
 @keyframes cp-spin { to { transform: rotate(360deg); } }
 
+/* ── Duty log scan-viewfinder loader ── */
+@keyframes cp-corner-pulse { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(0.88); } }
+@keyframes cp-scanline { 0% { top: 10px; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { top: 78px; opacity: 0; } }
+
 /* ── Launcher grid ── */
 .cp-launcher-grid {
   display: grid; gap: 12px;

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import QrScanner from '../components/QrScanner'
+import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
+import { CODE_RE } from '../services/sync'
 
 // Saved duty logs — newest first. Tap to open, trash to delete, NEW to create.
 const mono = 'var(--cb-font-mono)'
@@ -406,6 +408,7 @@ export default function LogList({
 
   const [viewInput, setViewInput] = useState('')
   const [viewBusy, setViewBusy] = useState(false)
+  const [pendingCode, setPendingCode] = useState('')
   const [viewError, setViewError] = useState('')
   const [viewedCode, setViewedCode] = useState(null)
   const [viewedLogs, setViewedLogs] = useState([])
@@ -422,11 +425,10 @@ export default function LogList({
     return next
   })
 
-  const handleViewCode = async () => {
-    const code = viewInput.trim().toUpperCase()
-    if (!code) return
+  const runView = async (code) => {
     setViewError('')
     setViewBusy(true)
+    setPendingCode(code)
     try {
       const result = await onView(code)
       setViewedLogs(result)
@@ -439,9 +441,20 @@ export default function LogList({
     }
   }
 
+  const handleViewCode = () => {
+    const code = viewInput.trim().toUpperCase()
+    if (!code) return
+    runView(code)
+  }
+
+  // Auto-loads when the scanned text matches a real sync code's shape —
+  // an unrelated QR code (e.g. a URL) just fills the field like before,
+  // since it's very unlikely to accidentally match XXXX-XXXX-XXXX.
   const handleScanResult = (data) => {
     setScanning(false)
-    setViewInput(data)
+    const code = (data || '').trim().toUpperCase()
+    setViewInput(code)
+    if (CODE_RE.test(code)) runView(code)
   }
 
   const handleImportClick = async () => {
@@ -594,7 +607,13 @@ export default function LogList({
         <QrScanner onResult={handleScanResult} onClose={() => setScanning(false)} />
       )}
 
-      {viewedCode && (
+      {viewBusy && (
+        <div style={{ marginTop: 14, border: '1px solid var(--cp-border)', borderRadius: 6, padding: 12 }}>
+          <ScanViewfinderLoader code={pendingCode} />
+        </div>
+      )}
+
+      {!viewBusy && viewedCode && (
         <div style={{ marginTop: 14, border: '1px solid var(--cp-border)', borderRadius: 6, padding: 12 }}>
           {openViewedLog ? (
             <ViewedLogDetail log={openViewedLog} onBack={() => setOpenViewedLog(null)} />

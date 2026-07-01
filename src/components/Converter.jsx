@@ -1,13 +1,49 @@
 import { useState } from 'react'
 import { convert, UNIT_CATEGORIES, convertFuel, FUEL_MASS_UNITS, FUEL_VOLUME_UNITS } from '../utils/units'
 
-const selStyle = {
-  background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)', borderRadius: 6,
-  color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)', fontSize: 13, padding: '9px 10px',
-  outline: 'none', cursor: 'pointer', width: '100%',
+const FUEL_UNITS = { ...FUEL_MASS_UNITS, ...FUEL_VOLUME_UNITS }
+
+const CATEGORY_ICONS = {
+  length: '📏', speed: '💨', mass: '⚖️', temp: '🌡️',
+  volume: '🧪', area: '📐', pressure: '🌀', fuel: '⛽',
 }
 
-const FUEL_UNITS = { ...FUEL_MASS_UNITS, ...FUEL_VOLUME_UNITS }
+function fmtNum(n) {
+  if (n == null || Number.isNaN(n)) return null
+  return String(parseFloat(n.toPrecision(8)))
+}
+
+function UnitPicker({ value, options, open, onToggle, onPick }) {
+  return (
+    <div>
+      <button type="button" onClick={onToggle} style={{
+        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        background: 'var(--cp-bginput)', border: `1px solid ${open ? 'var(--cp-acc)' : 'var(--cp-border)'}`,
+        borderRadius: 6, color: open ? 'var(--cp-acc)' : 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)',
+        fontSize: 14, fontWeight: 700, padding: '9px 12px', cursor: 'pointer',
+      }}>
+        {value}
+        <span style={{ fontSize: 10, opacity: 0.6, transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
+      </button>
+      {open && (
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, padding: 10,
+          background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6,
+        }}>
+          {options.map(u => (
+            <button key={u} type="button" onClick={() => onPick(u)} style={{
+              fontFamily: 'var(--cb-font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em',
+              padding: '7px 12px', borderRadius: 20, cursor: 'pointer',
+              border: `1px solid ${u === value ? 'var(--cp-acc)' : 'var(--cp-border)'}`,
+              background: u === value ? 'var(--cp-accdim)' : 'var(--cp-bginput)',
+              color: u === value ? 'var(--cp-acc)' : 'var(--cp-dim)',
+            }}>{u}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Converter() {
   const cats = [...Object.keys(UNIT_CATEGORIES), 'fuel']
@@ -16,17 +52,75 @@ export default function Converter() {
   const units = isFuel ? Object.keys(FUEL_UNITS) : Object.keys(UNIT_CATEGORIES[cat].units)
   const [from, setFrom] = useState(units[0])
   const [to, setTo]     = useState(units[1] || units[0])
-  const [val, setVal]   = useState('')
+  const [fromVal, setFromVal] = useState('1')
+  const [toVal, setToVal]     = useState('')
+  const [driver, setDriver]   = useState('from')
   const [density, setDensity] = useState('')
+  const [openPanel, setOpenPanel] = useState(null) // 'from' | 'to' | null
 
   const pickCat = (c) => {
     const u = c === 'fuel' ? Object.keys(FUEL_UNITS) : Object.keys(UNIT_CATEGORIES[c].units)
     setCat(c); setFrom(u[0]); setTo(u[1] || u[0])
+    setDriver('from'); setFromVal('1'); setToVal(''); setOpenPanel(null)
   }
 
+  const doConvert = (value, fromUnit, toUnit) =>
+    isFuel ? convertFuel(value, fromUnit, toUnit, density) : convert(cat, value, fromUnit, toUnit)
+
   const crossDomain = isFuel && (from in FUEL_MASS_UNITS) !== (to in FUEL_MASS_UNITS)
-  const out = isFuel ? convertFuel(val, from, to, density) : convert(cat, val, from, to)
-  const swap = () => { setFrom(to); setTo(from) }
+
+  // Only the side the user is actively typing into keeps its raw text — the
+  // other side is always derived from it, so there's a single source of truth.
+  const computedTo   = driver === 'from' ? fmtNum(doConvert(fromVal, from, to)) : null
+  const computedFrom = driver === 'to'   ? fmtNum(doConvert(toVal, to, from))   : null
+  const shownFromVal = driver === 'from' ? fromVal : (computedFrom ?? '')
+  const shownToVal   = driver === 'to'   ? toVal   : (computedTo   ?? '')
+
+  const swap = () => {
+    setFrom(to); setTo(from)
+    setFromVal(shownToVal); setDriver('from')
+  }
+
+  const twinCard = (side) => {
+    const isDriver = driver === side
+    const value = side === 'from' ? shownFromVal : shownToVal
+    const unit  = side === 'from' ? from : to
+    return (
+      <div className="cp-card-bg3" style={{
+        border: `1px solid ${isDriver ? 'var(--cp-border2)' : 'rgba(var(--cp-acc-rgb,63,224,197),0.35)'}`,
+        borderRadius: 8, padding: '14px 16px',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span className="cp-label">{side === 'from' ? 'FROM' : 'TO'}</span>
+          {!isDriver && (
+            <span style={{
+              fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.12em',
+              padding: '2px 7px', borderRadius: 10, background: 'var(--cp-accdim)', color: 'var(--cp-acc)',
+            }}>LIVE</span>
+          )}
+        </div>
+        <input type="number" inputMode="decimal" placeholder="0" value={value}
+          onChange={e => {
+            setDriver(side)
+            if (side === 'from') setFromVal(e.target.value); else setToVal(e.target.value)
+          }}
+          style={{
+            width: '100%', background: 'transparent', border: 'none', outline: 'none', padding: 0,
+            fontFamily: 'var(--cb-font-mono)', fontWeight: 700, fontSize: 24,
+            color: isDriver ? 'var(--cp-txt)' : 'var(--cp-acc)',
+          }} />
+        <div style={{ marginTop: 8 }}>
+          <UnitPicker
+            value={unit}
+            options={units}
+            open={openPanel === side}
+            onToggle={() => setOpenPanel(p => (p === side ? null : side))}
+            onPick={u => { side === 'from' ? setFrom(u) : setTo(u); setOpenPanel(null) }}
+          />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -34,40 +128,16 @@ export default function Converter() {
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cats.length, 4)}, 1fr)`, gap: 6 }}>
         {cats.map(c => (
           <button key={c} onClick={() => pickCat(c)} style={{
-            fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.08em', padding: '8px 0',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.06em', padding: '8px 2px',
             borderRadius: 6, cursor: 'pointer',
             border: `1px solid ${cat === c ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
             background: cat === c ? 'var(--cp-accdim)' : 'transparent',
             color: cat === c ? 'var(--cp-acc)' : 'var(--cp-dim)' }}>
+            <span style={{ fontSize: 16, lineHeight: 1 }}>{CATEGORY_ICONS[c]}</span>
             {c === 'fuel' ? 'FUEL' : UNIT_CATEGORIES[c].label.toUpperCase()}
           </button>
         ))}
-      </div>
-
-      {/* value */}
-      <div>
-        <div className="cp-label" style={{ marginBottom: 5 }}>VALUE</div>
-        <input className="cp-input" type="number" inputMode="decimal" value={val}
-          onChange={e => setVal(e.target.value)} placeholder="0"
-          style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 18 }} />
-      </div>
-
-      {/* from / to */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'end' }}>
-        <div>
-          <div className="cp-label" style={{ marginBottom: 5 }}>FROM</div>
-          <select value={from} onChange={e => setFrom(e.target.value)} style={selStyle}>
-            {units.map(u => <option key={u} value={u}>{u}</option>)}
-          </select>
-        </div>
-        <button onClick={swap} style={{ background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
-          borderRadius: 6, color: 'var(--cp-acc)', fontSize: 16, cursor: 'pointer', padding: '9px 12px' }}>⇄</button>
-        <div>
-          <div className="cp-label" style={{ marginBottom: 5 }}>TO</div>
-          <select value={to} onChange={e => setTo(e.target.value)} style={selStyle}>
-            {units.map(u => <option key={u} value={u}>{u}</option>)}
-          </select>
-        </div>
       </div>
 
       {/* fuel density input — only needed when converting mass ↔ volume */}
@@ -80,15 +150,13 @@ export default function Converter() {
         </div>
       )}
 
-      {/* result */}
-      <div className="cp-card-bg3" style={{ border: '1px solid var(--cp-border2)',
-        borderLeft: `3px solid ${out != null ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
-        borderRadius: 6, padding: '16px 18px' }}>
-        <div className="cp-label" style={{ marginBottom: 6 }}>RESULT</div>
-        <div style={{ fontFamily: 'var(--cb-font-mono)', fontWeight: 700, fontSize: 28,
-          color: out != null ? 'var(--cp-acc)' : 'var(--cp-dim)', lineHeight: 1 }}>
-          {out != null ? `${parseFloat(out.toPrecision(8))} ${to}` : '—'}
-        </div>
+      {/* bidirectional from/to */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+        <div style={{ width: '100%' }}>{twinCard('from')}</div>
+        <button onClick={swap} style={{ background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
+          borderRadius: 6, color: 'var(--cp-acc)', fontSize: 16, cursor: 'pointer', padding: '8px 12px',
+          margin: '-2px 0' }}>⇄</button>
+        <div style={{ width: '100%' }}>{twinCard('to')}</div>
       </div>
     </div>
   )

@@ -3,6 +3,10 @@
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789' // no 0/O, 1/I/L — avoids visual ambiguity
 
+// Matches the XXXX-XXXX-XXXX shape generateSyncCode() produces — used to tell
+// a genuine scanned sync code apart from an unrelated QR code's contents.
+export const CODE_RE = new RegExp(`^[${CODE_ALPHABET}]{4}-[${CODE_ALPHABET}]{4}-[${CODE_ALPHABET}]{4}$`)
+
 export function generateSyncCode() {
   const groups = []
   for (let g = 0; g < 3; g++) {
