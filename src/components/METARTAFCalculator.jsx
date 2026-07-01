@@ -9,6 +9,7 @@ import {
 import { decodeMetar, decodeTaf } from '../utils/metarDecode'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
+import RadarSweepLoader from './RadarSweepLoader'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -63,6 +64,8 @@ export default function METARTAFCalculator() {
   const [results,      setResults]      = useState(cache?.results      || null)
   const [fetchedAt,    setFetchedAt]    = useState(cache?.fetchedAt    || null)
   const [loading,      setLoading]      = useState(false)
+  const [manualFetch,  setManualFetch]  = useState(false)
+  const [activeTargets, setActiveTargets] = useState([])
   const [now,          setNow]          = useState(Date.now())
 
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
@@ -150,7 +153,11 @@ export default function METARTAFCalculator() {
   }, [])
 
   // ── Fetch ─────────────────────────────────────────────────────────────
-  const doFetch = useCallback(async (s) => {
+  // `isManual` is true only when the user hits the fetch button themselves —
+  // it drives the radar-sweep loading animation. Auto-refresh and the
+  // back-online silent refetch call this without it, so they keep the
+  // existing behaviour of refreshing quietly behind the stale data.
+  const doFetch = useCallback(async (s, isManual = false) => {
     const targets = buildTargets(s)
     if (!targets.length) return
 
@@ -162,6 +169,10 @@ export default function METARTAFCalculator() {
 
     setIsOffline(false)
     setLoading(true)
+    if (isManual) {
+      setActiveTargets(targets.map(t => t.icao))
+      setManualFetch(true)
+    }
 
     const out = {}
     await Promise.all(targets.map(async ({ key, icao, label }) => {
@@ -178,12 +189,13 @@ export default function METARTAFCalculator() {
     setFetchedAt(ts)
     setNow(ts)
     setLoading(false)
+    if (isManual) setManualFetch(false)
     haptic(hasError ? 'heavy' : 'medium')
   }, [buildTargets])
 
   const handleFetch = () => {
     if (!navigator.onLine) { setIsOffline(true); return }
-    doFetch(stateRef.current)
+    doFetch(stateRef.current, true)
   }
 
   // ── Back-online silent refetch ─────────────────────────────────────────
@@ -389,10 +401,13 @@ export default function METARTAFCalculator() {
       )}
 
       {/* ── COLOUR LEGEND ───────────────────────────────────────────────── */}
-      {results && <SeverityLegend />}
+      {results && !manualFetch && <SeverityLegend />}
+
+      {/* ── LOADING ──────────────────────────────────────────────────────── */}
+      {manualFetch && <RadarSweepLoader targets={activeTargets} />}
 
       {/* ── RESULTS ─────────────────────────────────────────────────────── */}
-      {results && orderedKeys.map(key => (
+      {results && !manualFetch && orderedKeys.map(key => (
         <AirportCard key={key} data={results[key]} now={now} />
       ))}
 

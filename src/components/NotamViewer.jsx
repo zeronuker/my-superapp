@@ -6,6 +6,7 @@ import { icaoToFir } from '../data/firLookup'
 import { haptic } from '../utils/haptic'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
+import RadarSweepLoader from './RadarSweepLoader'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
@@ -186,6 +187,8 @@ export default function NotamViewer() {
   // Results — restore from raw cache (re-parsed so validity status is fresh)
   const [view,         setView]         = useState('parsed')
   const [loading,      setLoading]      = useState(false)
+  const [manualFetch,  setManualFetch]  = useState(false)
+  const [activeTargets, setActiveTargets] = useState([])
   const [notams,       setNotams]       = useState(() => {
     if (cache?.rawPerIcao) return parseRawNotams(cache.rawPerIcao)
     if (cache?.notams)     return cache.notams   // backwards compat: old cache format
@@ -290,10 +293,17 @@ export default function NotamViewer() {
   }
   const removeChip = (icao) => setExtraChips(c => c.filter(x => x.icao !== icao))
 
-  const handleFetch = async () => {
+  // `isManual` is true only when the user hits the fetch button themselves —
+  // it drives the radar-sweep loading animation. The back-online silent
+  // refresh calls this without it, so it keeps refreshing quietly.
+  const handleFetch = async (isManual = false) => {
     const t = buildTargets()
     if (!t.length) { setError('Enter at least one airport or FIR.'); return }
     setError(''); setLoading(true); setNotams(null); setCollapsedMap({})
+    if (isManual) {
+      setActiveTargets(t.map(x => x.icao))
+      setManualFetch(true)
+    }
     try {
       const { notams: result, rawPerIcao } = await fetchNotams(t.map(x => x.icao))
       setNotams(result)
@@ -303,7 +313,10 @@ export default function NotamViewer() {
     } catch (e) {
       setError(`Failed to fetch NOTAMs: ${e.message}`)
       haptic('heavy')
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+      if (isManual) setManualFetch(false)
+    }
   }
 
   // Keep a stable ref to handleFetch so the back-online effect never captures a stale copy
@@ -372,7 +385,7 @@ export default function NotamViewer() {
           <div className="cp-label" style={{ marginBottom: 4 }}>DEPARTURE</div>
           <input className="cp-input" style={monoInput} placeholder="e.g. WMKK" value={dep} maxLength={4}
             onChange={e => setDep(upper(e.target.value))}
-            onKeyDown={e => e.key === 'Enter' && handleFetch()} />
+            onKeyDown={e => e.key === 'Enter' && handleFetch(true)} />
         </div>
         <button
           onClick={() => { setDep(arr); setArr(dep) }}
@@ -388,7 +401,7 @@ export default function NotamViewer() {
           <div className="cp-label" style={{ marginBottom: 4 }}>ARRIVAL</div>
           <input className="cp-input" style={monoInput} placeholder="e.g. RJBB" value={arr} maxLength={4}
             onChange={e => setArr(upper(e.target.value))}
-            onKeyDown={e => e.key === 'Enter' && handleFetch()} />
+            onKeyDown={e => e.key === 'Enter' && handleFetch(true)} />
         </div>
       </div>
 
@@ -400,7 +413,7 @@ export default function NotamViewer() {
             <div className="cp-label" style={{ marginBottom: 4 }}>{label}</div>
             <input className="cp-input" style={monoInput} placeholder="ICAO" value={destAlts[key]} maxLength={4}
               onChange={e => setDestAlts(p => ({ ...p, [key]: upper(e.target.value) }))}
-              onKeyDown={e => e.key === 'Enter' && handleFetch()} />
+              onKeyDown={e => e.key === 'Enter' && handleFetch(true)} />
           </div>
         ))}
       </div>
@@ -423,7 +436,7 @@ export default function NotamViewer() {
               <div className="cp-label" style={{ marginBottom: 4 }}>ERA {i + 1}</div>
               <input className="cp-input" style={monoInput} placeholder="ICAO" value={enrouteAlts[i] || ''} maxLength={4}
                 onChange={e => setEnrouteAlts(p => { const n = [...p]; n[i] = upper(e.target.value); return n })}
-                onKeyDown={e => e.key === 'Enter' && handleFetch()} />
+                onKeyDown={e => e.key === 'Enter' && handleFetch(true)} />
             </div>
           ))}
         </div>
@@ -478,7 +491,7 @@ export default function NotamViewer() {
 
       {/* ── Fetch ── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <button onClick={handleFetch} disabled={loading || !targets.length} style={{
+        <button onClick={() => handleFetch(true)} disabled={loading || !targets.length} style={{
           flex: 1, padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
           border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)', borderRadius: 6,
           cursor: targets.length ? 'pointer' : 'default', fontFamily: T.mono, fontSize: 10,
@@ -486,6 +499,9 @@ export default function NotamViewer() {
           {loading ? '⊙ FETCHING NOTAMs…' : '⊕ FETCH NOTAMs'}
         </button>
       </div>
+
+      {/* ── Loading ── */}
+      {manualFetch && <RadarSweepLoader targets={activeTargets} />}
 
       {/* ── Results ── */}
       {notams && (
