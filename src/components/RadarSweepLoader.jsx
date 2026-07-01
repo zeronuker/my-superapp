@@ -1,23 +1,56 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
-const STEP_MS = 800
+// Per-chip pacing floor — a step never runs faster than this, so the
+// "Scanning XXXX…" label stays readable no matter how many targets there are.
+export const CHIP_FLOOR_MS = 500
+// Baseline total for small target counts (chips compress up to the floor).
+export const BASE_ANIM_MS  = 2500
+// Hard ceiling on total runtime — past the point where every target could
+// get its own floor-paced step, targets share a step instead of speeding up
+// further (see groupTargets below).
+export const MAX_ANIM_MS   = 6000
+
+// Total time the caller must wait before revealing data, so the animation
+// always finishes first regardless of how fast the real fetch resolves.
+export function computeAnimDuration(targetCount) {
+  if (targetCount <= 0) return 0
+  return Math.min(Math.max(BASE_ANIM_MS, targetCount * CHIP_FLOOR_MS), MAX_ANIM_MS)
+}
+
+// Splits targets into steps: one target per step while that stays within
+// MAX_ANIM_MS at the floor pace, otherwise batches multiple targets into the
+// same step (evenly distributed, no empty steps) so each step still gets at
+// least CHIP_FLOOR_MS and the total stays capped.
+function planAnimation(targets) {
+  const n = targets.length
+  if (n === 0) return { groups: [], stepMs: 0 }
+  const totalMs = computeAnimDuration(n)
+  const numSteps = n * CHIP_FLOOR_MS <= MAX_ANIM_MS ? n : Math.floor(MAX_ANIM_MS / CHIP_FLOOR_MS)
+  const groups = numSteps >= n
+    ? targets.map(t => [t])
+    : Array.from({ length: numSteps }, (_, i) => targets.slice(
+        Math.floor((i * n) / numSteps),
+        Math.floor(((i + 1) * n) / numSteps),
+      ))
+  return { groups, stepMs: totalMs / numSteps }
+}
 
 // Cosmetic per-target progress cue shown during a manual fetch. Both METAR/TAF
 // and NOTAM fetch all targets in one batched request, so this stepper is a
 // perceived-progress indicator only — it is not tied to real per-target
-// completion, and simply stops advancing (chips stay wherever they got to)
-// once the real fetch resolves and this component unmounts.
+// completion.
 export default function RadarSweepLoader({ targets }) {
+  const { groups, stepMs } = useMemo(() => planAnimation(targets), [targets])
   const [completed, setCompleted] = useState(0)
 
   useEffect(() => {
-    if (completed >= targets.length) return
-    const t = setTimeout(() => setCompleted(c => c + 1), STEP_MS)
+    if (completed >= groups.length) return
+    const t = setTimeout(() => setCompleted(c => c + 1), stepMs)
     return () => clearTimeout(t)
-  }, [completed, targets.length])
+  }, [completed, groups.length, stepMs])
 
-  const scanning = targets[completed]
-  const label = scanning ? `Scanning ${scanning}…` : 'Compiling report…'
+  const currentGroup = groups[completed]
+  const label = currentGroup ? `Scanning ${currentGroup.join(', ')}…` : 'Compiling report…'
 
   return (
     <div style={{
@@ -42,10 +75,10 @@ export default function RadarSweepLoader({ targets }) {
       <div className="cp-label">{label}</div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6 }}>
-        {targets.map((code, i) => {
-          const state = i < completed ? 'done' : i === completed ? 'scanning' : 'pending'
-          return (
-            <div key={code + i} style={{
+        {groups.map((group, gi) => {
+          const state = gi < completed ? 'done' : gi === completed ? 'scanning' : 'pending'
+          return group.map((code, ci) => (
+            <div key={code + gi + ci} style={{
               display: 'flex', alignItems: 'center', gap: 5,
               fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.1em',
               padding: '4px 10px', borderRadius: 4,
@@ -61,7 +94,7 @@ export default function RadarSweepLoader({ targets }) {
               }} />
               {code}
             </div>
-          )
+          ))
         })}
       </div>
     </div>

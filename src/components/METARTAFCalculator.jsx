@@ -9,7 +9,7 @@ import {
 import { decodeMetar, decodeTaf } from '../utils/metarDecode'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
-import RadarSweepLoader from './RadarSweepLoader'
+import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -169,6 +169,7 @@ export default function METARTAFCalculator() {
 
     setIsOffline(false)
     setLoading(true)
+    const startedAt = Date.now()
     if (isManual) {
       setActiveTargets(targets.map(t => t.icao))
       setManualFetch(true)
@@ -183,14 +184,26 @@ export default function METARTAFCalculator() {
       }
     }))
 
-    const ts = Date.now()
     const hasError = Object.values(out).some(v => v.error)
-    setResults(out)
-    setFetchedAt(ts)
-    setNow(ts)
-    setLoading(false)
-    if (isManual) setManualFetch(false)
-    haptic(hasError ? 'heavy' : 'medium')
+
+    const reveal = () => {
+      const ts = Date.now()
+      setResults(out)
+      setFetchedAt(ts)
+      setNow(ts)
+      setLoading(false)
+      if (isManual) setManualFetch(false)
+      haptic(hasError ? 'heavy' : 'medium')
+    }
+
+    // The animation always finishes before results are revealed — unless a
+    // target errored, in which case surface it immediately rather than
+    // sitting through the rest of the cosmetic scan.
+    if (isManual && !hasError) {
+      const remaining = computeAnimDuration(targets.length) - (Date.now() - startedAt)
+      if (remaining > 0) { setTimeout(reveal, remaining); return }
+    }
+    reveal()
   }, [buildTargets])
 
   const handleFetch = () => {

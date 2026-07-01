@@ -6,7 +6,7 @@ import { icaoToFir } from '../data/firLookup'
 import { haptic } from '../utils/haptic'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
-import RadarSweepLoader from './RadarSweepLoader'
+import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
@@ -226,6 +226,10 @@ export default function NotamViewer() {
     setDestAlts(data.destAlts)
     setEnrouteCount(data.enrouteCount)
     setEnrouteAlts(Array.from({ length: ERA_MAX }, (_, i) => data.enrouteAlts[i] || ''))
+    // FIRs were likely derived from the old route (auto-detect or manual) and
+    // go stale once it's replaced — manually-added standalone airports aren't
+    // route-derived, so they're left alone.
+    setExtraChips(prev => prev.filter(c => c.type !== 'fir'))
   }
 
   const handleReset = () => {
@@ -300,20 +304,33 @@ export default function NotamViewer() {
     const t = buildTargets()
     if (!t.length) { setError('Enter at least one airport or FIR.'); return }
     setError(''); setLoading(true); setNotams(null); setCollapsedMap({})
+    const startedAt = Date.now()
     if (isManual) {
       setActiveTargets(t.map(x => x.icao))
       setManualFetch(true)
     }
     try {
       const { notams: result, rawPerIcao } = await fetchNotams(t.map(x => x.icao))
-      setNotams(result)
-      setSavedRaw(rawPerIcao)
-      setFetchedAt(Date.now())
-      haptic('medium')
+
+      const reveal = () => {
+        setNotams(result)
+        setSavedRaw(rawPerIcao)
+        setFetchedAt(Date.now())
+        setLoading(false)
+        if (isManual) setManualFetch(false)
+        haptic('medium')
+      }
+
+      // The animation always finishes before results are revealed.
+      if (isManual) {
+        const remaining = computeAnimDuration(t.length) - (Date.now() - startedAt)
+        if (remaining > 0) { setTimeout(reveal, remaining); return }
+      }
+      reveal()
     } catch (e) {
+      // Errors interrupt the animation immediately rather than waiting it out.
       setError(`Failed to fetch NOTAMs: ${e.message}`)
       haptic('heavy')
-    } finally {
       setLoading(false)
       if (isManual) setManualFetch(false)
     }
