@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useLayoutEffect } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { TabIcon } from './TabIcon'
 import NormalCalculator from './NormalCalculator'
@@ -14,9 +14,67 @@ const MODES = [
   { id: 'convert',    label: 'CONVERT',    icon: '🔄' },
 ]
 
+// The CSS clamp()-based sizing inside each calculator already shrinks with
+// viewport height, but it's tuned to fit exactly around ~844px tall screens —
+// on shorter real screens it can still fall short of a perfect fit (and vh
+// units on mobile browsers don't always match what's actually visible, e.g.
+// iOS Safari's address bar). This measures the actual rendered height against
+// the actual visible viewport and applies a small corrective scale on top, so
+// it always closes the gap exactly rather than relying on hand-tuned
+// coefficients — floored so buttons never shrink past a usable minimum.
+const MIN_FIT_SCALE = 0.7
+
+function useFitToViewport(active) {
+  const ref = useRef(null)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    const recompute = () => {
+      // Reset to natural size first so this measurement isn't skewed by a
+      // scale applied on a previous pass (or the previous active mode).
+      el.style.transform = ''
+      el.style.width = ''
+      el.style.marginLeft = ''
+      el.style.marginBottom = ''
+
+      const naturalHeight = el.scrollHeight
+      if (!naturalHeight) return
+
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+      const pageHeight = document.documentElement.scrollHeight
+      const overflow = pageHeight - viewportHeight
+      const neededScale = overflow > 0 ? (naturalHeight - overflow) / naturalHeight : 1
+      const scale = Math.max(MIN_FIT_SCALE, Math.min(1, neededScale))
+
+      if (scale < 1) {
+        el.style.transform = `scale(${scale})`
+        el.style.transformOrigin = 'top center'
+        el.style.width = `${(1 / scale) * 100}%`
+        el.style.marginLeft = `${-(((1 / scale) * 100) - 100) / 2}%`
+        el.style.marginBottom = `${-(naturalHeight * (1 - scale))}px`
+      }
+    }
+
+    recompute()
+    window.addEventListener('resize', recompute)
+    window.addEventListener('orientationchange', recompute)
+    window.visualViewport?.addEventListener('resize', recompute)
+    return () => {
+      window.removeEventListener('resize', recompute)
+      window.removeEventListener('orientationchange', recompute)
+      window.visualViewport?.removeEventListener('resize', recompute)
+    }
+  }, [active])
+
+  return ref
+}
+
 export default function CombinedCalculator() {
   const [mode, setMode] = useState('basic')
   const { setNormal, setScientificDisplay, setTime } = useCalculatorStore()
+  const fitRef = useFitToViewport(mode)
 
   const handleReset = () => {
     setNormal({ display: '0', previousValue: 0, operation: null, expression: '', clearNext: false })
@@ -76,10 +134,12 @@ export default function CombinedCalculator() {
       </div>
 
       {/* ── Active calculator ───────────────────────────────────────────── */}
-      {mode === 'basic'      && <NormalCalculator />}
-      {mode === 'scientific' && <ScientificCalculator />}
-      {mode === 'time'       && <TimeCalculator />}
-      {mode === 'convert'    && <Converter />}
+      <div ref={fitRef}>
+        {mode === 'basic'      && <NormalCalculator />}
+        {mode === 'scientific' && <ScientificCalculator />}
+        {mode === 'time'       && <TimeCalculator />}
+        {mode === 'convert'    && <Converter />}
+      </div>
     </div>
   )
 }
