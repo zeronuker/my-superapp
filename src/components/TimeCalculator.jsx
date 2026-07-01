@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import CalcButton from './CalcButton'
+import { CALC_BTN as BTN, CALC_GRID_GAP } from './calcButtonStyle'
 
 function formatDigits(digits) {
   if (!digits) return '0:00'
@@ -41,29 +42,8 @@ function compute(prevMin, op, digits, multiplierStr, isMultiplierMode) {
   return prevMin
 }
 
-const BTN = {
-  base: {
-    fontFamily: "var(--cb-font-mono)",
-    fontSize: 22,
-    fontWeight: 700,
-    border: '1px solid var(--cp-border)',
-    borderRadius: 6,
-    cursor: 'pointer',
-    padding: 'clamp(14px, 2vh, 22px) 0',
-    transition: 'all 0.1s',
-    userSelect: 'none',
-    letterSpacing: '0.05em',
-  },
-  num: { background: 'var(--cp-bg3)', color: 'var(--cp-txt)', borderColor: 'var(--cp-border2)' },
-  op:  { background: 'var(--cp-accdim)', color: 'var(--cp-acc)', borderColor: 'var(--cp-border)' },
-  opActive: { background: 'var(--cp-accdim)', color: 'var(--cp-acc)', borderColor: 'var(--cp-acc)', boxShadow: '0 0 8px var(--cp-accdim)' },
-  util:{ background: 'var(--cp-bg2)', color: 'var(--cp-muted)', borderColor: 'var(--cp-border)' },
-  clr: { background: 'rgba(239,68,68,0.12)', color: 'var(--cp-red)', borderColor: 'rgba(239,68,68,0.4)' },
-  eq:  { background: 'rgba(34,197,94,0.12)', color: 'var(--cp-green)', borderColor: 'rgba(34,197,94,0.4)' },
-}
-
 function Btn({ style, ...props }) {
-  return <CalcButton style={{ ...BTN.base, ...style }} {...props} />
+  return <CalcButton style={style} {...props} />
 }
 
 export default function TimeCalculator() {
@@ -149,13 +129,13 @@ export default function TimeCalculator() {
   const opStyle = o => operation === o && !justCalculated ? BTN.opActive : BTN.op
 
   return (
-    <div style={{ maxWidth: 380, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ maxWidth: 380, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'clamp(4px, 0.8vh, 7px)' }}>
       {/* Display */}
-      <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: '16px 24px 20px', textAlign: 'right' }}>
+      <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: 'clamp(10px, 2.2vh, 16px) 24px clamp(12px, 2.6vh, 20px)', textAlign: 'right' }}>
         <div style={{ fontSize: 13, color: 'var(--cp-dim)', fontFamily: "var(--cb-font-mono)", height: 20, marginBottom: 6 }}>{expression}</div>
         <div style={{
           color: 'var(--cp-acc)', fontWeight: 700, fontFamily: "var(--cb-font-mono)",
-          fontSize: currentDisplay.length > 7 ? '2.6rem' : '3.6rem', lineHeight: 1, letterSpacing: '0.05em',
+          fontSize: currentDisplay.length > 7 ? '2.6rem' : 'clamp(2rem, 5.2vh, 3.6rem)', lineHeight: 1, letterSpacing: '0.05em',
         }}>{currentDisplay}</div>
         <div style={{ fontSize: 11, color: 'var(--cp-dim)', marginTop: 8, letterSpacing: '0.1em' }}>
           {isMultiplierMode ? 'ENTER PLAIN NUMBER (e.g. 1.5)' : 'TYPE RIGHT-TO-LEFT — e.g. 6, 3, 0 → 6:30'}
@@ -163,7 +143,7 @@ export default function TimeCalculator() {
       </div>
 
       {/* Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: CALC_GRID_GAP }}>
         <Btn onClick={handleClear} style={BTN.clr} colSpan={2} hapticType="medium">C</Btn>
         <Btn onClick={handleBackspace} style={BTN.util}>⌫</Btn>
         <Btn onClick={() => handleOperation('÷')} style={opStyle('÷')}>÷</Btn>
@@ -181,9 +161,9 @@ export default function TimeCalculator() {
         <Btn onClick={handleDecimal} style={BTN.util}>.</Btn>
       </div>
 
-      <Btn onClick={handleEquals} style={{ ...BTN.eq, ...BTN.base, fontSize: 26, padding: 'clamp(14px, 2vh, 22px) 0' }} hapticType="heavy">=</Btn>
+      <Btn onClick={handleEquals} style={BTN.eq} hapticType="heavy">=</Btn>
 
-      <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.1em', lineHeight: 1.8 }}>
+      <div style={{ textAlign: 'center', fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em', lineHeight: 1.3 }}>
         + AND − ADD/SUBTRACT HH:MM TIMES<br/>× AND ÷ MULTIPLY/DIVIDE BY A PLAIN NUMBER
       </div>
     </div>

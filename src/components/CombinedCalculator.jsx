@@ -29,12 +29,12 @@ export default function CombinedCalculator() {
 
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 'clamp(6px, 1.2vh, 14px)' }}>
         <ResetButton onReset={handleReset} />
       </div>
 
       {/* ── Mode toggle ─────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 'clamp(10px, 1.5vh, 20px)' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 'clamp(6px, 1vh, 14px)' }}>
         <div style={{
           display: 'inline-flex',
           background: 'var(--cp-bg3)',
@@ -42,6 +42,8 @@ export default function CombinedCalculator() {
           borderRadius: 6,
           padding: 3,
           gap: 3,
+          maxWidth: '100%',
+          overflowX: 'auto',
         }}>
           {MODES.map(({ id, label, icon }) => (
             <button
@@ -49,10 +51,10 @@ export default function CombinedCalculator() {
               onClick={() => setMode(id)}
               style={{
                 fontFamily: 'var(--cb-font-mono)',
-                fontSize: 11,
+                fontSize: 9,
                 fontWeight: 700,
-                letterSpacing: '0.15em',
-                padding: '7px 18px',
+                letterSpacing: '0.04em',
+                padding: 'clamp(5px, 1vh, 7px) clamp(4px, 1.3vw, 10px)',
                 borderRadius: 4,
                 border: `1px solid ${mode === id ? 'var(--cp-acc)' : 'transparent'}`,
                 cursor: 'pointer',
@@ -61,10 +63,12 @@ export default function CombinedCalculator() {
                 transition: 'all 0.12s',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: 4,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
-              <TabIcon id={id} emoji={icon} size={14} />
+              <TabIcon id={id} emoji={icon} size={12} />
               {label}
             </button>
           ))}

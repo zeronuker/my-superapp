@@ -2,27 +2,10 @@ import React, { useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { MAX_CALC_VAL, formatDisplayNum } from '../utils/formatDisplay'
 import CalcButton from './CalcButton'
-
-const BTN = {
-  base: {
-    fontFamily: "var(--cb-font-mono)",
-    fontSize: 22, fontWeight: 700,
-    border: '1px solid var(--cp-border)',
-    borderRadius: 6, cursor: 'pointer',
-    padding: '22px 0',
-    transition: 'all 0.1s',
-    userSelect: 'none',
-  },
-  num:      { background: 'var(--cp-bg3)',             color: 'var(--cp-txt)',    borderColor: 'var(--cp-border2)' },
-  op:       { background: 'var(--cp-accdim)',           color: 'var(--cp-acc)',    borderColor: 'var(--cp-border)'  },
-  opActive: { background: 'var(--cp-accdim)',           color: 'var(--cp-acc)',    borderColor: 'var(--cp-acc)', boxShadow: '0 0 8px var(--cp-accdim)' },
-  util:     { background: 'var(--cp-bg2)',              color: 'var(--cp-muted)',  borderColor: 'var(--cp-border)'  },
-  clr:      { background: 'rgba(239,68,68,0.12)',       color: 'var(--cp-red)',    borderColor: 'rgba(239,68,68,0.4)' },
-  eq:       { background: 'rgba(34,197,94,0.12)',       color: 'var(--cp-green)',  borderColor: 'rgba(34,197,94,0.4)' },
-}
+import { CALC_BTN as BTN, CALC_GRID_GAP } from './calcButtonStyle'
 
 function Btn({ style, ...props }) {
-  return <CalcButton style={{ ...BTN.base, ...style }} {...props} />
+  return <CalcButton style={style} {...props} />
 }
 
 export default function NormalCalculator() {
@@ -153,9 +136,9 @@ export default function NormalCalculator() {
   const formattedDisplay = formatDisplayNum(display)
 
   return (
-    <div style={{ maxWidth: 380, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ maxWidth: 380, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'clamp(4px, 0.8vh, 7px)' }}>
       {/* Display */}
-      <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: '16px 24px 20px', textAlign: 'right' }}>
+      <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: 'clamp(10px, 2.2vh, 16px) 24px clamp(12px, 2.6vh, 20px)', textAlign: 'right' }}>
         <div style={{ fontSize: 13, color: 'var(--cp-dim)', fontFamily: "var(--cb-font-mono)", height: 20, marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '0.05em' }}>
           {exprLine}
         </div>
@@ -166,14 +149,14 @@ export default function NormalCalculator() {
                   : formattedDisplay.length > 12 ? '2.0rem'
                   : formattedDisplay.length > 9  ? '2.5rem'
                   : formattedDisplay.length > 7  ? '2.8rem'
-                  : '3.6rem',
+                  : 'clamp(2rem, 5.2vh, 3.6rem)',
           lineHeight: 1, letterSpacing: '0.05em',
           whiteSpace: 'nowrap',
         }}>{formattedDisplay}</div>
       </div>
 
       {/* Buttons */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: CALC_GRID_GAP }}>
         <Btn onClick={handleClear} style={BTN.clr} colSpan={2} hapticType="medium">C</Btn>
         <Btn onClick={handleBackspace} style={BTN.util}>⌫</Btn>
         <Btn onClick={() => handleOperation('÷')} style={opStyle('÷')}>÷</Btn>
@@ -191,7 +174,7 @@ export default function NormalCalculator() {
         <Btn onClick={handleDecimal} style={BTN.util}>.</Btn>
       </div>
 
-      <Btn onClick={handleEquals} style={{ ...BTN.eq, ...BTN.base, fontSize: 26, padding: '22px 0' }} hapticType="heavy">=</Btn>
+      <Btn onClick={handleEquals} style={BTN.eq} hapticType="heavy">=</Btn>
     </div>
   )
 }
