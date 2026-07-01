@@ -14,15 +14,19 @@ const MODES = [
   { id: 'convert',    label: 'CONVERT',    icon: '🔄' },
 ]
 
-// The CSS clamp()-based sizing inside each calculator already shrinks with
-// viewport height, but it's tuned to fit exactly around ~844px tall screens —
-// on shorter real screens it can still fall short of a perfect fit (and vh
-// units on mobile browsers don't always match what's actually visible, e.g.
-// iOS Safari's address bar). This measures the actual rendered height against
-// the actual visible viewport and applies a small corrective scale on top, so
-// it always closes the gap exactly rather than relying on hand-tuned
-// coefficients — floored so buttons never shrink past a usable minimum.
+// The CSS clamp()-based sizing inside each calculator already responds to
+// viewport height, but its min/max bounds mean it can still fall short of a
+// perfect fit on short screens, or leave unused space on tall ones (tablets)
+// — and vh units on mobile browsers don't always match what's actually
+// visible (e.g. iOS Safari's address bar). This measures the actual rendered
+// size against the actual visible viewport and applies the exact corrective
+// scale needed to fill it — up or down — so it always uses the full height
+// rather than relying on hand-tuned coefficients. Growth is limited by
+// whichever of height or width is tighter, so on a tablet it never grows
+// wide enough to overflow the screen just to fill height. Floored/ceilinged
+// so buttons never shrink or grow past a usable/sensible size.
 const MIN_FIT_SCALE = 0.7
+const MAX_FIT_SCALE = 1.4
 
 function useFitToViewport(active) {
   const ref = useRef(null)
@@ -40,15 +44,27 @@ function useFitToViewport(active) {
       el.style.marginBottom = ''
 
       const naturalHeight = el.scrollHeight
-      if (!naturalHeight) return
+      // The calculator's own root has a max-width and is centered, so measure
+      // it directly rather than this wrapper (which stretches full-width).
+      const naturalWidth = (el.firstElementChild ?? el).getBoundingClientRect().width
+      if (!naturalHeight || !naturalWidth) return
 
+      // Use the element's own position rather than document.scrollHeight —
+      // the app shell has min-height:100vh, so the whole page always measures
+      // as at least one viewport tall even when actual content is shorter,
+      // which would hide the slack we need to detect growth on tall screens.
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight
-      const pageHeight = document.documentElement.scrollHeight
-      const overflow = pageHeight - viewportHeight
-      const neededScale = overflow > 0 ? (naturalHeight - overflow) / naturalHeight : 1
-      const scale = Math.max(MIN_FIT_SCALE, Math.min(1, neededScale))
+      const elTop = el.getBoundingClientRect().top
+      const availableHeight = viewportHeight - elTop
+      const heightScaleLimit = availableHeight / naturalHeight
 
-      if (scale < 1) {
+      const availableWidth = el.parentElement?.clientWidth ?? naturalWidth
+      const widthScaleLimit = availableWidth / naturalWidth
+
+      const neededScale = Math.min(heightScaleLimit, widthScaleLimit)
+      const scale = Math.max(MIN_FIT_SCALE, Math.min(MAX_FIT_SCALE, neededScale))
+
+      if (Math.abs(scale - 1) > 0.005) {
         el.style.transform = `scale(${scale})`
         el.style.transformOrigin = 'top center'
         el.style.width = `${(1 / scale) * 100}%`
