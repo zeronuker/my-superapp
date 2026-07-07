@@ -1419,19 +1419,6 @@ function UpdateChecker({ update }) {
           ✓ YOU'RE ON THE LATEST VERSION
         </div>
       )}
-
-      {needRefresh && (
-        <div style={{
-          background: 'rgba(var(--cp-acc-rgb,63,224,197),0.08)',
-          border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.3)',
-          borderRadius: 4, padding: '8px 12px',
-        }}>
-          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
-            letterSpacing: '0.12em', color: 'var(--cp-acc)' }}>
-            NEW VERSION AVAILABLE
-          </div>
-        </div>
-      )}
     </div>
   )
 }
