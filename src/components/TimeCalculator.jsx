@@ -95,8 +95,10 @@ export default function TimeCalculator() {
 
   function handleEquals() {
     if (operation === null) return
+    const curDisplay = isMultiplierMode ? (multiplier || '0') : formatDigits(digits)
     const res = compute(prevMinutes ?? 0, operation, digits, multiplier, isMultiplierMode)
-    setTime({ result: res, justCalculated: true, expression: '',
+    setTime({ result: res, justCalculated: true,
+      expression: `${minutesToDisplay(prevMinutes ?? 0)} ${operation} ${curDisplay} =`,
       digits: '', multiplier: '', operation: null, isMultiplierMode: false })
   }
 
@@ -137,9 +139,11 @@ export default function TimeCalculator() {
           color: 'var(--cp-acc)', fontWeight: 700, fontFamily: "var(--cb-font-mono)",
           fontSize: currentDisplay.length > 7 ? '2.6rem' : 'clamp(2rem, 5.2vh, 3.6rem)', lineHeight: 1, letterSpacing: '0.05em',
         }}>{currentDisplay}</div>
-        <div style={{ fontSize: 11, color: 'var(--cp-dim)', marginTop: 8, letterSpacing: '0.1em' }}>
-          {isMultiplierMode ? 'ENTER PLAIN NUMBER (e.g. 1.5)' : 'TYPE RIGHT-TO-LEFT — e.g. 6, 3, 0 → 6:30'}
-        </div>
+        {isMultiplierMode && (
+          <div style={{ fontSize: 11, color: 'var(--cp-dim)', marginTop: 8, letterSpacing: '0.1em' }}>
+            ENTER PLAIN NUMBER (e.g. 1.5)
+          </div>
+        )}
       </div>
 
       {/* Grid */}
@@ -162,10 +166,6 @@ export default function TimeCalculator() {
       </div>
 
       <Btn onClick={handleEquals} style={BTN.eq} hapticType="heavy">=</Btn>
-
-      <div style={{ textAlign: 'center', fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em', lineHeight: 1.3 }}>
-        + AND − ADD/SUBTRACT HH:MM TIMES<br/>× AND ÷ MULTIPLY/DIVIDE BY A PLAIN NUMBER
-      </div>
     </div>
   )
 }

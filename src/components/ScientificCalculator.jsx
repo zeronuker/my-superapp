@@ -11,8 +11,9 @@ function Btn({ style, ...props }) {
 const fmt = v => (!isFinite(v) || isNaN(v)) ? 'Error' : parseFloat(v.toPrecision(10)).toString()
 
 export default function ScientificCalculator() {
-  const { scientific, setScientificDisplay } = useCalculatorStore()
+  const { scientific, setScientificDisplay, setScientific } = useCalculatorStore()
   const d = scientific.display
+  const expression = scientific.expression
 
   const [angle, setAngle] = useState('deg')   // 'deg' | 'rad'
   const [mem, setMem]     = useState(0)
@@ -20,11 +21,11 @@ export default function ScientificCalculator() {
 
   const terminal = d === '0' || d === 'Error'
   const insert = s => setScientificDisplay(terminal ? s : d + s)
-  const clear  = () => setScientificDisplay('0')
+  const clear  = () => setScientific({ display: '0', expression: '' })
   const back   = () => setScientificDisplay(d.length <= 1 || d === 'Error' ? '0' : d.slice(0, -1))
 
   const equals = () => {
-    try { const r = evaluate(d, angle); setAns(r); setScientificDisplay(fmt(r)) }
+    try { const r = evaluate(d, angle); setAns(r); setScientific({ display: fmt(r), expression: `${d} =` }) }
     catch { setScientificDisplay('Error') }
   }
   const memAdd = (sign) => { try { setMem(m => m + sign * evaluate(d, angle)) } catch { /* noop */ } }
@@ -65,6 +66,7 @@ export default function ScientificCalculator() {
           </span>
           <span>ANS {fmt(ans)}</span>
         </div>
+        <div style={{ fontSize: 13, color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', height: 20, marginBottom: 6 }}>{expression}</div>
         <div style={{ color: 'var(--cp-acc)', fontWeight: 700, fontFamily: 'var(--cb-font-mono)',
           fontSize: d.length > 20 ? '1.2rem' : d.length > 14 ? '1.7rem' : '2.4rem',
           lineHeight: 1.1, letterSpacing: '0.02em', overflowWrap: 'break-word', wordBreak: 'break-all' }}>

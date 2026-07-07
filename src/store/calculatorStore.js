@@ -67,7 +67,7 @@ export const useCalculatorStore = create((set) => ({
     longRangeCruiseAlt: null, kias310Alt: null,
   },
   normal:     { display: '0', previousValue: 0, operation: null, expression: '', clearNext: false },
-  scientific: { display: '0' },
+  scientific: { display: '0', expression: '' },
   time: {
     digits: '', multiplier: '', prevMinutes: null, operation: null,
     isMultiplierMode: false, expression: '', result: null, justCalculated: false,
@@ -104,6 +104,7 @@ export const useCalculatorStore = create((set) => ({
   setEDTOResults:    (l, k)      => set(s => ({ edto: { ...s.edto, longRangeCruiseAlt: l, kias310Alt: k } })),
   setNormal:         (partial)   => set(s => ({ normal: { ...s.normal, ...partial } })),
   setScientificDisplay: (d)      => set(s => ({ scientific: { ...s.scientific, display: d } })),
+  setScientific:     (partial)   => set(s => ({ scientific: { ...s.scientific, ...partial } })),
   setTime:           (partial)   => set(s => ({ time: { ...s.time, ...partial } })),
   setCurrencyAmount: (amount)    => set(s => ({ currency: { ...s.currency, amount } })),
   setCurrencyBase:   (base)      => set(s => {
