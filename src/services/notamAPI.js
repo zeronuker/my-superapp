@@ -238,7 +238,11 @@ export async function fetchNotams(icaoList, pageSize = 100) {
       fetch(
         `/api/notam?icao=${icao.toUpperCase()}&pageSize=${pageSize}`,
         { signal: AbortSignal.timeout(15_000) }
-      ).then(r => r.ok ? r.json() : Promise.reject(new Error(`${icao}: HTTP ${r.status}`)))
+      ).then(async r => {
+        if (r.ok) return r.json()
+        const body = await r.json().catch(() => null)
+        throw new Error(`${icao}: ${body?.error || `HTTP ${r.status}`}`)
+      })
     )
   )
 

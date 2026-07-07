@@ -78,6 +78,7 @@ export default async function handler(req, res) {
   try {
     token = await getToken()
   } catch (e) {
+    console.error(`[notam] getToken failed: ${e.message}`)
     return res.status(503).json({ error: `Auth error: ${e.message}` })
   }
 
@@ -103,6 +104,8 @@ export default async function handler(req, res) {
         signal:  AbortSignal.timeout(12_000),
       })
       if (!retry.ok) {
+        const text = await retry.text().catch(() => '')
+        console.error(`[notam] retry failed ${retry.status} for ${icaoUpper}: ${text.slice(0, 200)}`)
         return res.status(retry.status).json({
           error: `NOTAM API returned ${retry.status} for ${icaoUpper}`,
         })
@@ -113,6 +116,8 @@ export default async function handler(req, res) {
     }
 
     if (!upstream.ok) {
+      const text = await upstream.text().catch(() => '')
+      console.error(`[notam] upstream failed ${upstream.status} for ${icaoUpper}: ${text.slice(0, 200)}`)
       return res.status(upstream.status).json({
         error: `NOTAM API returned ${upstream.status} for ${icaoUpper}`,
       })
@@ -123,6 +128,7 @@ export default async function handler(req, res) {
     return res.status(200).json(data)
   } catch (e) {
     const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
+    console.error(`[notam] ${isTimeout ? 'timeout' : 'fetch error'} for ${icaoUpper}: ${e}`)
     return res.status(isTimeout ? 504 : 502).json({
       error: isTimeout ? 'NOTAM API timed out' : String(e),
     })
