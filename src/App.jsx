@@ -1,13 +1,13 @@
 import React, { useState, lazy, Suspense } from 'react'
-import { useRegisterSW } from 'virtual:pwa-register/react'
 import { useCalculatorStore } from './store/calculatorStore'
 import usePrayerStore from './modules/prayer/store/prayerStore'
 import { loadLastPosition } from './modules/prayer/services/geolocation'
-import UpdatePrompt from './components/UpdatePrompt'
 import ErrorBoundary from './components/ErrorBoundary'
 import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar } from './components/Navigation'
 import BrandBanner from '@brand/BrandBanner'
 import SplashScreen from '@brand/SplashScreen'
+import UpdatePrompt from '@brand/UpdatePrompt'
+import { useUpdate } from '@brand/useUpdate'
 import { TabIcon, ICON_SETS } from './components/TabIcon'
 import { searchZones } from './data/worldTimezones'
 
@@ -129,6 +129,7 @@ export default function App() {
 
   const isOnline = useOnlineStatus()
   useMETARBadge()
+  const update = useUpdate('superapp')
 
   // Changing defaultTab in Settings also navigates to that tab immediately
   const handleSettingsUpdate = (partial) => {
@@ -327,11 +328,19 @@ export default function App() {
               <button
                 onClick={() => { setSettingsInitialTab('appearance'); setSettingsOpen(true) }}
                 className="cp-btn"
-                style={{ fontSize: 15, padding: '6px 12px' }}
-                title="Settings"
+                style={{ fontSize: 15, padding: '6px 12px', position: 'relative' }}
+                title={update.needRefresh ? 'Settings · update available' : 'Settings'}
                 aria-label="Open settings"
               >
                 ⚙
+                {update.needRefresh && (
+                  <span style={{
+                    position: 'absolute', top: -2, right: -2,
+                    width: 9, height: 9, borderRadius: '50%',
+                    background: 'var(--cp-acc)',
+                    border: '1px solid var(--cp-bg2)',
+                  }} />
+                )}
               </button>
             </div>
           </div>
@@ -422,7 +431,7 @@ export default function App() {
       )}
 
       {/* ── Update prompt ────────────────────────────────────────────── */}
-      <UpdatePrompt ready={!showSplash} />
+      <UpdatePrompt ready={!showSplash} update={update} appLabel="CLAUDEBORNE PILOT UTILITY SUITE" />
 
       {/* ── Search overlay ───────────────────────────────────────────── */}
       {searchOpen && (
@@ -452,6 +461,7 @@ export default function App() {
             onClose={() => setSettingsOpen(false)}
             orderedCalcs={orderedCalcs}
             initialTab={settingsInitialTab}
+            update={update}
           />
         </>
       )}
@@ -740,7 +750,7 @@ function useMediaQuery(query) {
 }
 
 // ── Settings Panel ──────────────────────────────────────────────────────────
-function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalcs, initialTab = 'appearance' }) {
+function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalcs, initialTab = 'appearance', update }) {
   const panelRef = React.useRef(null)
   const [activeTab, setActiveTab] = React.useState(initialTab)
   const isWide = useMediaQuery('(min-width: 768px)')   // ≥768 → modal+rail, else sheet+strip
@@ -1031,7 +1041,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
       {activeTab === 'about' && (
         <>
           <SettingsSection title="APP UPDATE">
-            <UpdateChecker />
+            <UpdateChecker update={update} />
           </SettingsSection>
 
           <SettingsSection title="CLOUD SYNC">
@@ -1356,90 +1366,69 @@ function Changelog() {
 }
 
 // ── Update checker ──────────────────────────────────────────────────────────
-function UpdateChecker() {
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW()
-
-  const [status, setStatus] = React.useState('idle') // 'idle' | 'checking' | 'uptodate' | 'available'
-
-  // Sync external needRefresh → local status
-  React.useEffect(() => {
-    if (needRefresh) setStatus('available')
-  }, [needRefresh])
-
-  const check = async () => {
-    setStatus('checking')
-    try {
-      const reg = await navigator.serviceWorker.getRegistration()
-      await reg?.update()
-    } catch { /* ignore — no SW in dev */ }
-    // Give the SW a moment to signal if an update was found
-    setTimeout(() => {
-      setStatus(s => s === 'checking' ? 'uptodate' : s)
-    }, 2500)
-  }
-
-  const dismiss = () => {
-    setNeedRefresh(false)
-    setStatus('idle')
-  }
+function UpdateChecker({ update }) {
+  const { current, needRefresh, updateServiceWorker, checkForUpdate, checkingUpdate, updateChecked } = update
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+        letterSpacing: '0.1em', color: 'var(--cp-dim)' }}>
+        CURRENT BUILD: {current.version}
+      </div>
+
       {/* Check button */}
-      <button
-        onClick={status === 'checking' ? undefined : check}
-        disabled={status === 'checking'}
-        style={{
-          width: '100%',
-          background: 'transparent',
-          border: '1px solid var(--cp-border2)',
-          borderRadius: 4, padding: '7px 12px',
-          fontFamily: 'var(--cb-font-mono)', fontSize: 10,
-          letterSpacing: '0.14em',
-          color: status === 'checking' ? 'var(--cp-dim)' : 'var(--cp-acc)',
-          cursor: status === 'checking' ? 'default' : 'pointer',
-          transition: 'all 0.12s',
-        }}
-      >
-        {status === 'checking' ? '⊙ CHECKING…' : '⬆ CHECK FOR UPDATES'}
-      </button>
+      {needRefresh ? (
+        <button
+          onClick={() => updateServiceWorker(true)}
+          style={{
+            width: '100%',
+            background: 'rgba(var(--cp-acc-rgb,63,224,197),0.15)',
+            border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.4)',
+            borderRadius: 4, padding: '7px 12px',
+            fontFamily: 'var(--cb-font-mono)', fontSize: 10,
+            letterSpacing: '0.14em', color: 'var(--cp-acc)', fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          ⬆ UPDATE NOW
+        </button>
+      ) : (
+        <button
+          onClick={checkingUpdate ? undefined : checkForUpdate}
+          disabled={checkingUpdate}
+          style={{
+            width: '100%',
+            background: 'transparent',
+            border: '1px solid var(--cp-border2)',
+            borderRadius: 4, padding: '7px 12px',
+            fontFamily: 'var(--cb-font-mono)', fontSize: 10,
+            letterSpacing: '0.14em',
+            color: checkingUpdate ? 'var(--cp-dim)' : 'var(--cp-acc)',
+            cursor: checkingUpdate ? 'default' : 'pointer',
+            transition: 'all 0.12s',
+          }}
+        >
+          {checkingUpdate ? '⊙ CHECKING…' : '⬆ CHECK FOR UPDATES'}
+        </button>
+      )}
 
       {/* Status feedback */}
-      {status === 'uptodate' && (
+      {updateChecked && !needRefresh && (
         <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
           letterSpacing: '0.12em', color: 'var(--cp-dim)', textAlign: 'center' }}>
           ✓ YOU'RE ON THE LATEST VERSION
         </div>
       )}
 
-      {status === 'available' && (
+      {needRefresh && (
         <div style={{
           background: 'rgba(var(--cp-acc-rgb,63,224,197),0.08)',
           border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.3)',
           borderRadius: 4, padding: '8px 12px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
         }}>
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
             letterSpacing: '0.12em', color: 'var(--cp-acc)' }}>
-            UPDATE AVAILABLE
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={dismiss} style={{
-              background: 'transparent', border: '1px solid var(--cp-border2)',
-              borderRadius: 3, padding: '4px 8px', cursor: 'pointer',
-              fontFamily: 'var(--cb-font-mono)', fontSize: 9,
-              letterSpacing: '0.1em', color: 'var(--cp-dim)',
-            }}>LATER</button>
-            <button onClick={() => updateServiceWorker(true)} style={{
-              background: 'rgba(var(--cp-acc-rgb,63,224,197),0.15)',
-              border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.4)',
-              borderRadius: 3, padding: '4px 8px', cursor: 'pointer',
-              fontFamily: 'var(--cb-font-mono)', fontSize: 9,
-              letterSpacing: '0.1em', color: 'var(--cp-acc)', fontWeight: 700,
-            }}>UPDATE NOW</button>
+            NEW VERSION AVAILABLE
           </div>
         </div>
       )}

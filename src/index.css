@@ -31,6 +31,11 @@
   --cp-orange:  #fdba74;
   --cp-red:     #f87171;
   --cp-purple:  var(--cb-violet);
+
+  /* Update-modal contract (see brand-kit/component/UpdatePrompt.jsx) — point
+     it at our own runtime-customizable accent instead of the static brand
+     mint, so it matches whatever theme the user picked. */
+  --cb-update-accent: var(--cp-acc);
 }
 
 /* Light-mode overrides for values that don't auto-shift through the bridge */
