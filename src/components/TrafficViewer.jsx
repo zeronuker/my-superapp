@@ -47,7 +47,7 @@ const ROW_FIELDS = [
   { key: 'vertical_rate', label: 'V/S' },
   { key: 'squawk',        label: 'Squawk' },
   { key: 'on_ground',     label: 'On Grnd' },
-  { key: 'route',         label: 'Route' },
+  { key: 'route',         label: 'Airline' },
   { key: 'dist_brg',      label: 'Dist/Brg' },
   { key: 'last_contact',  label: 'Age' },
   { key: 'status',        label: 'Status' },
@@ -73,23 +73,25 @@ function fmtZulu(iso) {
 }
 
 // ── Normalize raw SkyLink responses into the shape this component renders ──
+// Field names confirmed against a live response (the SDK's own test fixtures
+// turned out not to match reality — flat lat/lon, is_on_ground not on_ground,
+// no origin/destination on this endpoint, but a bonus `airline` name).
 function normalizeAircraft(raw) {
-  const pos = raw.position || {}
-  const coords = pos.coordinates || {}
   return {
     icao24: raw.icao24 || '',
     callsign: (raw.callsign || raw.icao24 || '').trim(),
     registration: raw.registration || '—',
     aircraft_type: raw.aircraft_type || '—',
-    lat: coords.lat, lon: coords.lon,
-    altitude_ft: pos.altitude_ft ?? 0,
-    ground_speed_kts: pos.ground_speed_kts ?? 0,
-    track: pos.track ?? 0,
-    vertical_rate: pos.vertical_rate ?? 0,
+    lat: raw.latitude, lon: raw.longitude,
+    altitude_ft: raw.altitude ?? 0,
+    ground_speed_kts: raw.ground_speed ?? 0,
+    track: raw.track ?? 0,
+    vertical_rate: raw.vertical_rate ?? 0,
     squawk: raw.squawk || '----',
-    on_ground: !!raw.on_ground,
-    origin: raw.origin || null,
-    destination: raw.destination || null,
+    on_ground: !!raw.is_on_ground,
+    origin: null,
+    destination: null,
+    airline: raw.airline || null,
     pingedAt: null,
   }
 }
@@ -114,19 +116,20 @@ function normalizeFlightStatus(raw) {
 }
 
 // ── Fetch helpers — thin wrappers over the Vercel proxies in /api ──
+// Response is { aircraft: [...], total_count, timestamp } — not a bare array.
 async function fetchTraffic(lat, lon, radiusNm, signal) {
   const params = new URLSearchParams({ lat, lon, radius: radiusNm })
   const res = await fetch(`/api/skylink-adsb?${params}`, { signal })
   const body = await res.json().catch(() => null)
   if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
-  return Array.isArray(body) ? body : []
+  return Array.isArray(body?.aircraft) ? body.aircraft : []
 }
 async function pingAircraft(icao24, signal) {
   const params = new URLSearchParams({ icao24 })
   const res = await fetch(`/api/skylink-adsb?${params}`, { signal })
   if (!res.ok) return null
   const body = await res.json().catch(() => null)
-  return Array.isArray(body) ? body[0] : null
+  return body?.aircraft?.[0] ?? null
 }
 async function fetchAircraftLookup(registration, icao24, signal) {
   const params = new URLSearchParams(registration && registration !== '—' ? { registration } : { icao24 })
@@ -491,7 +494,7 @@ function RowCell({ field, f, now, status }) {
     case 'vertical_rate': return <td>{f.vertical_rate > 0 ? '+' : ''}{f.vertical_rate} fpm</td>
     case 'squawk':        return <td>{f.squawk}</td>
     case 'on_ground':     return <td>{f.on_ground ? 'GND' : 'AIR'}</td>
-    case 'route':         return <td>{f.origin && f.destination ? `${f.origin} → ${f.destination}` : '—'}</td>
+    case 'route':         return <td>{f.airline || '—'}</td>
     case 'dist_brg':      return <td>{fmtDistBrg(f.distNm, f.brgDeg)}</td>
     case 'last_contact':  return <td>{fmtPinged(f.pingedAt, now)}</td>
     case 'status':        return <td>{status ? `${status.flight} ${status.status}` : '—'}</td>
@@ -558,7 +561,7 @@ function FlightStatusPanel({ f, cf, now, lookup, flightStatus, detailsLoading, p
   if (cf.registration) subParts.push(f.registration)
   if (cf.aircraft_type) subParts.push(f.aircraft_type)
   if (cf.icao24) subParts.push(`icao24 ${f.icao24}`)
-  if (f.origin && f.destination) subParts.push(`${f.origin} → ${f.destination}`)
+  if (f.airline) subParts.push(f.airline)
 
   const liveParts = []
   if (cf.altitude) liveParts.push(fmtAlt(f.altitude_ft))
