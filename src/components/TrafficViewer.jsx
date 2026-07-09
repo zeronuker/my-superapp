@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react'
+import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
 import { lookupAirport, searchAirports } from '../data/airports'
@@ -6,40 +6,8 @@ import { distanceNm, bearingDeg } from '../utils/geo'
 import ResetButton from './ResetButton'
 
 // ── Fallback anchor when no center is resolvable yet (empty input, unknown
-// ICAO, GPS not granted) — Kuala Lumpur Intl, keeps the demo non-empty. ──
+// ICAO, GPS not granted) — Kuala Lumpur Intl, keeps the tab non-empty. ──
 const FALLBACK_ANCHOR = { lat: 2.7456, lng: 101.7099 }
-
-// ── Mock traffic — fictional airlines/registrations so this preview can never
-// be mistaken for real live data. `offset` is degrees from the chosen center
-// (used for the real distance/bearing math); `screenPos` is a fixed decorative
-// position on the radar (the map is schematic, not to scale). ──
-const MOCK_FLIGHTS = {
-  brn804: {
-    callsign: 'BRN804', registration: '9M-XBA', icao24: '7c1a02', aircraft_type: 'B738',
-    offset: { dLat: 0.55, dLon: 1.35 }, screenPos: { x: 230, y: 140 },
-    altitude_ft: 9000, ground_speed_kts: 280, track: 152, vertical_rate: -1200, squawk: '2413', on_ground: false,
-    pingedAt: null,
-    lookup: { type_name: 'Boeing 737-800', manufacturer: 'Boeing', operator: 'Borne Air', operator_icao: 'BRN', operator_iata: 'B8', country: 'Malaysia', engines: 2, engine_type: 'Turbofan', year_manufactured: 2016, serial_number: '41588', military: false },
-    flightStatus: { flight: 'B8804', airline: 'BRN · B8', route: 'WMKK → VHHH', status: 'ACTIVE', statusColor: 'var(--cp-acc)', schedDep: '0900Z', schedArr: '1215Z', estArr: '1221Z', delay: '+6 min', delayColor: 'var(--cp-orange)' },
-  },
-  skl212: {
-    callsign: 'SKL212', registration: '9M-XSK', icao24: '7c2b13', aircraft_type: 'A320',
-    offset: { dLat: -1.1, dLon: -1.3 }, screenPos: { x: 90, y: 110 },
-    altitude_ft: 14000, ground_speed_kts: 310, track: 210, vertical_rate: 1800, squawk: '5120', on_ground: false,
-    pingedAt: null,
-    lookup: { type_name: 'Airbus A320-200', manufacturer: 'Airbus', operator: 'Skyline Air', operator_icao: 'SKL', operator_iata: 'K9', country: 'Malaysia', engines: 2, engine_type: 'Turbofan', year_manufactured: 2014, serial_number: '6053', military: false },
-    flightStatus: { flight: 'K9212', airline: 'SKL · K9', route: 'WMKK → RPLL', status: 'SCHEDULED', statusColor: 'var(--cp-acc2)', schedDep: '1145Z', schedArr: '1450Z', estArr: '1450Z', delay: 'On time', delayColor: 'var(--cp-acc)' },
-  },
-  n77zz: {
-    callsign: 'N77ZZ', registration: 'N77ZZ', icao24: 'a1e2f3', aircraft_type: 'C172',
-    offset: { dLat: -0.05, dLon: 0.05 }, screenPos: { x: 210, y: 260 },
-    altitude_ft: 2500, ground_speed_kts: 95, track: 330, vertical_rate: 0, squawk: '1200', on_ground: false,
-    pingedAt: null,
-    lookup: { type_name: 'Cessna 172 Skyhawk', manufacturer: 'Cessna', operator: 'Private', operator_icao: null, operator_iata: null, country: 'United States', engines: 1, engine_type: 'Piston', year_manufactured: 2005, serial_number: '17280492', military: false },
-    flightStatus: null,
-    note: 'GA aircraft — no matching flight_status record (private/VFR traffic, callsign not in schedules).',
-  },
-}
 
 const CARD_FIELDS = [
   { key: 'registration',     label: 'Registration',         group: 'live' },
@@ -94,7 +62,83 @@ function fmtPinged(ts, nowMs) {
   return s < 1 ? 'Just pinged' : `Pinged ${s}s ago`
 }
 function fmtDistBrg(distNm, brgDeg) {
+  if (distNm == null || brgDeg == null) return '—'
   return `${Math.round(distNm)} NM · ${String(Math.round(brgDeg)).padStart(3, '0')}°`
+}
+function fmtZulu(iso) {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (isNaN(d)) return null
+  return `${String(d.getUTCHours()).padStart(2, '0')}${String(d.getUTCMinutes()).padStart(2, '0')}Z`
+}
+
+// ── Normalize raw SkyLink responses into the shape this component renders ──
+function normalizeAircraft(raw) {
+  const pos = raw.position || {}
+  const coords = pos.coordinates || {}
+  return {
+    icao24: raw.icao24 || '',
+    callsign: (raw.callsign || raw.icao24 || '').trim(),
+    registration: raw.registration || '—',
+    aircraft_type: raw.aircraft_type || '—',
+    lat: coords.lat, lon: coords.lon,
+    altitude_ft: pos.altitude_ft ?? 0,
+    ground_speed_kts: pos.ground_speed_kts ?? 0,
+    track: pos.track ?? 0,
+    vertical_rate: pos.vertical_rate ?? 0,
+    squawk: raw.squawk || '----',
+    on_ground: !!raw.on_ground,
+    origin: raw.origin || null,
+    destination: raw.destination || null,
+    pingedAt: null,
+  }
+}
+const STATUS_COLOR = {
+  active: 'var(--cp-acc)', scheduled: 'var(--cp-acc2)', landed: 'var(--cp-dim)',
+  delayed: 'var(--cp-orange)', cancelled: 'var(--cp-red)', diverted: 'var(--cp-purple)',
+}
+function normalizeFlightStatus(raw) {
+  if (!raw) return null
+  const statusKey = (raw.status || '').toLowerCase()
+  const airline = [raw.airline_icao, raw.airline_iata].filter(Boolean).join(' · ')
+  return {
+    flight: raw.flight_number || '—',
+    airline: airline || null,
+    route: (raw.origin_icao && raw.destination_icao) ? `${raw.origin_icao} → ${raw.destination_icao}` : null,
+    status: (raw.status || '—').toUpperCase(),
+    statusColor: STATUS_COLOR[statusKey] || 'var(--cp-dim)',
+    schedDep: fmtZulu(raw.scheduled_departure),
+    schedArr: fmtZulu(raw.scheduled_arrival),
+    estArr: fmtZulu(raw.estimated_arrival),
+  }
+}
+
+// ── Fetch helpers — thin wrappers over the Vercel proxies in /api ──
+async function fetchTraffic(lat, lon, radiusNm, signal) {
+  const params = new URLSearchParams({ lat, lon, radius: radiusNm })
+  const res = await fetch(`/api/skylink-adsb?${params}`, { signal })
+  const body = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
+  return Array.isArray(body) ? body : []
+}
+async function pingAircraft(icao24, signal) {
+  const params = new URLSearchParams({ icao24 })
+  const res = await fetch(`/api/skylink-adsb?${params}`, { signal })
+  if (!res.ok) return null
+  const body = await res.json().catch(() => null)
+  return Array.isArray(body) ? body[0] : null
+}
+async function fetchAircraftLookup(registration, icao24, signal) {
+  const params = new URLSearchParams(registration && registration !== '—' ? { registration } : { icao24 })
+  const res = await fetch(`/api/skylink-aircraft?${params}`, { signal })
+  if (!res.ok) return null
+  return res.json().catch(() => null)
+}
+async function fetchFlightStatus(flightOrCallsign, signal) {
+  const params = new URLSearchParams({ flight: flightOrCallsign })
+  const res = await fetch(`/api/skylink-flight-status?${params}`, { signal })
+  if (!res.ok) return null
+  return res.json().catch(() => null)
 }
 
 // Fallback "popular" airports when the METAR/TAF module has nothing cached yet.
@@ -144,7 +188,9 @@ export default function TrafficViewer() {
   const [gpsCoords, setGpsCoords] = useState(null)
   const [gpsError, setGpsError] = useState('')
   const [radius, setRadius] = useState(50)
-  const [flights, setFlights] = useState(MOCK_FLIGHTS)
+  const [aircraft, setAircraft] = useState({})
+  const [loading, setLoading] = useState(false)
+  const [fetchError, setFetchError] = useState('')
   const [selectedKey, setSelectedKey] = useState(null)
   const [pingingKey, setPingingKey] = useState(null)
   const [fieldsOpen, setFieldsOpen] = useState(false)
@@ -152,6 +198,7 @@ export default function TrafficViewer() {
   const [searchQuery, setSearchQuery] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerQuery, setPickerQuery] = useState('')
+  const [detailsCache, setDetailsCache] = useState({}) // icao24 -> { loading, lookup, flightStatus }
 
   const popularAirports = useMemo(buildPopularAirports, [])
   const pickerResults = pickerQuery.trim().length >= 2 ? searchAirports(pickerQuery) : popularAirports
@@ -179,8 +226,7 @@ export default function TrafficViewer() {
     setPickerOpen(false); setPickerQuery('')
   }
 
-  // ── Resolve the active center → anchor lat/lng, then compute real dist/bearing
-  // for each mock aircraft against it (the numbers are real, the aircraft aren't) ──
+  // ── Resolve the active center → anchor lat/lng ──
   const centerAirport = centerMode === 'icao' && centerIcao.trim().length >= 3
     ? lookupAirport(centerIcao) : lookupAirport('WMKK')
   const anchor = centerMode === 'gps' && gpsCoords
@@ -191,35 +237,71 @@ export default function TrafficViewer() {
     ? 'My GPS Location'
     : (centerAirport ? `${centerIcaoResolved} — ${centerAirport.city}, ${centerAirport.country}` : centerIcaoResolved)
 
+  // ── Live traffic fetch — refires when the center or radius changes ──
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true); setFetchError('')
+    fetchTraffic(anchor.lat, anchor.lng, radius, controller.signal)
+      .then(list => {
+        const next = {}
+        for (const raw of list) {
+          const a = normalizeAircraft(raw)
+          if (a.icao24) next[a.icao24] = a
+        }
+        setAircraft(next)
+      })
+      .catch(e => { if (e.name !== 'AbortError') setFetchError(e.message || 'Failed to load traffic') })
+      .finally(() => setLoading(false))
+    return () => controller.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anchor.lat, anchor.lng, radius])
+
   const flightsWithGeo = useMemo(() => {
-    return Object.fromEntries(Object.entries(flights).map(([key, f]) => {
-      const lat = anchor.lat + f.offset.dLat, lng = anchor.lng + f.offset.dLon
-      return [key, { ...f, lat, lng, distNm: distanceNm(anchor.lat, anchor.lng, lat, lng), brgDeg: bearingDeg(anchor.lat, anchor.lng, lat, lng) }]
+    return Object.fromEntries(Object.entries(aircraft).map(([key, f]) => {
+      const hasPos = typeof f.lat === 'number' && typeof f.lon === 'number'
+      return [key, {
+        ...f,
+        distNm: hasPos ? distanceNm(anchor.lat, anchor.lng, f.lat, f.lon) : null,
+        brgDeg: hasPos ? bearingDeg(anchor.lat, anchor.lng, f.lat, f.lon) : null,
+      }]
     }))
-  }, [flights, anchor.lat, anchor.lng])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aircraft, anchor.lat, anchor.lng])
+
+  // ── Lazy-fetch aircraft lookup + flight status only for the selected row —
+  // avoids N extra API calls just to render the table. ──
+  useEffect(() => {
+    if (!selectedKey || detailsCache[selectedKey]) return
+    const f = aircraft[selectedKey]
+    if (!f) return
+    const controller = new AbortController()
+    setDetailsCache(prev => ({ ...prev, [selectedKey]: { loading: true } }))
+    Promise.all([
+      fetchAircraftLookup(f.registration, f.icao24, controller.signal).catch(() => null),
+      fetchFlightStatus(f.callsign, controller.signal).catch(() => null),
+    ]).then(([lookup, statusRaw]) => {
+      setDetailsCache(prev => ({ ...prev, [selectedKey]: { loading: false, lookup, flightStatus: normalizeFlightStatus(statusRaw) } }))
+    })
+    return () => controller.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey])
 
   const pingFlight = useCallback((key) => {
+    const icao24 = aircraft[key]?.icao24
+    if (!icao24) return
     setPingingKey(key)
-    setTimeout(() => {
-      setFlights(prev => {
-        const f = prev[key]
-        const trend = f.vertical_rate > 0 ? 1 : f.vertical_rate < 0 ? -1 : 0
-        return {
-          ...prev,
-          [key]: {
-            ...f,
-            altitude_ft: f.altitude_ft + trend * (100 + Math.round(Math.random() * 100)),
-            ground_speed_kts: f.ground_speed_kts + Math.round((Math.random() - 0.5) * 6),
-            track: (f.track + Math.round((Math.random() - 0.5) * 4) + 360) % 360,
-            pingedAt: Date.now(),
-          },
-        }
+    const controller = new AbortController()
+    pingAircraft(icao24, controller.signal)
+      .then(raw => {
+        setAircraft(prev => {
+          if (!prev[key]) return prev
+          const fresh = raw ? normalizeAircraft(raw) : {}
+          return { ...prev, [key]: { ...prev[key], ...fresh, pingedAt: Date.now() } }
+        })
       })
-      setNow(Date.now())
-      setPingingKey(null)
-      haptic('light')
-    }, 600)
-  }, [])
+      .catch(() => { /* stale data stays — ping just didn't refresh this time */ })
+      .finally(() => { setPingingKey(null); setNow(Date.now()); haptic('light') })
+  }, [aircraft])
 
   const cf = settings.trafficFields.card
   const rf = settings.trafficFields.row
@@ -228,10 +310,13 @@ export default function TrafficViewer() {
   // Comma-separated terms — an aircraft matches if ANY term matches ANY of callsign/reg/flight#.
   const searchTerms = searchQuery.split(',').map(t => t.trim().toUpperCase()).filter(Boolean)
   const filteredFlights = searchTerms.length
-    ? Object.fromEntries(Object.entries(flightsWithGeo).filter(([, f]) =>
-        searchTerms.some(term =>
-          f.callsign.includes(term) || f.registration.includes(term) || f.flightStatus?.flight.includes(term))))
+    ? Object.fromEntries(Object.entries(flightsWithGeo).filter(([key, f]) => {
+        const status = detailsCache[key]?.flightStatus
+        return searchTerms.some(term =>
+          f.callsign.includes(term) || f.registration.includes(term) || (status?.flight && status.flight.includes(term)))
+      }))
     : flightsWithGeo
+  const selectedDetails = selectedKey ? detailsCache[selectedKey] : null
   const selected = selectedKey ? flightsWithGeo[selectedKey] : null
 
   return (
@@ -241,16 +326,15 @@ export default function TrafficViewer() {
         <ResetButton onReset={handleReset} />
       </div>
 
-      {/* ── PREVIEW banner ── */}
-      <div style={{
-        background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.25)',
-        borderLeft: '3px solid var(--cp-yellow)', borderRadius: 4, padding: '8px 14px', marginBottom: 20,
-        fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--cp-yellow)',
-        lineHeight: 1.6,
-      }}>
-        🔭 PREVIEW · SAMPLE DATA
-        <span style={{ color: 'var(--cp-dim)' }}> — live tracking activates once SkyLink API access is approved. Positions below are illustrative and not filtered live by center/radius.</span>
-      </div>
+      {fetchError && (
+        <div style={{
+          background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.25)',
+          borderLeft: '3px solid var(--cp-red)', borderRadius: 4, padding: '8px 14px', marginBottom: 20,
+          fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--cp-red)',
+        }}>
+          ⚠ {fetchError}
+        </div>
+      )}
 
       {/* ── Center ── */}
       <SectionHeader title="Center" />
@@ -328,7 +412,7 @@ export default function TrafficViewer() {
         )}
       </div>
 
-      {/* ── Radar map (schematic — not to scale) ── */}
+      {/* ── Radar map ── */}
       <RadarMap flights={flightsWithGeo} selectedKey={selectedKey} centerLabel={centerMode === 'gps' ? 'GPS' : centerIcaoResolved} />
 
       {/* ── Table toolbar: search + display settings, right where they act ── */}
@@ -347,10 +431,13 @@ export default function TrafficViewer() {
       </div>
 
       {/* ── Table ── */}
-      {Object.keys(filteredFlights).length === 0 ? (
+      {loading ? (
+        <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
+          fontSize: 11, letterSpacing: '0.1em', padding: '20px 0' }}>LOADING TRAFFIC…</div>
+      ) : Object.keys(filteredFlights).length === 0 ? (
         <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
           fontSize: 11, letterSpacing: '0.1em', padding: '20px 0' }}>
-          NO MATCHING AIRCRAFT IN THIS PREVIEW — TRY BRN804, SKL212, OR N77ZZ
+          {searchTerms.length ? 'NO MATCHING AIRCRAFT — CLEAR THE SEARCH TO SEE THE FULL LIST' : 'NO TRAFFIC WITHIN RANGE'}
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
@@ -361,7 +448,7 @@ export default function TrafficViewer() {
                 <tr key={key} className={key === selectedKey ? 'active' : ''} style={{ cursor: 'pointer' }}
                   onClick={() => setSelectedKey(k => k === key ? null : key)}>
                   <td style={{ fontFamily: 'var(--cb-font-mono)', fontWeight: 700, padding: '7px 8px' }}>{f.callsign}</td>
-                  {activeRowFields.map(fld => <RowCell key={fld.key} field={fld.key} f={f} now={now} />)}
+                  {activeRowFields.map(fld => <RowCell key={fld.key} field={fld.key} f={f} now={now} status={detailsCache[key]?.flightStatus} />)}
                 </tr>
               ))}
             </tbody>
@@ -372,7 +459,9 @@ export default function TrafficViewer() {
       {/* ── Flight status panel ── */}
       {selected && (
         <div style={{ marginTop: 16 }}>
-          <FlightStatusPanel f={selected} cf={cf} now={now} pinging={pingingKey === selectedKey} onPing={() => pingFlight(selectedKey)} />
+          <FlightStatusPanel f={selected} cf={cf} now={now}
+            lookup={selectedDetails?.lookup} flightStatus={selectedDetails?.flightStatus} detailsLoading={!!selectedDetails?.loading}
+            pinging={pingingKey === selectedKey} onPing={() => pingFlight(selectedKey)} />
         </div>
       )}
 
@@ -387,7 +476,7 @@ export default function TrafficViewer() {
 }
 
 // ── Table cell ───────────────────────────────────────────────────────────────
-function RowCell({ field, f, now }) {
+function RowCell({ field, f, now, status }) {
   switch (field) {
     case 'registration':  return <td>{f.registration}</td>
     case 'icao24':        return <td>{f.icao24}</td>
@@ -402,18 +491,25 @@ function RowCell({ field, f, now }) {
     case 'vertical_rate': return <td>{f.vertical_rate > 0 ? '+' : ''}{f.vertical_rate} fpm</td>
     case 'squawk':        return <td>{f.squawk}</td>
     case 'on_ground':     return <td>{f.on_ground ? 'GND' : 'AIR'}</td>
-    case 'route':         return <td>{f.flightStatus?.route ?? '—'}</td>
+    case 'route':         return <td>{f.origin && f.destination ? `${f.origin} → ${f.destination}` : '—'}</td>
     case 'dist_brg':      return <td>{fmtDistBrg(f.distNm, f.brgDeg)}</td>
     case 'last_contact':  return <td>{fmtPinged(f.pingedAt, now)}</td>
-    case 'status':        return <td>{f.flightStatus ? `${f.flightStatus.flight} ${f.flightStatus.status}` : 'No flight plan'}</td>
+    case 'status':        return <td>{status ? `${status.flight} ${status.status}` : '—'}</td>
     default: return <td />
   }
 }
 
 // ── Radar map ────────────────────────────────────────────────────────────────
 const TICK_ANGLES = [30, 60, 120, 150, 210, 240, 300, 330]
+function radarXY(distNm, brgDeg, cx, cy, rOuter, maxRangeNm) {
+  const r = Math.max(10, Math.min(rOuter - 6, (distNm / maxRangeNm) * rOuter))
+  const rad = brgDeg * Math.PI / 180
+  return { x: cx + r * Math.sin(rad), y: cy - r * Math.cos(rad) }
+}
 function RadarMap({ flights, selectedKey, centerLabel }) {
   const cx = 190, cy = 190, rOuter = 170, rIn = 162
+  const withPos = Object.entries(flights).filter(([, f]) => f.distNm != null)
+  const maxRangeNm = Math.max(20, ...withPos.map(([, f]) => f.distNm), 0)
   const selected = selectedKey ? flights[selectedKey] : null
   return (
     <div style={{ background: 'var(--cp-bg3)', borderRadius: 6, padding: 14, display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
@@ -435,20 +531,21 @@ function RadarMap({ flights, selectedKey, centerLabel }) {
         <text x="372" y="195" fill="var(--cp-dim)" fontSize="12" fontWeight="700" fontFamily="var(--cb-font-mono)" textAnchor="middle">E</text>
         <circle cx={cx} cy={cy} r="4" fill="var(--cp-acc)" />
         <text x={cx + 8} y={cy + 4} fill="var(--cp-acc)" fontSize="10" fontFamily="var(--cb-font-mono)">{centerLabel}</text>
-        {Object.entries(flights).map(([key, f]) => {
+        {withPos.map(([key, f]) => {
           const color = f.vertical_rate > 100 ? 'var(--cp-green)' : f.vertical_rate < -100 ? 'var(--cp-orange)' : 'var(--cp-dim)'
-          const { x, y } = f.screenPos
+          const { x, y } = radarXY(f.distNm, f.brgDeg, cx, cy, rOuter, maxRangeNm)
           return (
             <g key={key}>
               <g transform={`translate(${x},${y}) rotate(${f.track})`}><path d="M0,-9 L6,7 L0,4 L-6,7 Z" fill={color} /></g>
-              <text x={x + 8} y={y - 4} fill={color} fontSize="9" fontFamily="var(--cb-font-mono)">{f.callsign} {fmtAlt(f.altitude_ft)}</text>
+              <text x={x + 8} y={y - 4} fill={color} fontSize="9" fontFamily="var(--cb-font-mono)">{f.callsign}</text>
             </g>
           )
         })}
-        {selected && (
-          <circle cx={selected.screenPos.x} cy={selected.screenPos.y} r="15" fill="none" stroke="var(--cp-acc)"
+        {selected && selected.distNm != null && (() => {
+          const p = radarXY(selected.distNm, selected.brgDeg, cx, cy, rOuter, maxRangeNm)
+          return <circle cx={p.x} cy={p.y} r="15" fill="none" stroke="var(--cp-acc)"
             strokeWidth="2" strokeDasharray="3 3" style={{ animation: 'trafficSelPulse 1.1s ease-in-out infinite' }} />
-        )}
+        })()}
       </svg>
       <style>{'@keyframes trafficSelPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }'}</style>
     </div>
@@ -456,13 +553,12 @@ function RadarMap({ flights, selectedKey, centerLabel }) {
 }
 
 // ── Flight status panel ─────────────────────────────────────────────────────
-function FlightStatusPanel({ f, cf, now, pinging, onPing }) {
-  const L = f.lookup
-
+function FlightStatusPanel({ f, cf, now, lookup, flightStatus, detailsLoading, pinging, onPing }) {
   const subParts = []
   if (cf.registration) subParts.push(f.registration)
   if (cf.aircraft_type) subParts.push(f.aircraft_type)
   if (cf.icao24) subParts.push(`icao24 ${f.icao24}`)
+  if (f.origin && f.destination) subParts.push(`${f.origin} → ${f.destination}`)
 
   const liveParts = []
   if (cf.altitude) liveParts.push(fmtAlt(f.altitude_ft))
@@ -472,27 +568,31 @@ function FlightStatusPanel({ f, cf, now, pinging, onPing }) {
   if (cf.squawk) liveParts.push(`sqk ${f.squawk}`)
   if (cf.on_ground) liveParts.push(f.on_ground ? 'ON GROUND' : 'AIRBORNE')
 
-  const lookupLine2 = []
-  if (cf.manufacturer) lookupLine2.push(L.manufacturer)
-  if (cf.operator) lookupLine2.push(L.operator + (cf.operator_icao && L.operator_icao ? ` (${L.operator_icao})` : ''))
-  if (cf.operator_iata && L.operator_iata) lookupLine2.push(L.operator_iata)
-  if (cf.country) lookupLine2.push(L.country)
-  const lookupLine3 = []
-  if (cf.engines) lookupLine3.push(`${L.engines}× ${L.engine_type}`)
-  if (cf.year_manufactured) lookupLine3.push(`built ${L.year_manufactured}`)
-  if (cf.serial_number) lookupLine3.push(`s/n ${L.serial_number}`)
-  if (cf.military && L.military) lookupLine3.push('MILITARY')
-  const anyLookup = cf.type_name || lookupLine2.length || lookupLine3.length
+  const lookupLine2 = [], lookupLine3 = []
+  let anyLookup = false
+  if (lookup) {
+    if (cf.manufacturer && lookup.manufacturer) lookupLine2.push(lookup.manufacturer)
+    if (cf.operator && lookup.operator) lookupLine2.push(lookup.operator + (cf.operator_icao && lookup.operator_icao ? ` (${lookup.operator_icao})` : ''))
+    if (cf.operator_iata && lookup.operator_iata) lookupLine2.push(lookup.operator_iata)
+    if (cf.country && lookup.country) lookupLine2.push(lookup.country)
+    if (cf.engines && lookup.engines) lookupLine3.push(`${lookup.engines}× ${lookup.engine_type || ''}`.trim())
+    if (cf.year_manufactured && lookup.year_manufactured) lookupLine3.push(`built ${lookup.year_manufactured}`)
+    if (cf.serial_number && lookup.serial_number) lookupLine3.push(`s/n ${lookup.serial_number}`)
+    if (cf.military && lookup.military) lookupLine3.push('MILITARY')
+    anyLookup = (cf.type_name && lookup.type_name) || lookupLine2.length || lookupLine3.length
+  }
 
   const statusGrid = []
-  if (f.flightStatus) {
-    if (cf.flight_number) statusGrid.push(['Flight', f.flightStatus.flight])
-    statusGrid.push(['Route', f.flightStatus.route])
-    if (cf.airline) statusGrid.push(['Airline', f.flightStatus.airline])
-    if (cf.scheduled) { statusGrid.push(['Sched Dep', f.flightStatus.schedDep]); statusGrid.push(['Sched Arr', f.flightStatus.schedArr]) }
-    if (cf.estimated) statusGrid.push(['Est Arr', f.flightStatus.estArr])
-    if (cf.status) statusGrid.push(['Status', <span style={{ color: f.flightStatus.statusColor }}>{f.flightStatus.status}</span>])
-    if (cf.delay) statusGrid.push(['Delay', <span style={{ color: f.flightStatus.delayColor }}>{f.flightStatus.delay}</span>])
+  if (flightStatus) {
+    if (cf.flight_number) statusGrid.push(['Flight', flightStatus.flight])
+    if (flightStatus.route) statusGrid.push(['Route', flightStatus.route])
+    if (cf.airline && flightStatus.airline) statusGrid.push(['Airline', flightStatus.airline])
+    if (cf.scheduled) {
+      if (flightStatus.schedDep) statusGrid.push(['Sched Dep', flightStatus.schedDep])
+      if (flightStatus.schedArr) statusGrid.push(['Sched Arr', flightStatus.schedArr])
+    }
+    if (cf.estimated && flightStatus.estArr) statusGrid.push(['Est Arr', flightStatus.estArr])
+    if (cf.status) statusGrid.push(['Status', <span style={{ color: flightStatus.statusColor }}>{flightStatus.status}</span>])
   }
 
   return (
@@ -509,10 +609,14 @@ function FlightStatusPanel({ f, cf, now, pinging, onPing }) {
       {liveParts.length > 0 && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12, color: 'var(--cp-txt)', marginBottom: 4 }}>{liveParts.join(' · ')}</div>}
       {cf.pinged && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)' }}>{fmtPinged(f.pingedAt, now)}</div>}
 
-      {(f.flightStatus && statusGrid.length > 0) || !f.flightStatus ? (
+      {detailsLoading && (
+        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 10 }}>Loading aircraft info…</div>
+      )}
+
+      {!detailsLoading && (
         <>
           <div style={{ borderTop: '1px solid var(--cp-border3)', margin: '12px 0' }} />
-          {f.flightStatus
+          {statusGrid.length > 0
             ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '12px 16px' }}>
                 {statusGrid.map(([k, v]) => (
                   <div key={k}>
@@ -521,27 +625,25 @@ function FlightStatusPanel({ f, cf, now, pinging, onPing }) {
                   </div>
                 ))}
               </div>
-            : <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', lineHeight: 1.6 }}>{f.note}</div>}
-        </>
-      ) : null}
+            : <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', lineHeight: 1.6 }}>
+                No matching SkyLink flight_status record for this callsign (private/VFR traffic, or not currently scheduled).
+              </div>}
 
-      {anyLookup && (
-        <>
-          <div style={{ borderTop: '1px solid var(--cp-border3)', margin: '12px 0' }} />
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <div style={{ flexShrink: 0, width: 38, height: 38, borderRadius: 6, background: 'var(--cp-bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: 'var(--cp-dim)' }}>✈</div>
-            <div>
-              {cf.type_name && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--cp-txt)' }}>{L.type_name}</div>}
-              {lookupLine2.length > 0 && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 2 }}>{lookupLine2.join(' · ')}</div>}
-              {lookupLine3.length > 0 && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 2 }}>{lookupLine3.join(' · ')}</div>}
-            </div>
-          </div>
+          {anyLookup && (
+            <>
+              <div style={{ borderTop: '1px solid var(--cp-border3)', margin: '12px 0' }} />
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div style={{ flexShrink: 0, width: 38, height: 38, borderRadius: 6, background: 'var(--cp-bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: 'var(--cp-dim)' }}>✈</div>
+                <div>
+                  {cf.type_name && lookup.type_name && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--cp-txt)' }}>{lookup.type_name}</div>}
+                  {lookupLine2.length > 0 && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 2 }}>{lookupLine2.join(' · ')}</div>}
+                  {lookupLine3.length > 0 && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 2 }}>{lookupLine3.join(' · ')}</div>}
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
-
-      <div style={{ marginTop: 14, fontSize: 9, fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.1em', color: 'var(--cp-dim)', textTransform: 'uppercase' }}>
-        🔭 Sample data — not a live SkyLink response
-      </div>
     </div>
   )
 }
