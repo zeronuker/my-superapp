@@ -20,6 +20,25 @@ export const DEFAULT_SETTINGS = {
   clockFormat:    '24hr',     // '24hr' | '12hr' — global, applies to all clocks
   rememberLastTab:true,       // reopen last-used tool on app restart
   dashboardWidgets: { utc: true, prayer: true, metar: true },
+  // Show/Hide Fields (Traffic tab) — which ADS-B/lookup/flight-status fields
+  // appear in the info card, and which columns appear in the traffic table.
+  trafficFields: {
+    card: {
+      registration: true, icao24: true, aircraft_type: true, altitude: true,
+      ground_speed: true, track: true, vertical_rate: true, squawk: true,
+      on_ground: false, pinged: true,
+      type_name: true, manufacturer: true, operator: true, operator_icao: true,
+      operator_iata: false, country: true, engines: true, year_manufactured: true,
+      serial_number: false, military: false,
+      flight_number: true, airline: false, scheduled: false, estimated: false,
+      status: true, delay: true,
+    },
+    row: {
+      registration: true, icao24: false, aircraft_type: true, altitude: true,
+      ground_speed: true, track: true, vertical_rate: false, squawk: false,
+      on_ground: false, route: false, dist_brg: true, last_contact: false, status: true,
+    },
+  },
 }
 
 export const DEFAULT_CURRENCY_BASE = 'MYR'
@@ -48,6 +67,10 @@ function loadSettings() {
     const merged = { ...DEFAULT_SETTINGS, ...parsed }
     // Deep-merge nested objects so partial saved values don't drop new keys
     merged.dashboardWidgets = { ...DEFAULT_SETTINGS.dashboardWidgets, ...(parsed.dashboardWidgets || {}) }
+    merged.trafficFields = {
+      card: { ...DEFAULT_SETTINGS.trafficFields.card, ...(parsed.trafficFields?.card || {}) },
+      row:  { ...DEFAULT_SETTINGS.trafficFields.row,  ...(parsed.trafficFields?.row  || {}) },
+    }
     // Migrate: derive themeMode from the old cb-theme flag on first run
     if (!parsed.themeMode) {
       try {
