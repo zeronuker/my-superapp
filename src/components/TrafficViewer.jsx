@@ -225,10 +225,12 @@ export default function TrafficViewer() {
   const rf = settings.trafficFields.row
   const activeRowFields = ROW_FIELDS.filter(f => rf[f.key])
 
-  const query = searchQuery.trim().toUpperCase()
-  const filteredFlights = query
+  // Comma-separated terms — an aircraft matches if ANY term matches ANY of callsign/reg/flight#.
+  const searchTerms = searchQuery.split(',').map(t => t.trim().toUpperCase()).filter(Boolean)
+  const filteredFlights = searchTerms.length
     ? Object.fromEntries(Object.entries(flightsWithGeo).filter(([, f]) =>
-        f.callsign.includes(query) || f.registration.includes(query) || f.flightStatus?.flight.includes(query)))
+        searchTerms.some(term =>
+          f.callsign.includes(term) || f.registration.includes(term) || f.flightStatus?.flight.includes(term))))
     : flightsWithGeo
   const selected = selectedKey ? flightsWithGeo[selectedKey] : null
 
@@ -294,56 +296,55 @@ export default function TrafficViewer() {
             </div>
           </div>
         ) : (
-          <button onClick={() => setPickerOpen(true)} style={{
-            display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
-            background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)', borderRadius: 6,
-            padding: '7px 12px', cursor: 'pointer',
-          }}>
-            <span style={{ fontSize: 13 }}>📍</span>
-            <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 13, flex: 1, color: 'var(--cp-txt)' }}>{centerLabel}</span>
-            {centerMode === 'gps' && (
-              <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-acc)',
-                background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 3,
-                padding: '2px 5px', letterSpacing: '0.1em' }}>GPS</span>
-            )}
-          </button>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
-        <div>
-          <div className="cp-label" style={{ marginBottom: 4 }}>RADIUS</div>
-          <select value={radius} onChange={e => setRadius(Number(e.target.value))} style={{
-            background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)', borderRadius: 4,
-            color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)', fontSize: 12, padding: '7px 10px', cursor: 'pointer',
-          }}>
-            <option value={25}>25 NM</option>
-            <option value={50}>50 NM</option>
-            <option value={100}>100 NM</option>
-          </select>
-        </div>
-        <div style={{ marginLeft: 'auto' }}>
-          <div className="cp-label" style={{ marginBottom: 4 }}>SEARCH CALLSIGN</div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <input className="cp-input" style={{ width: 150, fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.12em', textTransform: 'uppercase' }}
-              placeholder="e.g. BRN804" value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)} />
-            {searchQuery && (
-              <button className="cp-btn" style={{ padding: '7px 10px' }} onClick={() => setSearchQuery('')}>✕</button>
-            )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setPickerOpen(true)} style={{
+              display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, textAlign: 'left',
+              background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)', borderRadius: 6,
+              padding: '7px 12px', cursor: 'pointer',
+            }}>
+              <span style={{ fontSize: 13, flexShrink: 0 }}>📍</span>
+              <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 13, flex: 1, minWidth: 0, color: 'var(--cp-txt)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{centerLabel}</span>
+              {centerMode === 'gps' && (
+                <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-acc)', flexShrink: 0,
+                  background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 3,
+                  padding: '2px 5px', letterSpacing: '0.1em' }}>GPS</span>
+              )}
+            </button>
+            <select value={radius} onChange={e => setRadius(Number(e.target.value))} style={{
+              background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)', borderRadius: 6, flexShrink: 0,
+              color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)', fontSize: 12, padding: '7px 8px', cursor: 'pointer',
+            }}>
+              <option value={25}>25 NM</option>
+              <option value={50}>50 NM</option>
+              <option value={100}>100 NM</option>
+            </select>
           </div>
-        </div>
-        <button className="cp-btn" style={{ padding: '7px 12px' }} onClick={() => setFieldsOpen(true)}>
-          ⚙ SHOW/HIDE FIELDS
-        </button>
-      </div>
-      <div style={{ fontSize: 10, color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.06em', marginBottom: 20 }}>
-        {radius} NM radius
-        {gpsError && <span style={{ color: 'var(--cp-orange)' }}> · {gpsError}</span>}
+        )}
+        {gpsError && (
+          <div style={{ fontSize: 10, color: 'var(--cp-orange)', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.06em', marginTop: 6 }}>
+            {gpsError}
+          </div>
+        )}
       </div>
 
       {/* ── Radar map (schematic — not to scale) ── */}
       <RadarMap flights={flightsWithGeo} selectedKey={selectedKey} centerLabel={centerMode === 'gps' ? 'GPS' : centerIcaoResolved} />
+
+      {/* ── Table toolbar: search + display settings, right where they act ── */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+        <input className="cp-input" style={{ flex: 1, minWidth: 160, fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase' }}
+          placeholder="🔍 Search callsign, reg, flight # — comma for multiple"
+          value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+        {searchQuery && (
+          <button className="cp-btn" style={{ padding: '7px 10px', flexShrink: 0 }} onClick={() => setSearchQuery('')}>✕</button>
+        )}
+        <button title="Show/Hide Fields" onClick={() => setFieldsOpen(true)} style={{
+          width: 34, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', border: '1px solid var(--cp-border)', borderRadius: 6,
+          color: 'var(--cp-dim)', cursor: 'pointer', fontSize: 15,
+        }}>⚙</button>
+      </div>
 
       {/* ── Table ── */}
       <div className="cp-label" style={{ marginBottom: 8 }}>CLICK A ROW TO VIEW FLIGHT STATUS, CLICK AGAIN TO CLOSE</div>
@@ -353,18 +354,20 @@ export default function TrafficViewer() {
           NO MATCHING AIRCRAFT IN THIS PREVIEW — TRY BRN804, SKL212, OR N77ZZ
         </div>
       ) : (
-        <table className="cp-table">
-          <thead><tr><th>Callsign</th>{activeRowFields.map(f => <th key={f.key}>{f.label}</th>)}</tr></thead>
-          <tbody>
-            {Object.entries(filteredFlights).map(([key, f]) => (
-              <tr key={key} className={key === selectedKey ? 'active' : ''} style={{ cursor: 'pointer' }}
-                onClick={() => setSelectedKey(k => k === key ? null : key)}>
-                <td style={{ fontFamily: 'var(--cb-font-mono)', fontWeight: 700, padding: '7px 8px' }}>{f.callsign}</td>
-                {activeRowFields.map(fld => <RowCell key={fld.key} field={fld.key} f={f} now={now} />)}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="cp-table" style={{ minWidth: 480 }}>
+            <thead><tr><th>Callsign</th>{activeRowFields.map(f => <th key={f.key}>{f.label}</th>)}</tr></thead>
+            <tbody>
+              {Object.entries(filteredFlights).map(([key, f]) => (
+                <tr key={key} className={key === selectedKey ? 'active' : ''} style={{ cursor: 'pointer' }}
+                  onClick={() => setSelectedKey(k => k === key ? null : key)}>
+                  <td style={{ fontFamily: 'var(--cb-font-mono)', fontWeight: 700, padding: '7px 8px' }}>{f.callsign}</td>
+                  {activeRowFields.map(fld => <RowCell key={fld.key} field={fld.key} f={f} now={now} />)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* ── Flight status panel ── */}
@@ -416,7 +419,7 @@ function RadarMap({ flights, selectedKey, centerLabel }) {
   const selected = selectedKey ? flights[selectedKey] : null
   return (
     <div style={{ background: 'var(--cp-bg3)', borderRadius: 6, padding: 14, display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-      <svg width="360" height="360" viewBox="-20 -20 420 420">
+      <svg style={{ width: '100%', maxWidth: 360, height: 'auto' }} viewBox="-20 -20 420 420">
         <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="var(--cp-border2)" strokeWidth="1" />
         <circle cx={cx} cy={cy} r="110" fill="none" stroke="var(--cp-border2)" strokeWidth="1" />
         <circle cx={cx} cy={cy} r="50" fill="none" stroke="var(--cp-border2)" strokeWidth="1" />
@@ -512,7 +515,7 @@ function FlightStatusPanel({ f, cf, now, pinging, onPing }) {
         <>
           <div style={{ borderTop: '1px solid var(--cp-border3)', margin: '12px 0' }} />
           {f.flightStatus
-            ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px 16px' }}>
+            ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '12px 16px' }}>
                 {statusGrid.map(([k, v]) => (
                   <div key={k}>
                     <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cp-dim)', marginBottom: 3 }}>{k}</div>
