@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import AIRPORTS, { lookupAirport } from './airports'
+import AIRPORTS, { lookupAirport, searchAirports } from './airports'
 
 describe('airports database', () => {
   it('bundles the worldwide dataset (thousands of airports)', () => {
@@ -41,5 +41,27 @@ describe('airports database', () => {
       const a = lookupAirport(icao)
       expect(a.tz, icao).toBeTruthy()
     }
+  })
+})
+
+describe('searchAirports', () => {
+  it('returns [] for short queries', () => {
+    expect(searchAirports('')).toEqual([])
+    expect(searchAirports('W')).toEqual([])
+  })
+
+  it('ranks ICAO-prefix matches first', () => {
+    const results = searchAirports('WMK')
+    expect(results[0].icao.startsWith('WMK')).toBe(true)
+    expect(results.some(r => r.icao === 'WMKK')).toBe(true)
+  })
+
+  it('matches by city name', () => {
+    const results = searchAirports('kuala lumpur')
+    expect(results.some(r => r.icao === 'WMKK')).toBe(true)
+  })
+
+  it('is case-insensitive', () => {
+    expect(searchAirports('wmkk')[0].icao).toBe('WMKK')
   })
 })

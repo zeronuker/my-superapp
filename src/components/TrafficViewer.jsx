@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
-import { lookupAirport } from '../data/airports'
+import { lookupAirport, searchAirports } from '../data/airports'
 import { distanceNm, bearingDeg } from '../utils/geo'
 import ResetButton from './ResetButton'
 
@@ -97,21 +97,32 @@ function fmtDistBrg(distNm, brgDeg) {
   return `${Math.round(distNm)} NM · ${String(Math.round(brgDeg)).padStart(3, '0')}°`
 }
 
-// ── Read the sibling METAR/TAF module's cached airports for quick-pick chips ──
-function readMetarAirports() {
+// Fallback "popular" airports when the METAR/TAF module has nothing cached yet.
+const POPULAR_AIRPORTS = ['WMKK', 'YMML', 'RJAA', 'OMDB', 'VABB']
+
+// ── Read the sibling METAR/TAF module's cached airports for the picker's
+// quick-pick list, enriched with name/city/country for display. Falls back
+// to POPULAR_AIRPORTS when nothing is cached. ──
+function buildPopularAirports() {
+  const enrich = (icao, label) => {
+    const a = lookupAirport(icao)
+    return a ? { icao, label, name: a.name, city: a.city, country: a.country } : null
+  }
   try {
     const raw = localStorage.getItem('cb-metar-cache')
-    if (!raw) return []
-    const c = JSON.parse(raw)
-    const list = []
-    const add = (icao, label) => { if (icao?.trim()) list.push({ icao: icao.trim().toUpperCase(), label }) }
-    add(c.dep, 'DEP')
-    add(c.arr, 'ARR')
-    add(c.destAlts?.alt1, 'ALT1')
-    add(c.destAlts?.alt2, 'ALT2')
-    for (let i = 0; i < (c.enrouteCount || 0); i++) add(c.enrouteAlts?.[i], `ERA${i + 1}`)
-    return list
-  } catch (_) { return [] }
+    if (raw) {
+      const c = JSON.parse(raw)
+      const list = []
+      const add = (icao, label) => { if (icao?.trim()) { const e = enrich(icao.trim().toUpperCase(), label); if (e) list.push(e) } }
+      add(c.dep, 'DEP')
+      add(c.arr, 'ARR')
+      add(c.destAlts?.alt1, 'ALT1')
+      add(c.destAlts?.alt2, 'ALT2')
+      for (let i = 0; i < (c.enrouteCount || 0); i++) add(c.enrouteAlts?.[i], `ERA${i + 1}`)
+      if (list.length > 0) return list
+    }
+  } catch (_) { /* fall through to defaults */ }
+  return POPULAR_AIRPORTS.map(icao => enrich(icao, null)).filter(Boolean)
 }
 
 function SectionHeader({ title }) {
@@ -138,12 +149,17 @@ export default function TrafficViewer() {
   const [pingingKey, setPingingKey] = useState(null)
   const [fieldsOpen, setFieldsOpen] = useState(false)
   const [now, setNow] = useState(Date.now())
+  const [searchQuery, setSearchQuery] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerQuery, setPickerQuery] = useState('')
 
-  const quickPicks = useMemo(readMetarAirports, [])
+  const popularAirports = useMemo(buildPopularAirports, [])
+  const pickerResults = pickerQuery.trim().length >= 2 ? searchAirports(pickerQuery) : popularAirports
 
   const handleReset = () => {
     setCenterIcao(''); setCenterMode('icao'); setGpsCoords(null); setGpsError('')
-    setRadius(50); setSelectedKey(null)
+    setRadius(50); setSelectedKey(null); setSearchQuery('')
+    setPickerOpen(false); setPickerQuery('')
   }
 
   const handleGps = () => {
@@ -152,25 +168,28 @@ export default function TrafficViewer() {
       pos => {
         setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
         setCenterMode('gps'); setGpsError('')
+        setPickerOpen(false); setPickerQuery('')
       },
       () => setGpsError('Location permission denied — using default center'),
     )
   }
 
-  const setQuickPick = (icao) => {
+  const choosePickerAirport = (icao) => {
     setCenterIcao(icao); setCenterMode('icao')
+    setPickerOpen(false); setPickerQuery('')
   }
 
   // ── Resolve the active center → anchor lat/lng, then compute real dist/bearing
   // for each mock aircraft against it (the numbers are real, the aircraft aren't) ──
   const centerAirport = centerMode === 'icao' && centerIcao.trim().length >= 3
-    ? lookupAirport(centerIcao) : null
+    ? lookupAirport(centerIcao) : lookupAirport('WMKK')
   const anchor = centerMode === 'gps' && gpsCoords
     ? gpsCoords
     : (centerAirport ? { lat: centerAirport.lat, lng: centerAirport.lng } : FALLBACK_ANCHOR)
+  const centerIcaoResolved = centerMode === 'icao' && centerIcao.trim() ? centerIcao.trim() : 'WMKK'
   const centerLabel = centerMode === 'gps' && gpsCoords
     ? 'My GPS Location'
-    : (centerIcao.trim() || (centerAirport ? centerIcao : 'WMKK (default)'))
+    : (centerAirport ? `${centerIcaoResolved} — ${centerAirport.city}, ${centerAirport.country}` : centerIcaoResolved)
 
   const flightsWithGeo = useMemo(() => {
     return Object.fromEntries(Object.entries(flights).map(([key, f]) => {
@@ -205,6 +224,12 @@ export default function TrafficViewer() {
   const cf = settings.trafficFields.card
   const rf = settings.trafficFields.row
   const activeRowFields = ROW_FIELDS.filter(f => rf[f.key])
+
+  const query = searchQuery.trim().toUpperCase()
+  const filteredFlights = query
+    ? Object.fromEntries(Object.entries(flightsWithGeo).filter(([, f]) =>
+        f.callsign.includes(query) || f.registration.includes(query) || f.flightStatus?.flight.includes(query)))
+    : flightsWithGeo
   const selected = selectedKey ? flightsWithGeo[selectedKey] : null
 
   return (
@@ -227,28 +252,65 @@ export default function TrafficViewer() {
 
       {/* ── Center ── */}
       <SectionHeader title="Center" />
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
-        <div>
-          <div className="cp-label" style={{ marginBottom: 4 }}>ICAO</div>
-          <input className="cp-input" style={{ width: 100, fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.12em', textTransform: 'uppercase' }}
-            placeholder="e.g. WMKK" maxLength={4} value={centerIcao}
-            onChange={e => { setCenterIcao(e.target.value.toUpperCase()); setCenterMode('icao') }} />
-        </div>
-        {quickPicks.length > 0 && (
-          <div>
-            <div className="cp-label" style={{ marginBottom: 4 }}>QUICK PICK</div>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {quickPicks.map(({ icao, label }) => (
-                <button key={label} className="cp-btn" style={{ padding: '5px 8px', fontSize: 10 }}
-                  onClick={() => setQuickPick(icao)}>{label} · {icao}</button>
+      <div style={{ marginBottom: 8 }}>
+        {pickerOpen ? (
+          <div style={{ background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: 10 }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              <input className="cp-input" autoFocus placeholder="Search ICAO, airport, or city…"
+                style={{ flex: 1, borderColor: 'var(--cp-acc)' }}
+                value={pickerQuery} onChange={e => setPickerQuery(e.target.value)} />
+              <button className="cp-btn" onClick={() => { setPickerOpen(false); setPickerQuery('') }}>✕</button>
+            </div>
+
+            <button onClick={handleGps} style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+              background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 6,
+              padding: '8px 12px', cursor: 'pointer', marginBottom: 6,
+            }}>
+              <span style={{ fontSize: 14 }}>⊕</span>
+              <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12, color: 'var(--cp-acc)' }}>Use my current location (GPS)</span>
+            </button>
+
+            <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.12em', padding: '6px 12px 4px' }}>
+                {pickerQuery.trim().length >= 2 ? 'RESULTS' : 'POPULAR'}
+              </div>
+              {pickerResults.length === 0 ? (
+                <div style={{ padding: '9px 12px', fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)' }}>No matching airports</div>
+              ) : pickerResults.map((r, i) => (
+                <button key={r.icao} onClick={() => choosePickerAirport(r.icao)} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+                  background: 'transparent', border: 'none',
+                  borderBottom: i < pickerResults.length - 1 ? '1px solid var(--cp-border)' : 'none',
+                  padding: '9px 12px', cursor: 'pointer', textAlign: 'left',
+                }}>
+                  <div>
+                    <div style={{ fontFamily: 'var(--cb-font-body)', fontSize: 13, color: 'var(--cp-txt)' }}>{r.icao} — {r.name}</div>
+                    <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)' }}>{r.city}, {r.country}</div>
+                  </div>
+                  <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>→</span>
+                </button>
               ))}
-              <button className="cp-btn" style={{ padding: '5px 8px', fontSize: 10 }} onClick={handleGps}>📍 GPS</button>
             </div>
           </div>
+        ) : (
+          <button onClick={() => setPickerOpen(true)} style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+            background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)', borderRadius: 6,
+            padding: '7px 12px', cursor: 'pointer',
+          }}>
+            <span style={{ fontSize: 13 }}>📍</span>
+            <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 13, flex: 1, color: 'var(--cp-txt)' }}>{centerLabel}</span>
+            {centerMode === 'gps' && (
+              <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-acc)',
+                background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 3,
+                padding: '2px 5px', letterSpacing: '0.1em' }}>GPS</span>
+            )}
+          </button>
         )}
-        {quickPicks.length === 0 && (
-          <button className="cp-btn" style={{ padding: '7px 12px' }} onClick={handleGps}>📍 USE GPS</button>
-        )}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
         <div>
           <div className="cp-label" style={{ marginBottom: 4 }}>RADIUS</div>
           <select value={radius} onChange={e => setRadius(Number(e.target.value))} style={{
@@ -260,31 +322,50 @@ export default function TrafficViewer() {
             <option value={100}>100 NM</option>
           </select>
         </div>
-        <button className="cp-btn" style={{ padding: '7px 12px', marginLeft: 'auto' }} onClick={() => setFieldsOpen(true)}>
+        <div style={{ marginLeft: 'auto' }}>
+          <div className="cp-label" style={{ marginBottom: 4 }}>SEARCH CALLSIGN</div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <input className="cp-input" style={{ width: 150, fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.12em', textTransform: 'uppercase' }}
+              placeholder="e.g. BRN804" value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)} />
+            {searchQuery && (
+              <button className="cp-btn" style={{ padding: '7px 10px' }} onClick={() => setSearchQuery('')}>✕</button>
+            )}
+          </div>
+        </div>
+        <button className="cp-btn" style={{ padding: '7px 12px' }} onClick={() => setFieldsOpen(true)}>
           ⚙ SHOW/HIDE FIELDS
         </button>
       </div>
       <div style={{ fontSize: 10, color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.06em', marginBottom: 20 }}>
-        Centered on {centerLabel} · {radius} NM radius
+        {radius} NM radius
         {gpsError && <span style={{ color: 'var(--cp-orange)' }}> · {gpsError}</span>}
       </div>
 
       {/* ── Radar map (schematic — not to scale) ── */}
-      <RadarMap flights={flightsWithGeo} selectedKey={selectedKey} centerLabel={centerLabel.split(' ')[0].slice(0, 4)} />
+      <RadarMap flights={flightsWithGeo} selectedKey={selectedKey} centerLabel={centerMode === 'gps' ? 'GPS' : centerIcaoResolved} />
 
       {/* ── Table ── */}
-      <div className="cp-label" style={{ marginBottom: 8 }}>CLICK A ROW TO VIEW FLIGHT STATUS</div>
-      <table className="cp-table">
-        <thead><tr><th>Callsign</th>{activeRowFields.map(f => <th key={f.key}>{f.label}</th>)}</tr></thead>
-        <tbody>
-          {Object.entries(flightsWithGeo).map(([key, f]) => (
-            <tr key={key} className={key === selectedKey ? 'active' : ''} style={{ cursor: 'pointer' }} onClick={() => setSelectedKey(key)}>
-              <td style={{ fontFamily: 'var(--cb-font-mono)', fontWeight: 700, padding: '7px 8px' }}>{f.callsign}</td>
-              {activeRowFields.map(fld => <RowCell key={fld.key} field={fld.key} f={f} now={now} />)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="cp-label" style={{ marginBottom: 8 }}>CLICK A ROW TO VIEW FLIGHT STATUS, CLICK AGAIN TO CLOSE</div>
+      {Object.keys(filteredFlights).length === 0 ? (
+        <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
+          fontSize: 11, letterSpacing: '0.1em', padding: '20px 0' }}>
+          NO MATCHING AIRCRAFT IN THIS PREVIEW — TRY BRN804, SKL212, OR N77ZZ
+        </div>
+      ) : (
+        <table className="cp-table">
+          <thead><tr><th>Callsign</th>{activeRowFields.map(f => <th key={f.key}>{f.label}</th>)}</tr></thead>
+          <tbody>
+            {Object.entries(filteredFlights).map(([key, f]) => (
+              <tr key={key} className={key === selectedKey ? 'active' : ''} style={{ cursor: 'pointer' }}
+                onClick={() => setSelectedKey(k => k === key ? null : key)}>
+                <td style={{ fontFamily: 'var(--cb-font-mono)', fontWeight: 700, padding: '7px 8px' }}>{f.callsign}</td>
+                {activeRowFields.map(fld => <RowCell key={fld.key} field={fld.key} f={f} now={now} />)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       {/* ── Flight status panel ── */}
       <div style={{ marginTop: 16 }}>
