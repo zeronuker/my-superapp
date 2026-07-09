@@ -347,7 +347,6 @@ export default function TrafficViewer() {
       </div>
 
       {/* ── Table ── */}
-      <div className="cp-label" style={{ marginBottom: 8 }}>CLICK A ROW TO VIEW FLIGHT STATUS, CLICK AGAIN TO CLOSE</div>
       {Object.keys(filteredFlights).length === 0 ? (
         <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
           fontSize: 11, letterSpacing: '0.1em', padding: '20px 0' }}>
@@ -371,12 +370,11 @@ export default function TrafficViewer() {
       )}
 
       {/* ── Flight status panel ── */}
-      <div style={{ marginTop: 16 }}>
-        {selected
-          ? <FlightStatusPanel f={selected} cf={cf} now={now} pinging={pingingKey === selectedKey} onPing={() => pingFlight(selectedKey)} />
-          : <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
-              fontSize: 11, letterSpacing: '0.1em', padding: '20px 0' }}>SELECT A FLIGHT ABOVE TO VIEW STATUS DETAILS</div>}
-      </div>
+      {selected && (
+        <div style={{ marginTop: 16 }}>
+          <FlightStatusPanel f={selected} cf={cf} now={now} pinging={pingingKey === selectedKey} onPing={() => pingFlight(selectedKey)} />
+        </div>
+      )}
 
       {fieldsOpen && (
         <FieldsModal cf={cf} rf={rf}
