@@ -13,9 +13,8 @@ function SectionHeader({ title }) {
 }
 
 async function fetchSchedule(icao, direction, signal) {
-  const path = direction === 'arrivals' ? '/api/skylink-arrivals' : '/api/skylink-departures'
-  const params = new URLSearchParams({ icao })
-  const res = await fetch(`${path}?${params}`, { signal })
+  const params = new URLSearchParams({ resource: direction, icao })
+  const res = await fetch(`/api/skylink?${params}`, { signal })
   const body = await res.json().catch(() => null)
   if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
   return normalizeSchedule(body, direction)

@@ -324,7 +324,7 @@ async function fetchFromSkylink(icaoList) {
   const results = await Promise.allSettled(
     icaoList.map(icao =>
       fetch(
-        `/api/skylink-notam?icao=${icao.toUpperCase()}`,
+        `/api/skylink?resource=notam&icao=${icao.toUpperCase()}`,
         { signal: AbortSignal.timeout(15_000) }
       ).then(async r => {
         if (r.ok) return r.json()

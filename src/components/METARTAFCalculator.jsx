@@ -48,8 +48,8 @@ async function fetchWeatherFromAWC(icao, hours) {
 }
 async function fetchWeatherFromSkylink(icao) {
   const [mr, tr] = await Promise.all([
-    fetch(`/api/skylink-metar?icao=${icao}`),
-    fetch(`/api/skylink-taf?icao=${icao}`),
+    fetch(`/api/skylink?resource=metar&icao=${icao}`),
+    fetch(`/api/skylink?resource=taf&icao=${icao}`),
   ])
   if (!mr.ok && !tr.ok) throw new Error('SkyLink weather request failed')
   const metarRaw = mr.ok ? await mr.json().catch(() => null) : null

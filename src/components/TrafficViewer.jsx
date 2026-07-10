@@ -63,51 +63,51 @@ const ROW_FIELDS = [
   { key: 'status',        label: 'Status' },
 ]
 
-// ── Fetch helpers — thin wrappers over the Vercel proxies in /api ──
+// ── Fetch helpers — thin wrappers over the unified /api/skylink proxy ──
 // Response is { aircraft: [...], total_count, timestamp } — not a bare array.
 async function fetchTraffic(lat, lon, radiusNm, signal) {
-  const params = new URLSearchParams({ lat, lon, radius: radiusNm })
-  const res = await fetch(`/api/skylink-adsb?${params}`, { signal })
+  const params = new URLSearchParams({ resource: 'adsb', lat, lon, radius: radiusNm })
+  const res = await fetch(`/api/skylink?${params}`, { signal })
   const body = await res.json().catch(() => null)
   if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
   return Array.isArray(body?.aircraft) ? body.aircraft : []
 }
 async function pingAircraft(icao24, signal) {
-  const params = new URLSearchParams({ icao24 })
-  const res = await fetch(`/api/skylink-adsb?${params}`, { signal })
+  const params = new URLSearchParams({ resource: 'adsb', icao24 })
+  const res = await fetch(`/api/skylink?${params}`, { signal })
   if (!res.ok) return null
   const body = await res.json().catch(() => null)
   return body?.aircraft?.[0] ?? null
 }
 // Global search — no lat/lon, searches the whole live feed by callsign.
 async function fetchByCallsign(callsign, signal) {
-  const params = new URLSearchParams({ callsign })
-  const res = await fetch(`/api/skylink-adsb?${params}`, { signal })
+  const params = new URLSearchParams({ resource: 'adsb', callsign })
+  const res = await fetch(`/api/skylink?${params}`, { signal })
   const body = await res.json().catch(() => null)
   if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
   return Array.isArray(body?.aircraft) ? body.aircraft : []
 }
 async function fetchAircraftLookup(registration, icao24, signal) {
-  const params = new URLSearchParams(registration && registration !== '—' ? { registration } : { icao24 })
-  const res = await fetch(`/api/skylink-aircraft?${params}`, { signal })
+  const params = new URLSearchParams({ resource: 'aircraft', ...(registration && registration !== '—' ? { registration } : { icao24 }) })
+  const res = await fetch(`/api/skylink?${params}`, { signal })
   if (!res.ok) return null
   return res.json().catch(() => null)
 }
 async function fetchFlightStatus(flightOrCallsign, signal) {
-  const params = new URLSearchParams({ flight: flightOrCallsign })
-  const res = await fetch(`/api/skylink-flight-status?${params}`, { signal })
+  const params = new URLSearchParams({ resource: 'flight-status', flight: flightOrCallsign })
+  const res = await fetch(`/api/skylink?${params}`, { signal })
   if (!res.ok) return null
   return res.json().catch(() => null)
 }
 async function fetchAirlineInfo(icaoCode, signal) {
-  const params = new URLSearchParams({ icao: icaoCode })
-  const res = await fetch(`/api/skylink-airlines?${params}`, { signal })
+  const params = new URLSearchParams({ resource: 'airlines', icao: icaoCode })
+  const res = await fetch(`/api/skylink?${params}`, { signal })
   if (!res.ok) return null
   return res.json().catch(() => null)
 }
 async function fetchAircraftPerformance(icaoType, signal) {
-  const params = new URLSearchParams({ icao_type: icaoType })
-  const res = await fetch(`/api/skylink-aircraft-performance?${params}`, { signal })
+  const params = new URLSearchParams({ resource: 'aircraft-performance', icao_type: icaoType })
+  const res = await fetch(`/api/skylink?${params}`, { signal })
   if (!res.ok) return null
   return res.json().catch(() => null)
 }
