@@ -3,6 +3,7 @@ import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
 import { lookupAirport, searchAirports } from '../data/airports'
 import { distanceNm, bearingDeg } from '../utils/geo'
+import { fmtAlt, fmtVs, fmtPinged, fmtDistBrg, fmtDelay, normalizeAircraft, normalizeFlightStatus } from '../utils/traffic'
 import ResetButton from './ResetButton'
 
 // ── Fallback anchor when no center is resolvable yet (empty input, unknown
@@ -52,68 +53,6 @@ const ROW_FIELDS = [
   { key: 'last_contact',  label: 'Age' },
   { key: 'status',        label: 'Status' },
 ]
-
-// ── Formatting helpers (local — same convention as formatAge in METARTAFCalculator) ──
-function fmtAlt(ft) { return ft >= 18000 ? `FL${Math.round(ft / 100)}` : `${ft.toLocaleString()} ft` }
-function fmtVs(vr) { return vr > 100 ? `↑ ${vr} fpm` : vr < -100 ? `↓ ${Math.abs(vr)} fpm` : 'level' }
-function fmtPinged(ts, nowMs) {
-  if (!ts) return 'Not pinged yet'
-  const s = Math.max(0, Math.round((nowMs - ts) / 1000))
-  return s < 1 ? 'Just pinged' : `Pinged ${s}s ago`
-}
-function fmtDistBrg(distNm, brgDeg) {
-  if (distNm == null || brgDeg == null) return '—'
-  return `${Math.round(distNm)} NM · ${String(Math.round(brgDeg)).padStart(3, '0')}°`
-}
-function fmtZulu(iso) {
-  if (!iso) return null
-  const d = new Date(iso)
-  if (isNaN(d)) return null
-  return `${String(d.getUTCHours()).padStart(2, '0')}${String(d.getUTCMinutes()).padStart(2, '0')}Z`
-}
-
-// ── Normalize raw SkyLink responses into the shape this component renders ──
-// Field names confirmed against a live response (the SDK's own test fixtures
-// turned out not to match reality — flat lat/lon, is_on_ground not on_ground,
-// no origin/destination on this endpoint, but a bonus `airline` name).
-function normalizeAircraft(raw) {
-  return {
-    icao24: raw.icao24 || '',
-    callsign: (raw.callsign || raw.icao24 || '').trim(),
-    registration: raw.registration || '—',
-    aircraft_type: raw.aircraft_type || '—',
-    lat: raw.latitude, lon: raw.longitude,
-    altitude_ft: raw.altitude ?? 0,
-    ground_speed_kts: raw.ground_speed ?? 0,
-    track: raw.track ?? 0,
-    vertical_rate: raw.vertical_rate ?? 0,
-    squawk: raw.squawk || '----',
-    on_ground: !!raw.is_on_ground,
-    origin: null,
-    destination: null,
-    airline: raw.airline || null,
-    pingedAt: null,
-  }
-}
-const STATUS_COLOR = {
-  active: 'var(--cp-acc)', scheduled: 'var(--cp-acc2)', landed: 'var(--cp-dim)',
-  delayed: 'var(--cp-orange)', cancelled: 'var(--cp-red)', diverted: 'var(--cp-purple)',
-}
-function normalizeFlightStatus(raw) {
-  if (!raw) return null
-  const statusKey = (raw.status || '').toLowerCase()
-  const airline = [raw.airline_icao, raw.airline_iata].filter(Boolean).join(' · ')
-  return {
-    flight: raw.flight_number || '—',
-    airline: airline || null,
-    route: (raw.origin_icao && raw.destination_icao) ? `${raw.origin_icao} → ${raw.destination_icao}` : null,
-    status: (raw.status || '—').toUpperCase(),
-    statusColor: STATUS_COLOR[statusKey] || 'var(--cp-dim)',
-    schedDep: fmtZulu(raw.scheduled_departure),
-    schedArr: fmtZulu(raw.scheduled_arrival),
-    estArr: fmtZulu(raw.estimated_arrival),
-  }
-}
 
 // ── Fetch helpers — thin wrappers over the Vercel proxies in /api ──
 // Response is { aircraft: [...], total_count, timestamp } — not a bare array.
@@ -202,6 +141,7 @@ export default function TrafficViewer() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerQuery, setPickerQuery] = useState('')
   const [detailsCache, setDetailsCache] = useState({}) // icao24 -> { loading, lookup, flightStatus }
+  const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
 
   const popularAirports = useMemo(buildPopularAirports, [])
   const pickerResults = pickerQuery.trim().length >= 2 ? searchAirports(pickerQuery) : popularAirports
@@ -240,8 +180,23 @@ export default function TrafficViewer() {
     ? 'My GPS Location'
     : (centerAirport ? `${centerIcaoResolved} — ${centerAirport.city}, ${centerAirport.country}` : centerIcaoResolved)
 
-  // ── Live traffic fetch — refires when the center or radius changes ──
+  // ── Offline/online tracking — traffic positions are only meaningful live,
+  // so this tab blocks entirely offline rather than showing stale data. ──
   useEffect(() => {
+    const handleOnline = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  // ── Live traffic fetch — refires when the center, radius, or connectivity
+  // changes. Skipped entirely while offline (no request, no browser dialog). ──
+  useEffect(() => {
+    if (isOffline) { setLoading(false); return }
     const controller = new AbortController()
     setLoading(true); setFetchError('')
     fetchTraffic(anchor.lat, anchor.lng, radius, controller.signal)
@@ -257,7 +212,7 @@ export default function TrafficViewer() {
       .finally(() => setLoading(false))
     return () => controller.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anchor.lat, anchor.lng, radius])
+  }, [anchor.lat, anchor.lng, radius, isOffline])
 
   const flightsWithGeo = useMemo(() => {
     return Object.fromEntries(Object.entries(aircraft).map(([key, f]) => {
@@ -274,7 +229,7 @@ export default function TrafficViewer() {
   // ── Lazy-fetch aircraft lookup + flight status only for the selected row —
   // avoids N extra API calls just to render the table. ──
   useEffect(() => {
-    if (!selectedKey || detailsCache[selectedKey]) return
+    if (isOffline || !selectedKey || detailsCache[selectedKey]) return
     const f = aircraft[selectedKey]
     if (!f) return
     const controller = new AbortController()
@@ -329,7 +284,17 @@ export default function TrafficViewer() {
         <ResetButton onReset={handleReset} />
       </div>
 
-      {fetchError && (
+      {isOffline && (
+        <div style={{
+          background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.25)',
+          borderLeft: '3px solid var(--cp-yellow)', borderRadius: 4, padding: '8px 14px', marginBottom: 20,
+          fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--cp-yellow)',
+        }}>
+          ⚠ REQUIRES INTERNET CONNECTION — traffic is live-only, resumes automatically once you're back online
+        </div>
+      )}
+
+      {!isOffline && fetchError && (
         <div style={{
           background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.25)',
           borderLeft: '3px solid var(--cp-red)', borderRadius: 4, padding: '8px 14px', marginBottom: 20,
@@ -338,6 +303,8 @@ export default function TrafficViewer() {
           ⚠ {fetchError}
         </div>
       )}
+
+      <div style={isOffline ? { opacity: 0.35, filter: 'grayscale(1)', pointerEvents: 'none' } : undefined}>
 
       {/* ── Center ── */}
       <SectionHeader title="Center" />
@@ -468,7 +435,9 @@ export default function TrafficViewer() {
         </div>
       )}
 
-      {fieldsOpen && (
+      </div>
+
+      {fieldsOpen && !isOffline && (
         <FieldsModal cf={cf} rf={rf}
           onToggleCard={(key, val) => updateSettings({ trafficFields: { ...settings.trafficFields, card: { ...cf, [key]: val } } })}
           onToggleRow={(key, val) => updateSettings({ trafficFields: { ...settings.trafficFields, row: { ...rf, [key]: val } } })}
@@ -595,6 +564,10 @@ function FlightStatusPanel({ f, cf, now, lookup, flightStatus, detailsLoading, p
       if (flightStatus.schedArr) statusGrid.push(['Sched Arr', flightStatus.schedArr])
     }
     if (cf.estimated && flightStatus.estArr) statusGrid.push(['Est Arr', flightStatus.estArr])
+    if (cf.delay) {
+      const delayLabel = fmtDelay(flightStatus.delayMinutes)
+      if (delayLabel) statusGrid.push(['Delay', <span style={{ color: flightStatus.delayMinutes > 0 ? 'var(--cp-orange)' : 'var(--cp-txt)' }}>{delayLabel}</span>])
+    }
     if (cf.status) statusGrid.push(['Status', <span style={{ color: flightStatus.statusColor }}>{flightStatus.status}</span>])
   }
 
