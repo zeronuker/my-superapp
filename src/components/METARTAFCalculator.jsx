@@ -7,9 +7,12 @@ import {
   tokenizeRaw, parseTafSegments,
 } from '../utils/metarSeverity'
 import { decodeMetar, decodeTaf } from '../utils/metarDecode'
+import { skylinkMetarToAWCShape, skylinkTafToAWCShape } from '../utils/skylinkWeather'
+import { isSkyLinkDay } from '../utils/sourceSwitch'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
+import SourceChip from './SourceChip'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -32,14 +35,40 @@ function parseDateStr(str) {
   return Date.parse(str.replace(' ', 'T') + 'Z') / 1000
 }
 
-async function fetchWeather(icao, hours) {
+async function fetchWeatherFromAWC(icao, hours) {
   const [mr, tr] = await Promise.all([
     fetch(`/api/weather?ids=${icao}&type=metar&hours=${hours}`),
     fetch(`/api/weather?ids=${icao}&type=taf&hours=${hours}`),
   ])
+  if (!mr.ok && !tr.ok) throw new Error('Weather request failed')
   return {
     metar: mr.ok ? await mr.json() : [],
     taf:   tr.ok ? await tr.json() : [],
+  }
+}
+async function fetchWeatherFromSkylink(icao) {
+  const [mr, tr] = await Promise.all([
+    fetch(`/api/skylink-metar?icao=${icao}`),
+    fetch(`/api/skylink-taf?icao=${icao}`),
+  ])
+  if (!mr.ok && !tr.ok) throw new Error('SkyLink weather request failed')
+  const metarRaw = mr.ok ? await mr.json().catch(() => null) : null
+  const tafRaw   = tr.ok ? await tr.json().catch(() => null) : null
+  const metar = skylinkMetarToAWCShape(metarRaw)
+  const taf   = skylinkTafToAWCShape(tafRaw)
+  return { metar: metar ? [metar] : [], taf: taf ? [taf] : [] }
+}
+// UTC even/odd day picks the source (see utils/sourceSwitch); if the
+// scheduled one fails outright, silently retry with the other rather than
+// surfacing an error the user can't act on.
+async function fetchWeather(icao, hours) {
+  const preferSkylink = isSkyLinkDay()
+  try {
+    const out = preferSkylink ? await fetchWeatherFromSkylink(icao) : await fetchWeatherFromAWC(icao, hours)
+    return { ...out, source: preferSkylink ? 'skylink' : 'aviationweather' }
+  } catch (e) {
+    const out = preferSkylink ? await fetchWeatherFromAWC(icao, hours) : await fetchWeatherFromSkylink(icao)
+    return { ...out, source: preferSkylink ? 'aviationweather' : 'skylink' }
   }
 }
 
@@ -591,7 +620,7 @@ function SeverityLegend() {
 
 // ── Airport result card ─────────────────────────────────────────────────────
 function AirportCard({ data, now }) {
-  const { icao, label, metar, taf, error } = data
+  const { icao, label, metar, taf, error, source } = data
   const [decoded, setDecoded] = useState(false)
   const role         = getRoleStyle(label)
   const stationName  = metar?.[0]?.name || ''
@@ -617,6 +646,7 @@ function AirportCard({ data, now }) {
             {stationName.toUpperCase()}
           </span>
         )}
+        {!error && source && <SourceChip source={source} />}
         <div className="cp-divider" style={{ borderColor: role.borderDim }} />
         {!error && (metar?.length || taf?.length) ? (
           <button

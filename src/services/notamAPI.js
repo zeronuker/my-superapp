@@ -6,6 +6,7 @@
 
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import { icaoToFir, latlngToFir } from '../data/firLookup'
+import { isSkyLinkDay } from '../utils/sourceSwitch'
 
 // ── Q-code subject → plain English ───────────────────────────────────────────
 const Q_SUBJECT = {
@@ -224,15 +225,80 @@ export function parseRawNotams(rawPerIcao) {
   return allNotams
 }
 
-// ── Main fetch ────────────────────────────────────────────────────────────────
-/**
- * Fetch NOTAMs for a list of ICAO location codes (airports or FIRs).
- * Returns { notams, rawPerIcao } where rawPerIcao is the compact raw payload
- * suitable for caching (re-parsed on restore so validity status stays fresh).
- */
-export async function fetchNotams(icaoList, pageSize = 100) {
-  if (!icaoList?.length) return { notams: [], rawPerIcao: [] }
+// ── SkyLink NOTAM parsing (even-UTC-day source — see utils/sourceSwitch) ──
+// Shape confirmed against a live /notams/:icao response: { icao, notams: [...] }
+// with pre-split fields (notam_id, location, effective/expiration as
+// "YYYYMMDDHHmm" strings, body, scope, q_code, raw) — distinct from
+// autorouter's raw ICAO item-field shape, so it gets its own date/validity
+// parsing rather than reusing computeValidity/buildId above.
+function parseSkylinkDate(s) {
+  if (!s || s.length < 12) return null
+  const iso = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(8, 10)}:${s.slice(10, 12)}:00Z`
+  const d = new Date(iso)
+  return isNaN(d) ? null : d
+}
+function fmtSkylinkDate(d) {
+  return d ? d.toISOString().slice(0, 16).replace('T', ' ') + 'Z' : 'PERM'
+}
+function computeSkylinkValidity(n) {
+  const now = Date.now()
+  const start = parseSkylinkDate(n.effective)
+  const end = parseSkylinkDate(n.expiration)
+  let status = 'UNKNOWN'
+  if (start) {
+    if (start.getTime() > now) status = 'FUTURE'
+    else if (end && end.getTime() < now) status = 'EXPIRED'
+    else status = 'ACTIVE'
+  }
+  return { status, start, end, startStr: fmtSkylinkDate(start), endStr: fmtSkylinkDate(end) }
+}
+// scope arrives pre-labeled (e.g. "AERODROME") — reuse it directly when it
+// matches a known category, otherwise fall back to Q-code classification.
+function classifySkylinkNotam(n) {
+  const scope = (n.scope || '').toUpperCase()
+  if (NOTAM_CATEGORIES[scope]) return scope
+  if (n.q_code) return classifyQCode(n.q_code)
+  return 'OTHER'
+}
 
+/** Same [{ icao, rows }] input shape as parseRawNotams, but for SkyLink's NOTAM rows. */
+export function parseSkylinkNotams(rawPerIcao) {
+  const allNotams = []
+  const seen = new Set()
+
+  for (const { icao: source, rows } of rawPerIcao) {
+    for (const n of (rows ?? [])) {
+      const id = n.notam_id || n.notam_id_domestic
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+
+      const category = classifySkylinkNotam(n)
+      const summary  = n.body || (n.q_code ? qCodeToSummary(n.q_code) : 'Notice to air missions')
+      const validity = computeSkylinkValidity(n)
+
+      allNotams.push({
+        id, source,
+        icao: n.location || source,
+        category, summary, qCode: n.q_code || null, validity,
+        startStr: validity.startStr, endStr: validity.endStr,
+        raw: n.raw || n.body || JSON.stringify(n),
+      })
+    }
+  }
+
+  allNotams.sort((a, b) => SORT_ORDER[a.validity.status] - SORT_ORDER[b.validity.status])
+  return allNotams
+}
+
+// Restoring cached NOTAMs needs to know which parser produced the raw rows —
+// older caches (written before SkyLink existed) have no `source` tag and
+// default safely to the autorouter shape they were always written in.
+export function parseNotamsForSource(rawPerIcao, source) {
+  return source === 'skylink' ? parseSkylinkNotams(rawPerIcao) : parseRawNotams(rawPerIcao)
+}
+
+// ── Main fetch ────────────────────────────────────────────────────────────────
+async function fetchFromAutorouter(icaoList, pageSize) {
   const results = await Promise.allSettled(
     icaoList.map(icao =>
       fetch(
@@ -245,17 +311,55 @@ export async function fetchNotams(icaoList, pageSize = 100) {
       })
     )
   )
-
-  // Surface error if every request failed
   const allFailed = results.every(r => r.status === 'rejected')
   if (allFailed) throw new Error(results[0]?.reason?.message ?? 'All NOTAM requests failed')
-
   const rawPerIcao = results.map((r, idx) => ({
     icao: String(icaoList[idx] || '').toUpperCase(),
     rows: r.status === 'fulfilled' ? (r.value?.rows ?? []) : [],
   }))
+  return { notams: parseRawNotams(rawPerIcao), rawPerIcao, source: 'autorouter' }
+}
 
-  return { notams: parseRawNotams(rawPerIcao), rawPerIcao }
+async function fetchFromSkylink(icaoList) {
+  const results = await Promise.allSettled(
+    icaoList.map(icao =>
+      fetch(
+        `/api/skylink-notam?icao=${icao.toUpperCase()}`,
+        { signal: AbortSignal.timeout(15_000) }
+      ).then(async r => {
+        if (r.ok) return r.json()
+        const body = await r.json().catch(() => null)
+        throw new Error(`${icao}: ${body?.error || `HTTP ${r.status}`}`)
+      })
+    )
+  )
+  const allFailed = results.every(r => r.status === 'rejected')
+  if (allFailed) throw new Error(results[0]?.reason?.message ?? 'All SkyLink NOTAM requests failed')
+  const rawPerIcao = results.map((r, idx) => ({
+    icao: String(icaoList[idx] || '').toUpperCase(),
+    rows: r.status === 'fulfilled' ? (r.value?.notams ?? []) : [],
+  }))
+  return { notams: parseSkylinkNotams(rawPerIcao), rawPerIcao, source: 'skylink' }
+}
+
+/**
+ * Fetch NOTAMs for a list of ICAO location codes (airports or FIRs).
+ * Picks SkyLink or autorouter.aero by UTC even/odd day, and silently falls
+ * back to the other source if the scheduled one fails outright.
+ * Returns { notams, rawPerIcao, source } — rawPerIcao is the compact raw
+ * payload suitable for caching (re-parsed on restore via
+ * parseNotamsForSource so validity status stays fresh), source is whichever
+ * one actually supplied the data (not necessarily the scheduled one).
+ */
+export async function fetchNotams(icaoList, pageSize = 100) {
+  if (!icaoList?.length) return { notams: [], rawPerIcao: [], source: 'autorouter' }
+
+  const preferSkylink = isSkyLinkDay()
+  try {
+    return preferSkylink ? await fetchFromSkylink(icaoList) : await fetchFromAutorouter(icaoList, pageSize)
+  } catch (e) {
+    return preferSkylink ? await fetchFromAutorouter(icaoList, pageSize) : await fetchFromSkylink(icaoList)
+  }
 }
 
 // ── FIR route detection ───────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react'
-import { fetchNotams, parseRawNotams, detectRouteFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
+import { fetchNotams, parseNotamsForSource, detectRouteFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
 import { icaoToFir } from '../data/firLookup'
@@ -7,6 +7,7 @@ import { haptic } from '../utils/haptic'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
+import SourceChip from './SourceChip'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
@@ -190,7 +191,7 @@ export default function NotamViewer() {
   const [manualFetch,  setManualFetch]  = useState(false)
   const [activeTargets, setActiveTargets] = useState([])
   const [notams,       setNotams]       = useState(() => {
-    if (cache?.rawPerIcao) return parseRawNotams(cache.rawPerIcao)
+    if (cache?.rawPerIcao) return parseNotamsForSource(cache.rawPerIcao, cache.source)
     if (cache?.notams)     return cache.notams   // backwards compat: old cache format
     return null
   })
@@ -204,6 +205,7 @@ export default function NotamViewer() {
 
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [savedRaw, setSavedRaw] = useState(cache?.rawPerIcao || null)
+  const [savedSource, setSavedSource] = useState(cache?.source || null)
   const [fetchedAt, setFetchedAt] = useState(cache?.fetchedAt || null)
 
   useEffect(() => {
@@ -217,8 +219,8 @@ export default function NotamViewer() {
   // Persist airport inputs as they're typed (not just after a fetch) so the
   // METAR/TAF module's copy-airports button always sees current values
   useEffect(() => {
-    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw, fetchedAt })
-  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw, fetchedAt])
+    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw, source: savedSource, fetchedAt })
+  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw, savedSource, fetchedAt])
 
   const applyCopiedAirports = (data) => {
     setDep(data.dep)
@@ -240,6 +242,7 @@ export default function NotamViewer() {
     setExtraChips([])
     setNotams(null)
     setSavedRaw(null)
+    setSavedSource(null)
     setFetchedAt(null)
     setError('')
     setCollapsedMap({})
@@ -310,11 +313,12 @@ export default function NotamViewer() {
       setManualFetch(true)
     }
     try {
-      const { notams: result, rawPerIcao } = await fetchNotams(t.map(x => x.icao))
+      const { notams: result, rawPerIcao, source } = await fetchNotams(t.map(x => x.icao))
 
       const reveal = () => {
         setNotams(result)
         setSavedRaw(rawPerIcao)
+        setSavedSource(source)
         setFetchedAt(Date.now())
         setLoading(false)
         if (isManual) setManualFetch(false)
@@ -523,6 +527,11 @@ export default function NotamViewer() {
       {/* ── Results ── */}
       {notams && (
         <>
+          {savedSource && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+              <SourceChip source={savedSource} />
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
             <div style={{ display: 'inline-flex', background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
               borderRadius: 6, padding: 3, gap: 3 }}>

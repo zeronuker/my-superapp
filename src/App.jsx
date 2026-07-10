@@ -19,6 +19,8 @@ const EDTOCalculator          = lazy(() => import('./components/EDTOCalculator')
 const CurrencyCalculator      = lazy(() => import('./components/CurrencyCalculator'))
 const METARTAFCalculator      = lazy(() => import('./components/METARTAFCalculator'))
 const NotamViewer             = lazy(() => import('./components/NotamViewer'))
+const SigmetViewer            = lazy(() => import('./components/SigmetViewer'))
+const FlightSchedulesViewer   = lazy(() => import('./components/FlightSchedulesViewer'))
 const TrafficViewer           = lazy(() => import('./components/TrafficViewer'))
 const FTLCalculator           = lazy(() => import('./components/FTLCalculator'))
 const WorldTimeCalculator     = lazy(() => import('./components/WorldTimeCalculator'))
@@ -38,6 +40,8 @@ export const CALCULATORS = [
   { id: 'currency',      icon: '💱',  name: 'Currency',       component: CurrencyCalculator },
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
   { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
+  { id: 'sigmet',        icon: '⛈️',  name: 'SIGMET',         component: SigmetViewer },
+  { id: 'schedules',     icon: '🛬',  name: 'Schedules',      component: FlightSchedulesViewer },
   { id: 'traffic',       icon: '🛰️', name: 'Traffic',        component: TrafficViewer },
   { id: 'ftl',           icon: '⏳',  name: 'FTL',            component: FTLCalculator },
   { id: 'dutylog',       icon: '🛫',  name: 'Duty Log',       component: DutyLogModule },
