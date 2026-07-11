@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID()
+  : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
 export function blankSector() {
   return {
@@ -61,7 +62,7 @@ const useDutyLogStore = create(persist(
     ensureDeviceId: () => {
       const existing = get().deviceId
       if (existing) return existing
-      const id = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : uid()
+      const id = uid()
       set({ deviceId: id })
       return id
     },
