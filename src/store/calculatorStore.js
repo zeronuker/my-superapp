@@ -21,12 +21,13 @@ export const DEFAULT_SETTINGS = {
   rememberLastTab:true,       // reopen last-used tool on app restart
   dashboardWidgets: { utc: true, prayer: true, metar: true },
   // Show/Hide Fields (Traffic tab) — which ADS-B/lookup/flight-status fields
-  // appear in the info card, and which columns appear in the traffic table.
+  // appear in the bottom-pane info card. The results table itself is fixed
+  // (Callsign/Reg/Type) and not configurable.
   trafficFields: {
     card: {
       registration: true, icao24: true, aircraft_type: true, altitude: true,
       ground_speed: true, track: true, vertical_rate: true, squawk: true,
-      on_ground: false, pinged: true,
+      on_ground: false, pinged: true, dist_brg: true,
       type_name: true, manufacturer: true, operator: true, operator_icao: true,
       operator_iata: false, country: true, engine_type: true, year_manufactured: true,
       serial_number: false,
@@ -34,11 +35,6 @@ export const DEFAULT_SETTINGS = {
       service_ceiling: false, wingspan: false, length: false,
       flight_number: true, airline: true, scheduled: true, estimated: true,
       status: true, delay: true,
-    },
-    row: {
-      registration: true, icao24: false, aircraft_type: true, altitude: true,
-      ground_speed: true, track: true, vertical_rate: false, squawk: false,
-      on_ground: false, route: false, dist_brg: true, last_contact: false, status: true,
     },
   },
 }
@@ -71,7 +67,6 @@ function loadSettings() {
     merged.dashboardWidgets = { ...DEFAULT_SETTINGS.dashboardWidgets, ...(parsed.dashboardWidgets || {}) }
     merged.trafficFields = {
       card: { ...DEFAULT_SETTINGS.trafficFields.card, ...(parsed.trafficFields?.card || {}) },
-      row:  { ...DEFAULT_SETTINGS.trafficFields.row,  ...(parsed.trafficFields?.row  || {}) },
     }
     // Migrate: derive themeMode from the old cb-theme flag on first run
     if (!parsed.themeMode) {

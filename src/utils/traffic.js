@@ -17,6 +17,8 @@ export function fmtDistBrg(distNm, brgDeg) {
   if (distNm == null || brgDeg == null) return '—'
   return `${Math.round(distNm)} NM · ${String(Math.round(brgDeg)).padStart(3, '0')}°`
 }
+export function fmtSpeed(kts) { return `${Math.round(kts)} kts` }
+export function fmtTrack(deg) { return `${String(Math.round(deg)).padStart(3, '0')}°` }
 // flight_status times are split "HH:MM" + "DD Mon" strings with no year or
 // timezone — this is the airport's local time, not Zulu, so it's shown as-is
 // rather than relabelled with a "Z" suffix that would misrepresent it.
@@ -178,5 +180,9 @@ export function normalizeFlightStatus(raw) {
     schedArr: fmtLocalTime(raw.arrival?.scheduled_time, raw.arrival?.scheduled_date),
     estArr: fmtLocalTime(raw.arrival?.estimated_time, raw.arrival?.estimated_date),
     delayMinutes: legDelayMinutes(raw.departure) ?? legDelayMinutes(raw.arrival),
+    depTerminal: raw.departure?.terminal || null,
+    depGate: raw.departure?.gate || null,
+    arrTerminal: raw.arrival?.terminal || null,
+    arrGate: raw.arrival?.gate || null,
   }
 }

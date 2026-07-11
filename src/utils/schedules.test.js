@@ -11,6 +11,7 @@ describe('normalizeScheduleFlight', () => {
   it('maps an arrival, using Origin as the place', () => {
     const f = normalizeScheduleFlight(RAW_ARRIVAL, 'arrivals')
     expect(f.time).toBe('15:00 · 10 Jul')
+    expect(f.timeHHMM).toBe('15:00')
     expect(f.flight).toBe('AK322')
     expect(f.airline).toBe('Air Asia')
     expect(f.place).toBe('Surabaya')

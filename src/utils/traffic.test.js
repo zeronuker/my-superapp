@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  fmtAlt, fmtVs, fmtPinged, fmtDistBrg, fmtLocalTime, fmtDelay, fmtWakeCategory, statusColorFor,
+  fmtAlt, fmtVs, fmtPinged, fmtDistBrg, fmtSpeed, fmtTrack, fmtLocalTime, fmtDelay, fmtWakeCategory, statusColorFor,
   normalizeAircraft, normalizeFlightStatus, normalizeAircraftLookup, normalizeAirline, normalizeAircraftPerformance,
 } from './traffic'
 
@@ -61,12 +61,20 @@ describe('normalizeFlightStatus', () => {
     expect(s.schedArr).toBe('15:40 · 06 Jul')
     expect(s.estArr).toBeNull() // arrival estimated_time is the "--:--" placeholder
     expect(s.delayMinutes).toBe(145) // 08:35 -> 11:00 actual departure, same date
+    expect(s.depTerminal).toBe('1')
+    expect(s.depGate).toBe('26')
+    expect(s.arrTerminal).toBe('1')
+    expect(s.arrGate).toBe('C22')
   })
   it('leaves route/delay unset when the raw fields are missing', () => {
     const s = normalizeFlightStatus({ flight_number: 'MH1', status: 'Scheduled' })
     expect(s.route).toBeNull()
     expect(s.delayMinutes).toBeNull()
     expect(s.statusColor).toBe('var(--cp-acc2)')
+    expect(s.depTerminal).toBeNull()
+    expect(s.depGate).toBeNull()
+    expect(s.arrTerminal).toBeNull()
+    expect(s.arrGate).toBeNull()
   })
   it('does not guess a delay across a date rollover', () => {
     const s = normalizeFlightStatus({
@@ -177,6 +185,15 @@ describe('fmtPinged', () => {
 describe('fmtDistBrg', () => {
   it('handles missing geometry', () => { expect(fmtDistBrg(null, null)).toBe('—') })
   it('formats distance and bearing', () => { expect(fmtDistBrg(42.4, 7)).toBe('42 NM · 007°') })
+})
+
+describe('fmtSpeed', () => {
+  it('rounds to the nearest knot', () => { expect(fmtSpeed(294.33313)).toBe('294 kts') })
+})
+
+describe('fmtTrack', () => {
+  it('rounds and pads to 3 digits', () => { expect(fmtTrack(64.653824)).toBe('065°') })
+  it('pads single-digit tracks', () => { expect(fmtTrack(7)).toBe('007°') })
 })
 
 describe('fmtLocalTime', () => {

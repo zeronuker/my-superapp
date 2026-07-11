@@ -9,6 +9,7 @@ import { fmtLocalTime, statusColorFor } from './traffic'
 export function normalizeScheduleFlight(raw, direction) {
   return {
     time: fmtLocalTime(raw.Time, raw.Date),
+    timeHHMM: raw.Time || null, // raw HH:MM, kept separate from the display string for range filtering/sorting
     flight: raw.Flight || '—',
     airline: raw.Airline || null,
     place: (direction === 'arrivals' ? raw.Origin : raw.Destination) || null,

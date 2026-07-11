@@ -97,14 +97,24 @@ const RESOURCES = {
     }
   },
 
-  arrivals: ({ icao }) => {
+  // date/time confirmed live against the RapidAPI console (11 Jul 2026):
+  // date is DD-MM-YYYY, range 5 days back to 1 day forward; time is HH:MM and
+  // acts as a start anchor (returns flights from that time onward), not an
+  // exact match or a range — the upper bound of a range is applied client-side.
+  arrivals: ({ icao, date, time }) => {
     if (!icao) throw new Error('icao query parameter is required')
-    return { path: '/schedules/arrivals', params: { icao: icao.trim().toUpperCase() }, timeoutMs: 15_000, cacheControl: 'no-store, no-cache' }
+    const params = { icao: icao.trim().toUpperCase() }
+    if (date) params.date = date
+    if (time) params.time = time
+    return { path: '/schedules/arrivals', params, timeoutMs: 15_000, cacheControl: 'no-store, no-cache' }
   },
 
-  departures: ({ icao }) => {
+  departures: ({ icao, date, time }) => {
     if (!icao) throw new Error('icao query parameter is required')
-    return { path: '/schedules/departures', params: { icao: icao.trim().toUpperCase() }, timeoutMs: 15_000, cacheControl: 'no-store, no-cache' }
+    const params = { icao: icao.trim().toUpperCase() }
+    if (date) params.date = date
+    if (time) params.time = time
+    return { path: '/schedules/departures', params, timeoutMs: 15_000, cacheControl: 'no-store, no-cache' }
   },
 }
 

@@ -4,7 +4,7 @@ import { haptic } from '../utils/haptic'
 import { lookupAirport, searchAirports } from '../data/airports'
 import { distanceNm, bearingDeg } from '../utils/geo'
 import {
-  fmtAlt, fmtVs, fmtPinged, fmtDistBrg, fmtDelay, fmtWakeCategory,
+  fmtAlt, fmtVs, fmtPinged, fmtDistBrg, fmtSpeed, fmtTrack, fmtDelay, fmtWakeCategory,
   normalizeAircraft, normalizeFlightStatus, normalizeAircraftLookup, normalizeAirline, normalizeAircraftPerformance,
 } from '../utils/traffic'
 import ResetButton from './ResetButton'
@@ -23,6 +23,7 @@ const CARD_FIELDS = [
   { key: 'vertical_rate',    label: 'Vertical rate',         group: 'live' },
   { key: 'squawk',           label: 'Squawk',                group: 'live' },
   { key: 'on_ground',        label: 'On ground flag',        group: 'live' },
+  { key: 'dist_brg',         label: 'Distance/Bearing',      group: 'live' },
   { key: 'pinged',           label: 'Last pinged',           group: 'live' },
   { key: 'type_name',        label: 'Type name',             group: 'lookup' },
   { key: 'manufacturer',     label: 'Manufacturer',          group: 'lookup' },
@@ -47,22 +48,6 @@ const CARD_FIELDS = [
   { key: 'status',           label: 'Status',                group: 'status' },
   { key: 'delay',            label: 'Delay',                 group: 'status' },
 ]
-const ROW_FIELDS = [
-  { key: 'registration',  label: 'Reg' },
-  { key: 'icao24',        label: 'ICAO24' },
-  { key: 'aircraft_type', label: 'Type' },
-  { key: 'altitude',      label: 'Alt' },
-  { key: 'ground_speed',  label: 'GS' },
-  { key: 'track',         label: 'Trk' },
-  { key: 'vertical_rate', label: 'V/S' },
-  { key: 'squawk',        label: 'Squawk' },
-  { key: 'on_ground',     label: 'On Grnd' },
-  { key: 'route',         label: 'Airline' },
-  { key: 'dist_brg',      label: 'Dist/Brg' },
-  { key: 'last_contact',  label: 'Age' },
-  { key: 'status',        label: 'Status' },
-]
-
 // ── Fetch helpers — thin wrappers over the unified /api/skylink proxy ──
 // Response is { aircraft: [...], total_count, timestamp } — not a bare array.
 async function fetchTraffic(lat, lon, radiusNm, signal) {
@@ -138,15 +123,6 @@ function buildPopularAirports() {
     }
   } catch (_) { /* fall through to defaults */ }
   return POPULAR_AIRPORTS.map(icao => enrich(icao, null)).filter(Boolean)
-}
-
-function SectionHeader({ title }) {
-  return (
-    <div className="cp-section-header">
-      <span className="cp-section-title">{title}</span>
-      <div className="cp-divider" />
-    </div>
-  )
 }
 
 export default function TrafficViewer() {
@@ -353,8 +329,6 @@ export default function TrafficViewer() {
   }, [aircraft])
 
   const cf = settings.trafficFields.card
-  const rf = settings.trafficFields.row
-  const activeRowFields = ROW_FIELDS.filter(f => rf[f.key])
 
   // Comma-separated terms — an aircraft matches if ANY term matches ANY of callsign/reg/flight#.
   // In "search anywhere" mode the server already filtered by callsign (first term only,
@@ -383,7 +357,7 @@ export default function TrafficViewer() {
   }
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto' }}>
+    <div style={{ maxWidth: 900, margin: '0 auto' }}>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
         <ResetButton onReset={handleReset} />
@@ -411,264 +385,276 @@ export default function TrafficViewer() {
 
       <div style={isOffline ? { opacity: 0.35, filter: 'grayscale(1)', pointerEvents: 'none' } : undefined}>
 
-      {/* ── Center ── */}
-      <SectionHeader title="Center" />
-      <div style={{ marginBottom: 8 }}>
-        {pickerOpen ? (
-          <div style={{ background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: 10 }}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <input className="cp-input" autoFocus placeholder="Search ICAO, airport, or city…"
-                style={{ flex: 1, borderColor: 'var(--cp-acc)' }}
-                value={pickerQuery} onChange={e => setPickerQuery(e.target.value)} />
-              <button className="cp-btn" onClick={() => { setPickerOpen(false); setPickerQuery('') }}>✕</button>
-            </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '360px auto', gap: 12 }}>
 
-            <button onClick={handleGps} style={{
-              display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
-              background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 6,
-              padding: '8px 12px', cursor: 'pointer', marginBottom: 6,
-            }}>
-              <span style={{ fontSize: 14 }}>⊕</span>
-              <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12, color: 'var(--cp-acc)' }}>Use my current location (GPS)</span>
-            </button>
+        {/* ── Top-left: range view ── */}
+        <div style={{ gridColumn: 1, gridRow: 1, minWidth: 0 }}>
+          <RangeView flights={globalSearch ? globalWithGeo : flightsWithGeo} selectedKey={selectedKey}
+            centerLabel={centerMode === 'gps' ? 'GPS' : centerIcaoResolved} rangeNm={radius} />
+        </div>
 
-            <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, overflow: 'hidden' }}>
-              <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.12em', padding: '6px 12px 4px' }}>
-                {pickerQuery.trim().length >= 2 ? 'RESULTS' : 'POPULAR'}
-              </div>
-              {pickerResults.length === 0 ? (
-                <div style={{ padding: '9px 12px', fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)' }}>No matching airports</div>
-              ) : pickerResults.map((r, i) => (
-                <button key={r.icao} onClick={() => choosePickerAirport(r.icao)} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
-                  background: 'transparent', border: 'none',
-                  borderBottom: i < pickerResults.length - 1 ? '1px solid var(--cp-border)' : 'none',
-                  padding: '9px 12px', cursor: 'pointer', textAlign: 'left',
+        {/* ── Top-right: center / range / search, then results ── */}
+        <div style={{ gridColumn: 2, gridRow: 1, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, minHeight: 0 }}>
+
+          <div>
+            {pickerOpen ? (
+              <div style={{ background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: 10 }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                  <input className="cp-input" autoFocus placeholder="Search ICAO, airport, or city…"
+                    style={{ flex: 1, borderColor: 'var(--cp-acc)' }}
+                    value={pickerQuery} onChange={e => setPickerQuery(e.target.value)} />
+                  <button className="cp-btn" onClick={() => { setPickerOpen(false); setPickerQuery('') }}>✕</button>
+                </div>
+
+                <button onClick={handleGps} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+                  background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 6,
+                  padding: '8px 12px', cursor: 'pointer', marginBottom: 6,
                 }}>
-                  <div>
-                    <div style={{ fontFamily: 'var(--cb-font-body)', fontSize: 13, color: 'var(--cp-txt)' }}>{r.icao} — {r.name}</div>
-                    <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)' }}>{r.city}, {r.country}</div>
-                  </div>
-                  <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>→</span>
+                  <span style={{ fontSize: 14 }}>⊕</span>
+                  <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12, color: 'var(--cp-acc)' }}>Use my current location (GPS)</span>
                 </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setPickerOpen(true)} style={{
-              display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, textAlign: 'left',
-              background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)', borderRadius: 6,
-              padding: '7px 12px', cursor: 'pointer',
-            }}>
-              <span style={{ fontSize: 13, flexShrink: 0 }}>📍</span>
-              <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 13, flex: 1, minWidth: 0, color: 'var(--cp-txt)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{centerLabel}</span>
-              {centerMode === 'gps' && (
-                <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-acc)', flexShrink: 0,
-                  background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 3,
-                  padding: '2px 5px', letterSpacing: '0.1em' }}>GPS</span>
+
+                <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, overflow: 'hidden' }}>
+                  <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.12em', padding: '6px 12px 4px' }}>
+                    {pickerQuery.trim().length >= 2 ? 'RESULTS' : 'POPULAR'}
+                  </div>
+                  {pickerResults.length === 0 ? (
+                    <div style={{ padding: '9px 12px', fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)' }}>No matching airports</div>
+                  ) : pickerResults.map((r, i) => (
+                    <button key={r.icao} onClick={() => choosePickerAirport(r.icao)} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+                      background: 'transparent', border: 'none',
+                      borderBottom: i < pickerResults.length - 1 ? '1px solid var(--cp-border)' : 'none',
+                      padding: '9px 12px', cursor: 'pointer', textAlign: 'left',
+                    }}>
+                      <div>
+                        <div style={{ fontFamily: 'var(--cb-font-body)', fontSize: 13, color: 'var(--cp-txt)' }}>{r.icao} — {r.name}</div>
+                        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)' }}>{r.city}, {r.country}</div>
+                      </div>
+                      <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>→</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setPickerOpen(true)} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, textAlign: 'left',
+                  background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)', borderRadius: 6,
+                  padding: '7px 12px', cursor: 'pointer',
+                }}>
+                  <span style={{ fontSize: 13, flexShrink: 0 }}>📍</span>
+                  <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 13, flex: 1, minWidth: 0, color: 'var(--cp-txt)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{centerLabel}</span>
+                  {centerMode === 'gps' && (
+                    <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-acc)', flexShrink: 0,
+                      background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 3,
+                      padding: '2px 5px', letterSpacing: '0.1em' }}>GPS</span>
+                  )}
+                </button>
+                <select value={radius} onChange={e => setRadius(Number(e.target.value))} style={{
+                  background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)', borderRadius: 6, flexShrink: 0,
+                  color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)', fontSize: 12, padding: '7px 8px', cursor: 'pointer',
+                }}>
+                  <option value={25}>25 NM</option>
+                  <option value={50}>50 NM</option>
+                  <option value={100}>100 NM</option>
+                  <option value={250}>250 NM</option>
+                  <option value={500}>500 NM</option>
+                </select>
+              </div>
+            )}
+            {gpsError && (
+              <div style={{ fontSize: 10, color: 'var(--cp-orange)', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.06em', marginTop: 6 }}>
+                {gpsError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <input className="cp-input" style={{ flex: 1, minWidth: 120, fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase' }}
+                placeholder={globalSearch ? '🌐 Search callsign, anywhere…' : '🔍 Search callsign, reg, flight #'}
+                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+              {searchQuery && (
+                <button className="cp-btn" style={{ padding: '7px 10px', flexShrink: 0 }} onClick={() => setSearchQuery('')}>✕</button>
               )}
-            </button>
-            <select value={radius} onChange={e => setRadius(Number(e.target.value))} style={{
-              background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)', borderRadius: 6, flexShrink: 0,
-              color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)', fontSize: 12, padding: '7px 8px', cursor: 'pointer',
-            }}>
-              <option value={25}>25 NM</option>
-              <option value={50}>50 NM</option>
-              <option value={100}>100 NM</option>
-              <option value={250}>250 NM</option>
-              <option value={500}>500 NM</option>
-            </select>
+              <button title={globalSearch ? 'Searching worldwide — tap to search only within range' : 'Search worldwide instead of just within range'}
+                onClick={() => setGlobalSearch(v => !v)} style={{
+                width: 34, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: globalSearch ? 'var(--cp-accdim)' : 'transparent',
+                border: `1px solid ${globalSearch ? 'var(--cp-acc)' : 'var(--cp-border)'}`, borderRadius: 6,
+                color: globalSearch ? 'var(--cp-acc)' : 'var(--cp-dim)', cursor: 'pointer', fontSize: 15,
+              }}>🌐</button>
+              <button title="Show/Hide Fields" onClick={() => setFieldsOpen(true)} style={{
+                width: 34, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'transparent', border: '1px solid var(--cp-border)', borderRadius: 6,
+                color: 'var(--cp-dim)', cursor: 'pointer', fontSize: 15,
+              }}>⚙</button>
+            </div>
+
+            {globalSearch && globalError && (
+              <div style={{
+                background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.25)',
+                borderLeft: '3px solid var(--cp-red)', borderRadius: 4, padding: '8px 14px', marginTop: 8,
+                fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--cp-red)',
+              }}>⚠ {globalError}</div>
+            )}
           </div>
-        )}
-        {gpsError && (
-          <div style={{ fontSize: 10, color: 'var(--cp-orange)', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.06em', marginTop: 6 }}>
-            {gpsError}
+
+          {/* ── Results ── */}
+          <div style={{ flex: 1, minHeight: 0, overflow: 'auto', background: 'var(--cp-bg3)', borderRadius: 6, padding: 8 }}>
+            {(globalSearch ? globalLoading : loading) ? (
+              <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
+                fontSize: 11, letterSpacing: '0.1em', padding: '20px 0' }}>
+                {globalSearch ? 'SEARCHING WORLDWIDE…' : 'LOADING TRAFFIC…'}
+              </div>
+            ) : Object.keys(filteredFlights).length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
+                fontSize: 11, letterSpacing: '0.1em', padding: '20px 0' }}>
+                {globalSearch
+                  ? (searchQuery.trim().length >= 2 ? 'NO MATCHING AIRCRAFT FOUND WORLDWIDE' : 'TYPE A CALLSIGN TO SEARCH WORLDWIDE')
+                  : (searchTerms.length ? 'NO MATCHING AIRCRAFT — CLEAR THE SEARCH TO SEE THE FULL LIST' : 'NO TRAFFIC WITHIN RANGE')}
+              </div>
+            ) : (
+              <table className="cp-table" style={{ width: '100%' }}>
+                <thead><tr><th>Callsign</th><th>Reg</th><th>Type</th></tr></thead>
+                <tbody>
+                  {Object.entries(filteredFlights).map(([key, f]) => (
+                    <tr key={key} className={key === selectedKey ? 'active' : ''} style={{ cursor: 'pointer' }}
+                      onClick={() => selectRow(key)}>
+                      <td style={{ fontFamily: 'var(--cb-font-mono)', fontWeight: 700, padding: '7px 8px' }}>{f.callsign}</td>
+                      <td>{f.registration}</td>
+                      <td>{f.aircraft_type}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
-        )}
+        </div>
+
+        {/* ── Bottom-center: aircraft/flight details ── */}
+        <div style={{ gridColumn: '1 / span 2', gridRow: 2, minWidth: 0 }}>
+          {selected ? (
+            <FlightStatusPanel f={selected} cf={cf} now={now}
+              lookup={selectedDetails?.lookup} airlineInfo={selectedDetails?.airlineInfo} performance={selectedDetails?.performance}
+              flightStatus={selectedDetails?.flightStatus} detailsLoading={!!selectedDetails?.loading}
+              pinging={pingingKey === selectedKey} onPing={() => pingFlight(selectedKey)} />
+          ) : (
+            <div className="cp-card-accent" style={{ textAlign: 'center', color: 'var(--cp-dim)',
+              fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.1em' }}>
+              SELECT AN AIRCRAFT FROM THE RESULTS TO VIEW DETAILS
+            </div>
+          )}
+        </div>
+
       </div>
-
-      {/* ── Radar map ── */}
-      <RadarMap flights={globalSearch ? globalWithGeo : flightsWithGeo} selectedKey={selectedKey} centerLabel={centerMode === 'gps' ? 'GPS' : centerIcaoResolved} />
-
-      {/* ── Table toolbar: search + display settings, right where they act ── */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-        <input className="cp-input" style={{ flex: 1, minWidth: 160, fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase' }}
-          placeholder={globalSearch ? '🌐 Search any callsign, anywhere in the world…' : '🔍 Search callsign, reg, flight # — comma for multiple'}
-          value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-        {searchQuery && (
-          <button className="cp-btn" style={{ padding: '7px 10px', flexShrink: 0 }} onClick={() => setSearchQuery('')}>✕</button>
-        )}
-        <button title={globalSearch ? 'Searching worldwide — tap to search only within range' : 'Search worldwide instead of just within range'}
-          onClick={() => setGlobalSearch(v => !v)} style={{
-          width: 34, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: globalSearch ? 'var(--cp-accdim)' : 'transparent',
-          border: `1px solid ${globalSearch ? 'var(--cp-acc)' : 'var(--cp-border)'}`, borderRadius: 6,
-          color: globalSearch ? 'var(--cp-acc)' : 'var(--cp-dim)', cursor: 'pointer', fontSize: 15,
-        }}>🌐</button>
-        <button title="Show/Hide Fields" onClick={() => setFieldsOpen(true)} style={{
-          width: 34, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'transparent', border: '1px solid var(--cp-border)', borderRadius: 6,
-          color: 'var(--cp-dim)', cursor: 'pointer', fontSize: 15,
-        }}>⚙</button>
-      </div>
-
-      {globalSearch && globalError && (
-        <div style={{
-          background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.25)',
-          borderLeft: '3px solid var(--cp-red)', borderRadius: 4, padding: '8px 14px', marginBottom: 12,
-          fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--cp-red)',
-        }}>⚠ {globalError}</div>
-      )}
-
-      {/* ── Table ── */}
-      {(globalSearch ? globalLoading : loading) ? (
-        <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
-          fontSize: 11, letterSpacing: '0.1em', padding: '20px 0' }}>
-          {globalSearch ? 'SEARCHING WORLDWIDE…' : 'LOADING TRAFFIC…'}
-        </div>
-      ) : Object.keys(filteredFlights).length === 0 ? (
-        <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
-          fontSize: 11, letterSpacing: '0.1em', padding: '20px 0' }}>
-          {globalSearch
-            ? (searchQuery.trim().length >= 2 ? 'NO MATCHING AIRCRAFT FOUND WORLDWIDE' : 'TYPE A CALLSIGN TO SEARCH WORLDWIDE')
-            : (searchTerms.length ? 'NO MATCHING AIRCRAFT — CLEAR THE SEARCH TO SEE THE FULL LIST' : 'NO TRAFFIC WITHIN RANGE')}
-        </div>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="cp-table" style={{ minWidth: 480 }}>
-            <thead><tr><th>Callsign</th>{activeRowFields.map(f => <th key={f.key}>{f.label}</th>)}</tr></thead>
-            <tbody>
-              {Object.entries(filteredFlights).map(([key, f]) => (
-                <tr key={key} className={key === selectedKey ? 'active' : ''} style={{ cursor: 'pointer' }}
-                  onClick={() => selectRow(key)}>
-                  <td style={{ fontFamily: 'var(--cb-font-mono)', fontWeight: 700, padding: '7px 8px' }}>{f.callsign}</td>
-                  {activeRowFields.map(fld => <RowCell key={fld.key} field={fld.key} f={f} now={now} status={detailsCache[key]?.flightStatus} />)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ── Flight status panel ── */}
-      {selected && (
-        <div style={{ marginTop: 16 }}>
-          <FlightStatusPanel f={selected} cf={cf} now={now}
-            lookup={selectedDetails?.lookup} airlineInfo={selectedDetails?.airlineInfo} performance={selectedDetails?.performance}
-            flightStatus={selectedDetails?.flightStatus} detailsLoading={!!selectedDetails?.loading}
-            pinging={pingingKey === selectedKey} onPing={() => pingFlight(selectedKey)} />
-        </div>
-      )}
 
       </div>
 
       {fieldsOpen && !isOffline && (
-        <FieldsModal cf={cf} rf={rf}
+        <FieldsModal cf={cf}
           onToggleCard={(key, val) => updateSettings({ trafficFields: { ...settings.trafficFields, card: { ...cf, [key]: val } } })}
-          onToggleRow={(key, val) => updateSettings({ trafficFields: { ...settings.trafficFields, row: { ...rf, [key]: val } } })}
           onClose={() => setFieldsOpen(false)} />
       )}
     </div>
   )
 }
 
-// ── Table cell ───────────────────────────────────────────────────────────────
-function RowCell({ field, f, now, status }) {
-  switch (field) {
-    case 'registration':  return <td>{f.registration}</td>
-    case 'icao24':        return <td>{f.icao24}</td>
-    case 'aircraft_type': return <td>{f.aircraft_type}</td>
-    case 'altitude': {
-      const color = f.vertical_rate > 100 ? 'var(--cp-green)' : f.vertical_rate < -100 ? 'var(--cp-orange)' : 'var(--cp-dim)'
-      const arrow = f.vertical_rate > 100 ? ' ↑' : f.vertical_rate < -100 ? ' ↓' : ''
-      return <td style={{ color }}>{fmtAlt(f.altitude_ft)}{arrow}</td>
-    }
-    case 'ground_speed':  return <td>{f.ground_speed_kts}</td>
-    case 'track':         return <td>{f.track}°</td>
-    case 'vertical_rate': return <td>{f.vertical_rate > 0 ? '+' : ''}{f.vertical_rate} fpm</td>
-    case 'squawk':        return <td>{f.squawk}</td>
-    case 'on_ground':     return <td>{f.on_ground ? 'GND' : 'AIR'}</td>
-    case 'route':         return <td>{f.airline || '—'}</td>
-    case 'dist_brg':      return <td>{fmtDistBrg(f.distNm, f.brgDeg)}</td>
-    case 'last_contact':  return <td>{fmtPinged(f.pingedAt, now)}</td>
-    case 'status':        return <td>{status ? `${status.flight} ${status.status}` : '—'}</td>
-    default: return <td />
-  }
-}
-
-// ── Radar map ────────────────────────────────────────────────────────────────
+// ── Range view — square, fills its pane edge-to-edge ───────────────────────
 // Past this many plotted contacts, callsign labels overlap into an unreadable
-// mess — switch to a text summary and let the table (below) carry the load.
+// mess — switch to a text summary and let the results list carry the load.
 const CLUTTER_THRESHOLD = 60
-const TICK_ANGLES = [30, 60, 120, 150, 210, 240, 300, 330]
-function radarXY(distNm, brgDeg, cx, cy, rOuter, maxRangeNm) {
-  const r = Math.max(10, Math.min(rOuter - 6, (distNm / maxRangeNm) * rOuter))
+// CSS-percentage position within the square, center-anchored. maxRangeNm always
+// covers the farthest plotted contact, so r <= 1 and the offset never exceeds HALF.
+const HALF = 44
+function squareXY(distNm, brgDeg, maxRangeNm) {
+  const r = Math.min(1, distNm / maxRangeNm)
   const rad = brgDeg * Math.PI / 180
-  return { x: cx + r * Math.sin(rad), y: cy - r * Math.cos(rad) }
+  return { left: 50 + Math.sin(rad) * r * HALF, top: 50 - Math.cos(rad) * r * HALF }
 }
-function RadarMap({ flights, selectedKey, centerLabel }) {
-  const cx = 190, cy = 190, rOuter = 170, rIn = 162
+function RangeView({ flights, selectedKey, centerLabel, rangeNm }) {
   const withPos = Object.entries(flights).filter(([, f]) => f.distNm != null)
   const maxRangeNm = Math.max(20, ...withPos.map(([, f]) => f.distNm), 0)
   const selected = selectedKey ? flights[selectedKey] : null
 
   if (withPos.length > CLUTTER_THRESHOLD) {
     return (
-      <div style={{ background: 'var(--cp-bg3)', borderRadius: 6, padding: '32px 20px', textAlign: 'center', marginBottom: 20 }}>
+      <div style={{ background: 'var(--cp-bg3)', borderRadius: 6, height: '100%', display: 'flex',
+        flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 20 }}>
         <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12, letterSpacing: '0.1em', color: 'var(--cp-orange)', marginBottom: 6 }}>
           ⚠ {withPos.length} CONTACTS — TOO MANY TO PLOT
         </div>
         <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.04em' }}>
-          Narrow the range for a radar view — the full list is in the table below
+          Narrow the range for a plot — the full list is in the results pane
         </div>
       </div>
     )
   }
 
   return (
-    <div style={{ background: 'var(--cp-bg3)', borderRadius: 6, padding: 14, display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-      <svg style={{ width: '100%', maxWidth: 360, height: 'auto' }} viewBox="-20 -20 420 420">
-        <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="var(--cp-border2)" strokeWidth="1" />
-        <circle cx={cx} cy={cy} r="110" fill="none" stroke="var(--cp-border2)" strokeWidth="1" />
-        <circle cx={cx} cy={cy} r="50" fill="none" stroke="var(--cp-border2)" strokeWidth="1" />
-        <line x1={cx} y1="20" x2={cx} y2="360" stroke="var(--cp-border3)" strokeWidth="1" />
-        <line x1="20" y1={cy} x2="360" y2={cy} stroke="var(--cp-border3)" strokeWidth="1" />
-        {TICK_ANGLES.map(deg => {
-          const rad = (deg - 90) * Math.PI / 180
-          const x1 = cx + rIn * Math.cos(rad), y1 = cy + rIn * Math.sin(rad)
-          const x2 = cx + rOuter * Math.cos(rad), y2 = cy + rOuter * Math.sin(rad)
-          return <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--cp-border2)" strokeWidth="1" />
-        })}
-        <text x={cx} y="6" fill="var(--cp-muted)" fontSize="12" fontWeight="700" fontFamily="var(--cb-font-mono)" textAnchor="middle">N</text>
-        <text x={cx} y="384" fill="var(--cp-dim)" fontSize="12" fontWeight="700" fontFamily="var(--cb-font-mono)" textAnchor="middle">S</text>
-        <text x="8" y="195" fill="var(--cp-dim)" fontSize="12" fontWeight="700" fontFamily="var(--cb-font-mono)" textAnchor="middle">W</text>
-        <text x="372" y="195" fill="var(--cp-dim)" fontSize="12" fontWeight="700" fontFamily="var(--cb-font-mono)" textAnchor="middle">E</text>
-        <circle cx={cx} cy={cy} r="4" fill="var(--cp-acc)" />
-        <text x={cx + 8} y={cy + 4} fill="var(--cp-acc)" fontSize="10" fontFamily="var(--cb-font-mono)">{centerLabel}</text>
-        {withPos.map(([key, f]) => {
-          const color = f.vertical_rate > 100 ? 'var(--cp-green)' : f.vertical_rate < -100 ? 'var(--cp-orange)' : 'var(--cp-dim)'
-          const { x, y } = radarXY(f.distNm, f.brgDeg, cx, cy, rOuter, maxRangeNm)
-          return (
-            <g key={key}>
-              <g transform={`translate(${x},${y}) rotate(${f.track})`}><path d="M0,-9 L6,7 L0,4 L-6,7 Z" fill={color} /></g>
-              <text x={x + 8} y={y - 4} fill={color} fontSize="9" fontFamily="var(--cb-font-mono)">{f.callsign}</text>
-            </g>
-          )
-        })}
-        {selected && selected.distNm != null && (() => {
-          const p = radarXY(selected.distNm, selected.brgDeg, cx, cy, rOuter, maxRangeNm)
-          return <circle cx={p.x} cy={p.y} r="15" fill="none" stroke="var(--cp-acc)"
-            strokeWidth="2" strokeDasharray="3 3" style={{ animation: 'trafficSelPulse 1.1s ease-in-out infinite' }} />
-        })()}
-      </svg>
+    <div style={{
+      position: 'relative', height: '100%', border: '1px solid var(--cp-border2)', borderRadius: 6, overflow: 'hidden',
+      backgroundColor: 'var(--cp-bg3)',
+      backgroundImage: 'linear-gradient(var(--cp-border3) 1px, transparent 1px), linear-gradient(90deg, var(--cp-border3) 1px, transparent 1px)',
+      backgroundSize: '25% 25%',
+    }}>
+      <div style={{ position: 'absolute', top: 8, left: 10, fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.14em', color: 'var(--cp-dim)' }}>
+        {rangeNm} NM
+      </div>
+      <div style={{ position: 'absolute', top: 6, left: '50%', transform: 'translateX(-50%)', fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700, color: 'var(--cp-muted)' }}>N</div>
+      <div style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700, color: 'var(--cp-dim)' }}>S</div>
+      <div style={{ position: 'absolute', left: 6, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700, color: 'var(--cp-dim)' }}>W</div>
+      <div style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700, color: 'var(--cp-dim)' }}>E</div>
+
+      <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 8, height: 8, borderRadius: '50%', background: 'var(--cp-acc)' }} />
+      <div style={{ position: 'absolute', left: 'calc(50% + 8px)', top: 'calc(50% - 6px)', fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-acc)' }}>{centerLabel}</div>
+
+      {withPos.map(([key, f]) => {
+        const color = f.vertical_rate > 100 ? 'var(--cp-green)' : f.vertical_rate < -100 ? 'var(--cp-orange)' : 'var(--cp-dim)'
+        const { left, top } = squareXY(f.distNm, f.brgDeg, maxRangeNm)
+        return (
+          <div key={key} style={{ position: 'absolute', left: `${left}%`, top: `${top}%`, transform: 'translate(-50%,-50%)' }}>
+            <div style={{
+              width: 0, height: 0, transform: `rotate(${f.track}deg)`,
+              borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderBottom: `9px solid ${color}`,
+            }} />
+            <span style={{ position: 'absolute', left: 8, top: -4, whiteSpace: 'nowrap', fontFamily: 'var(--cb-font-mono)', fontSize: 9, color }}>{f.callsign}</span>
+          </div>
+        )
+      })}
+
+      {selected && selected.distNm != null && (() => {
+        const { left, top } = squareXY(selected.distNm, selected.brgDeg, maxRangeNm)
+        return <div style={{
+          position: 'absolute', left: `${left}%`, top: `${top}%`, transform: 'translate(-50%,-50%)',
+          width: 26, height: 26, borderRadius: '50%', border: '2px dashed var(--cp-acc)',
+          animation: 'trafficSelPulse 1.1s ease-in-out infinite',
+        }} />
+      })()}
       <style>{'@keyframes trafficSelPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }'}</style>
     </div>
   )
 }
 
-// ── Flight status panel ─────────────────────────────────────────────────────
+// ── Flight status panel — wrapping grid, one labeled cell per checked field ──
+function FieldGrid({ items }) {
+  if (items.length === 0) return null
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: '10px 16px' }}>
+      {items.map(([k, v]) => (
+        <div key={k}>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cp-dim)', marginBottom: 3 }}>{k}</div>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, color: 'var(--cp-txt)' }}>{v}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+function GroupLabel({ children }) {
+  return <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cp-dim)', marginBottom: 8 }}>{children}</div>
+}
+
 function FlightStatusPanel({ f, cf, now, lookup, airlineInfo, performance, flightStatus, detailsLoading, pinging, onPing }) {
   const subParts = []
   if (cf.registration) subParts.push(f.registration)
@@ -676,52 +662,53 @@ function FlightStatusPanel({ f, cf, now, lookup, airlineInfo, performance, fligh
   if (cf.icao24) subParts.push(`icao24 ${f.icao24}`)
   if (f.airline) subParts.push(f.airline)
 
-  const liveParts = []
-  if (cf.altitude) liveParts.push(fmtAlt(f.altitude_ft))
-  if (cf.ground_speed) liveParts.push(`${f.ground_speed_kts} kts`)
-  if (cf.track) liveParts.push(`trk ${f.track}°`)
-  if (cf.vertical_rate) liveParts.push(fmtVs(f.vertical_rate))
-  if (cf.squawk) liveParts.push(`sqk ${f.squawk}`)
-  if (cf.on_ground) liveParts.push(f.on_ground ? 'ON GROUND' : 'AIRBORNE')
+  const liveItems = []
+  if (cf.altitude) liveItems.push(['Alt', fmtAlt(f.altitude_ft)])
+  if (cf.ground_speed) liveItems.push(['GS', fmtSpeed(f.ground_speed_kts)])
+  if (cf.track) liveItems.push(['Trk', fmtTrack(f.track)])
+  if (cf.vertical_rate) liveItems.push(['V/S', fmtVs(f.vertical_rate)])
+  if (cf.squawk) liveItems.push(['Squawk', f.squawk])
+  if (cf.on_ground) liveItems.push(['On ground', f.on_ground ? 'ON GROUND' : 'AIRBORNE'])
+  if (cf.dist_brg) liveItems.push(['Dist/Brg', fmtDistBrg(f.distNm, f.brgDeg)])
 
-  const lookupLine2 = [], lookupLine3 = []
-  let anyLookup = false
-  const showLogo = cf.operator && !!airlineInfo?.logo
+  const lookupItems = []
+  let showLogo = false
   if (lookup) {
-    if (cf.manufacturer && lookup.manufacturer) lookupLine2.push(lookup.manufacturer)
-    if (cf.operator && lookup.operator) lookupLine2.push(lookup.operator + (cf.operator_icao && lookup.operator_icao ? ` (${lookup.operator_icao})` : ''))
-    if (cf.operator_iata && airlineInfo?.iata) lookupLine2.push(airlineInfo.iata)
-    if (cf.country && airlineInfo?.country) lookupLine2.push(airlineInfo.country)
+    if (cf.manufacturer && lookup.manufacturer) lookupItems.push(['Manufacturer', lookup.manufacturer])
+    if (cf.operator && lookup.operator) lookupItems.push(['Operator', lookup.operator + (cf.operator_icao && lookup.operator_icao ? ` (${lookup.operator_icao})` : '')])
+    if (cf.operator_iata && airlineInfo?.iata) lookupItems.push(['Operator IATA', airlineInfo.iata])
+    if (cf.country && airlineInfo?.country) lookupItems.push(['Country', airlineInfo.country])
     if (cf.engine_type && performance?.engineType) {
-      lookupLine3.push(performance.engineCode ? `${performance.engineType} (${performance.engineCode})` : performance.engineType)
+      lookupItems.push(['Engine', performance.engineCode ? `${performance.engineType} (${performance.engineCode})` : performance.engineType])
     }
-    if (cf.wake_category && performance?.wakeCategory) lookupLine3.push(`wake ${fmtWakeCategory(performance.wakeCategory)}`)
-    if (cf.cruise_speed && performance?.cruiseSpeedKt) lookupLine3.push(`${performance.cruiseSpeedKt} kt cruise`)
-    if (cf.max_range && performance?.maxRangeNm) lookupLine3.push(`${performance.maxRangeNm.toLocaleString()} NM range`)
-    if (cf.service_ceiling && performance?.serviceCeilingFt) lookupLine3.push(`${fmtAlt(performance.serviceCeilingFt)} ceiling`)
-    if (cf.wingspan && performance?.wingSpanM) lookupLine3.push(`${performance.wingSpanM} m span`)
-    if (cf.length && performance?.lengthM) lookupLine3.push(`${performance.lengthM} m long`)
-    if (cf.mtow && performance?.mtowT) lookupLine3.push(`MTOW ${performance.mtowT} t`)
-    if (cf.year_manufactured && lookup.year_manufactured) lookupLine3.push(`built ${lookup.year_manufactured}`)
-    if (cf.serial_number && lookup.serial_number) lookupLine3.push(`s/n ${lookup.serial_number}`)
-    anyLookup = (cf.type_name && lookup.type_name) || lookupLine2.length || lookupLine3.length
+    if (cf.wake_category && performance?.wakeCategory) lookupItems.push(['Wake', fmtWakeCategory(performance.wakeCategory)])
+    if (cf.cruise_speed && performance?.cruiseSpeedKt) lookupItems.push(['Cruise', `${performance.cruiseSpeedKt} kt`])
+    if (cf.max_range && performance?.maxRangeNm) lookupItems.push(['Max range', `${performance.maxRangeNm.toLocaleString()} NM`])
+    if (cf.service_ceiling && performance?.serviceCeilingFt) lookupItems.push(['Ceiling', fmtAlt(performance.serviceCeilingFt)])
+    if (cf.wingspan && performance?.wingSpanM) lookupItems.push(['Wingspan', `${performance.wingSpanM} m`])
+    if (cf.length && performance?.lengthM) lookupItems.push(['Length', `${performance.lengthM} m`])
+    if (cf.mtow && performance?.mtowT) lookupItems.push(['MTOW', `${performance.mtowT} t`])
+    if (cf.year_manufactured && lookup.year_manufactured) lookupItems.push(['Built', lookup.year_manufactured])
+    if (cf.serial_number && lookup.serial_number) lookupItems.push(['S/N', lookup.serial_number])
+    showLogo = cf.operator && !!airlineInfo?.logo
   }
+  const showTypeName = !!(lookup && cf.type_name && lookup.type_name)
 
-  const statusGrid = []
+  const statusItems = []
   if (flightStatus) {
-    if (cf.flight_number) statusGrid.push(['Flight', flightStatus.flight])
-    if (flightStatus.route) statusGrid.push(['Route', flightStatus.route])
-    if (cf.airline && flightStatus.airline) statusGrid.push(['Airline', flightStatus.airline])
+    if (cf.flight_number) statusItems.push(['Flight', flightStatus.flight])
+    if (flightStatus.route) statusItems.push(['Route', flightStatus.route])
+    if (cf.airline && flightStatus.airline) statusItems.push(['Airline', flightStatus.airline])
     if (cf.scheduled) {
-      if (flightStatus.schedDep) statusGrid.push(['Sched Dep', flightStatus.schedDep])
-      if (flightStatus.schedArr) statusGrid.push(['Sched Arr', flightStatus.schedArr])
+      if (flightStatus.schedDep) statusItems.push(['Sched Dep', flightStatus.schedDep])
+      if (flightStatus.schedArr) statusItems.push(['Sched Arr', flightStatus.schedArr])
     }
-    if (cf.estimated && flightStatus.estArr) statusGrid.push(['Est Arr', flightStatus.estArr])
+    if (cf.estimated && flightStatus.estArr) statusItems.push(['Est Arr', flightStatus.estArr])
     if (cf.delay) {
       const delayLabel = fmtDelay(flightStatus.delayMinutes)
-      if (delayLabel) statusGrid.push(['Delay', <span style={{ color: flightStatus.delayMinutes > 0 ? 'var(--cp-orange)' : 'var(--cp-txt)' }}>{delayLabel}</span>])
+      if (delayLabel) statusItems.push(['Delay', <span style={{ color: flightStatus.delayMinutes > 0 ? 'var(--cp-orange)' : 'var(--cp-txt)' }}>{delayLabel}</span>])
     }
-    if (cf.status) statusGrid.push(['Status', <span style={{ color: flightStatus.statusColor }}>{flightStatus.status}</span>])
+    if (cf.status) statusItems.push(['Status', <span style={{ color: flightStatus.statusColor }}>{flightStatus.status}</span>])
   }
 
   return (
@@ -735,8 +722,15 @@ function FlightStatusPanel({ f, cf, now, lookup, airlineInfo, performance, fligh
           {pinging ? 'PINGING…' : '⟳ PING'}
         </button>
       </div>
-      {liveParts.length > 0 && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12, color: 'var(--cp-txt)', marginBottom: 4 }}>{liveParts.join(' · ')}</div>}
       {cf.pinged && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)' }}>{fmtPinged(f.pingedAt, now)}</div>}
+
+      {liveItems.length > 0 && (
+        <>
+          <div style={{ borderTop: '1px solid var(--cp-border3)', margin: '12px 0' }} />
+          <GroupLabel>Live position</GroupLabel>
+          <FieldGrid items={liveItems} />
+        </>
+      )}
 
       {detailsLoading && (
         <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 10 }}>Loading aircraft info…</div>
@@ -745,34 +739,27 @@ function FlightStatusPanel({ f, cf, now, lookup, airlineInfo, performance, fligh
       {!detailsLoading && (
         <>
           <div style={{ borderTop: '1px solid var(--cp-border3)', margin: '12px 0' }} />
-          {statusGrid.length > 0
-            ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '12px 16px' }}>
-                {statusGrid.map(([k, v]) => (
-                  <div key={k}>
-                    <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cp-dim)', marginBottom: 3 }}>{k}</div>
-                    <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, color: 'var(--cp-txt)' }}>{v}</div>
-                  </div>
-                ))}
-              </div>
+          <GroupLabel>Flight status</GroupLabel>
+          {statusItems.length > 0
+            ? <FieldGrid items={statusItems} />
             : <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', lineHeight: 1.6 }}>
                 No matching SkyLink flight_status record for this callsign (private/VFR traffic, or not currently scheduled).
               </div>}
 
-          {anyLookup && (
+          {(showTypeName || lookupItems.length > 0) && (
             <>
               <div style={{ borderTop: '1px solid var(--cp-border3)', margin: '12px 0' }} />
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div style={{ flexShrink: 0, width: 38, height: 38, borderRadius: 6, background: 'var(--cp-bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: 'var(--cp-dim)', overflow: 'hidden' }}>
-                  {showLogo && (
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                {showLogo && (
+                  <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 6, background: 'var(--cp-bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                     <img src={airlineInfo.logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                      onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling.style.display = 'block' }} />
-                  )}
-                  <span style={{ display: showLogo ? 'none' : 'block' }}>✈</span>
-                </div>
-                <div>
-                  {cf.type_name && lookup.type_name && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--cp-txt)' }}>{lookup.type_name}</div>}
-                  {lookupLine2.length > 0 && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 2 }}>{lookupLine2.join(' · ')}</div>}
-                  {lookupLine3.length > 0 && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 2 }}>{lookupLine3.join(' · ')}</div>}
+                      onError={e => { e.currentTarget.style.display = 'none' }} />
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <GroupLabel>Aircraft lookup</GroupLabel>
+                  {showTypeName && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--cp-txt)', marginBottom: 8 }}>{lookup.type_name}</div>}
+                  <FieldGrid items={lookupItems} />
                 </div>
               </div>
             </>
@@ -798,7 +785,7 @@ function FieldGroup({ title, fields, state, onToggle }) {
   )
 }
 
-function FieldsModal({ cf, rf, onToggleCard, onToggleRow, onClose }) {
+function FieldsModal({ cf, onToggleCard, onClose }) {
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()} style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex',
@@ -806,21 +793,16 @@ function FieldsModal({ cf, rf, onToggleCard, onToggleRow, onClose }) {
     }}>
       <div style={{
         background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 8,
-        width: 520, maxWidth: '100%', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+        width: 340, maxWidth: '100%', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--cp-border)', position: 'sticky', top: 0, background: 'var(--cp-bg2)' }}>
           <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--cp-acc)' }}>Show/Hide Fields</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--cp-dim)', fontSize: 16, cursor: 'pointer', padding: '2px 6px' }}>✕</button>
         </div>
-        <div style={{ display: 'flex', gap: 28, padding: '16px 20px 20px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <FieldGroup title="Info card — Live position" fields={CARD_FIELDS.filter(f => f.group === 'live')} state={cf} onToggle={onToggleCard} />
-            <FieldGroup title="Info card — Aircraft lookup" fields={CARD_FIELDS.filter(f => f.group === 'lookup')} state={cf} onToggle={onToggleCard} />
-            <FieldGroup title="Info card — Flight status" fields={CARD_FIELDS.filter(f => f.group === 'status')} state={cf} onToggle={onToggleCard} />
-          </div>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <FieldGroup title="Table row columns" fields={ROW_FIELDS} state={rf} onToggle={onToggleRow} />
-          </div>
+        <div style={{ padding: '16px 20px 20px' }}>
+          <FieldGroup title="Live position" fields={CARD_FIELDS.filter(f => f.group === 'live')} state={cf} onToggle={onToggleCard} />
+          <FieldGroup title="Aircraft lookup" fields={CARD_FIELDS.filter(f => f.group === 'lookup')} state={cf} onToggle={onToggleCard} />
+          <FieldGroup title="Flight status" fields={CARD_FIELDS.filter(f => f.group === 'status')} state={cf} onToggle={onToggleCard} />
         </div>
       </div>
     </div>
