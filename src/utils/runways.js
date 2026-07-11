@@ -14,7 +14,7 @@ export function fmtSurface(code) { return SURFACE_LABEL[code] || code || 'Unknow
 // with its own reciprocal heading, threshold, and closed/lighting state.
 export function normalizeRunways(raw) {
   if (!Array.isArray(raw)) return []
-  return raw.map(r => ({
+  return raw.filter(Boolean).map(r => ({
     name: r.name || '—',
     headingDeg: typeof r.trueHdg === 'number' ? Math.round(r.trueHdg) : null,
     lengthM: typeof r.length?.meter === 'number' ? Math.round(r.length.meter) : null,
@@ -41,4 +41,14 @@ export function fmtWindComponent(wc) {
   if (!wc) return '—'
   if (wc.crosswind > Math.abs(wc.headwind)) return `${wc.crosswind} kt XW`
   return wc.headwind >= 0 ? `+${wc.headwind} kt HW` : `${Math.abs(wc.headwind)} kt TW`
+}
+
+// Severity token for colour-coding a runway row — derived from the raw
+// headwind/crosswind numbers (not the formatted label) so it can't drift
+// out of sync with fmtWindComponent's display format.
+export function windSeverity(wc, closed) {
+  if (closed) return 'closed'
+  if (!wc) return 'none'
+  if (wc.crosswind > Math.abs(wc.headwind)) return 'crosswind'
+  return wc.headwind < 0 ? 'tailwind' : 'headwind'
 }

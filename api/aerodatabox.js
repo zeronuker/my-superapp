@@ -28,6 +28,7 @@ export default async function handler(req, res) {
   } else if (icao || iata) {
     const codeType = icao ? 'icao' : 'iata'
     const code = String(icao || iata).trim().toUpperCase()
+    if (!code) return res.status(400).json({ error: 'icao/iata query parameter is required' })
     path = `/airports/${codeType}/${encodeURIComponent(code)}/runways`
     // Runway layouts change rarely — cache a week to stay well within the free tier.
     cacheControl = 'public, max-age=604800, stale-while-revalidate=2592000'
@@ -44,7 +45,9 @@ export default async function handler(req, res) {
       signal: AbortSignal.timeout(8000),
     })
     if (upstream.status === 204) {
-      res.setHeader('Cache-Control', cacheControl)
+      // Don't apply the week-long runway cache to an empty/absent result —
+      // a transient upstream gap shouldn't get stuck cached as "no data".
+      res.setHeader('Cache-Control', 'no-store, no-cache')
       return res.status(200).json(flight ? null : [])
     }
     if (!upstream.ok) {

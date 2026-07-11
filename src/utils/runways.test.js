@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeRunways, fmtSurface, windComponents, fmtWindComponent } from './runways'
+import { normalizeRunways, fmtSurface, windComponents, fmtWindComponent, windSeverity } from './runways'
 
 // Shape confirmed against AeroDataBox's /airports/{codeType}/{code}/runways
 // response (RapidAPI console, WMKK, 11 Jul 2026).
@@ -21,12 +21,18 @@ describe('normalizeRunways', () => {
     expect(normalizeRunways(null)).toEqual([])
     expect(normalizeRunways(undefined)).toEqual([])
   })
+  it('skips null/malformed entries instead of throwing', () => {
+    expect(normalizeRunways([null, RAW_RUNWAYS[0]])).toHaveLength(1)
+  })
 })
 
 describe('fmtSurface', () => {
   it('expands DryLakebed to two words', () => { expect(fmtSurface('DryLakebed')).toBe('Dry Lakebed') })
-  it('passes through known single-word surfaces', () => { expect(fmtSurface('Asphalt')).toBe('Asphalt') })
+  it.each(['Concrete', 'Grass', 'Dirt', 'Gravel', 'Water', 'Snow'])('passes through known surface %s', (s) => {
+    expect(fmtSurface(s)).toBe(s)
+  })
   it('falls back to Unknown for missing input', () => { expect(fmtSurface(null)).toBe('Unknown') })
+  it('passes through an unmapped surface code as-is', () => { expect(fmtSurface('Laterite')).toBe('Laterite') })
 })
 
 describe('windComponents', () => {
@@ -56,4 +62,20 @@ describe('fmtWindComponent', () => {
   it('formats a tailwind', () => { expect(fmtWindComponent({ headwind: -4, crosswind: 1 })).toBe('4 kt TW') })
   it('formats a crosswind once it dominates', () => { expect(fmtWindComponent({ headwind: 2, crosswind: 7 })).toBe('7 kt XW') })
   it('handles missing wind data', () => { expect(fmtWindComponent(null)).toBe('—') })
+})
+
+describe('windSeverity', () => {
+  it('is closed when the runway is closed, regardless of wind', () => {
+    expect(windSeverity({ headwind: 5, crosswind: 20 }, true)).toBe('closed')
+  })
+  it('is none when there is no wind data', () => { expect(windSeverity(null, false)).toBe('none') })
+  it('is crosswind once crosswind dominates', () => {
+    expect(windSeverity({ headwind: 2, crosswind: 7 }, false)).toBe('crosswind')
+  })
+  it('is tailwind for a negative headwind', () => {
+    expect(windSeverity({ headwind: -4, crosswind: 1 }, false)).toBe('tailwind')
+  })
+  it('is headwind for a positive headwind', () => {
+    expect(windSeverity({ headwind: 5, crosswind: 2 }, false)).toBe('headwind')
+  })
 })

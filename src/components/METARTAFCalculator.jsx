@@ -9,7 +9,8 @@ import {
 import { decodeMetar, decodeTaf } from '../utils/metarDecode'
 import { skylinkMetarToAWCShape, skylinkTafToAWCShape } from '../utils/skylinkWeather'
 import { isSkyLinkDay } from '../utils/sourceSwitch'
-import { normalizeRunways, windComponents, fmtWindComponent } from '../utils/runways'
+import { normalizeRunways, windComponents, fmtWindComponent, windSeverity } from '../utils/runways'
+import { fmtTrack } from '../utils/traffic'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
@@ -60,7 +61,7 @@ async function fetchWeatherFromSkylink(icao) {
   return { metar: metar ? [metar] : [], taf: taf ? [taf] : [] }
 }
 async function fetchRunways(icao, signal) {
-  const res = await fetch(`/api/aerodatabox?icao=${icao}`, { signal })
+  const res = await fetch(`/api/aerodatabox?icao=${encodeURIComponent(icao)}`, { signal })
   if (!res.ok) throw new Error('Runway request failed')
   return normalizeRunways(await res.json().catch(() => null))
 }
@@ -842,22 +843,33 @@ function AirportCard({ data, now }) {
 
 // ── Decoded-report panel helpers ─────────────────────────────────────────────
 // ── Runways (AeroDataBox) ────────────────────────────────────────────────────
+const WIND_SEVERITY_COLOR = {
+  closed: 'var(--cp-dim)', none: 'var(--cp-dim)',
+  crosswind: 'var(--cp-orange)', tailwind: 'var(--cp-red)', headwind: 'var(--cp-green)',
+}
 // Collapsed by default — layout rarely matters until a pilot wants it, and
 // fetching lazily on expand avoids a call per card on every page load.
 function RunwaysSection({ icao, role, windDirDeg, windSpeedKt }) {
   const [open, setOpen] = useState(false)
   const [runways, setRunways] = useState(null) // null | 'loading' | array | 'error'
+  // Tracks which icao the current `runways` value is actually for — a card
+  // slot (dep/arr/alt/enroute) can be re-pointed at a different airport
+  // without remounting, so `open` alone isn't enough to know whether to fetch.
+  const fetchedIcaoRef = useRef(null)
 
   useEffect(() => {
-    if (!open || runways !== null) return
+    if (!open || fetchedIcaoRef.current === icao) return
     const controller = new AbortController()
     setRunways('loading')
     fetchRunways(icao, controller.signal)
-      .then(setRunways)
-      .catch(() => setRunways('error'))
+      .then(r => { fetchedIcaoRef.current = icao; setRunways(r) })
+      .catch(e => {
+        if (e.name === 'AbortError') return // closed mid-fetch — retry on next open, don't stick in 'error'
+        fetchedIcaoRef.current = icao
+        setRunways('error')
+      })
     return () => controller.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, icao])
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -886,15 +898,11 @@ function RunwaysSection({ icao, role, windDirDeg, windSpeedKt }) {
               {runways.map(r => {
                 const wc = !r.closed ? windComponents(windDirDeg, windSpeedKt, r.headingDeg) : null
                 const label = fmtWindComponent(wc)
-                const windColor = r.closed ? 'var(--cp-dim)'
-                  : label === '—' ? 'var(--cp-dim)'
-                  : label.endsWith('XW') ? 'var(--cp-orange)'
-                  : label.endsWith('TW') ? 'var(--cp-red)'
-                  : 'var(--cp-green)'
+                const windColor = WIND_SEVERITY_COLOR[windSeverity(wc, r.closed)]
                 return (
                   <tr key={r.name} style={r.closed ? { opacity: 0.45 } : undefined}>
                     <td style={{ fontFamily: 'var(--cb-font-mono)', fontWeight: 700 }}>{r.name}</td>
-                    <td>{r.headingDeg != null ? `${String(r.headingDeg).padStart(3, '0')}°` : '—'}</td>
+                    <td>{r.headingDeg != null ? fmtTrack(r.headingDeg) : '—'}</td>
                     <td>{r.lengthM != null ? `${r.lengthM.toLocaleString()} m` : '—'}</td>
                     <td>{r.surface}</td>
                     <td style={{ color: windColor }}>{r.closed ? 'CLOSED' : label}</td>
