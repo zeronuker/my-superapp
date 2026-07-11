@@ -124,12 +124,13 @@ export function normalizeAircraftPerformance(raw) {
   }
 }
 
-// Extracts "HH:MM · DD Mon" from an ISO datetime string (e.g.
-// "2026-07-11T08:35:00+08:00") regardless of trailing offset/Z — the
-// date/time components are always in this position.
+// Extracts "HH:MM · DD Mon" from an AeroDataBox datetime string. The
+// OpenAPI docs show ISO 8601 with a "T" separator (e.g.
+// "2026-07-11T08:35:00+08:00"), but the real API uses a space instead
+// (confirmed live: "2026-07-11 08:35+08:00") — accept either.
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function fmtIsoLocal(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso || '')
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(iso || '')
   if (!m) return null
   const [, , mo, d, h, mi] = m
   return `${h}:${mi} · ${d} ${MONTHS[parseInt(mo, 10) - 1]}`

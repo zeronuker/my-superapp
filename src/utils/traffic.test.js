@@ -13,21 +13,24 @@ const RAW_AIRCRAFT = {
 }
 
 // Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
-// response (RapidAPI console, OD122, 11 Jul 2026) — explicit status enum and
-// full ISO datetimes (utc+local) per leg, used over SkyLink's flight_status
-// endpoint, which has no date parameter and was observed returning a stale
-// (weeks-old) record for a live flight.
+// response (RapidAPI console + production, OD122, 11 Jul 2026) — explicit
+// status enum and datetimes (utc+local) per leg, used over SkyLink's
+// flight_status endpoint, which has no date parameter and was observed
+// returning a stale (weeks-old) record for a live flight. NOTE: the real API
+// separates date/time with a space ("2026-07-11 06:55Z"), not the "T" the
+// OpenAPI docs example shows — this fixture uses the real format so a
+// regression here fails the test instead of only showing up in production.
 const RAW_STATUS = {
   number: 'OD122', status: 'Delayed', airline: { name: 'Batik Air', iata: 'OD', icao: 'BTK' },
   departure: {
     airport: { iata: 'SYD', icao: 'YSSY', name: 'Sydney' },
-    scheduledTime: { utc: '2026-07-05T22:35:00Z', local: '2026-07-06T08:35:00+10:00' },
-    revisedTime: { utc: '2026-07-06T01:00:00Z', local: '2026-07-06T11:00:00+10:00' },
+    scheduledTime: { utc: '2026-07-05 22:35Z', local: '2026-07-06 08:35+10:00' },
+    revisedTime: { utc: '2026-07-06 01:00Z', local: '2026-07-06 11:00+10:00' },
     terminal: '1', gate: '26',
   },
   arrival: {
     airport: { iata: 'KUL', icao: 'WMKK', name: 'Kuala Lumpur' },
-    scheduledTime: { utc: '2026-07-06T07:40:00Z', local: '2026-07-06T15:40:00+08:00' },
+    scheduledTime: { utc: '2026-07-06 07:40Z', local: '2026-07-06 15:40+08:00' },
     terminal: '1', gate: 'C22',
   },
 }
@@ -71,6 +74,13 @@ describe('normalizeFlightStatus', () => {
     expect(s.arrTerminal).toBe('1')
     expect(s.arrGate).toBe('C22')
   })
+  it('also accepts the OpenAPI-documented "T" separator, not just the real space-separated one', () => {
+    const s = normalizeFlightStatus({
+      number: 'MH3', status: 'Scheduled',
+      departure: { scheduledTime: { local: '2026-07-06T08:35:00+10:00' } },
+    })
+    expect(s.schedDep).toBe('08:35 · 06 Jul')
+  })
   it('leaves route/delay unset when the raw fields are missing', () => {
     const s = normalizeFlightStatus({ number: 'MH1', status: 'Scheduled' })
     expect(s.route).toBeNull()
@@ -87,8 +97,8 @@ describe('normalizeFlightStatus', () => {
     const s = normalizeFlightStatus({
       number: 'MH2', status: 'Departed',
       departure: {
-        scheduledTime: { utc: '2026-07-09T23:50:00Z' },
-        revisedTime: { utc: '2026-07-10T00:10:00Z' },
+        scheduledTime: { utc: '2026-07-09 23:50Z' },
+        revisedTime: { utc: '2026-07-10 00:10Z' },
       },
     })
     expect(s.delayMinutes).toBe(20)
