@@ -10,7 +10,6 @@
  *   adsb                 — lat&lon&radius | icao24 | callsign   (live ADS-B positions; callsign
  *                           alone searches the whole global feed, no location needed)
  *   aircraft             — registration | icao24                (aircraft identity lookup)
- *   flight-status        — flight                               (schedule/route/delay by flight #)
  *   airlines             — icao | iata                          (airline name/IATA/ICAO/logo)
  *   aircraft-performance — icao_type                            (engine/speed/range/dimensions)
  *   metar                — icao                                 (raw METAR)
@@ -46,15 +45,6 @@ const RESOURCES = {
       ? `/aircraft/registration/${encodeURIComponent(registration.trim().toUpperCase())}`
       : `/aircraft/icao24/${encodeURIComponent(icao24.trim().toLowerCase())}`
     return { path, params: {}, timeoutMs: 8000, cacheControl: 'public, max-age=3600' }
-  },
-
-  'flight-status': ({ flight }) => {
-    if (!flight) throw new Error('flight query parameter is required')
-    return {
-      path: `/flight_status/${encodeURIComponent(flight.trim())}`, params: {}, timeoutMs: 8000,
-      cacheControl: 'no-store, no-cache',
-      notFoundIsNull: true, // no scheduled flight matches this callsign — a normal outcome (GA/private traffic)
-    }
   },
 
   airlines: ({ icao, iata }) => {

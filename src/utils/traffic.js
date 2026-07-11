@@ -124,62 +124,59 @@ export function normalizeAircraftPerformance(raw) {
   }
 }
 
-function parseHHMM(t) {
-  if (!t || !/^\d{1,2}:\d{2}$/.test(t)) return null
-  const [h, m] = t.split(':').map(Number)
-  return h * 60 + m
+// Extracts "HH:MM · DD Mon" from an ISO datetime string (e.g.
+// "2026-07-11T08:35:00+08:00") regardless of trailing offset/Z — the
+// date/time components are always in this position.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function fmtIsoLocal(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso || '')
+  if (!m) return null
+  const [, , mo, d, h, mi] = m
+  return `${h}:${mi} · ${d} ${MONTHS[parseInt(mo, 10) - 1]}`
 }
-// SkyLink reports no explicit delay figure, only scheduled vs actual/estimated
-// times per leg. Derive minutes late from those — but only when both times
-// fall on the same date string; dates carry no year, so a rollover can't be
-// resolved safely and it's better to show nothing than guess wrong.
-function legDelayMinutes(leg) {
-  if (!leg?.scheduled_time) return null
-  const actualTime = leg.actual_time || leg.estimated_time
-  const actualDate = leg.actual_time ? leg.actual_date : leg.estimated_date
-  if (!actualTime) return null
-  if (leg.scheduled_date && actualDate && leg.scheduled_date !== actualDate) return null
-  const sched = parseHHMM(leg.scheduled_time)
-  const actual = parseHHMM(actualTime)
-  if (sched == null || actual == null) return null
-  return actual - sched
-}
-// departure.airport / arrival.airport look like "SYD • Sydney" — use just the
-// IATA code for a compact route badge (matches the old terse ICAO route).
-function legCode(leg) {
-  const code = leg?.airport?.split('•')[0]?.trim()
-  return code || null
+// AeroDataBox gives full ISO datetimes for both scheduled and revised times,
+// so delay is a straight diff — no same-date guard needed like SkyLink's
+// bare "HH:MM"/"DD Mon" (no year) strings required.
+function isoDelayMinutes(scheduledIso, revisedIso) {
+  if (!scheduledIso || !revisedIso) return null
+  const sched = Date.parse(scheduledIso), revised = Date.parse(revisedIso)
+  if (isNaN(sched) || isNaN(revised)) return null
+  return Math.round((revised - sched) / 60_000)
 }
 const STATUS_KEYWORDS = [
   [/cancel/i, 'var(--cp-red)'],
   [/divert/i, 'var(--cp-purple)'],
   [/landed|arrived/i, 'var(--cp-dim)'],
   [/estimated|delay/i, 'var(--cp-orange)'],
-  [/boarding|departed|airborne|active/i, 'var(--cp-acc)'],
-  [/scheduled|on time/i, 'var(--cp-acc2)'],
+  [/boarding|gate ?closed|departed|airborne|active|en ?route|approaching/i, 'var(--cp-acc)'],
+  [/scheduled|on time|expected|check-?in/i, 'var(--cp-acc2)'],
 ]
 export function statusColorFor(text) {
   const hit = STATUS_KEYWORDS.find(([re]) => re.test(text || ''))
   return hit ? hit[1] : 'var(--cp-dim)'
 }
 
-// Shape confirmed against a live /flight_status/:flight_number response —
-// status is free text (e.g. "Estimated 11:00"), airline is a single name,
-// legs are nested departure/arrival objects with split date+time strings.
+// Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
+// response — used over SkyLink's flight_status endpoint because it takes an
+// explicit date (SkyLink's has none, and was observed returning a stale
+// record) and returns full ISO datetimes for every leg instead of bare
+// "HH:MM"/"DD Mon" strings with no year.
 export function normalizeFlightStatus(raw) {
   if (!raw) return null
   const statusText = raw.status || '—'
-  const depCode = legCode(raw.departure), arrCode = legCode(raw.arrival)
+  const depCode = raw.departure?.airport?.iata || raw.departure?.airport?.icao || null
+  const arrCode = raw.arrival?.airport?.iata || raw.arrival?.airport?.icao || null
   return {
-    flight: raw.flight_number || '—',
-    airline: raw.airline || null,
+    flight: raw.number || '—',
+    airline: raw.airline?.name || null,
     route: (depCode && arrCode) ? `${depCode} → ${arrCode}` : null,
     status: statusText.toUpperCase(),
     statusColor: statusColorFor(statusText),
-    schedDep: fmtLocalTime(raw.departure?.scheduled_time, raw.departure?.scheduled_date),
-    schedArr: fmtLocalTime(raw.arrival?.scheduled_time, raw.arrival?.scheduled_date),
-    estArr: fmtLocalTime(raw.arrival?.estimated_time, raw.arrival?.estimated_date),
-    delayMinutes: legDelayMinutes(raw.departure) ?? legDelayMinutes(raw.arrival),
+    schedDep: fmtIsoLocal(raw.departure?.scheduledTime?.local),
+    schedArr: fmtIsoLocal(raw.arrival?.scheduledTime?.local),
+    estArr: fmtIsoLocal(raw.arrival?.revisedTime?.local),
+    delayMinutes: isoDelayMinutes(raw.departure?.scheduledTime?.utc, raw.departure?.revisedTime?.utc)
+      ?? isoDelayMinutes(raw.arrival?.scheduledTime?.utc, raw.arrival?.revisedTime?.utc),
     depTerminal: raw.departure?.terminal || null,
     depGate: raw.departure?.gate || null,
     arrTerminal: raw.arrival?.terminal || null,

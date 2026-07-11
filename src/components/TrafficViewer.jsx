@@ -79,8 +79,9 @@ async function fetchAircraftLookup(registration, icao24, signal) {
   return res.json().catch(() => null)
 }
 async function fetchFlightStatus(flightOrCallsign, signal) {
-  const params = new URLSearchParams({ resource: 'flight-status', flight: flightOrCallsign })
-  const res = await fetch(`/api/skylink?${params}`, { signal })
+  const date = new Date().toISOString().slice(0, 10)
+  const params = new URLSearchParams({ flight: flightOrCallsign, date })
+  const res = await fetch(`/api/aerodatabox?${params}`, { signal })
   if (!res.ok) return null
   return res.json().catch(() => null)
 }

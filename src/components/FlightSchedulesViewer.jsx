@@ -35,9 +35,9 @@ async function fetchSchedule(icao, direction, dateIso, timeFrom, signal) {
   if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
   return normalizeSchedule(body, direction)
 }
-async function fetchFlightStatus(flight, signal) {
-  const params = new URLSearchParams({ resource: 'flight-status', flight })
-  const res = await fetch(`/api/skylink?${params}`, { signal })
+async function fetchFlightStatus(flight, date, signal) {
+  const params = new URLSearchParams({ flight, date })
+  const res = await fetch(`/api/aerodatabox?${params}`, { signal })
   if (!res.ok) return null
   return res.json().catch(() => null)
 }
@@ -126,7 +126,7 @@ export default function FlightSchedulesViewer() {
     if (selectedKey === key || detailsCache[key] || !flightNumber || flightNumber === '—') return
     const controller = new AbortController()
     setDetailsCache(prev => ({ ...prev, [key]: { loading: true } }))
-    fetchFlightStatus(flightNumber, controller.signal)
+    fetchFlightStatus(flightNumber, dateIso, controller.signal)
       .then(raw => setDetailsCache(prev => ({ ...prev, [key]: { loading: false, status: normalizeFlightStatus(raw) } })))
       .catch(() => setDetailsCache(prev => ({ ...prev, [key]: { loading: false, status: null } })))
   }

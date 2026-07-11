@@ -12,18 +12,23 @@ const RAW_AIRCRAFT = {
   vertical_rate: 0, squawk: '2000', is_on_ground: false, airline: 'Malaysia Airlines',
 }
 
-// Shape confirmed against a live /flight_status/:flight_number response
-// (RapidAPI console, OD122, 10 Jul 2026) — free-text status, single airline
-// name, nested departure/arrival legs with split date+time strings.
+// Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
+// response (RapidAPI console, OD122, 11 Jul 2026) — explicit status enum and
+// full ISO datetimes (utc+local) per leg, used over SkyLink's flight_status
+// endpoint, which has no date parameter and was observed returning a stale
+// (weeks-old) record for a live flight.
 const RAW_STATUS = {
-  flight_number: 'OD122', status: 'Estimated 11:00', airline: 'Batik Air',
+  number: 'OD122', status: 'Delayed', airline: { name: 'Batik Air', iata: 'OD', icao: 'BTK' },
   departure: {
-    airport: 'SYD • Sydney', scheduled_time: '08:35', scheduled_date: '06 Jul',
-    actual_time: '11:00', actual_date: '06 Jul', terminal: '1', gate: '26',
+    airport: { iata: 'SYD', icao: 'YSSY', name: 'Sydney' },
+    scheduledTime: { utc: '2026-07-05T22:35:00Z', local: '2026-07-06T08:35:00+10:00' },
+    revisedTime: { utc: '2026-07-06T01:00:00Z', local: '2026-07-06T11:00:00+10:00' },
+    terminal: '1', gate: '26',
   },
   arrival: {
-    airport: 'KUL • Kuala Lumpur', scheduled_time: '15:40', scheduled_date: '06 Jul',
-    estimated_time: '--:--', estimated_date: '', terminal: '1', gate: 'C22',
+    airport: { iata: 'KUL', icao: 'WMKK', name: 'Kuala Lumpur' },
+    scheduledTime: { utc: '2026-07-06T07:40:00Z', local: '2026-07-06T15:40:00+08:00' },
+    terminal: '1', gate: 'C22',
   },
 }
 
@@ -50,24 +55,24 @@ describe('normalizeFlightStatus', () => {
   it('returns null when there is no matching flight', () => {
     expect(normalizeFlightStatus(null)).toBeNull()
   })
-  it('maps status, route, times, and a same-day derived delay', () => {
+  it('maps status, route, times, and delay from ISO datetimes', () => {
     const s = normalizeFlightStatus(RAW_STATUS)
     expect(s.flight).toBe('OD122')
     expect(s.airline).toBe('Batik Air')
     expect(s.route).toBe('SYD → KUL')
-    expect(s.status).toBe('ESTIMATED 11:00')
+    expect(s.status).toBe('DELAYED')
     expect(s.statusColor).toBe('var(--cp-orange)')
     expect(s.schedDep).toBe('08:35 · 06 Jul')
     expect(s.schedArr).toBe('15:40 · 06 Jul')
-    expect(s.estArr).toBeNull() // arrival estimated_time is the "--:--" placeholder
-    expect(s.delayMinutes).toBe(145) // 08:35 -> 11:00 actual departure, same date
+    expect(s.estArr).toBeNull() // no arrival.revisedTime in this fixture
+    expect(s.delayMinutes).toBe(145) // 22:35Z -> 01:00Z departure, actual UTC diff
     expect(s.depTerminal).toBe('1')
     expect(s.depGate).toBe('26')
     expect(s.arrTerminal).toBe('1')
     expect(s.arrGate).toBe('C22')
   })
   it('leaves route/delay unset when the raw fields are missing', () => {
-    const s = normalizeFlightStatus({ flight_number: 'MH1', status: 'Scheduled' })
+    const s = normalizeFlightStatus({ number: 'MH1', status: 'Scheduled' })
     expect(s.route).toBeNull()
     expect(s.delayMinutes).toBeNull()
     expect(s.statusColor).toBe('var(--cp-acc2)')
@@ -76,12 +81,17 @@ describe('normalizeFlightStatus', () => {
     expect(s.arrTerminal).toBeNull()
     expect(s.arrGate).toBeNull()
   })
-  it('does not guess a delay across a date rollover', () => {
+  it('correctly computes delay across a UTC midnight rollover', () => {
+    // SkyLink's bare "HH:MM"/"DD Mon" (no year) strings couldn't safely
+    // resolve this; AeroDataBox's full ISO datetimes make it a plain diff.
     const s = normalizeFlightStatus({
-      flight_number: 'MH2', status: 'Departed',
-      departure: { scheduled_time: '23:50', scheduled_date: '09 Jul', actual_time: '00:10', actual_date: '10 Jul' },
+      number: 'MH2', status: 'Departed',
+      departure: {
+        scheduledTime: { utc: '2026-07-09T23:50:00Z' },
+        revisedTime: { utc: '2026-07-10T00:10:00Z' },
+      },
     })
-    expect(s.delayMinutes).toBeNull()
+    expect(s.delayMinutes).toBe(20)
   })
 })
 
@@ -164,6 +174,23 @@ describe('statusColorFor', () => {
   it('flags estimated/delayed orange', () => { expect(statusColorFor('Estimated 11:00')).toBe('var(--cp-orange)') })
   it('flags scheduled with the secondary accent', () => { expect(statusColorFor('Scheduled')).toBe('var(--cp-acc2)') })
   it('falls back to dim for unrecognized text', () => { expect(statusColorFor('')).toBe('var(--cp-dim)') })
+
+  // AeroDataBox's status enum (Expected/EnRoute/CheckIn/Boarding/GateClosed/
+  // Departed/Delayed/Approaching/Arrived/Canceled/Diverted/CanceledUncertain).
+  it('flags AeroDataBox in-progress states with the primary accent', () => {
+    expect(statusColorFor('EnRoute')).toBe('var(--cp-acc)')
+    expect(statusColorFor('Boarding')).toBe('var(--cp-acc)')
+    expect(statusColorFor('GateClosed')).toBe('var(--cp-acc)')
+    expect(statusColorFor('Approaching')).toBe('var(--cp-acc)')
+  })
+  it('flags AeroDataBox upcoming states with the secondary accent', () => {
+    expect(statusColorFor('Expected')).toBe('var(--cp-acc2)')
+    expect(statusColorFor('CheckIn')).toBe('var(--cp-acc2)')
+  })
+  it('flags AeroDataBox cancellation states red', () => {
+    expect(statusColorFor('Canceled')).toBe('var(--cp-red)')
+    expect(statusColorFor('CanceledUncertain')).toBe('var(--cp-red)')
+  })
 })
 
 describe('fmtAlt', () => {
