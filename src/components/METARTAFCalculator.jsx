@@ -9,6 +9,7 @@ import {
 import { decodeMetar, decodeTaf } from '../utils/metarDecode'
 import { skylinkMetarToAWCShape, skylinkTafToAWCShape } from '../utils/skylinkWeather'
 import { isSkyLinkDay } from '../utils/sourceSwitch'
+import { normalizeRunways, windComponents, fmtWindComponent } from '../utils/runways'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
@@ -57,6 +58,11 @@ async function fetchWeatherFromSkylink(icao) {
   const metar = skylinkMetarToAWCShape(metarRaw)
   const taf   = skylinkTafToAWCShape(tafRaw)
   return { metar: metar ? [metar] : [], taf: taf ? [taf] : [] }
+}
+async function fetchRunways(icao, signal) {
+  const res = await fetch(`/api/aerodatabox?icao=${icao}`, { signal })
+  if (!res.ok) throw new Error('Runway request failed')
+  return normalizeRunways(await res.json().catch(() => null))
 }
 // UTC even/odd day picks the source (see utils/sourceSwitch); if the
 // scheduled one fails outright, silently retry with the other rather than
@@ -738,6 +744,10 @@ function AirportCard({ data, now }) {
             )}
           </div>
 
+          <RunwaysSection icao={icao} role={role}
+            windDirDeg={typeof latestMetar?.wdir === 'number' ? latestMetar.wdir : null}
+            windSpeedKt={typeof latestMetar?.wspd === 'number' ? latestMetar.wspd : null} />
+
           {/* ── TAF ── */}
           <div style={{ marginBottom: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -831,6 +841,74 @@ function AirportCard({ data, now }) {
 }
 
 // ── Decoded-report panel helpers ─────────────────────────────────────────────
+// ── Runways (AeroDataBox) ────────────────────────────────────────────────────
+// Collapsed by default — layout rarely matters until a pilot wants it, and
+// fetching lazily on expand avoids a call per card on every page load.
+function RunwaysSection({ icao, role, windDirDeg, windSpeedKt }) {
+  const [open, setOpen] = useState(false)
+  const [runways, setRunways] = useState(null) // null | 'loading' | array | 'error'
+
+  useEffect(() => {
+    if (!open || runways !== null) return
+    const controller = new AbortController()
+    setRunways('loading')
+    fetchRunways(icao, controller.signal)
+      .then(setRunways)
+      .catch(() => setRunways('error'))
+    return () => controller.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <button onClick={() => setOpen(v => !v)} style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+        background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 8,
+      }}>
+        <span className="cp-label">RUNWAYS</span>
+        <span style={{
+          fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)',
+          border: `1px solid ${role.borderDim}`, borderRadius: 4, padding: '2px 7px',
+        }}>{open ? '▴' : '▾'}</span>
+      </button>
+
+      {open && (
+        runways === 'loading' ? (
+          <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>Loading…</div>
+        ) : runways === 'error' ? (
+          <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>Runway data unavailable</div>
+        ) : Array.isArray(runways) && runways.length === 0 ? (
+          <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>No runway data for this airport</div>
+        ) : Array.isArray(runways) ? (
+          <table className="cp-table" style={{ width: '100%' }}>
+            <thead><tr><th>Rwy</th><th>Hdg</th><th>Length</th><th>Surface</th><th>Wind</th></tr></thead>
+            <tbody>
+              {runways.map(r => {
+                const wc = !r.closed ? windComponents(windDirDeg, windSpeedKt, r.headingDeg) : null
+                const label = fmtWindComponent(wc)
+                const windColor = r.closed ? 'var(--cp-dim)'
+                  : label === '—' ? 'var(--cp-dim)'
+                  : label.endsWith('XW') ? 'var(--cp-orange)'
+                  : label.endsWith('TW') ? 'var(--cp-red)'
+                  : 'var(--cp-green)'
+                return (
+                  <tr key={r.name} style={r.closed ? { opacity: 0.45 } : undefined}>
+                    <td style={{ fontFamily: 'var(--cb-font-mono)', fontWeight: 700 }}>{r.name}</td>
+                    <td>{r.headingDeg != null ? `${String(r.headingDeg).padStart(3, '0')}°` : '—'}</td>
+                    <td>{r.lengthM != null ? `${r.lengthM.toLocaleString()} m` : '—'}</td>
+                    <td>{r.surface}</td>
+                    <td style={{ color: windColor }}>{r.closed ? 'CLOSED' : label}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        ) : null
+      )}
+    </div>
+  )
+}
+
 function DecodeBox({ role, children }) {
   return (
     <div className="cp-card-bg3" style={{
