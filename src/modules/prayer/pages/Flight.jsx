@@ -436,8 +436,8 @@ export default function FlightPage({ settings }) {
           depTime = '', arrTime = '', timeZone = 'utc', altitudeFt, headingDeg,
           prayerTzView = 'dep' } = inputs
 
-  // Which watch the prayer-time list is shown on: departure-zone or arrival-zone.
-  const prayerTzId    = prayerTzView === 'dep' ? depAirport?.tz : destAirport?.tz
+  // Which watch the prayer-time list is shown on: departure-zone, arrival-zone, or UTC.
+  const prayerTzId    = prayerTzView === 'dep' ? depAirport?.tz : prayerTzView === 'arr' ? destAirport?.tz : 'UTC'
   const prayerTzAware = !!prayerTzId
   const timeFmt       = settings?.timeFormat ?? '24hr'
 
@@ -771,6 +771,10 @@ export default function FlightPage({ settings }) {
                 onClick={() => setInputs({ prayerTzView: 'arr' })}
                 style={seg(prayerTzView === 'arr')}
               >ARR TIME{destAirport?.tz ? ` (${getUtcOffsetStr(destAirport.tz)})` : ''}</button>
+              <button
+                onClick={() => setInputs({ prayerTzView: 'utc' })}
+                style={seg(prayerTzView === 'utc')}
+              >UTC TIME</button>
             </div>
             <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
               letterSpacing: '0.1em', marginBottom: 4,
@@ -810,7 +814,9 @@ export default function FlightPage({ settings }) {
               letterSpacing: '0.08em', textAlign: 'center', marginTop: 8,
               lineHeight: 1.8 }}>
               {prayerTzAware
-                ? `${prayerTzView === 'dep' ? 'DEPARTURE' : 'ARRIVAL'} TIME (${getUtcOffsetStr(prayerTzId)})`
+                ? prayerTzView === 'utc'
+                  ? 'UTC TIME (ZULU)'
+                  : `${prayerTzView === 'dep' ? 'DEPARTURE' : 'ARRIVAL'} TIME (${getUtcOffsetStr(prayerTzId)})`
                 : 'DEVICE LOCAL TIME — TZ UNKNOWN'} · {METHOD_SHORT[settings?.calculationMethod] ?? 'JAKIM'} METHOD
               <br />
               CALCULATED FOR {fmtCalcDate(new Date(result.depInstantMs), prayerTzId)}

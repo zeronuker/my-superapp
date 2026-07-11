@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react'
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
 import { lookupAirport, searchAirports } from '../data/airports'
@@ -151,6 +151,11 @@ export default function TrafficViewer() {
   const [globalResults, setGlobalResults] = useState({})
   const [globalLoading, setGlobalLoading] = useState(false)
   const [globalError, setGlobalError] = useState('')
+  // Auto-fallback animation: 'banner' (transition text) then 'pulse' (globe icon), then null.
+  const [fallbackPhase, setFallbackPhase] = useState(null)
+  const [autoFallbackQuery, setAutoFallbackQuery] = useState(null)
+  const fallbackTimersRef = useRef([])
+  useEffect(() => () => fallbackTimersRef.current.forEach(clearTimeout), [])
 
   const popularAirports = useMemo(buildPopularAirports, [])
   const pickerResults = pickerQuery.trim().length >= 2 ? searchAirports(pickerQuery) : popularAirports
@@ -334,17 +339,36 @@ export default function TrafficViewer() {
   // In "search anywhere" mode the server already filtered by callsign (first term only,
   // that's all the API takes), so the local list is shown as-is rather than re-filtered.
   const searchTerms = searchQuery.split(',').map(t => t.trim().toUpperCase()).filter(Boolean)
-  const filteredFlights = globalSearch
-    ? globalWithGeo
-    : (searchTerms.length
-      ? Object.fromEntries(Object.entries(flightsWithGeo).filter(([key, f]) => {
-          const status = detailsCache[key]?.flightStatus
-          return searchTerms.some(term =>
-            f.callsign.includes(term) || f.registration.includes(term) || (status?.flight && status.flight.includes(term)))
-        }))
-      : flightsWithGeo)
+  const localFilteredFlights = searchTerms.length
+    ? Object.fromEntries(Object.entries(flightsWithGeo).filter(([key, f]) => {
+        const status = detailsCache[key]?.flightStatus
+        return searchTerms.some(term =>
+          f.callsign.includes(term) || f.registration.includes(term) || (status?.flight && status.flight.includes(term)))
+      }))
+    : flightsWithGeo
+  const filteredFlights = globalSearch ? globalWithGeo : localFilteredFlights
   const selectedDetails = selectedKey ? detailsCache[selectedKey] : null
   const selected = selectedKey ? flightsWithGeo[selectedKey] : null
+
+  // Auto-fallback to global search once the local (within-range) search comes
+  // up empty — same toggle the globe button controls, so it stays overridable
+  // (and the button visually reflects it). Guarded to fire once per distinct
+  // query string, so manually switching back off doesn't immediately re-fire.
+  useEffect(() => {
+    if (globalSearch || isOffline || loading) return
+    const firstTerm = searchQuery.split(',')[0].trim()
+    if (firstTerm.length < 2) return
+    if (Object.keys(localFilteredFlights).length > 0) return
+    if (autoFallbackQuery === searchQuery) return
+    setAutoFallbackQuery(searchQuery)
+    setGlobalSearch(true)
+    fallbackTimersRef.current.forEach(clearTimeout)
+    setFallbackPhase('banner')
+    const t1 = setTimeout(() => setFallbackPhase('pulse'), 1300)
+    const t2 = setTimeout(() => setFallbackPhase(null), 2600)
+    fallbackTimersRef.current = [t1, t2]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, globalSearch, isOffline, loading])
 
   // Selecting a global-search row merges it into local aircraft state first,
   // so the existing detail-fetch/FlightStatusPanel machinery (which reads
@@ -479,11 +503,12 @@ export default function TrafficViewer() {
                 <button className="cp-btn" style={{ padding: '7px 10px', flexShrink: 0 }} onClick={() => setSearchQuery('')}>✕</button>
               )}
               <button title={globalSearch ? 'Searching worldwide — tap to search only within range' : 'Search worldwide instead of just within range'}
-                onClick={() => setGlobalSearch(v => !v)} style={{
+                onClick={() => { fallbackTimersRef.current.forEach(clearTimeout); setFallbackPhase(null); setGlobalSearch(v => !v) }} style={{
                 width: 34, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: globalSearch ? 'var(--cp-accdim)' : 'transparent',
                 border: `1px solid ${globalSearch ? 'var(--cp-acc)' : 'var(--cp-border)'}`, borderRadius: 6,
                 color: globalSearch ? 'var(--cp-acc)' : 'var(--cp-dim)', cursor: 'pointer', fontSize: 15,
+                animation: fallbackPhase === 'pulse' ? 'trafficGlobePulse 0.6s ease-in-out 2' : 'none',
               }}>🌐</button>
               <button title="Show/Hide Fields" onClick={() => setFieldsOpen(true)} style={{
                 width: 34, height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -503,6 +528,14 @@ export default function TrafficViewer() {
 
           {/* ── Results ── */}
           <div style={{ flex: 1, minHeight: 0, overflow: 'auto', background: 'var(--cp-bg3)', borderRadius: 6, padding: 8 }}>
+            {fallbackPhase === 'banner' && (
+              <div style={{
+                textAlign: 'center', fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.1em',
+                color: 'var(--cp-acc)', padding: '4px 0 8px', animation: 'trafficFallbackFade 1.3s ease-in-out',
+              }}>
+                → EXPANDING SEARCH WORLDWIDE…
+              </div>
+            )}
             {(globalSearch ? globalLoading : loading) ? (
               <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
                 fontSize: 11, letterSpacing: '0.1em', padding: '20px 0' }}>
@@ -533,6 +566,11 @@ export default function TrafficViewer() {
           </div>
         </div>
 
+        <style>{`
+          @keyframes trafficFallbackFade { 0% { opacity: 0; } 15%, 70% { opacity: 1; } 100% { opacity: 0; } }
+          @keyframes trafficGlobePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.22); } }
+        `}</style>
+
         {/* ── Bottom-center: aircraft/flight details ── */}
         <div style={{ gridColumn: '1 / span 2', gridRow: 2, minWidth: 0 }}>
           {selected ? (
@@ -555,6 +593,7 @@ export default function TrafficViewer() {
       {fieldsOpen && !isOffline && (
         <FieldsModal cf={cf}
           onToggleCard={(key, val) => updateSettings({ trafficFields: { ...settings.trafficFields, card: { ...cf, [key]: val } } })}
+          onToggleAllCard={(keys, val) => updateSettings({ trafficFields: { ...settings.trafficFields, card: { ...cf, ...Object.fromEntries(keys.map(k => [k, val])) } } })}
           onClose={() => setFieldsOpen(false)} />
       )}
     </div>
@@ -771,10 +810,17 @@ function FlightStatusPanel({ f, cf, now, lookup, airlineInfo, performance, fligh
 }
 
 // ── Show/Hide Fields modal ──────────────────────────────────────────────────
-function FieldGroup({ title, fields, state, onToggle }) {
+function FieldGroup({ title, fields, state, onToggle, onToggleAll }) {
+  const allChecked = fields.every(f => !!state[f.key])
   return (
     <>
-      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--cp-dim)', margin: '12px 0 6px' }}>{title}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '12px 0 6px' }}>
+        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--cp-dim)' }}>{title}</span>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.08em', color: 'var(--cp-dim)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={allChecked} onChange={e => onToggleAll(fields.map(f => f.key), e.target.checked)} style={{ accentColor: 'var(--cp-acc)', cursor: 'pointer' }} />
+          SELECT ALL
+        </label>
+      </div>
       {fields.map(f => (
         <label key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '3px 0', fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-muted)', cursor: 'pointer' }}>
           <input type="checkbox" checked={!!state[f.key]} onChange={e => onToggle(f.key, e.target.checked)} style={{ accentColor: 'var(--cp-acc)', cursor: 'pointer' }} />
@@ -785,7 +831,7 @@ function FieldGroup({ title, fields, state, onToggle }) {
   )
 }
 
-function FieldsModal({ cf, onToggleCard, onClose }) {
+function FieldsModal({ cf, onToggleCard, onToggleAllCard, onClose }) {
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()} style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex',
@@ -800,9 +846,9 @@ function FieldsModal({ cf, onToggleCard, onClose }) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--cp-dim)', fontSize: 16, cursor: 'pointer', padding: '2px 6px' }}>✕</button>
         </div>
         <div style={{ padding: '16px 20px 20px' }}>
-          <FieldGroup title="Live position" fields={CARD_FIELDS.filter(f => f.group === 'live')} state={cf} onToggle={onToggleCard} />
-          <FieldGroup title="Aircraft lookup" fields={CARD_FIELDS.filter(f => f.group === 'lookup')} state={cf} onToggle={onToggleCard} />
-          <FieldGroup title="Flight status" fields={CARD_FIELDS.filter(f => f.group === 'status')} state={cf} onToggle={onToggleCard} />
+          <FieldGroup title="Live position" fields={CARD_FIELDS.filter(f => f.group === 'live')} state={cf} onToggle={onToggleCard} onToggleAll={onToggleAllCard} />
+          <FieldGroup title="Aircraft lookup" fields={CARD_FIELDS.filter(f => f.group === 'lookup')} state={cf} onToggle={onToggleCard} onToggleAll={onToggleAllCard} />
+          <FieldGroup title="Flight status" fields={CARD_FIELDS.filter(f => f.group === 'status')} state={cf} onToggle={onToggleCard} onToggleAll={onToggleAllCard} />
         </div>
       </div>
     </div>
