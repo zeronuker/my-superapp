@@ -54,7 +54,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.14'
+const APP_VERSION = 'v3.15'
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -1162,6 +1162,28 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.15', date: 'Jul 2026',
+    entries: [
+      { type: 'feat', text: 'New Traffic tab — live ADS-B aircraft tracking via SkyLink, radar map, center picker (ICAO/GPS/POPULAR), 250/500NM range, multi-callsign/registration/flight# search, Show/Hide Fields with select-all, greys out and auto-resumes with connectivity' },
+      { type: 'feat', text: 'Traffic: Aircraft Lookup card now shows operator, country, engine type, wake category, cruise speed, range, MTOW, service ceiling, wingspan, length, and an airline logo' },
+      { type: 'feat', text: 'Added Flight Schedules tab — SkyLink arrivals/departures board per airport with date/time-range filtering, pagination, and terminal/gate/status lookup' },
+      { type: 'feat', text: 'Added SIGMET tab (aviationweather.gov international feed, reuses NOTAM\'s FIR/route detection)' },
+      { type: 'feat', text: 'METAR/TAF and NOTAM now alternate between SkyLink and the existing sources (aviationweather.gov / autorouter.aero) by UTC even/odd day, with silent fallback and a source chip showing what was actually used' },
+      { type: 'feat', text: 'METAR/TAF: each role card gets a collapsed RUNWAYS section — headwind/crosswind/tailwind for every runway against that card\'s own latest wind' },
+      { type: 'fix',  text: 'Runways panel no longer gets stuck on a stale airport or stuck in an error state after an abort mid-fetch' },
+      { type: 'fix',  text: 'Sched Dep/Arr times showing blank — AeroDataBox separates date/time with a space, not "T" as documented' },
+      { type: 'feat', text: 'Calculator: Basic/Scientific/Time now dynamically scale to always fit the viewport without scrolling, growing to fill tablet screens instead of just shrinking' },
+      { type: 'feat', text: 'Calculator: unit converter revamped — bidirectional FROM/TO inputs, tappable unit chips with category icons, replacing dropdowns' },
+      { type: 'fix',  text: 'Time calculator expression history was clearing on equals instead of showing the completed line; Scientific now has the same history' },
+      { type: 'feat', text: 'Radar-sweep loading animation on manual METAR/TAF and NOTAM fetches' },
+      { type: 'feat', text: 'Duty Log: scanning a QR code matching your sync-code format now auto-loads it, with a scan-viewfinder loading animation' },
+      { type: 'fix',  text: 'NOTAM: real API error detail now shown instead of a bare HTTP status code' },
+      { type: 'fix',  text: 'NOTAM: "COPY FROM METAR/TAF" no longer leaves stale FIR entries behind' },
+      { type: 'feat', text: 'Flight prayer timeline: added a UTC TIME option alongside DEP/ARR TIME' },
+      { type: 'fix',  text: 'Settings: removed redundant "new version available" badge' },
+    ],
+  },
   {
     version: 'v3.14', date: 'Jun 2026',
     entries: [
