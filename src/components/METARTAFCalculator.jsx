@@ -11,6 +11,7 @@ import { skylinkMetarToAWCShape, skylinkTafToAWCShape } from '../utils/skylinkWe
 import { isSkyLinkDay } from '../utils/sourceSwitch'
 import { normalizeRunways, windComponents, fmtWindComponent, windSeverity } from '../utils/runways'
 import { fmtTrack } from '../utils/traffic'
+import { ROLE_TINT } from '../utils/roleStyle'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
@@ -486,8 +487,8 @@ function SectionHeader({ title }) {
 function getRoleStyle(label) {
   if (label === 'DEPARTURE' || label === 'ARRIVAL') {
     return {
-      color:        '#06b6d4',
-      bgLatest:     'rgba(6,182,212,0.10)',
+      color:        ROLE_TINT.dep.color,
+      bgLatest:     ROLE_TINT.dep.soft,
       bgDim:        'rgba(6,182,212,0.04)',
       borderLatest: 'rgba(6,182,212,0.45)',
       borderDim:    'rgba(6,182,212,0.18)',
@@ -496,8 +497,8 @@ function getRoleStyle(label) {
   }
   if (label.startsWith('DEST ALT')) {
     return {
-      color:        '#e2e8f0',
-      bgLatest:     'rgba(226,232,240,0.08)',
+      color:        ROLE_TINT.destalt.color,
+      bgLatest:     ROLE_TINT.destalt.soft,
       bgDim:        'rgba(226,232,240,0.03)',
       borderLatest: 'rgba(226,232,240,0.32)',
       borderDim:    'rgba(226,232,240,0.12)',
@@ -506,8 +507,8 @@ function getRoleStyle(label) {
   }
   // Enroute alternates
   return {
-    color:        '#a78bfa',
-    bgLatest:     'rgba(167,139,250,0.10)',
+    color:        ROLE_TINT.era.color,
+    bgLatest:     ROLE_TINT.era.soft,
     bgDim:        'rgba(167,139,250,0.04)',
     borderLatest: 'rgba(167,139,250,0.45)',
     borderDim:    'rgba(167,139,250,0.18)',

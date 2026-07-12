@@ -9,6 +9,7 @@ import CopyAirportsButton from './CopyAirportsButton'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import SourceChip from './SourceChip'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
+import { ROLE_TINT } from '../utils/roleStyle'
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const T = {
@@ -28,12 +29,12 @@ const STATUS_RANK = { ACTIVE: 0, FUTURE: 1, EXPIRED: 2, UNKNOWN: 3 }
 
 // Role → colour (dep/arr cyan · dest-alt white · enroute purple · FIR amber · other gray)
 const ROLE_STYLE = {
-  dep:     { color: '#06b6d4', soft: 'rgba(6,182,212,0.10)',   border: 'rgba(6,182,212,0.40)' },
-  arr:     { color: '#06b6d4', soft: 'rgba(6,182,212,0.10)',   border: 'rgba(6,182,212,0.40)' },
-  destalt: { color: '#e2e8f0', soft: 'rgba(226,232,240,0.08)', border: 'rgba(226,232,240,0.35)' },
-  era:     { color: '#a78bfa', soft: 'rgba(167,139,250,0.10)', border: 'rgba(167,139,250,0.40)' },
-  fir:     { color: '#fbbf24', soft: 'rgba(251,191,36,0.10)',  border: 'rgba(251,191,36,0.40)' },
-  other:   { color: '#94a3b8', soft: 'rgba(148,163,184,0.10)', border: 'rgba(148,163,184,0.35)' },
+  dep:     { ...ROLE_TINT.dep,     border: 'rgba(6,182,212,0.40)' },
+  arr:     { ...ROLE_TINT.arr,     border: 'rgba(6,182,212,0.40)' },
+  destalt: { ...ROLE_TINT.destalt, border: 'rgba(226,232,240,0.35)' },
+  era:     { ...ROLE_TINT.era,     border: 'rgba(167,139,250,0.40)' },
+  fir:     { ...ROLE_TINT.fir,     border: 'rgba(251,191,36,0.40)' },
+  other:   { ...ROLE_TINT.other,   border: 'rgba(148,163,184,0.35)' },
 }
 
 function getAirportCoords(icao) {
