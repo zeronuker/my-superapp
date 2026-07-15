@@ -19,6 +19,7 @@
  *   departures           — icao                                 (departure schedule board)
  */
 import { skylinkFetch, handleSkylinkError } from './_skylink.js'
+import { rateLimited } from './_rateLimit.js'
 
 // Each builder returns { path, params, timeoutMs, cacheControl, notFoundIsNull? } or throws
 // an Error with a user-facing message for a missing/invalid param.
@@ -109,6 +110,8 @@ const RESOURCES = {
 }
 
 export default async function handler(req, res) {
+  if (rateLimited(req, res)) return
+
   const { resource, ...query } = req.query
   const build = RESOURCES[resource]
   if (!build) {

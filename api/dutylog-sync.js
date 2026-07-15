@@ -15,6 +15,7 @@
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
+import { rateLimited } from './_rateLimit.js'
 
 const CODE_RE = /^[A-Z0-9]{4,8}(-[A-Z0-9]{4,8}){1,3}$/
 const MAX_PAYLOAD_BYTES = 900_000 // Firestore doc limit is 1 MiB
@@ -35,6 +36,8 @@ function getDb() {
 }
 
 export default async function handler(req, res) {
+  if (rateLimited(req, res, { limit: 20, windowMs: 60_000 })) return
+
   const code = String(req.query.code || '').toUpperCase()
   if (!CODE_RE.test(code)) {
     return res.status(400).json({ error: 'code must look like XXXX-XXXX-XXXX' })

@@ -9,6 +9,8 @@
  * GET /api/notam?icao=WMKK&pageSize=100
  */
 
+import { rateLimited } from './_rateLimit.js'
+
 const OAUTH_URL  = 'https://api.autorouter.aero/v1.0/oauth2/token'
 const NOTAM_URL  = 'https://api.autorouter.aero/v1.0/notam'
 const ICAO_RE    = /^[A-Z0-9]{2,6}$/
@@ -58,6 +60,8 @@ async function getToken() {
 }
 
 export default async function handler(req, res) {
+  if (rateLimited(req, res, { limit: 30, windowMs: 60_000 })) return
+
   const { icao, pageSize: pageSizeRaw = '100' } = req.query
 
   if (!icao) {

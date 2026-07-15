@@ -8,9 +8,13 @@
  * worldwide; the client filters by FIR since this endpoint takes no
  * location parameter.
  */
+import { rateLimited } from './_rateLimit.js'
+
 const BASE = 'https://aviationweather.gov/api/data'
 
 export default async function handler(req, res) {
+  if (rateLimited(req, res)) return
+
   try {
     const upstream = await fetch(`${BASE}/isigmet?format=json`, { signal: AbortSignal.timeout(10_000) })
     const data = await upstream.json()

@@ -1,7 +1,11 @@
+import { rateLimited } from './_rateLimit.js'
+
 const BASE = 'https://aviationweather.gov/api/data'
 const ICAO_RE = /^[A-Z0-9]{3,4}(,[A-Z0-9]{3,4})*$/
 
 export default async function handler(req, res) {
+  if (rateLimited(req, res)) return
+
   const { ids, type, hours: hoursRaw = '3' } = req.query
 
   if (!ids || !type || !['metar', 'taf'].includes(type)) {

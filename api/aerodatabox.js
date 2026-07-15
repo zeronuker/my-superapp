@@ -13,10 +13,14 @@
  *   rapidapi.com/aedbx-aedbx/api/aerodatabox
  */
 
+import { rateLimited } from './_rateLimit.js'
+
 const BASE = 'https://aerodatabox.p.rapidapi.com'
 const HOST = 'aerodatabox.p.rapidapi.com'
 
 export default async function handler(req, res) {
+  if (rateLimited(req, res)) return
+
   const { flight, date, icao, iata } = req.query
 
   let path, cacheControl

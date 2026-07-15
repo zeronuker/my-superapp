@@ -7,10 +7,15 @@
  * GET /api/geocode?type=reverse&lat=3.1390&lng=101.6869
  */
 
+import { rateLimited } from './_rateLimit.js'
+
 const NOMINATIM = 'https://nominatim.openstreetmap.org'
 const UA        = 'ClaudeBorne-SuperApp (https://github.com/zeronuker/my-superapp)'
 
 export default async function handler(req, res) {
+  // Nominatim's usage policy caps at ~1 req/sec — keep well under it.
+  if (rateLimited(req, res, { limit: 30, windowMs: 60_000 })) return
+
   const { type, q, lat, lng } = req.query
 
   let url
