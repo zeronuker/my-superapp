@@ -1,16 +1,9 @@
 // Pure translation layer for the Traffic tab's flight-status lookup — turns
 // AeroDataBox's raw response into the shape TrafficViewer renders, plus the
-// display formatters it and the Schedules tab use. fmtTrack is also used by
-// METARTAFCalculator for wind heading display.
+// display formatters it uses. fmtTrack is also used by METARTAFCalculator
+// for wind heading display.
 
 export function fmtTrack(deg) { return `${String(Math.round(deg)).padStart(3, '0')}°` }
-// flight_status times are split "HH:MM" + "DD Mon" strings with no year or
-// timezone — this is the airport's local time, not Zulu, so it's shown as-is
-// rather than relabelled with a "Z" suffix that would misrepresent it.
-export function fmtLocalTime(time, date) {
-  if (!time || /^-+:-+$/.test(time)) return null
-  return date ? `${time} · ${date}` : time
-}
 export function fmtDelay(min) {
   if (typeof min !== 'number' || isNaN(min)) return null
   if (min === 0) return 'On time'
@@ -19,16 +12,27 @@ export function fmtDelay(min) {
   const hhmm = h > 0 ? `${h}h${String(m).padStart(2, '0')}m` : `${m} min`
   return min > 0 ? `+${hhmm}` : `${hhmm} early`
 }
-// Extracts "HH:MM · DD Mon" from an AeroDataBox datetime string. The
-// OpenAPI docs show ISO 8601 with a "T" separator (e.g.
-// "2026-07-11T08:35:00+08:00"), but the real API uses a space instead
-// (confirmed live: "2026-07-11 08:35+08:00") — accept either.
+// Formats a raw UTC-offset suffix ("Z", "+0800", "+08:00") into "+08:00" —
+// always shown next to a local time so it's never ambiguous which airport's
+// clock a time belongs to (paired with the "Departure · KUL" / "Arrival ·
+// BOM" section headers that say which airport).
+function fmtOffset(raw) {
+  if (!raw) return null
+  if (raw === 'Z') return '+00:00'
+  const m = /^([+-])(\d{2}):?(\d{2})$/.exec(raw)
+  return m ? `${m[1]}${m[2]}:${m[3]}` : null
+}
+// Extracts "HH:MM ±HH:MM · DD Mon" from an AeroDataBox datetime string. The
+// OpenAPI docs show ISO 8601 with a "T" separator and seconds (e.g.
+// "2026-07-11T08:35:00+08:00"), but the real API uses a space and omits
+// seconds instead (confirmed live: "2026-07-11 08:35+08:00") — accept either.
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function fmtIsoLocal(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(iso || '')
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::\d{2})?(Z|[+-]\d{2}:?\d{2})?/.exec(iso || '')
   if (!m) return null
-  const [, , mo, d, h, mi] = m
-  return `${h}:${mi} · ${d} ${MONTHS[parseInt(mo, 10) - 1]}`
+  const [, , mo, d, h, mi, off] = m
+  const offset = fmtOffset(off)
+  return `${h}:${mi}${offset ? ` ${offset}` : ''} · ${d} ${MONTHS[parseInt(mo, 10) - 1]}`
 }
 // AeroDataBox gives full ISO datetimes for both scheduled and revised times,
 // so delay is a straight diff — no same-date guard needed like SkyLink's
@@ -50,6 +54,48 @@ const STATUS_KEYWORDS = [
 export function statusColorFor(text) {
   const hit = STATUS_KEYWORDS.find(([re]) => re.test(text || ''))
   return hit ? hit[1] : 'var(--cp-dim)'
+}
+
+// Derives a coarse status (Scheduled/Airborne/Landed) purely from UTC
+// timestamps already trusted elsewhere in this file — a cross-check against
+// AeroDataBox's own `status` field, which was observed reporting "Arrived"
+// for a flight that FlightRadar24 showed still 3+ hours from landing (the
+// timestamps in that same response were accurate; only the status word was
+// stale). Compares absolute instants (UTC) only — never a local wall-clock
+// string against `now`, which would silently break across timezones.
+function deriveStatus(raw, nowMs) {
+  const depConfirmedUtc = raw.departure?.runwayTime?.utc || raw.departure?.revisedTime?.utc || null
+  const depTime = depConfirmedUtc || raw.departure?.scheduledTime?.utc || null
+  if (!depTime) return null
+  const depMs = Date.parse(depTime)
+  if (isNaN(depMs)) return null
+  if (nowMs < depMs) return 'Scheduled'
+
+  const arrTime = raw.arrival?.revisedTime?.utc || raw.arrival?.predictedTime?.utc || raw.arrival?.scheduledTime?.utc || null
+  if (arrTime) {
+    const arrMs = Date.parse(arrTime)
+    if (!isNaN(arrMs) && nowMs >= arrMs) return 'Landed'
+  }
+  // Only claim airborne once departure is actually confirmed (runway/revised
+  // time), not just because the scheduled departure time has passed — a
+  // flight can be delayed at the gate long past its scheduled departure.
+  return depConfirmedUtc ? 'Airborne' : null
+}
+const RAW_IMPLIES_COMPLETED = /landed|arrived/i
+const RAW_IMPLIES_NOT_YET_DEPARTED = /scheduled|on time|expected|check-?in|boarding|gate ?closed/i
+const RAW_IMPLIES_CANCEL_DIVERT = /cancel|divert/i
+// Only overrides the provider's status text when it directly contradicts
+// our own timestamp math (the exact failure pattern above) — otherwise
+// trusts AeroDataBox's richer vocabulary (Boarding/GateClosed/Delayed/etc.),
+// which our simple math has no way to derive, and never overrides an
+// explicit cancellation/diversion, which no timestamp comparison could infer.
+function reconcileStatus(rawStatusText, derived) {
+  if (!rawStatusText || rawStatusText === '—') return derived || rawStatusText || '—'
+  if (!derived) return rawStatusText
+  if (RAW_IMPLIES_CANCEL_DIVERT.test(rawStatusText)) return rawStatusText
+  if (RAW_IMPLIES_COMPLETED.test(rawStatusText) && derived !== 'Landed') return derived
+  if (RAW_IMPLIES_NOT_YET_DEPARTED.test(rawStatusText) && derived === 'Landed') return derived
+  return rawStatusText
 }
 
 function fmtDistanceNm(gcd) {
@@ -88,9 +134,13 @@ function fmtPositionParts(loc) {
 // defensively (optional chaining throughout), so a wrong field name just
 // leaves that value null instead of breaking the lookup. Verify against a
 // real response before relying on them.
-export function normalizeFlightStatus(raw) {
+//
+// `nowMs` defaults to the real clock but is an explicit parameter so status
+// derivation is deterministic and testable.
+export function normalizeFlightStatus(raw, nowMs = Date.now()) {
   if (!raw) return null
-  const statusText = raw.status || '—'
+  const rawStatusText = raw.status || '—'
+  const statusText = reconcileStatus(rawStatusText, deriveStatus(raw, nowMs))
   const depCode = raw.departure?.airport?.iata || raw.departure?.airport?.icao || null
   const arrCode = raw.arrival?.airport?.iata || raw.arrival?.airport?.icao || null
   const codeshare = [raw.codeshareStatus, raw.isCargo ? 'Cargo' : null].filter(Boolean).join(' · ') || null
@@ -108,6 +158,9 @@ export function normalizeFlightStatus(raw) {
     statusColor: statusColorFor(statusText),
     schedDep: fmtIsoLocal(raw.departure?.scheduledTime?.local),
     schedArr: fmtIsoLocal(raw.arrival?.scheduledTime?.local),
+    // Actual departure once it's happened (wheels-off, or the revised time
+    // as a fallback when the airport has no runway-time granularity).
+    depActual: fmtIsoLocal(raw.departure?.runwayTime?.local) || fmtIsoLocal(raw.departure?.revisedTime?.local),
     estArr: fmtIsoLocal(raw.arrival?.revisedTime?.local),
     // Prefers the arrival leg's own delay since this tab is about arrival —
     // falls back to departure's delay only if arrival has no revised time
@@ -123,7 +176,6 @@ export function normalizeFlightStatus(raw) {
     arrGate: raw.arrival?.gate || null,
     depCheckInDesk: raw.departure?.checkInDesk || null,
     arrBaggageBelt: raw.arrival?.baggageBelt || null,
-    depRunwayTime: fmtIsoLocal(raw.departure?.runwayTime?.local),
     arrPredictedTime: fmtIsoLocal(raw.arrival?.predictedTime?.local),
     quality: fmtQuality(raw.arrival?.quality) || fmtQuality(raw.departure?.quality),
     codeshare,

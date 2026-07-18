@@ -21,11 +21,13 @@ export const DEFAULT_SETTINGS = {
   rememberLastTab:true,       // reopen last-used tool on app restart
   dashboardWidgets: { utc: true, prayer: true, metar: true },
   // Traffic tab's flight-status field toggles — which fields the status
-  // card shows. Defaults to the lean set (route/times/delay/terminal/gate);
-  // the rest are off until the user opts in via View settings.
+  // card shows. Defaults to the lean set: departure/arrival airport (route),
+  // sched dep/arr, actual dep, actual/est arr, dep+arr terminal/gate, and
+  // arrival delay. The rest are off until the user opts in via View settings.
   trafficFields: {
-    route: true, schedArr: true, estArr: true, delay: true, terminal: true, gate: true,
-    callSign: false, baggageBelt: false, checkInDesk: false, runwayTime: false,
+    route: true, schedDep: true, schedArr: true, depActual: true, estArr: true,
+    terminal: true, gate: true, delay: true,
+    callSign: false, baggageBelt: false, checkInDesk: false,
     predictedTime: false, quality: false, aircraft: false, photo: false, codeshare: false,
     distance: false, position: false,
   },

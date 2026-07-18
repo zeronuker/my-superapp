@@ -32,20 +32,24 @@ async function fetchSkylinkPosition(callsign, signal) {
   }
 }
 
-// Field toggles for the status card. `lean` marks the on-by-default set;
-// everything else stays off until the user opts in via View settings.
-// terminal/gate each control both the departure and arrival sections.
+// Field toggles for the status card. `lean` marks the on-by-default set —
+// departure/arrival airport (via Route), sched dep/arr, actual dep, actual/
+// est arr, dep+arr terminal/gate, and arrival delay are the default output
+// this tab promises. Everything else stays off until the user opts in via
+// View settings. terminal/gate each control both the departure and arrival
+// sections.
 const FIELDS = [
-  { id: 'route', label: 'Route', lean: true },
+  { id: 'route', label: 'Route (dep + arr airport)', lean: true },
+  { id: 'schedDep', label: 'Sched dep', lean: true },
   { id: 'schedArr', label: 'Sched arr', lean: true },
+  { id: 'depActual', label: 'Actual dep', lean: true },
   { id: 'estArr', label: 'Actual/est arr', lean: true },
-  { id: 'delay', label: 'Delay', lean: true },
   { id: 'terminal', label: 'Terminal (dep & arr)', lean: true },
   { id: 'gate', label: 'Gate (dep & arr)', lean: true },
+  { id: 'delay', label: 'Arrival delay', lean: true },
   { id: 'callSign', label: 'ATC callsign', lean: false },
   { id: 'baggageBelt', label: 'Baggage belt', lean: false },
   { id: 'checkInDesk', label: 'Check-in desk', lean: false },
-  { id: 'runwayTime', label: 'Runway time', lean: false },
   { id: 'predictedTime', label: 'Predicted arr', lean: false },
   { id: 'quality', label: 'Data quality', lean: false },
   { id: 'aircraft', label: 'Aircraft', lean: false },
@@ -223,10 +227,9 @@ function Cell({ label, value }) {
 }
 
 function StatusCard({ s, cf }) {
-  const delayLabel = cf.delay ? fmtDelay(s.delayMinutes) : null
   const showLive = cf.position
-  const showDep = cf.terminal || cf.gate || cf.checkInDesk || cf.runwayTime
-  const showArr = cf.terminal || cf.gate || cf.baggageBelt || cf.schedArr || cf.estArr || cf.predictedTime || cf.quality
+  const showDep = cf.terminal || cf.gate || cf.checkInDesk || cf.schedDep || cf.depActual
+  const showArr = cf.terminal || cf.gate || cf.baggageBelt || cf.schedArr || cf.estArr || cf.predictedTime || cf.quality || cf.delay
 
   return (
     <div className="cp-card-accent" style={{ marginTop: 16 }}>
@@ -257,7 +260,6 @@ function StatusCard({ s, cf }) {
           color: s.statusColor, background: 'var(--cp-bg3)', padding: '3px 10px', borderRadius: 4,
         }}>{s.status}</span>
         {cf.route && s.route && <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-txt)' }}>{s.route}</span>}
-        {delayLabel && <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: s.delayMinutes > 0 ? 'var(--cp-orange)' : 'var(--cp-txt)' }}>{delayLabel}</span>}
         {cf.distance && s.distance && <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)' }}>{s.distance} great-circle</span>}
       </div>
 
@@ -275,12 +277,14 @@ function StatusCard({ s, cf }) {
           {cf.terminal && <Cell label="Terminal" value={s.depTerminal} />}
           {cf.gate && <Cell label="Gate" value={s.depGate} />}
           {cf.checkInDesk && <Cell label="Check-in" value={s.depCheckInDesk} />}
-          {cf.runwayTime && <Cell label="Runway" value={s.depRunwayTime} />}
+          {cf.schedDep && <Cell label="Sched" value={s.schedDep} />}
+          {cf.depActual && <Cell label="Actual" value={s.depActual} />}
         </Section>
       )}
 
       {showArr && (
         <Section title={`Arrival${s.arrCode ? ` · ${s.arrCode}` : ''}`}>
+          {cf.delay && <Cell label="Delay" value={fmtDelay(s.delayMinutes) ? <span style={{ color: s.delayMinutes > 0 ? 'var(--cp-orange)' : 'var(--cp-txt)' }}>{fmtDelay(s.delayMinutes)}</span> : null} />}
           {cf.terminal && <Cell label="Terminal" value={s.arrTerminal} />}
           {cf.gate && <Cell label="Gate" value={s.arrGate} />}
           {cf.baggageBelt && <Cell label="Baggage belt" value={s.arrBaggageBelt} />}

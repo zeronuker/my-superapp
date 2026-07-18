@@ -20,7 +20,6 @@ const CurrencyCalculator      = lazy(() => import('./components/CurrencyCalculat
 const METARTAFCalculator      = lazy(() => import('./components/METARTAFCalculator'))
 const NotamViewer             = lazy(() => import('./components/NotamViewer'))
 const SigmetViewer            = lazy(() => import('./components/SigmetViewer'))
-const FlightSchedulesViewer   = lazy(() => import('./components/FlightSchedulesViewer'))
 const TrafficViewer           = lazy(() => import('./components/TrafficViewer'))
 const FTLCalculator           = lazy(() => import('./components/FTLCalculator'))
 const WorldTimeCalculator     = lazy(() => import('./components/WorldTimeCalculator'))
@@ -41,7 +40,6 @@ export const CALCULATORS = [
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
   { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
   { id: 'sigmet',        icon: '⛈️',  name: 'SIGMET',         component: SigmetViewer },
-  { id: 'schedules',     icon: '🛬',  name: 'Schedules',      component: FlightSchedulesViewer },
   { id: 'traffic',       icon: '🛰️', name: 'Traffic',        component: TrafficViewer },
   { id: 'ftl',           icon: '⏳',  name: 'FTL',            component: FTLCalculator },
   { id: 'dutylog',       icon: '🛫',  name: 'Duty Log',       component: DutyLogModule },
@@ -1166,6 +1164,11 @@ const CHANGELOG = [
     version: 'v3.16', date: 'Jul 2026',
     entries: [
       { type: 'feat', text: 'Traffic tab rebuilt as a lean flight-status lookup — search a callsign or flight number, see status/route/sched vs actual-or-estimated arrival/delay/arrival terminal/gate. Dropped the ADS-B radar plot, GPS/ICAO center + range picker, and aircraft-spec lookup (manufacturer/wingspan/MTOW/engine/cruise speed/airline logo) — none of it served the tab\'s actual job' },
+      { type: 'feat', text: 'Traffic: View settings panel (default lean, View all toggle) with sectioned Live position/Departure/Arrival detail cards, an aircraft photo field, and a SkyLink ADS-B cross-check for live position when AeroDataBox has none' },
+      { type: 'feat', text: 'Traffic: every departure/arrival airport now defaults to showing scheduled + actual departure, scheduled + actual-or-estimated arrival, both legs\' terminal/gate, and arrival delay — the ten data points this tab now guarantees by default' },
+      { type: 'feat', text: 'Traffic: status now cross-checks the provider\'s label against the flight\'s own timestamps and overrides it only on a direct contradiction (e.g. "Arrived" while the arrival time is still hours away) — fixes a real case where a still-airborne flight showed as landed' },
+      { type: 'feat', text: 'Traffic: every displayed time now shows its UTC offset (e.g. "12:15 +05:30") alongside the departure/arrival airport it belongs to, so departure- and arrival-local times are never mistaken for the same clock' },
+      { type: 'feat', text: 'Removed the Flight Schedules tab — airport-board browsing is retired; Traffic\'s flight-number search is now the only way to check a flight, with a fuller default detail card taking over what Schedules\' terminal/gate popup used to show' },
     ],
   },
   {

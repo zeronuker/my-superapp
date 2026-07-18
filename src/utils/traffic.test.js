@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fmtTrack, fmtLocalTime, fmtDelay, statusColorFor, normalizeFlightStatus, normalizeSkylinkPosition } from './traffic'
+import { fmtTrack, fmtDelay, statusColorFor, normalizeFlightStatus, normalizeSkylinkPosition } from './traffic'
 
 // Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
 // response (RapidAPI console + production, OD122, 11 Jul 2026) — explicit
@@ -36,15 +36,16 @@ describe('normalizeFlightStatus', () => {
   it('returns null when there is no matching flight', () => {
     expect(normalizeFlightStatus(null)).toBeNull()
   })
-  it('maps status, route, times, and delay from ISO datetimes', () => {
+  it('maps status, route, times (with UTC offset), and delay', () => {
     const s = normalizeFlightStatus(RAW_STATUS)
     expect(s.flight).toBe('OD122')
     expect(s.airline).toBe('Batik Air')
     expect(s.route).toBe('SYD → KUL')
     expect(s.status).toBe('DELAYED')
     expect(s.statusColor).toBe('var(--cp-orange)')
-    expect(s.schedDep).toBe('08:35 · 06 Jul')
-    expect(s.schedArr).toBe('15:40 · 06 Jul')
+    expect(s.schedDep).toBe('08:35 +10:00 · 06 Jul')
+    expect(s.schedArr).toBe('15:40 +08:00 · 06 Jul')
+    expect(s.depActual).toBe('08:47 +10:00 · 06 Jul') // from departure.runwayTime
     expect(s.estArr).toBeNull() // no arrival.revisedTime in this fixture
     // Prefers arrival's own delay; falls back to departure's here because
     // this fixture's arrival has no revisedTime at all.
@@ -55,6 +56,13 @@ describe('normalizeFlightStatus', () => {
     expect(s.arrGate).toBe('C22')
     expect(s.depCode).toBe('SYD')
     expect(s.arrCode).toBe('KUL')
+  })
+  it('falls back to departure revisedTime for depActual when there is no runwayTime', () => {
+    const s = normalizeFlightStatus({
+      number: 'MH9', status: 'Departed',
+      departure: { revisedTime: { local: '2026-07-18 09:12+08:00' } },
+    })
+    expect(s.depActual).toBe('09:12 +08:00 · 18 Jul')
   })
   it('prefers the arrival leg delay over departure when both are available', () => {
     // Regression for a real report: departure ran 17 min late but arrival
@@ -67,15 +75,14 @@ describe('normalizeFlightStatus', () => {
     })
     expect(s.delayMinutes).toBe(-25)
   })
-  it('maps the extended fields (callsign, aircraft, checkin/baggage, runway/predicted times, quality, codeshare, distance, position)', () => {
+  it('maps the extended fields (callsign, aircraft, checkin/baggage, predicted time, quality, codeshare, distance, position)', () => {
     const s = normalizeFlightStatus(RAW_STATUS)
     expect(s.callSign).toBe('BTK122')
     expect(s.aircraft).toBe('B738 · 9M-LNA · modeS 750A12')
     expect(s.photo).toBeNull() // no aircraft.image in this fixture
     expect(s.depCheckInDesk).toBe('A1-12')
     expect(s.arrBaggageBelt).toBe('4')
-    expect(s.depRunwayTime).toBe('08:47 · 06 Jul')
-    expect(s.arrPredictedTime).toBe('15:52 · 06 Jul')
+    expect(s.arrPredictedTime).toBe('15:52 +08:00 · 06 Jul')
     expect(s.quality).toBe('Basic, Live') // falls back to departure.quality since arrival has none
     expect(s.codeshare).toBe('IsOperator')
     expect(s.distance).toBe('3306 nm') // prefers the nm field over converting km
@@ -90,7 +97,7 @@ describe('normalizeFlightStatus', () => {
   it('reads the aircraft photo whether it is a bare URL or a {url} object', () => {
     const bare = normalizeFlightStatus({ number: 'MH8', status: 'Scheduled', aircraft: { image: 'https://example.com/a.jpg' } })
     expect(bare.photo).toBe('https://example.com/a.jpg')
-    const wrapped = normalizeFlightStatus({ number: 'MH9', status: 'Scheduled', aircraft: { image: { url: 'https://example.com/b.jpg' } } })
+    const wrapped = normalizeFlightStatus({ number: 'MH9b', status: 'Scheduled', aircraft: { image: { url: 'https://example.com/b.jpg' } } })
     expect(wrapped.photo).toBe('https://example.com/b.jpg')
   })
   it('falls back to converting km to nm when no nm field is present', () => {
@@ -113,12 +120,16 @@ describe('normalizeFlightStatus', () => {
     const s = normalizeFlightStatus({ number: 'MH5', status: 'Scheduled', codeshareStatus: 'IsCodeshare', isCargo: true })
     expect(s.codeshare).toBe('IsCodeshare · Cargo')
   })
-  it('also accepts the OpenAPI-documented "T" separator, not just the real space-separated one', () => {
+  it('also accepts the OpenAPI-documented "T" separator and seconds, not just the real space-separated one', () => {
     const s = normalizeFlightStatus({
       number: 'MH3', status: 'Scheduled',
       departure: { scheduledTime: { local: '2026-07-06T08:35:00+10:00' } },
     })
-    expect(s.schedDep).toBe('08:35 · 06 Jul')
+    expect(s.schedDep).toBe('08:35 +10:00 · 06 Jul')
+  })
+  it('formats a "Z" (UTC) offset as +00:00', () => {
+    const s = normalizeFlightStatus({ number: 'MH10', status: 'Scheduled', departure: { scheduledTime: { local: '2026-07-06T08:35:00Z' } } })
+    expect(s.schedDep).toBe('08:35 +00:00 · 06 Jul')
   })
   it('leaves route/delay unset when the raw fields are missing', () => {
     const s = normalizeFlightStatus({ number: 'MH1', status: 'Scheduled' })
@@ -142,20 +153,55 @@ describe('normalizeFlightStatus', () => {
     })
     expect(s.delayMinutes).toBe(20)
   })
-})
 
-describe('normalizeSkylinkPosition', () => {
-  // Field names confirmed against a live /adsb/aircraft response (see the
-  // git history on this file) — flat lat/lon, ground_speed, track; response
-  // wrapped in { aircraft: [...] }.
-  it('formats the first matching aircraft the same way as AeroDataBox position', () => {
-    const p = normalizeSkylinkPosition({ aircraft: [{ latitude: 3.1, longitude: 101.6, altitude: 35000, ground_speed: 420, track: 45 }] })
-    expect(p).toEqual({ latLon: '3.1, 101.6', alt: 'FL350', speed: '420kt', heading: '045°' })
-  })
-  it('returns null when no aircraft matched', () => {
-    expect(normalizeSkylinkPosition({ aircraft: [] })).toBeNull()
-    expect(normalizeSkylinkPosition(null)).toBeNull()
-    expect(normalizeSkylinkPosition({})).toBeNull()
+  describe('derived status (cross-checked against the provider label)', () => {
+    it('overrides a stale "Arrived" status when the flight has not reached its estimated arrival time yet (MH174 regression)', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH174', status: 'Arrived',
+        departure: { runwayTime: { utc: '2026-07-18 01:12Z' } },
+        arrival: { predictedTime: { utc: '2026-07-18 06:20Z' } },
+      }, Date.parse('2026-07-18 02:30Z'))
+      expect(s.status).toBe('AIRBORNE')
+    })
+    it('overrides a stale "Scheduled" status once well past the arrival time', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH2b', status: 'Scheduled',
+        departure: { scheduledTime: { utc: '2026-07-18 01:00Z' } },
+        arrival: { scheduledTime: { utc: '2026-07-18 06:00Z' } },
+      }, Date.parse('2026-07-18 08:00Z'))
+      expect(s.status).toBe('LANDED')
+    })
+    it('never overrides an explicit cancellation, regardless of timestamps', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH3b', status: 'Cancelled',
+        departure: { scheduledTime: { utc: '2026-07-18 01:00Z' } },
+        arrival: { scheduledTime: { utc: '2026-07-18 06:00Z' } },
+      }, Date.parse('2026-07-18 08:00Z'))
+      expect(s.status).toBe('CANCELLED')
+    })
+    it('keeps a richer in-progress status (e.g. Boarding) when it does not contradict the derived guess', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH4b', status: 'Boarding',
+        departure: { scheduledTime: { utc: '2026-07-18 01:00Z' } },
+        arrival: { scheduledTime: { utc: '2026-07-18 06:00Z' } },
+      }, Date.parse('2026-07-18 00:30Z'))
+      expect(s.status).toBe('BOARDING')
+    })
+    it('keeps the raw status when departure time has passed but nothing confirms actual departure (ambiguous)', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH5b', status: 'Delayed',
+        departure: { scheduledTime: { utc: '2026-07-18 01:00Z' } },
+      }, Date.parse('2026-07-18 02:00Z'))
+      expect(s.status).toBe('DELAYED')
+    })
+    it('uses the derived status when the provider gives none at all', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH6b',
+        departure: { runwayTime: { utc: '2026-07-18 01:00Z' } },
+        arrival: { scheduledTime: { utc: '2026-07-18 06:00Z' } },
+      }, Date.parse('2026-07-18 02:00Z'))
+      expect(s.status).toBe('AIRBORNE')
+    })
   })
 })
 
@@ -189,17 +235,25 @@ describe('fmtTrack', () => {
   it('pads single-digit tracks', () => { expect(fmtTrack(7)).toBe('007°') })
 })
 
-describe('fmtLocalTime', () => {
-  it('combines time and date', () => { expect(fmtLocalTime('08:35', '06 Jul')).toBe('08:35 · 06 Jul') })
-  it('shows time alone when there is no date', () => { expect(fmtLocalTime('08:35', '')).toBe('08:35') })
-  it('treats the "--:--" placeholder as no data', () => { expect(fmtLocalTime('--:--', '')).toBeNull() })
-  it('returns null when there is no time', () => { expect(fmtLocalTime(null, '06 Jul')).toBeNull() })
-})
-
 describe('fmtDelay', () => {
   it('reports on time', () => { expect(fmtDelay(0)).toBe('On time') })
   it('reports a sub-hour delay in minutes', () => { expect(fmtDelay(27)).toBe('+27 min') })
   it('reports a multi-hour delay as h/m', () => { expect(fmtDelay(145)).toBe('+2h25m') })
   it('reports an early arrival', () => { expect(fmtDelay(-5)).toBe('5 min early') })
   it('returns null when no delay data is available', () => { expect(fmtDelay(null)).toBeNull() })
+})
+
+describe('normalizeSkylinkPosition', () => {
+  // Field names confirmed against a live /adsb/aircraft response (see the
+  // git history on this file) — flat lat/lon, ground_speed, track; response
+  // wrapped in { aircraft: [...] }.
+  it('formats the first matching aircraft the same way as AeroDataBox position', () => {
+    const p = normalizeSkylinkPosition({ aircraft: [{ latitude: 3.1, longitude: 101.6, altitude: 35000, ground_speed: 420, track: 45 }] })
+    expect(p).toEqual({ latLon: '3.1, 101.6', alt: 'FL350', speed: '420kt', heading: '045°' })
+  })
+  it('returns null when no aircraft matched', () => {
+    expect(normalizeSkylinkPosition({ aircraft: [] })).toBeNull()
+    expect(normalizeSkylinkPosition(null)).toBeNull()
+    expect(normalizeSkylinkPosition({})).toBeNull()
+  })
 })
