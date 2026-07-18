@@ -26,7 +26,7 @@ export const DEFAULT_SETTINGS = {
   trafficFields: {
     route: true, schedArr: true, estArr: true, delay: true, terminal: true, gate: true,
     callSign: false, baggageBelt: false, checkInDesk: false, runwayTime: false,
-    predictedTime: false, quality: false, aircraft: false, codeshare: false,
+    predictedTime: false, quality: false, aircraft: false, photo: false, codeshare: false,
     distance: false, position: false,
   },
 }

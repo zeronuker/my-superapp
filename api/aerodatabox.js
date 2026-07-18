@@ -8,6 +8,11 @@
  * GET /api/aerodatabox?icao=<ICAO>                          (runways)
  * GET /api/aerodatabox?iata=<IATA>                          (runways)
  *
+ * `date` is expected to be the caller's own local calendar date (the
+ * frontend computes this from the device clock, not UTC) — a flight number
+ * is a distinct flight per departure day, so this must match "today" as the
+ * person searching understands it.
+ *
  * Required Vercel environment variable:
  *   AERODATABOX_API_KEY — the X-RapidAPI-Key from
  *   rapidapi.com/aedbx-aedbx/api/aerodatabox
@@ -16,55 +21,86 @@
 const BASE = 'https://aerodatabox.p.rapidapi.com'
 const HOST = 'aerodatabox.p.rapidapi.com'
 
+function previousDate(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
+// Fetches one date's flight-number match. Returns the single flight object,
+// or null if AeroDataBox has nothing for that date (204, or an empty array).
+async function fetchFlightForDate(flightNum, dateStr, apiKey) {
+  const params = new URLSearchParams({
+    dateLocalRole: 'Departure', withAircraftImage: 'true', withFlightPlan: 'false', withLocation: 'true',
+  })
+  const upstream = await fetch(
+    `${BASE}/flights/number/${encodeURIComponent(flightNum)}/${encodeURIComponent(dateStr)}?${params}`,
+    { headers: { 'x-rapidapi-key': apiKey, 'x-rapidapi-host': HOST }, signal: AbortSignal.timeout(8000) },
+  )
+  if (upstream.status === 204) return null
+  if (!upstream.ok) {
+    const text = await upstream.text().catch(() => '')
+    const err = new Error(`AeroDataBox error ${upstream.status}: ${text.slice(0, 200)}`)
+    err.status = upstream.status
+    throw err
+  }
+  const data = await upstream.json()
+  return Array.isArray(data) && data.length ? data[0] : null
+}
+
 export default async function handler(req, res) {
   const { flight, date, icao, iata } = req.query
-
-  let path, cacheControl
-  if (flight) {
-    if (!date) return res.status(400).json({ error: 'date query parameter is required' })
-    path = `/flights/number/${encodeURIComponent(String(flight).trim())}/${encodeURIComponent(String(date).trim())}`
-    // withLocation adds live lat/lon/altitude/speed/heading at no extra cost.
-    // withFlightPlan stays off — AeroDataBox bills it as 2 requests and we
-    // don't surface anything from it. withAircraftImage stays off too — we
-    // don't show a photo.
-    path += `?${new URLSearchParams({ dateLocalRole: 'Both', withAircraftImage: 'false', withFlightPlan: 'false', withLocation: 'true' })}`
-    cacheControl = 'no-store, no-cache'
-  } else if (icao || iata) {
-    const codeType = icao ? 'icao' : 'iata'
-    const code = String(icao || iata).trim().toUpperCase()
-    if (!code) return res.status(400).json({ error: 'icao/iata query parameter is required' })
-    path = `/airports/${codeType}/${encodeURIComponent(code)}/runways`
-    // Runway layouts change rarely — cache a week to stay well within the free tier.
-    cacheControl = 'public, max-age=604800, stale-while-revalidate=2592000'
-  } else {
-    return res.status(400).json({ error: 'flight+date, or icao/iata, query parameters are required' })
-  }
-
   const apiKey = process.env.AERODATABOX_API_KEY
   if (!apiKey) return res.status(500).json({ error: 'AERODATABOX_API_KEY is not configured' })
 
-  try {
-    const upstream = await fetch(`${BASE}${path}`, {
-      headers: { 'x-rapidapi-key': apiKey, 'x-rapidapi-host': HOST },
-      signal: AbortSignal.timeout(8000),
-    })
-    if (upstream.status === 204) {
-      // Don't apply the week-long runway cache to an empty/absent result —
-      // a transient upstream gap shouldn't get stuck cached as "no data".
+  if (flight) {
+    if (!date) return res.status(400).json({ error: 'date query parameter is required' })
+    const flightNum = String(flight).trim()
+    const dateStr = String(date).trim()
+    try {
+      // A flight number is a distinct flight per departure day — try the
+      // caller's "today" first. Only if that day has no match do we look
+      // back exactly one day, to catch an overnight flight that departed
+      // yesterday and is still en route (or was, and has since landed).
+      // Never further back than that.
+      let result = await fetchFlightForDate(flightNum, dateStr, apiKey)
+      if (!result) result = await fetchFlightForDate(flightNum, previousDate(dateStr), apiKey)
       res.setHeader('Cache-Control', 'no-store, no-cache')
-      return res.status(200).json(flight ? null : [])
+      return res.status(200).json(result)
+    } catch (e) {
+      const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
+      return res.status(isTimeout ? 504 : (e.status || 502)).json({ error: isTimeout ? 'AeroDataBox API timed out' : e.message })
     }
-    if (!upstream.ok) {
-      const text = await upstream.text().catch(() => '')
-      return res.status(upstream.status).json({ error: `AeroDataBox error ${upstream.status}: ${text.slice(0, 200)}` })
-    }
-    const data = await upstream.json()
-    res.setHeader('Cache-Control', cacheControl)
-    // Flight status: array response, flight number is unique per local date — take the first match.
-    // Runways: array response, returned as-is.
-    res.status(200).json(flight ? (Array.isArray(data) && data.length ? data[0] : null) : data)
-  } catch (e) {
-    const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
-    res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'AeroDataBox API timed out' : String(e) })
   }
+
+  if (icao || iata) {
+    const codeType = icao ? 'icao' : 'iata'
+    const code = String(icao || iata).trim().toUpperCase()
+    if (!code) return res.status(400).json({ error: 'icao/iata query parameter is required' })
+    try {
+      const upstream = await fetch(`${BASE}/airports/${codeType}/${encodeURIComponent(code)}/runways`, {
+        headers: { 'x-rapidapi-key': apiKey, 'x-rapidapi-host': HOST },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (upstream.status === 204) {
+        // Don't apply the week-long runway cache to an empty/absent result —
+        // a transient upstream gap shouldn't get stuck cached as "no data".
+        res.setHeader('Cache-Control', 'no-store, no-cache')
+        return res.status(200).json([])
+      }
+      if (!upstream.ok) {
+        const text = await upstream.text().catch(() => '')
+        return res.status(upstream.status).json({ error: `AeroDataBox error ${upstream.status}: ${text.slice(0, 200)}` })
+      }
+      const data = await upstream.json()
+      // Runway layouts change rarely — cache a week to stay well within the free tier.
+      res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=2592000')
+      return res.status(200).json(data)
+    } catch (e) {
+      const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
+      return res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'AeroDataBox API timed out' : String(e) })
+    }
+  }
+
+  return res.status(400).json({ error: 'flight+date, or icao/iata, query parameters are required' })
 }

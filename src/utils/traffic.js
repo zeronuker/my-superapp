@@ -61,13 +61,17 @@ function fmtDistanceNm(gcd) {
 function fmtQuality(quality) {
   return Array.isArray(quality) && quality.length ? quality.join(', ') : null
 }
-function fmtPosition(loc) {
+function fmtAlt(ft) { return ft >= 18000 ? `FL${Math.round(ft / 100)}` : `${Math.round(ft).toLocaleString()} ft` }
+// Returns the four live-position sub-values separately (not one joined
+// string) so the card can lay them out as individual grid cells.
+function fmtPositionParts(loc) {
   if (typeof loc?.lat !== 'number' || typeof loc?.lon !== 'number') return null
-  const parts = [`${loc.lat.toFixed(1)}, ${loc.lon.toFixed(1)}`]
-  if (typeof loc.altitude === 'number') parts.push(`${Math.round(loc.altitude).toLocaleString()} ft`)
-  if (typeof loc.speed === 'number') parts.push(`${Math.round(loc.speed)} kt`)
-  if (typeof loc.heading === 'number') parts.push(fmtTrack(loc.heading))
-  return parts.join(' · ')
+  return {
+    latLon: `${loc.lat.toFixed(1)}, ${loc.lon.toFixed(1)}`,
+    alt: typeof loc.altitude === 'number' ? fmtAlt(loc.altitude) : null,
+    speed: typeof loc.speed === 'number' ? `${Math.round(loc.speed)}kt` : null,
+    heading: typeof loc.heading === 'number' ? fmtTrack(loc.heading) : null,
+  }
 }
 
 // Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
@@ -77,32 +81,42 @@ function fmtPosition(loc) {
 // "HH:MM"/"DD Mon" strings with no year.
 //
 // callSign/aircraft/checkInDesk/baggageBelt/runwayTime/predictedTime/quality/
-// codeshareStatus/isCargo/greatCircleDistance/location are NOT yet confirmed
-// against a live response (traffic.js has been burned by doc-vs-reality
-// mismatches before — see the ADS-B note this file used to carry). They're
-// coded from AeroDataBox's published OpenAPI schema and read defensively
-// (optional chaining throughout), so a wrong field name just leaves that
-// value null instead of breaking the lookup. Verify against a real response
-// before relying on them.
+// codeshareStatus/isCargo/greatCircleDistance/location/aircraft image are NOT
+// yet confirmed against a live response (traffic.js has been burned by
+// doc-vs-reality mismatches before — see the ADS-B note this file used to
+// carry). They're coded from AeroDataBox's published OpenAPI schema and read
+// defensively (optional chaining throughout), so a wrong field name just
+// leaves that value null instead of breaking the lookup. Verify against a
+// real response before relying on them.
 export function normalizeFlightStatus(raw) {
   if (!raw) return null
   const statusText = raw.status || '—'
   const depCode = raw.departure?.airport?.iata || raw.departure?.airport?.icao || null
   const arrCode = raw.arrival?.airport?.iata || raw.arrival?.airport?.icao || null
   const codeshare = [raw.codeshareStatus, raw.isCargo ? 'Cargo' : null].filter(Boolean).join(' · ') || null
+  const image = raw.aircraft?.image
   return {
     flight: raw.number || '—',
     callSign: raw.callSign || null,
     airline: raw.airline?.name || null,
-    aircraft: [raw.aircraft?.model, raw.aircraft?.reg].filter(Boolean).join(' · ') || null,
+    aircraft: [raw.aircraft?.model, raw.aircraft?.reg, raw.aircraft?.modeS ? `modeS ${raw.aircraft.modeS}` : null]
+      .filter(Boolean).join(' · ') || null,
+    photo: typeof image === 'string' ? image : (image?.url || null),
     route: (depCode && arrCode) ? `${depCode} → ${arrCode}` : null,
+    depCode, arrCode,
     status: statusText.toUpperCase(),
     statusColor: statusColorFor(statusText),
     schedDep: fmtIsoLocal(raw.departure?.scheduledTime?.local),
     schedArr: fmtIsoLocal(raw.arrival?.scheduledTime?.local),
     estArr: fmtIsoLocal(raw.arrival?.revisedTime?.local),
-    delayMinutes: isoDelayMinutes(raw.departure?.scheduledTime?.utc, raw.departure?.revisedTime?.utc)
-      ?? isoDelayMinutes(raw.arrival?.scheduledTime?.utc, raw.arrival?.revisedTime?.utc),
+    // Prefers the arrival leg's own delay since this tab is about arrival —
+    // falls back to departure's delay only if arrival has no revised time
+    // yet (e.g. still scheduled, no live update). Previously this preferred
+    // departure unconditionally, which showed a departure-delay number next
+    // to arrival-only times — looked contradictory (e.g. "17 min late" next
+    // to an arrival estimate that was actually early).
+    delayMinutes: isoDelayMinutes(raw.arrival?.scheduledTime?.utc, raw.arrival?.revisedTime?.utc)
+      ?? isoDelayMinutes(raw.departure?.scheduledTime?.utc, raw.departure?.revisedTime?.utc),
     depTerminal: raw.departure?.terminal || null,
     depGate: raw.departure?.gate || null,
     arrTerminal: raw.arrival?.terminal || null,
@@ -114,6 +128,6 @@ export function normalizeFlightStatus(raw) {
     quality: fmtQuality(raw.arrival?.quality) || fmtQuality(raw.departure?.quality),
     codeshare,
     distance: fmtDistanceNm(raw.greatCircleDistance),
-    position: fmtPosition(raw.location),
+    position: fmtPositionParts(raw.location),
   }
 }

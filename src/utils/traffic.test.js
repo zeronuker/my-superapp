@@ -46,16 +46,32 @@ describe('normalizeFlightStatus', () => {
     expect(s.schedDep).toBe('08:35 · 06 Jul')
     expect(s.schedArr).toBe('15:40 · 06 Jul')
     expect(s.estArr).toBeNull() // no arrival.revisedTime in this fixture
+    // Prefers arrival's own delay; falls back to departure's here because
+    // this fixture's arrival has no revisedTime at all.
     expect(s.delayMinutes).toBe(145) // 22:35Z -> 01:00Z departure, actual UTC diff
     expect(s.depTerminal).toBe('1')
     expect(s.depGate).toBe('26')
     expect(s.arrTerminal).toBe('1')
     expect(s.arrGate).toBe('C22')
+    expect(s.depCode).toBe('SYD')
+    expect(s.arrCode).toBe('KUL')
+  })
+  it('prefers the arrival leg delay over departure when both are available', () => {
+    // Regression for a real report: departure ran 17 min late but arrival
+    // was revised 25 min early — "Delay" must reflect arrival (this tab is
+    // about arrival), not silently fall back to the unrelated departure number.
+    const s = normalizeFlightStatus({
+      number: 'MH174', status: 'EnRoute',
+      departure: { scheduledTime: { utc: '2026-07-18 01:00Z' }, revisedTime: { utc: '2026-07-18 01:17Z' } },
+      arrival: { scheduledTime: { utc: '2026-07-18 06:45Z' }, revisedTime: { utc: '2026-07-18 06:20Z' } },
+    })
+    expect(s.delayMinutes).toBe(-25)
   })
   it('maps the extended fields (callsign, aircraft, checkin/baggage, runway/predicted times, quality, codeshare, distance, position)', () => {
     const s = normalizeFlightStatus(RAW_STATUS)
     expect(s.callSign).toBe('BTK122')
-    expect(s.aircraft).toBe('B738 · 9M-LNA')
+    expect(s.aircraft).toBe('B738 · 9M-LNA · modeS 750A12')
+    expect(s.photo).toBeNull() // no aircraft.image in this fixture
     expect(s.depCheckInDesk).toBe('A1-12')
     expect(s.arrBaggageBelt).toBe('4')
     expect(s.depRunwayTime).toBe('08:47 · 06 Jul')
@@ -63,7 +79,19 @@ describe('normalizeFlightStatus', () => {
     expect(s.quality).toBe('Basic, Live') // falls back to departure.quality since arrival has none
     expect(s.codeshare).toBe('IsOperator')
     expect(s.distance).toBe('3306 nm') // prefers the nm field over converting km
-    expect(s.position).toBe('-12.4, 118.7 · 37,000 ft · 480 kt · 315°')
+    expect(s.position).toEqual({ latLon: '-12.4, 118.7', alt: 'FL370', speed: '480kt', heading: '315°' })
+  })
+  it('formats altitude in feet below FL180 and flight levels at/above it', () => {
+    const low = normalizeFlightStatus({ number: 'MH6', status: 'EnRoute', location: { lat: 1, lon: 1, altitude: 4500 } })
+    expect(low.position.alt).toBe('4,500 ft')
+    const high = normalizeFlightStatus({ number: 'MH7', status: 'EnRoute', location: { lat: 1, lon: 1, altitude: 18000 } })
+    expect(high.position.alt).toBe('FL180')
+  })
+  it('reads the aircraft photo whether it is a bare URL or a {url} object', () => {
+    const bare = normalizeFlightStatus({ number: 'MH8', status: 'Scheduled', aircraft: { image: 'https://example.com/a.jpg' } })
+    expect(bare.photo).toBe('https://example.com/a.jpg')
+    const wrapped = normalizeFlightStatus({ number: 'MH9', status: 'Scheduled', aircraft: { image: { url: 'https://example.com/b.jpg' } } })
+    expect(wrapped.photo).toBe('https://example.com/b.jpg')
   })
   it('falls back to converting km to nm when no nm field is present', () => {
     const s = normalizeFlightStatus({ number: 'MH4', status: 'Scheduled', greatCircleDistance: { km: 100 } })
@@ -73,10 +101,13 @@ describe('normalizeFlightStatus', () => {
     const s = normalizeFlightStatus({ number: 'MH1', status: 'Scheduled' })
     expect(s.callSign).toBeNull()
     expect(s.aircraft).toBeNull()
+    expect(s.photo).toBeNull()
     expect(s.codeshare).toBeNull()
     expect(s.distance).toBeNull()
     expect(s.position).toBeNull()
     expect(s.quality).toBeNull()
+    expect(s.depCode).toBeNull()
+    expect(s.arrCode).toBeNull()
   })
   it('marks a cargo codeshare flight in one combined field', () => {
     const s = normalizeFlightStatus({ number: 'MH5', status: 'Scheduled', codeshareStatus: 'IsCodeshare', isCargo: true })

@@ -3,9 +3,15 @@ import { useCalculatorStore } from '../store/calculatorStore'
 import { fmtDelay, normalizeFlightStatus } from '../utils/traffic'
 import ResetButton from './ResetButton'
 
+// date is the device's own local calendar date, not UTC — a flight number
+// is a distinct flight per departure day, so this has to match what "today"
+// means to whoever's searching, wherever they are.
+function localDateStr(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 async function fetchFlightStatus(flightOrCallsign, signal) {
-  const date = new Date().toISOString().slice(0, 10)
-  const params = new URLSearchParams({ flight: flightOrCallsign, date })
+  const params = new URLSearchParams({ flight: flightOrCallsign, date: localDateStr() })
   const res = await fetch(`/api/aerodatabox?${params}`, { signal })
   const body = await res.json().catch(() => null)
   if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
@@ -14,26 +20,25 @@ async function fetchFlightStatus(flightOrCallsign, signal) {
 
 // Field toggles for the status card. `lean` marks the on-by-default set;
 // everything else stays off until the user opts in via View settings.
+// terminal/gate each control both the departure and arrival sections.
 const FIELDS = [
-  { id: 'route', label: 'Route', lean: true, get: s => s.route },
-  { id: 'schedArr', label: 'Sched arr', lean: true, get: s => s.schedArr },
-  { id: 'estArr', label: 'Actual/est arr', lean: true, get: s => s.estArr },
-  { id: 'delay', label: 'Delay', lean: true, get: s => {
-    const label = fmtDelay(s.delayMinutes)
-    return label ? <span style={{ color: s.delayMinutes > 0 ? 'var(--cp-orange)' : 'var(--cp-txt)' }}>{label}</span> : null
-  } },
-  { id: 'terminal', label: 'Terminal', lean: true, get: s => s.arrTerminal },
-  { id: 'gate', label: 'Gate', lean: true, get: s => s.arrGate ? <span style={{ color: 'var(--cp-acc)', fontWeight: 700 }}>{s.arrGate}</span> : null },
-  { id: 'callSign', label: 'ATC callsign', lean: false, get: s => s.callSign },
-  { id: 'baggageBelt', label: 'Baggage belt', lean: false, get: s => s.arrBaggageBelt },
-  { id: 'checkInDesk', label: 'Check-in desk', lean: false, get: s => s.depCheckInDesk },
-  { id: 'runwayTime', label: 'Runway time', lean: false, get: s => s.depRunwayTime },
-  { id: 'predictedTime', label: 'Predicted arr', lean: false, get: s => s.arrPredictedTime },
-  { id: 'quality', label: 'Data quality', lean: false, get: s => s.quality },
-  { id: 'aircraft', label: 'Aircraft', lean: false, get: s => s.aircraft },
-  { id: 'codeshare', label: 'Codeshare/cargo', lean: false, get: s => s.codeshare },
-  { id: 'distance', label: 'Distance', lean: false, get: s => s.distance },
-  { id: 'position', label: 'Live position', lean: false, get: s => s.position },
+  { id: 'route', label: 'Route', lean: true },
+  { id: 'schedArr', label: 'Sched arr', lean: true },
+  { id: 'estArr', label: 'Actual/est arr', lean: true },
+  { id: 'delay', label: 'Delay', lean: true },
+  { id: 'terminal', label: 'Terminal (dep & arr)', lean: true },
+  { id: 'gate', label: 'Gate (dep & arr)', lean: true },
+  { id: 'callSign', label: 'ATC callsign', lean: false },
+  { id: 'baggageBelt', label: 'Baggage belt', lean: false },
+  { id: 'checkInDesk', label: 'Check-in desk', lean: false },
+  { id: 'runwayTime', label: 'Runway time', lean: false },
+  { id: 'predictedTime', label: 'Predicted arr', lean: false },
+  { id: 'quality', label: 'Data quality', lean: false },
+  { id: 'aircraft', label: 'Aircraft', lean: false },
+  { id: 'photo', label: 'Aircraft photo', lean: false },
+  { id: 'codeshare', label: 'Codeshare/cargo', lean: false },
+  { id: 'distance', label: 'Distance', lean: false },
+  { id: 'position', label: 'Live position', lean: false },
 ]
 
 export default function TrafficViewer() {
@@ -165,34 +170,100 @@ export default function TrafficViewer() {
   )
 }
 
+// ── Status card — grouped into Live position / Departure / Arrival sections,
+// each shown only when a field belonging to it is toggled on. Within a
+// visible section, every toggled field renders — with "—" if the API had
+// no data for it — so the grid shape stays predictable. ──
+function SectionLabel({ children }) {
+  return <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cp-dim)', marginBottom: 8 }}>{children}</div>
+}
+function Section({ title, children }) {
+  return (
+    <>
+      <div style={{ borderTop: '1px solid var(--cp-border3)', margin: '12px 0' }} />
+      <SectionLabel>{title}</SectionLabel>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: '10px 16px' }}>
+        {children}
+      </div>
+    </>
+  )
+}
+function Cell({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cp-dim)', marginBottom: 3 }}>{label}</div>
+      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, color: 'var(--cp-txt)' }}>{value ?? '—'}</div>
+    </div>
+  )
+}
+
 function StatusCard({ s, cf }) {
-  const items = FIELDS
-    .filter(f => cf[f.id])
-    .map(f => [f.label, f.get(s)])
-    .filter(([, v]) => v != null)
+  const delayLabel = cf.delay ? fmtDelay(s.delayMinutes) : null
+  const showLive = cf.position
+  const showDep = cf.terminal || cf.gate || cf.checkInDesk || cf.runwayTime
+  const showArr = cf.terminal || cf.gate || cf.baggageBelt || cf.schedArr || cf.estArr || cf.predictedTime || cf.quality
 
   return (
     <div className="cp-card-accent" style={{ marginTop: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--cp-acc)', letterSpacing: '0.06em' }}>{s.flight}</div>
-          {s.airline && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 2 }}>{s.airline}</div>}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--cp-acc)', letterSpacing: '0.06em' }}>{s.flight}</span>
+            {cf.codeshare && s.codeshare && (
+              <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', padding: '2px 8px', borderRadius: 4, background: 'var(--cp-accdim)', color: 'var(--cp-acc)' }}>{s.codeshare}</span>
+            )}
+          </div>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 2 }}>
+            {[s.airline, cf.callSign && s.callSign ? `callsign ${s.callSign}` : null].filter(Boolean).join(' · ')}
+          </div>
+          {cf.aircraft && s.aircraft && (
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', marginTop: 2 }}>{s.aircraft}</div>
+          )}
         </div>
-        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: s.statusColor, flexShrink: 0 }}>{s.status}</span>
+        {cf.photo && s.photo && (
+          <img src={s.photo} alt="" style={{ width: 64, height: 44, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
+            onError={e => { e.currentTarget.style.display = 'none' }} />
+        )}
       </div>
 
-      {items.length > 0 && (
-        <>
-          <div style={{ borderTop: '1px solid var(--cp-border3)', margin: '12px 0' }} />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: '10px 16px' }}>
-            {items.map(([k, v]) => (
-              <div key={k}>
-                <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cp-dim)', marginBottom: 3 }}>{k}</div>
-                <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, color: 'var(--cp-txt)' }}>{v}</div>
-              </div>
-            ))}
-          </div>
-        </>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+        <span style={{
+          fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+          color: s.statusColor, background: 'var(--cp-bg3)', padding: '3px 10px', borderRadius: 4,
+        }}>{s.status}</span>
+        {cf.route && s.route && <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-txt)' }}>{s.route}</span>}
+        {delayLabel && <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: s.delayMinutes > 0 ? 'var(--cp-orange)' : 'var(--cp-txt)' }}>{delayLabel}</span>}
+        {cf.distance && s.distance && <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)' }}>{s.distance} great-circle</span>}
+      </div>
+
+      {showLive && (
+        <Section title="Live position">
+          <Cell label="Lat/lon" value={s.position?.latLon} />
+          <Cell label="Alt" value={s.position?.alt} />
+          <Cell label="Speed" value={s.position?.speed} />
+          <Cell label="Heading" value={s.position?.heading} />
+        </Section>
+      )}
+
+      {showDep && (
+        <Section title={`Departure${s.depCode ? ` · ${s.depCode}` : ''}`}>
+          {cf.terminal && <Cell label="Terminal" value={s.depTerminal} />}
+          {cf.gate && <Cell label="Gate" value={s.depGate} />}
+          {cf.checkInDesk && <Cell label="Check-in" value={s.depCheckInDesk} />}
+          {cf.runwayTime && <Cell label="Runway" value={s.depRunwayTime} />}
+        </Section>
+      )}
+
+      {showArr && (
+        <Section title={`Arrival${s.arrCode ? ` · ${s.arrCode}` : ''}`}>
+          {cf.terminal && <Cell label="Terminal" value={s.arrTerminal} />}
+          {cf.gate && <Cell label="Gate" value={s.arrGate} />}
+          {cf.baggageBelt && <Cell label="Baggage belt" value={s.arrBaggageBelt} />}
+          {cf.schedArr && <Cell label="Sched" value={s.schedArr} />}
+          {cf.estArr && <Cell label="Actual/est" value={s.estArr} />}
+          {cf.predictedTime && <Cell label="Predicted" value={s.arrPredictedTime} />}
+          {cf.quality && <Cell label="Quality" value={s.quality} />}
+        </Section>
       )}
     </div>
   )
