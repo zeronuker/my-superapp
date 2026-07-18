@@ -27,6 +27,15 @@ function previousDate(dateStr) {
   return d.toISOString().slice(0, 10)
 }
 
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
+// AeroDataBox's Basic plan is rate-limited to ~1 request/second. A
+// registration search that doesn't match a flight number chains up to 4
+// sequential calls (number today/yesterday, then reg today/yesterday) —
+// fired back-to-back that tripped a 429 partway through in practice. This
+// pace only kicks in between fallback attempts, not on the common one-call
+// path, so a normal flight-number search isn't slowed down.
+const AERODATABOX_MIN_INTERVAL_MS = 1100
+
 // Fetches one date's matches for either search mode. Always returns an
 // array — flight-number search normally has at most one match (a flight
 // number is a distinct flight per departure day), registration search can
@@ -72,11 +81,18 @@ export default async function handler(req, res) {
       // within a single date pass.
       let matchedBy = 'number'
       let flights = await fetchFlightsForDate('number', term, dateStr, apiKey)
-      if (!flights.length) flights = await fetchFlightsForDate('number', term, previousDate(dateStr), apiKey)
+      if (!flights.length) {
+        await sleep(AERODATABOX_MIN_INTERVAL_MS)
+        flights = await fetchFlightsForDate('number', term, previousDate(dateStr), apiKey)
+      }
       if (!flights.length) {
         matchedBy = 'reg'
+        await sleep(AERODATABOX_MIN_INTERVAL_MS)
         flights = await fetchFlightsForDate('reg', term, dateStr, apiKey)
-        if (!flights.length) flights = await fetchFlightsForDate('reg', term, previousDate(dateStr), apiKey)
+        if (!flights.length) {
+          await sleep(AERODATABOX_MIN_INTERVAL_MS)
+          flights = await fetchFlightsForDate('reg', term, previousDate(dateStr), apiKey)
+        }
       }
       res.setHeader('Cache-Control', 'no-store, no-cache')
       return res.status(200).json({ matchedBy, flights })
