@@ -70,22 +70,26 @@ export default async function handler(req, res) {
     const dateStr = String(date).trim()
     try {
       // The search box accepts either a flight number or an aircraft
-      // registration, with no way to tell which just by looking at the
-      // string (some registrations, like US N-numbers, don't even have a
-      // hyphen). So: try it as a flight number first (the common case), and
-      // only fall back to registration search if that comes up empty —
-      // no format-guessing, one extra request only on a miss. Each mode
-      // also falls back exactly one day, to catch an overnight flight that
+      // registration, with no reliable way to tell which just by looking at
+      // the string in general (some registrations, like US N-numbers, don't
+      // have a hyphen). One narrower signal IS safe though: a real flight
+      // number never contains a hyphen, so if the input has one, it can't be
+      // a flight number — skip straight to registration search instead of
+      // burning two guaranteed-to-fail number-search calls first. Absent a
+      // hyphen, still don't guess: try flight number first (the common
+      // case), fall back to registration only on a miss. Each mode also
+      // falls back exactly one day, to catch an overnight flight that
       // departed yesterday and is still en route (or has since landed).
       // Never further back than that, and never mixes the two search modes
       // within a single date pass.
-      let matchedBy = 'number'
-      let flights = await fetchFlightsForDate('number', term, dateStr, apiKey)
+      const looksLikeRegistration = term.includes('-')
+      let matchedBy = looksLikeRegistration ? 'reg' : 'number'
+      let flights = await fetchFlightsForDate(matchedBy, term, dateStr, apiKey)
       if (!flights.length) {
         await sleep(AERODATABOX_MIN_INTERVAL_MS)
-        flights = await fetchFlightsForDate('number', term, previousDate(dateStr), apiKey)
+        flights = await fetchFlightsForDate(matchedBy, term, previousDate(dateStr), apiKey)
       }
-      if (!flights.length) {
+      if (!flights.length && !looksLikeRegistration) {
         matchedBy = 'reg'
         await sleep(AERODATABOX_MIN_INTERVAL_MS)
         flights = await fetchFlightsForDate('reg', term, dateStr, apiKey)
