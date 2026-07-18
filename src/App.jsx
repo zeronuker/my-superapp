@@ -54,7 +54,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.15'
+const APP_VERSION = 'v3.16'
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -1162,6 +1162,12 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.16', date: 'Jul 2026',
+    entries: [
+      { type: 'feat', text: 'Traffic tab rebuilt as a lean flight-status lookup — search a callsign or flight number, see status/route/sched vs actual-or-estimated arrival/delay/arrival terminal/gate. Dropped the ADS-B radar plot, GPS/ICAO center + range picker, and aircraft-spec lookup (manufacturer/wingspan/MTOW/engine/cruise speed/airline logo) — none of it served the tab\'s actual job' },
+    ],
+  },
   {
     version: 'v3.15', date: 'Jul 2026',
     entries: [

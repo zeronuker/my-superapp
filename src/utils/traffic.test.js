@@ -1,16 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  fmtAlt, fmtVs, fmtPinged, fmtDistBrg, fmtSpeed, fmtTrack, fmtLocalTime, fmtDelay, fmtWakeCategory, statusColorFor,
-  normalizeAircraft, normalizeFlightStatus, normalizeAircraftLookup, normalizeAirline, normalizeAircraftPerformance,
-} from './traffic'
-
-// Shape confirmed against a live /adsb/aircraft response (see the comment on
-// normalizeAircraft) — flat lat/lon, is_on_ground, no origin/destination.
-const RAW_AIRCRAFT = {
-  icao24: '750a01', callsign: 'MAS123 ', registration: '9M-MTA', aircraft_type: 'B738',
-  latitude: 3.1, longitude: 101.6, altitude: 35000, ground_speed: 450, track: 90,
-  vertical_rate: 0, squawk: '2000', is_on_ground: false, airline: 'Malaysia Airlines',
-}
+import { fmtTrack, fmtLocalTime, fmtDelay, statusColorFor, normalizeFlightStatus } from './traffic'
 
 // Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
 // response (RapidAPI console + production, OD122, 11 Jul 2026) — explicit
@@ -34,25 +23,6 @@ const RAW_STATUS = {
     terminal: '1', gate: 'C22',
   },
 }
-
-describe('normalizeAircraft', () => {
-  it('maps the live-API field names', () => {
-    expect(normalizeAircraft(RAW_AIRCRAFT)).toEqual({
-      icao24: '750a01', callsign: 'MAS123', registration: '9M-MTA', aircraft_type: 'B738',
-      lat: 3.1, lon: 101.6, altitude_ft: 35000, ground_speed_kts: 450, track: 90,
-      vertical_rate: 0, squawk: '2000', on_ground: false,
-      origin: null, destination: null, airline: 'Malaysia Airlines', pingedAt: null,
-    })
-  })
-  it('falls back sanely on missing fields', () => {
-    const a = normalizeAircraft({ icao24: 'abc123' })
-    expect(a.registration).toBe('—')
-    expect(a.squawk).toBe('----')
-    expect(a.altitude_ft).toBe(0)
-    expect(a.on_ground).toBe(false)
-    expect(a.callsign).toBe('abc123')
-  })
-})
 
 describe('normalizeFlightStatus', () => {
   it('returns null when there is no matching flight', () => {
@@ -105,79 +75,6 @@ describe('normalizeFlightStatus', () => {
   })
 })
 
-// Shape confirmed against a live /aircraft/registration/:reg response and the
-// API's own official example schema (RapidAPI console, G-STBC) — wrapped in
-// { query, found, aircraft: {...} }, not flat.
-const RAW_LOOKUP = {
-  query: 'G-STBC', found: true,
-  aircraft: {
-    registration: 'G-STBC', icao24: '40621d', icao_type: 'B77W',
-    type_name: '777-36N', manufacturer: 'Boeing', manufacturer_and_model: 'Boeing 777-36N',
-    owner_operator: 'British Airways', airline_code: 'BAW',
-    is_private_operator: false, serial_number: '38695', year_built: '2013',
-    photos: [{ image: 'https://image.airport-data.com/aircraft/001912010.jpg', link: 'https://airport-data.com/aircraft/photo/001912010.html', photographer: 'Roberto Cassar' }],
-  },
-}
-
-// Shape confirmed against a live /airlines/search response (icao=BAW).
-const RAW_AIRLINE = [{
-  id: 1355, name: 'British Airways', iata: 'BA', icao: 'BAW',
-  callsign: 'SPEEDBIRD', country: 'United Kingdom', active: 'Y',
-  logo: 'https://media.skylinkapi.com/logos/BA.png',
-}]
-
-// Shape confirmed against a live /aircraft/performance/:icao_type response.
-const RAW_PERFORMANCE = {
-  icao_type: 'B77W', name: 'BOEING 777-300ER', engine_type: 'Jet', engine_code: 'L2J',
-  wake_category: 'H', cruise_speed_ktas: 490, service_ceiling_ft: 43000,
-  max_range_nm: 7370, wing_span_m: 64.8, length_m: 73.9, mtow_t: 351.5, max_passengers: 396,
-}
-
-describe('normalizeAircraftLookup', () => {
-  it('unwraps the aircraft object and maps real field names', () => {
-    expect(normalizeAircraftLookup(RAW_LOOKUP)).toEqual({
-      registration: 'G-STBC', icao24: '40621d', icao_type: 'B77W', type_name: '777-36N',
-      manufacturer: 'Boeing', operator: 'British Airways', operator_icao: 'BAW',
-      serial_number: '38695', year_manufactured: '2013',
-      photos: RAW_LOOKUP.aircraft.photos,
-    })
-  })
-  it('returns null when the aircraft was not found', () => {
-    expect(normalizeAircraftLookup({ query: 'ZZZZZ', found: false })).toBeNull()
-  })
-  it('returns null for a missing/malformed response', () => {
-    expect(normalizeAircraftLookup(null)).toBeNull()
-    expect(normalizeAircraftLookup({})).toBeNull()
-  })
-})
-
-describe('normalizeAirline', () => {
-  it('maps the first match', () => {
-    expect(normalizeAirline(RAW_AIRLINE)).toEqual({
-      name: 'British Airways', iata: 'BA', icao: 'BAW',
-      callsign: 'SPEEDBIRD', country: 'United Kingdom', logo: 'https://media.skylinkapi.com/logos/BA.png',
-    })
-  })
-  it('returns null for an empty result set', () => {
-    expect(normalizeAirline([])).toBeNull()
-    expect(normalizeAirline(null)).toBeNull()
-  })
-})
-
-describe('normalizeAircraftPerformance', () => {
-  it('maps the real field names', () => {
-    expect(normalizeAircraftPerformance(RAW_PERFORMANCE)).toEqual({
-      engineType: 'Jet', engineCode: 'L2J', wakeCategory: 'H',
-      cruiseSpeedKt: 490, serviceCeilingFt: 43000, maxRangeNm: 7370,
-      wingSpanM: 64.8, lengthM: 73.9, mtowT: 351.5,
-    })
-  })
-  it('returns null when the type code is unknown', () => {
-    expect(normalizeAircraftPerformance(null)).toBeNull()
-    expect(normalizeAircraftPerformance({})).toBeNull()
-  })
-})
-
 describe('statusColorFor', () => {
   it('flags cancelled red', () => { expect(statusColorFor('Cancelled')).toBe('var(--cp-red)') })
   it('flags landed dim', () => { expect(statusColorFor('Landed 14:32')).toBe('var(--cp-dim)') })
@@ -203,31 +100,6 @@ describe('statusColorFor', () => {
   })
 })
 
-describe('fmtAlt', () => {
-  it('shows flight levels above 18000 ft', () => { expect(fmtAlt(35000)).toBe('FL350') })
-  it('shows feet below 18000 ft', () => { expect(fmtAlt(1200)).toBe('1,200 ft') })
-})
-
-describe('fmtVs', () => {
-  it('flags climbing', () => { expect(fmtVs(800)).toBe('↑ 800 fpm') })
-  it('flags descending', () => { expect(fmtVs(-800)).toBe('↓ 800 fpm') })
-  it('treats small rates as level', () => { expect(fmtVs(50)).toBe('level') })
-})
-
-describe('fmtPinged', () => {
-  it('reports never pinged', () => { expect(fmtPinged(null, Date.now())).toBe('Not pinged yet') })
-  it('reports elapsed seconds', () => { expect(fmtPinged(1000, 6000)).toBe('Pinged 5s ago') })
-})
-
-describe('fmtDistBrg', () => {
-  it('handles missing geometry', () => { expect(fmtDistBrg(null, null)).toBe('—') })
-  it('formats distance and bearing', () => { expect(fmtDistBrg(42.4, 7)).toBe('42 NM · 007°') })
-})
-
-describe('fmtSpeed', () => {
-  it('rounds to the nearest knot', () => { expect(fmtSpeed(294.33313)).toBe('294 kts') })
-})
-
 describe('fmtTrack', () => {
   it('rounds and pads to 3 digits', () => { expect(fmtTrack(64.653824)).toBe('065°') })
   it('pads single-digit tracks', () => { expect(fmtTrack(7)).toBe('007°') })
@@ -238,17 +110,6 @@ describe('fmtLocalTime', () => {
   it('shows time alone when there is no date', () => { expect(fmtLocalTime('08:35', '')).toBe('08:35') })
   it('treats the "--:--" placeholder as no data', () => { expect(fmtLocalTime('--:--', '')).toBeNull() })
   it('returns null when there is no time', () => { expect(fmtLocalTime(null, '06 Jul')).toBeNull() })
-})
-
-describe('fmtWakeCategory', () => {
-  it('expands known codes', () => {
-    expect(fmtWakeCategory('H')).toBe('Heavy')
-    expect(fmtWakeCategory('M')).toBe('Medium')
-    expect(fmtWakeCategory('L')).toBe('Light')
-    expect(fmtWakeCategory('J')).toBe('Super')
-  })
-  it('falls back to the raw code for anything unrecognized', () => { expect(fmtWakeCategory('X')).toBe('X') })
-  it('returns null for missing input', () => { expect(fmtWakeCategory(null)).toBeNull() })
 })
 
 describe('fmtDelay', () => {
