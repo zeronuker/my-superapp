@@ -131,3 +131,14 @@ export function normalizeFlightStatus(raw) {
     position: fmtPositionParts(raw.location),
   }
 }
+
+// Cross-check source when AeroDataBox has no live position for a flight —
+// SkyLink's own ADS-B feed (a different vendor/network) queried by callsign.
+// Shape confirmed live for the /adsb/aircraft endpoint (see git history on
+// this file): flat lat/lon, altitude in ft, ground_speed in kts, track in
+// degrees, response wrapped in { aircraft: [...] }.
+export function normalizeSkylinkPosition(raw) {
+  const a = Array.isArray(raw?.aircraft) ? raw.aircraft[0] : null
+  if (!a) return null
+  return fmtPositionParts({ lat: a.latitude, lon: a.longitude, altitude: a.altitude, speed: a.ground_speed, heading: a.track })
+}

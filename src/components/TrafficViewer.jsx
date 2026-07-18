@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
-import { fmtDelay, normalizeFlightStatus } from '../utils/traffic'
+import { fmtDelay, normalizeFlightStatus, normalizeSkylinkPosition } from '../utils/traffic'
 import ResetButton from './ResetButton'
 
 // date is the device's own local calendar date, not UTC — a flight number
@@ -16,6 +16,20 @@ async function fetchFlightStatus(flightOrCallsign, signal) {
   const body = await res.json().catch(() => null)
   if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
   return body
+}
+
+// Cross-check only — SkyLink is a different ADS-B vendor than AeroDataBox,
+// so it's worth a try when AeroDataBox has no live position. A failure here
+// shouldn't break the main lookup, so this swallows errors and returns null.
+async function fetchSkylinkPosition(callsign, signal) {
+  try {
+    const params = new URLSearchParams({ resource: 'adsb', callsign })
+    const res = await fetch(`/api/skylink?${params}`, { signal })
+    if (!res.ok) return null
+    return await res.json()
+  } catch (_) {
+    return null
+  }
 }
 
 // Field toggles for the status card. `lean` marks the on-by-default set;
@@ -68,6 +82,8 @@ export default function TrafficViewer() {
   // Aborts any in-flight lookup on unmount.
   useEffect(() => () => controllerRef.current?.abort(), [])
 
+  const cf = settings.trafficFields
+
   const handleReset = () => {
     controllerRef.current?.abort()
     setQuery(''); setStatus(null); setError(''); setSearched(false); setLoading(false)
@@ -83,12 +99,21 @@ export default function TrafficViewer() {
     controllerRef.current = controller
     setLoading(true); setError(''); setSearched(true); setStatus(null)
     fetchFlightStatus(term, controller.signal)
-      .then(raw => setStatus(normalizeFlightStatus(raw)))
+      .then(async raw => {
+        const normalized = normalizeFlightStatus(raw)
+        // AeroDataBox had nothing for live position — try SkyLink's separate
+        // ADS-B feed as a cross-check, only when the user actually wants to
+        // see it and there's a callsign to search with.
+        const callsign = normalized?.callSign || term
+        if (normalized && cf.position && !normalized.position && callsign) {
+          const skylinkRaw = await fetchSkylinkPosition(callsign, controller.signal)
+          normalized.position = normalizeSkylinkPosition(skylinkRaw)
+        }
+        setStatus(normalized)
+      })
       .catch(e => { if (e.name !== 'AbortError') setError(e.message || 'Failed to fetch flight status') })
       .finally(() => setLoading(false))
   }
-
-  const cf = settings.trafficFields
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto' }}>

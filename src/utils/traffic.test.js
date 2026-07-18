@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fmtTrack, fmtLocalTime, fmtDelay, statusColorFor, normalizeFlightStatus } from './traffic'
+import { fmtTrack, fmtLocalTime, fmtDelay, statusColorFor, normalizeFlightStatus, normalizeSkylinkPosition } from './traffic'
 
 // Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
 // response (RapidAPI console + production, OD122, 11 Jul 2026) — explicit
@@ -141,6 +141,21 @@ describe('normalizeFlightStatus', () => {
       },
     })
     expect(s.delayMinutes).toBe(20)
+  })
+})
+
+describe('normalizeSkylinkPosition', () => {
+  // Field names confirmed against a live /adsb/aircraft response (see the
+  // git history on this file) — flat lat/lon, ground_speed, track; response
+  // wrapped in { aircraft: [...] }.
+  it('formats the first matching aircraft the same way as AeroDataBox position', () => {
+    const p = normalizeSkylinkPosition({ aircraft: [{ latitude: 3.1, longitude: 101.6, altitude: 35000, ground_speed: 420, track: 45 }] })
+    expect(p).toEqual({ latLon: '3.1, 101.6', alt: 'FL350', speed: '420kt', heading: '045°' })
+  })
+  it('returns null when no aircraft matched', () => {
+    expect(normalizeSkylinkPosition({ aircraft: [] })).toBeNull()
+    expect(normalizeSkylinkPosition(null)).toBeNull()
+    expect(normalizeSkylinkPosition({})).toBeNull()
   })
 })
 
