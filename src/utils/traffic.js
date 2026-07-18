@@ -148,6 +148,13 @@ function fmtDistanceNm(gcd) {
 function fmtQuality(quality) {
   return Array.isArray(quality) && quality.length ? quality.join(', ') : null
 }
+// AeroDataBox's raw codeshareStatus values ("IsOperator"/"IsCodeshare") read
+// like enum names, not labels — anything else (e.g. "Unknown") is shown
+// as-is rather than guessed at.
+const CODESHARE_LABEL = { IsOperator: 'Operator', IsCodeshare: 'Codeshare' }
+function fmtCodeshareStatus(status) {
+  return CODESHARE_LABEL[status] || status || null
+}
 function fmtAlt(ft) { return ft >= 18000 ? `FL${Math.round(ft / 100)}` : `${Math.round(ft).toLocaleString()} ft` }
 // Returns the four live-position sub-values separately (not one joined
 // string) so the card can lay them out as individual grid cells.
@@ -184,7 +191,7 @@ export function normalizeFlightStatus(raw, nowMs = Date.now()) {
   const statusText = reconcileStatus(rawStatusText, deriveStatus(raw, nowMs))
   const depCode = raw.departure?.airport?.iata || raw.departure?.airport?.icao || null
   const arrCode = raw.arrival?.airport?.iata || raw.arrival?.airport?.icao || null
-  const codeshare = [raw.codeshareStatus, raw.isCargo ? 'Cargo' : null].filter(Boolean).join(' · ') || null
+  const codeshare = [fmtCodeshareStatus(raw.codeshareStatus), raw.isCargo ? 'Cargo' : null].filter(Boolean).join(' · ') || null
   return {
     flight: raw.number || '—',
     callSign: raw.callSign || null,

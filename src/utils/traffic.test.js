@@ -85,7 +85,7 @@ describe('normalizeFlightStatus', () => {
     expect(s.arrBaggageBelt).toBe('4')
     expect(s.arrPredictedTime).toBe('15:52 +08:00 · 06 Jul')
     expect(s.quality).toBe('Basic, Live') // falls back to departure.quality since arrival has none
-    expect(s.codeshare).toBe('IsOperator')
+    expect(s.codeshare).toBe('Operator')
     expect(s.distance).toBe('3306 nm') // prefers the nm field over converting km
     expect(s.position).toEqual({ latLon: '-12.4, 118.7', alt: 'FL370', speed: '480kt', heading: '315°' })
   })
@@ -112,9 +112,13 @@ describe('normalizeFlightStatus', () => {
     expect(s.depCode).toBeNull()
     expect(s.arrCode).toBeNull()
   })
-  it('marks a cargo codeshare flight in one combined field', () => {
+  it('marks a cargo codeshare flight in one combined field, with friendly labels', () => {
     const s = normalizeFlightStatus({ number: 'MH5', status: 'Scheduled', codeshareStatus: 'IsCodeshare', isCargo: true })
-    expect(s.codeshare).toBe('IsCodeshare · Cargo')
+    expect(s.codeshare).toBe('Codeshare · Cargo')
+  })
+  it('shows an unrecognized codeshareStatus value as-is rather than guessing at it', () => {
+    const s = normalizeFlightStatus({ number: 'MH11', status: 'Scheduled', codeshareStatus: 'Unknown' })
+    expect(s.codeshare).toBe('Unknown')
   })
   it('also accepts the OpenAPI-documented "T" separator and seconds, not just the real space-separated one', () => {
     const s = normalizeFlightStatus({
