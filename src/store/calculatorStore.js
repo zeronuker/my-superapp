@@ -28,7 +28,7 @@ export const DEFAULT_SETTINGS = {
     route: true, schedDep: true, schedArr: true, depActual: true, estArr: true,
     terminal: true, gate: true, delay: true,
     callSign: false, baggageBelt: false, checkInDesk: false,
-    predictedTime: false, quality: false, aircraft: false, photo: false, codeshare: false,
+    predictedTime: false, quality: false, aircraft: false, airlineLogo: false, codeshare: false,
     distance: false, position: false,
   },
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
-import { fmtDelay, normalizeFlightStatus, normalizeSkylinkPosition, rankFlightCandidates } from '../utils/traffic'
+import { fmtDelay, normalizeFlightStatus, normalizeSkylinkPosition, normalizeSkylinkAirlineLogo, rankFlightCandidates } from '../utils/traffic'
 import ResetButton from './ResetButton'
 
 // date is the device's own local calendar date, not UTC — a flight number
@@ -38,6 +38,23 @@ async function fetchSkylinkPosition(callsign, signal) {
   }
 }
 
+// AeroDataBox's flight response has no airline logo — this is the only
+// source for it, so it's fetched whenever the field is on (not gated behind
+// "AeroDataBox had nothing", unlike the position cross-check above). Prefers
+// ICAO (matches SkyLink's airline database most reliably) but falls back to
+// IATA — the two aren't interchangeable as query params, so this only ever
+// sends the one that's actually present.
+async function fetchSkylinkAirlineLogo(icao, iata, signal) {
+  try {
+    const params = new URLSearchParams({ resource: 'airlines', ...(icao ? { icao } : { iata }) })
+    const res = await fetch(`/api/skylink?${params}`, { signal })
+    if (!res.ok) return null
+    return await res.json()
+  } catch (_) {
+    return null
+  }
+}
+
 // Field toggles for the status card. `lean` marks the on-by-default set —
 // departure/arrival airport (via Route), sched dep/arr, actual dep, actual/
 // est arr, dep+arr terminal/gate, and arrival delay are the default output
@@ -59,7 +76,7 @@ const FIELDS = [
   { id: 'predictedTime', label: 'Predicted arr', lean: false },
   { id: 'quality', label: 'Data quality', lean: false },
   { id: 'aircraft', label: 'Aircraft', lean: false },
-  { id: 'photo', label: 'Aircraft photo', lean: false },
+  { id: 'airlineLogo', label: 'Airline logo', lean: false },
   { id: 'codeshare', label: 'Codeshare/cargo', lean: false },
   { id: 'distance', label: 'Distance', lean: false },
   { id: 'position', label: 'Live position', lean: false },
@@ -113,6 +130,10 @@ export default function TrafficViewer() {
     if (normalized && cf.position && !normalized.position && callsign) {
       const skylinkRaw = await fetchSkylinkPosition(callsign, controller.signal)
       normalized.position = normalizeSkylinkPosition(skylinkRaw)
+    }
+    if (normalized && cf.airlineLogo && (normalized.airlineIcao || normalized.airlineIata)) {
+      const airlineRaw = await fetchSkylinkAirlineLogo(normalized.airlineIcao, normalized.airlineIata, controller.signal)
+      normalized.airlineLogo = normalizeSkylinkAirlineLogo(airlineRaw)
     }
     setStatus(normalized)
     setCandidates(null)
@@ -320,9 +341,11 @@ function StatusCard({ s, cf }) {
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', marginTop: 2 }}>{s.aircraft}</div>
           )}
         </div>
-        {cf.photo && s.photo && (
-          <img src={s.photo} alt="" style={{ width: 64, height: 44, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
-            onError={e => { e.currentTarget.style.display = 'none' }} />
+        {cf.airlineLogo && s.airlineLogo && (
+          <div style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 6, background: 'var(--cp-bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <img src={s.airlineLogo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              onError={e => { e.currentTarget.style.display = 'none' }} />
+          </div>
         )}
       </div>
 

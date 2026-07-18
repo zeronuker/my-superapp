@@ -168,7 +168,7 @@ function fmtPositionParts(loc) {
 // "HH:MM"/"DD Mon" strings with no year.
 //
 // callSign/aircraft/checkInDesk/baggageBelt/runwayTime/predictedTime/quality/
-// codeshareStatus/isCargo/greatCircleDistance/location/aircraft image are NOT
+// codeshareStatus/isCargo/greatCircleDistance/location are NOT
 // yet confirmed against a live response (traffic.js has been burned by
 // doc-vs-reality mismatches before — see the ADS-B note this file used to
 // carry). They're coded from AeroDataBox's published OpenAPI schema and read
@@ -185,14 +185,16 @@ export function normalizeFlightStatus(raw, nowMs = Date.now()) {
   const depCode = raw.departure?.airport?.iata || raw.departure?.airport?.icao || null
   const arrCode = raw.arrival?.airport?.iata || raw.arrival?.airport?.icao || null
   const codeshare = [raw.codeshareStatus, raw.isCargo ? 'Cargo' : null].filter(Boolean).join(' · ') || null
-  const image = raw.aircraft?.image
   return {
     flight: raw.number || '—',
     callSign: raw.callSign || null,
     airline: raw.airline?.name || null,
+    // Kept for the airline-logo cross-check (SkyLink's airlines search takes
+    // either code) — AeroDataBox's own response has no logo.
+    airlineIcao: raw.airline?.icao || null,
+    airlineIata: raw.airline?.iata || null,
     aircraft: [raw.aircraft?.model, raw.aircraft?.reg, raw.aircraft?.modeS ? `modeS ${raw.aircraft.modeS}` : null]
       .filter(Boolean).join(' · ') || null,
-    photo: typeof image === 'string' ? image : (image?.url || null),
     route: (depCode && arrCode) ? `${depCode} → ${arrCode}` : null,
     depCode, arrCode,
     status: statusText.toUpperCase(),
@@ -234,4 +236,15 @@ export function normalizeSkylinkPosition(raw) {
   const a = Array.isArray(raw?.aircraft) ? raw.aircraft[0] : null
   if (!a) return null
   return fmtPositionParts({ lat: a.latitude, lon: a.longitude, altitude: a.altitude, speed: a.ground_speed, heading: a.track })
+}
+
+// Airline logo source — AeroDataBox's flight response has no logo field, so
+// this is looked up separately via SkyLink's own airline search (a
+// different vendor). Search returns an array; an exact ICAO/IATA code query
+// should only ever match one airline, so this takes the first result.
+// Shape confirmed live for BAW -> British Airways (see git history on this
+// file, from before the old aircraft-lookup UI was removed).
+export function normalizeSkylinkAirlineLogo(raw) {
+  const a = Array.isArray(raw) ? raw[0] : null
+  return a?.logo || null
 }

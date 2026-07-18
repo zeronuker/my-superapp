@@ -33,7 +33,7 @@ function previousDate(dateStr) {
 // return several (one aircraft can fly multiple sectors in a day).
 async function fetchFlightsForDate(searchBy, param, dateStr, apiKey) {
   const params = new URLSearchParams({
-    dateLocalRole: 'Departure', withAircraftImage: 'true', withFlightPlan: 'false', withLocation: 'true',
+    dateLocalRole: 'Departure', withAircraftImage: 'false', withFlightPlan: 'false', withLocation: 'true',
   })
   const upstream = await fetch(
     `${BASE}/flights/${searchBy}/${encodeURIComponent(param)}/${encodeURIComponent(dateStr)}?${params}`,

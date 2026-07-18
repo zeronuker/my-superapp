@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fmtTrack, fmtDelay, statusColorFor, normalizeFlightStatus, normalizeSkylinkPosition, rankFlightCandidates } from './traffic'
+import { fmtTrack, fmtDelay, statusColorFor, normalizeFlightStatus, normalizeSkylinkPosition, normalizeSkylinkAirlineLogo, rankFlightCandidates } from './traffic'
 
 // Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
 // response (RapidAPI console + production, OD122, 11 Jul 2026) — explicit
@@ -79,7 +79,8 @@ describe('normalizeFlightStatus', () => {
     const s = normalizeFlightStatus(RAW_STATUS)
     expect(s.callSign).toBe('BTK122')
     expect(s.aircraft).toBe('B738 · 9M-LNA · modeS 750A12')
-    expect(s.photo).toBeNull() // no aircraft.image in this fixture
+    expect(s.airlineIcao).toBe('BTK')
+    expect(s.airlineIata).toBe('OD')
     expect(s.depCheckInDesk).toBe('A1-12')
     expect(s.arrBaggageBelt).toBe('4')
     expect(s.arrPredictedTime).toBe('15:52 +08:00 · 06 Jul')
@@ -94,12 +95,6 @@ describe('normalizeFlightStatus', () => {
     const high = normalizeFlightStatus({ number: 'MH7', status: 'EnRoute', location: { lat: 1, lon: 1, altitude: 18000 } })
     expect(high.position.alt).toBe('FL180')
   })
-  it('reads the aircraft photo whether it is a bare URL or a {url} object', () => {
-    const bare = normalizeFlightStatus({ number: 'MH8', status: 'Scheduled', aircraft: { image: 'https://example.com/a.jpg' } })
-    expect(bare.photo).toBe('https://example.com/a.jpg')
-    const wrapped = normalizeFlightStatus({ number: 'MH9b', status: 'Scheduled', aircraft: { image: { url: 'https://example.com/b.jpg' } } })
-    expect(wrapped.photo).toBe('https://example.com/b.jpg')
-  })
   it('falls back to converting km to nm when no nm field is present', () => {
     const s = normalizeFlightStatus({ number: 'MH4', status: 'Scheduled', greatCircleDistance: { km: 100 } })
     expect(s.distance).toBe('54 nm')
@@ -108,7 +103,8 @@ describe('normalizeFlightStatus', () => {
     const s = normalizeFlightStatus({ number: 'MH1', status: 'Scheduled' })
     expect(s.callSign).toBeNull()
     expect(s.aircraft).toBeNull()
-    expect(s.photo).toBeNull()
+    expect(s.airlineIcao).toBeNull()
+    expect(s.airlineIata).toBeNull()
     expect(s.codeshare).toBeNull()
     expect(s.distance).toBeNull()
     expect(s.position).toBeNull()
@@ -293,5 +289,20 @@ describe('normalizeSkylinkPosition', () => {
     expect(normalizeSkylinkPosition({ aircraft: [] })).toBeNull()
     expect(normalizeSkylinkPosition(null)).toBeNull()
     expect(normalizeSkylinkPosition({})).toBeNull()
+  })
+})
+
+describe('normalizeSkylinkAirlineLogo', () => {
+  // Shape confirmed live for BAW -> British Airways (see git history on this
+  // file, from before the old aircraft-lookup UI was removed) — search
+  // returns an array, first match wins.
+  it('extracts the logo URL from the first matching airline', () => {
+    const raw = [{ id: 1355, name: 'British Airways', iata: 'BA', icao: 'BAW', logo: 'https://media.skylinkapi.com/logos/BA.png' }]
+    expect(normalizeSkylinkAirlineLogo(raw)).toBe('https://media.skylinkapi.com/logos/BA.png')
+  })
+  it('returns null for an empty result set or missing logo', () => {
+    expect(normalizeSkylinkAirlineLogo([])).toBeNull()
+    expect(normalizeSkylinkAirlineLogo(null)).toBeNull()
+    expect(normalizeSkylinkAirlineLogo([{ name: 'No Logo Air' }])).toBeNull()
   })
 })
