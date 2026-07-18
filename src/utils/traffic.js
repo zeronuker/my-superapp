@@ -81,6 +81,47 @@ function deriveStatus(raw, nowMs) {
   // flight can be delayed at the gate long past its scheduled departure.
   return depConfirmedUtc ? 'Airborne' : null
 }
+
+// Best-available UTC departure/arrival instants for a leg, used only for
+// ranking registration-search results — not as confident as deriveStatus's
+// own distinction between "confirmed" and "scheduled-only", since ranking
+// just needs *a* time to measure distance from, not a status verdict.
+// `depConfirmed` is tracked separately so "in progress" (below) can require
+// an actual confirmed departure, not just a scheduled window that happens
+// to contain `now` — a flight due to leave at the same moment "now" falls
+// in isn't necessarily airborne yet.
+function flightUtcWindow(raw) {
+  const depConfirmedIso = raw.departure?.runwayTime?.utc || raw.departure?.revisedTime?.utc || null
+  const depIso = depConfirmedIso || raw.departure?.scheduledTime?.utc || null
+  const arrIso = raw.arrival?.revisedTime?.utc || raw.arrival?.predictedTime?.utc || raw.arrival?.scheduledTime?.utc || null
+  const depMs = depIso ? Date.parse(depIso) : NaN
+  const arrMs = arrIso ? Date.parse(arrIso) : NaN
+  return { depMs: isNaN(depMs) ? null : depMs, arrMs: isNaN(arrMs) ? null : arrMs, depConfirmed: !!depConfirmedIso }
+}
+// Ranks raw flight-search results (as returned for a registration search,
+// which can match several sectors flown by the same aircraft in a day) by
+// relevance to `nowMs`: a leg with a *confirmed* departure that's currently
+// between departure and arrival ranks first (it's the one actually in the
+// air right now); otherwise whichever leg's departure or arrival is closest
+// to now — soonest upcoming or most recently completed — ranks first.
+// Returns the same raw objects, reordered, each tagged with `_rank`
+// metadata the UI can use to decide what "this one's live" badge to show.
+export function rankFlightCandidates(rawFlights, nowMs = Date.now()) {
+  return rawFlights
+    .map(raw => {
+      const { depMs, arrMs, depConfirmed } = flightUtcWindow(raw)
+      const withinWindow = depMs != null && arrMs != null && nowMs >= depMs && nowMs <= arrMs
+      const inProgress = withinWindow && depConfirmed
+      const distances = [depMs, arrMs].filter(t => t != null).map(t => Math.abs(nowMs - t))
+      const distanceMs = distances.length ? Math.min(...distances) : Infinity
+      return { raw, _rank: { inProgress, distanceMs } }
+    })
+    .sort((a, b) => {
+      if (a._rank.inProgress !== b._rank.inProgress) return a._rank.inProgress ? -1 : 1
+      return a._rank.distanceMs - b._rank.distanceMs
+    })
+}
+
 const RAW_IMPLIES_COMPLETED = /landed|arrived/i
 const RAW_IMPLIES_NOT_YET_DEPARTED = /scheduled|on time|expected|check-?in|boarding|gate ?closed/i
 const RAW_IMPLIES_CANCEL_DIVERT = /cancel|divert/i

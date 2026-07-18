@@ -1169,6 +1169,8 @@ const CHANGELOG = [
       { type: 'feat', text: 'Traffic: status now cross-checks the provider\'s label against the flight\'s own timestamps and overrides it only on a direct contradiction (e.g. "Arrived" while the arrival time is still hours away) — fixes a real case where a still-airborne flight showed as landed' },
       { type: 'feat', text: 'Traffic: every displayed time now shows its UTC offset (e.g. "12:15 +05:30") alongside the departure/arrival airport it belongs to, so departure- and arrival-local times are never mistaken for the same clock' },
       { type: 'feat', text: 'Removed the Flight Schedules tab — airport-board browsing is retired; Traffic\'s flight-number search is now the only way to check a flight, with a fuller default detail card taking over what Schedules\' terminal/gate popup used to show' },
+      { type: 'feat', text: 'Traffic: search now also accepts an aircraft registration (e.g. 9M-MXA), not just a flight number — tries flight number first, falls back to registration on a miss. A registration matching multiple sectors flown that day shows a picker with the most relevant leg pre-selected and marked LIVE only when its departure is actually confirmed, not just scheduled; tap Confirm to load it' },
+      { type: 'fix',  text: 'Traffic: search box no longer shows two redundant instructions (placeholder + idle-state text) — placeholder now reads "Flight number or registration" instead of the confusing "callsign or flight number" pairing' },
     ],
   },
   {

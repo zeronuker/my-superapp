@@ -27,17 +27,19 @@ function previousDate(dateStr) {
   return d.toISOString().slice(0, 10)
 }
 
-// Fetches one date's flight-number match. Returns the single flight object,
-// or null if AeroDataBox has nothing for that date (204, or an empty array).
-async function fetchFlightForDate(flightNum, dateStr, apiKey) {
+// Fetches one date's matches for either search mode. Always returns an
+// array — flight-number search normally has at most one match (a flight
+// number is a distinct flight per departure day), registration search can
+// return several (one aircraft can fly multiple sectors in a day).
+async function fetchFlightsForDate(searchBy, param, dateStr, apiKey) {
   const params = new URLSearchParams({
     dateLocalRole: 'Departure', withAircraftImage: 'true', withFlightPlan: 'false', withLocation: 'true',
   })
   const upstream = await fetch(
-    `${BASE}/flights/number/${encodeURIComponent(flightNum)}/${encodeURIComponent(dateStr)}?${params}`,
+    `${BASE}/flights/${searchBy}/${encodeURIComponent(param)}/${encodeURIComponent(dateStr)}?${params}`,
     { headers: { 'x-rapidapi-key': apiKey, 'x-rapidapi-host': HOST }, signal: AbortSignal.timeout(8000) },
   )
-  if (upstream.status === 204) return null
+  if (upstream.status === 204) return []
   if (!upstream.ok) {
     const text = await upstream.text().catch(() => '')
     const err = new Error(`AeroDataBox error ${upstream.status}: ${text.slice(0, 200)}`)
@@ -45,7 +47,7 @@ async function fetchFlightForDate(flightNum, dateStr, apiKey) {
     throw err
   }
   const data = await upstream.json()
-  return Array.isArray(data) && data.length ? data[0] : null
+  return Array.isArray(data) ? data : (data ? [data] : [])
 }
 
 export default async function handler(req, res) {
@@ -55,18 +57,29 @@ export default async function handler(req, res) {
 
   if (flight) {
     if (!date) return res.status(400).json({ error: 'date query parameter is required' })
-    const flightNum = String(flight).trim()
+    const term = String(flight).trim()
     const dateStr = String(date).trim()
     try {
-      // A flight number is a distinct flight per departure day — try the
-      // caller's "today" first. Only if that day has no match do we look
-      // back exactly one day, to catch an overnight flight that departed
-      // yesterday and is still en route (or was, and has since landed).
-      // Never further back than that.
-      let result = await fetchFlightForDate(flightNum, dateStr, apiKey)
-      if (!result) result = await fetchFlightForDate(flightNum, previousDate(dateStr), apiKey)
+      // The search box accepts either a flight number or an aircraft
+      // registration, with no way to tell which just by looking at the
+      // string (some registrations, like US N-numbers, don't even have a
+      // hyphen). So: try it as a flight number first (the common case), and
+      // only fall back to registration search if that comes up empty —
+      // no format-guessing, one extra request only on a miss. Each mode
+      // also falls back exactly one day, to catch an overnight flight that
+      // departed yesterday and is still en route (or has since landed).
+      // Never further back than that, and never mixes the two search modes
+      // within a single date pass.
+      let matchedBy = 'number'
+      let flights = await fetchFlightsForDate('number', term, dateStr, apiKey)
+      if (!flights.length) flights = await fetchFlightsForDate('number', term, previousDate(dateStr), apiKey)
+      if (!flights.length) {
+        matchedBy = 'reg'
+        flights = await fetchFlightsForDate('reg', term, dateStr, apiKey)
+        if (!flights.length) flights = await fetchFlightsForDate('reg', term, previousDate(dateStr), apiKey)
+      }
       res.setHeader('Cache-Control', 'no-store, no-cache')
-      return res.status(200).json(result)
+      return res.status(200).json({ matchedBy, flights })
     } catch (e) {
       const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
       return res.status(isTimeout ? 504 : (e.status || 502)).json({ error: isTimeout ? 'AeroDataBox API timed out' : e.message })

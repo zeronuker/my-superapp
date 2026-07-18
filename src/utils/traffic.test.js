@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fmtTrack, fmtDelay, statusColorFor, normalizeFlightStatus, normalizeSkylinkPosition } from './traffic'
+import { fmtTrack, fmtDelay, statusColorFor, normalizeFlightStatus, normalizeSkylinkPosition, rankFlightCandidates } from './traffic'
 
 // Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
 // response (RapidAPI console + production, OD122, 11 Jul 2026) — explicit
@@ -202,6 +202,44 @@ describe('normalizeFlightStatus', () => {
       }, Date.parse('2026-07-18 02:00Z'))
       expect(s.status).toBe('AIRBORNE')
     })
+  })
+})
+
+describe('rankFlightCandidates', () => {
+  // A registration search can return several sectors flown by one aircraft
+  // in a day — this ranks them so the UI can pre-select the most relevant.
+  const morningLeg = { number: 'MH1', departure: { runwayTime: { utc: '2026-07-18 01:00Z' } }, arrival: { scheduledTime: { utc: '2026-07-18 03:00Z' } } }
+  const middayLeg = { number: 'MH2', departure: { runwayTime: { utc: '2026-07-18 05:00Z' } }, arrival: { scheduledTime: { utc: '2026-07-18 07:00Z' } } }
+  const eveningLeg = { number: 'MH3', departure: { scheduledTime: { utc: '2026-07-18 10:00Z' } }, arrival: { scheduledTime: { utc: '2026-07-18 12:00Z' } } }
+
+  it('ranks the leg currently in progress first, even if another leg is numerically closer', () => {
+    // now is inside middayLeg's window (05:00-07:00), and only 1hr past
+    // morningLeg's arrival — closer in raw distance, but not in progress.
+    const ranked = rankFlightCandidates([morningLeg, middayLeg, eveningLeg], Date.parse('2026-07-18 06:00Z'))
+    expect(ranked[0].raw.number).toBe('MH2')
+    expect(ranked[0]._rank.inProgress).toBe(true)
+  })
+  it('when nothing is in progress, ranks by smallest distance to now', () => {
+    // now is 30 min before eveningLeg departs — closer than midayLeg's
+    // completed arrival (3hr away) or morningLeg's (7hr away).
+    const ranked = rankFlightCandidates([morningLeg, middayLeg, eveningLeg], Date.parse('2026-07-18 09:30Z'))
+    expect(ranked[0].raw.number).toBe('MH3')
+    expect(ranked[0]._rank.inProgress).toBe(false)
+  })
+  it('preserves the raw flight objects unchanged, just reordered', () => {
+    const ranked = rankFlightCandidates([eveningLeg, morningLeg], Date.parse('2026-07-18 02:00Z'))
+    expect(ranked.map(r => r.raw.number)).toEqual(['MH1', 'MH3'])
+  })
+  it('handles an empty list', () => {
+    expect(rankFlightCandidates([], Date.now())).toEqual([])
+  })
+  it('does not mark a leg in progress from its scheduled window alone — departure must be confirmed', () => {
+    // now falls between this leg's scheduled dep/arr times, but neither
+    // runwayTime nor revisedTime confirms it actually left the ground yet
+    // (could still be delayed at the gate) — must not claim it's live.
+    const scheduledOnly = { number: 'MH9', departure: { scheduledTime: { utc: '2026-07-18 09:00Z' } }, arrival: { scheduledTime: { utc: '2026-07-18 11:00Z' } } }
+    const ranked = rankFlightCandidates([scheduledOnly], Date.parse('2026-07-18 10:00Z'))
+    expect(ranked[0]._rank.inProgress).toBe(false)
   })
 })
 

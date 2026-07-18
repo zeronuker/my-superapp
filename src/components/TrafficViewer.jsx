@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
-import { fmtDelay, normalizeFlightStatus, normalizeSkylinkPosition } from '../utils/traffic'
+import { fmtDelay, normalizeFlightStatus, normalizeSkylinkPosition, rankFlightCandidates } from '../utils/traffic'
 import ResetButton from './ResetButton'
 
 // date is the device's own local calendar date, not UTC — a flight number
@@ -10,8 +10,14 @@ function localDateStr(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-async function fetchFlightStatus(flightOrCallsign, signal) {
-  const params = new URLSearchParams({ flight: flightOrCallsign, date: localDateStr() })
+// Server tries the input as a flight number first, then as an aircraft
+// registration if that comes up empty (see api/aerodatabox.js) — the box
+// can't tell which format it's looking at, so it never guesses client-side.
+// Returns { matchedBy: 'number'|'reg', flights: [...] } — flights is usually
+// one entry, but a registration match can return several (one aircraft can
+// fly multiple sectors in a day).
+async function fetchFlightMatches(term, signal) {
+  const params = new URLSearchParams({ flight: term, date: localDateStr() })
   const res = await fetch(`/api/aerodatabox?${params}`, { signal })
   const body = await res.json().catch(() => null)
   if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`)
@@ -65,12 +71,16 @@ export default function TrafficViewer() {
   }))
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState(null)
+  const [candidates, setCandidates] = useState(null) // ranked [{ raw, _rank }] when a search matches more than one flight
+  const [selectedIdx, setSelectedIdx] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const controllerRef = useRef(null)
+  const nowMsRef = useRef(Date.now())
+  const termRef = useRef('')
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false)
@@ -90,7 +100,22 @@ export default function TrafficViewer() {
 
   const handleReset = () => {
     controllerRef.current?.abort()
-    setQuery(''); setStatus(null); setError(''); setSearched(false); setLoading(false)
+    setQuery(''); setStatus(null); setCandidates(null); setSelectedIdx(0)
+    setError(''); setSearched(false); setLoading(false)
+  }
+
+  // Normalizes the chosen flight, cross-checks live position if needed, and
+  // commits it as the displayed result. Shared by the single-match path and
+  // the "Confirm selection" button on the multi-match picker.
+  const finalize = async (raw, controller) => {
+    const normalized = normalizeFlightStatus(raw, nowMsRef.current)
+    const callsign = normalized?.callSign || termRef.current
+    if (normalized && cf.position && !normalized.position && callsign) {
+      const skylinkRaw = await fetchSkylinkPosition(callsign, controller.signal)
+      normalized.position = normalizeSkylinkPosition(skylinkRaw)
+    }
+    setStatus(normalized)
+    setCandidates(null)
   }
 
   // Explicit search only — AeroDataBox's Basic plan is rate-limited to ~1
@@ -101,20 +126,26 @@ export default function TrafficViewer() {
     controllerRef.current?.abort()
     const controller = new AbortController()
     controllerRef.current = controller
-    setLoading(true); setError(''); setSearched(true); setStatus(null)
-    fetchFlightStatus(term, controller.signal)
-      .then(async raw => {
-        const normalized = normalizeFlightStatus(raw)
-        // AeroDataBox had nothing for live position — try SkyLink's separate
-        // ADS-B feed as a cross-check, only when the user actually wants to
-        // see it and there's a callsign to search with.
-        const callsign = normalized?.callSign || term
-        if (normalized && cf.position && !normalized.position && callsign) {
-          const skylinkRaw = await fetchSkylinkPosition(callsign, controller.signal)
-          normalized.position = normalizeSkylinkPosition(skylinkRaw)
-        }
-        setStatus(normalized)
+    termRef.current = term
+    nowMsRef.current = Date.now()
+    setLoading(true); setError(''); setSearched(true); setStatus(null); setCandidates(null)
+    fetchFlightMatches(term, controller.signal)
+      .then(async body => {
+        const flights = body?.flights || []
+        if (flights.length === 0) return
+        if (flights.length === 1) { await finalize(flights[0], controller); return }
+        setCandidates(rankFlightCandidates(flights, nowMsRef.current))
+        setSelectedIdx(0)
       })
+      .catch(e => { if (e.name !== 'AbortError') setError(e.message || 'Failed to fetch flight status') })
+      .finally(() => setLoading(false))
+  }
+
+  const handleConfirmCandidate = () => {
+    if (!candidates?.[selectedIdx]) return
+    const controller = controllerRef.current
+    setLoading(true)
+    finalize(candidates[selectedIdx].raw, controller)
       .catch(e => { if (e.name !== 'AbortError') setError(e.message || 'Failed to fetch flight status') })
       .finally(() => setLoading(false))
   }
@@ -145,11 +176,11 @@ export default function TrafficViewer() {
 
         <div style={{ display: 'flex', gap: 8 }}>
           <input className="cp-input" autoFocus style={{ flex: 1, fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase' }}
-            placeholder="Callsign or flight number, e.g. MAS123"
+            placeholder="Flight number or registration, e.g. MH174 or 9M-MXA"
             value={query} onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()} />
           {query && (
-            <button className="cp-btn" style={{ padding: '7px 10px', flexShrink: 0 }} onClick={() => { setQuery(''); setStatus(null); setError(''); setSearched(false) }}>✕</button>
+            <button className="cp-btn" style={{ padding: '7px 10px', flexShrink: 0 }} onClick={() => { setQuery(''); setStatus(null); setCandidates(null); setError(''); setSearched(false) }}>✕</button>
           )}
           <button className="cp-btn" style={{ padding: '7px 14px', flexShrink: 0 }} disabled={loading || !query.trim()} onClick={handleSearch}>
             {loading ? '…' : '🔍 Search'}
@@ -171,18 +202,16 @@ export default function TrafficViewer() {
           </div>
         )}
 
-        {!loading && !error && searched && !status && (
+        {!loading && !error && searched && !status && !candidates && (
           <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
             fontSize: 11, letterSpacing: '0.1em', lineHeight: 1.6, padding: '24px 0' }}>
-            NO MATCHING FLIGHT<br />private/VFR traffic, or not currently scheduled
+            NO MATCHING FLIGHT<br />checked both flight number and registration
           </div>
         )}
 
-        {!loading && !searched && (
-          <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
-            fontSize: 11, letterSpacing: '0.1em', padding: '24px 0' }}>
-            ENTER A CALLSIGN OR FLIGHT NUMBER, THEN SEARCH
-          </div>
+        {!loading && candidates && (
+          <CandidatePicker candidates={candidates} selectedIdx={selectedIdx}
+            onSelect={setSelectedIdx} onConfirm={handleConfirmCandidate} />
         )}
 
         {!loading && status && <StatusCard s={status} cf={cf} />}
@@ -195,6 +224,49 @@ export default function TrafficViewer() {
           onSetFields={fields => updateSettings({ trafficFields: fields })}
           onClose={() => setSettingsOpen(false)} />
       )}
+    </div>
+  )
+}
+
+// ── Candidate picker — shown when a registration search matches more than
+// one sector. The most relevant leg (currently in the air, or closest to
+// now) is pre-selected and marked LIVE when it's actually in progress;
+// others are visually dimmed so it's clear they're not the current flight.
+// Selecting a different row just changes the highlight — nothing loads
+// until "Confirm selection" is pressed. ──
+function CandidatePicker({ candidates, selectedIdx, onSelect, onConfirm }) {
+  return (
+    <div className="cp-card-accent" style={{ marginTop: 16 }}>
+      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em', marginBottom: 10 }}>
+        {candidates.length} FLIGHTS FOUND FOR THIS REGISTRATION — SELECT ONE
+      </div>
+      {candidates.map((c, i) => {
+        const s = normalizeFlightStatus(c.raw)
+        const isLive = c._rank.inProgress
+        const isSelected = i === selectedIdx
+        return (
+          <button key={i} onClick={() => onSelect(i)} style={{
+            display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+            background: isSelected ? 'var(--cp-accdim)' : 'transparent',
+            border: `1px solid ${isSelected ? 'var(--cp-acc)' : 'var(--cp-border)'}`,
+            borderRadius: 6, padding: '9px 12px', marginBottom: 6, opacity: isLive ? 1 : 0.6,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--cp-txt)' }}>
+                {s.flight} · {s.route || '—'}
+              </span>
+              {isLive && (
+                <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, fontWeight: 700, letterSpacing: '0.08em', flexShrink: 0,
+                  color: 'var(--cp-acc)', background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 3, padding: '2px 6px' }}>LIVE</span>
+              )}
+            </div>
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', marginTop: 3 }}>
+              {s.schedDep || '—'} → {s.schedArr || '—'} · <span style={{ color: s.statusColor }}>{s.status}</span>
+            </div>
+          </button>
+        )
+      })}
+      <button className="cp-btn" style={{ width: '100%', marginTop: 4 }} onClick={onConfirm}>✓ Confirm selection</button>
     </div>
   )
 }
