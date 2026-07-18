@@ -52,19 +52,49 @@ export function statusColorFor(text) {
   return hit ? hit[1] : 'var(--cp-dim)'
 }
 
+function fmtDistanceNm(gcd) {
+  if (typeof gcd === 'number') return `${Math.round(gcd)} nm`
+  if (typeof gcd?.nm === 'number') return `${Math.round(gcd.nm)} nm`
+  if (typeof gcd?.km === 'number') return `${Math.round(gcd.km * 0.539957)} nm`
+  return null
+}
+function fmtQuality(quality) {
+  return Array.isArray(quality) && quality.length ? quality.join(', ') : null
+}
+function fmtPosition(loc) {
+  if (typeof loc?.lat !== 'number' || typeof loc?.lon !== 'number') return null
+  const parts = [`${loc.lat.toFixed(1)}, ${loc.lon.toFixed(1)}`]
+  if (typeof loc.altitude === 'number') parts.push(`${Math.round(loc.altitude).toLocaleString()} ft`)
+  if (typeof loc.speed === 'number') parts.push(`${Math.round(loc.speed)} kt`)
+  if (typeof loc.heading === 'number') parts.push(fmtTrack(loc.heading))
+  return parts.join(' · ')
+}
+
 // Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
 // response — used over SkyLink's flight_status endpoint because it takes an
 // explicit date (SkyLink's has none, and was observed returning a stale
 // record) and returns full ISO datetimes for every leg instead of bare
 // "HH:MM"/"DD Mon" strings with no year.
+//
+// callSign/aircraft/checkInDesk/baggageBelt/runwayTime/predictedTime/quality/
+// codeshareStatus/isCargo/greatCircleDistance/location are NOT yet confirmed
+// against a live response (traffic.js has been burned by doc-vs-reality
+// mismatches before — see the ADS-B note this file used to carry). They're
+// coded from AeroDataBox's published OpenAPI schema and read defensively
+// (optional chaining throughout), so a wrong field name just leaves that
+// value null instead of breaking the lookup. Verify against a real response
+// before relying on them.
 export function normalizeFlightStatus(raw) {
   if (!raw) return null
   const statusText = raw.status || '—'
   const depCode = raw.departure?.airport?.iata || raw.departure?.airport?.icao || null
   const arrCode = raw.arrival?.airport?.iata || raw.arrival?.airport?.icao || null
+  const codeshare = [raw.codeshareStatus, raw.isCargo ? 'Cargo' : null].filter(Boolean).join(' · ') || null
   return {
     flight: raw.number || '—',
+    callSign: raw.callSign || null,
     airline: raw.airline?.name || null,
+    aircraft: [raw.aircraft?.model, raw.aircraft?.reg].filter(Boolean).join(' · ') || null,
     route: (depCode && arrCode) ? `${depCode} → ${arrCode}` : null,
     status: statusText.toUpperCase(),
     statusColor: statusColorFor(statusText),
@@ -77,5 +107,13 @@ export function normalizeFlightStatus(raw) {
     depGate: raw.departure?.gate || null,
     arrTerminal: raw.arrival?.terminal || null,
     arrGate: raw.arrival?.gate || null,
+    depCheckInDesk: raw.departure?.checkInDesk || null,
+    arrBaggageBelt: raw.arrival?.baggageBelt || null,
+    depRunwayTime: fmtIsoLocal(raw.departure?.runwayTime?.local),
+    arrPredictedTime: fmtIsoLocal(raw.arrival?.predictedTime?.local),
+    quality: fmtQuality(raw.arrival?.quality) || fmtQuality(raw.departure?.quality),
+    codeshare,
+    distance: fmtDistanceNm(raw.greatCircleDistance),
+    position: fmtPosition(raw.location),
   }
 }

@@ -23,7 +23,11 @@ export default async function handler(req, res) {
   if (flight) {
     if (!date) return res.status(400).json({ error: 'date query parameter is required' })
     path = `/flights/number/${encodeURIComponent(String(flight).trim())}/${encodeURIComponent(String(date).trim())}`
-    path += `?${new URLSearchParams({ dateLocalRole: 'Both', withAircraftImage: 'false', withFlightPlan: 'false', withLocation: 'false' })}`
+    // withLocation adds live lat/lon/altitude/speed/heading at no extra cost.
+    // withFlightPlan stays off — AeroDataBox bills it as 2 requests and we
+    // don't surface anything from it. withAircraftImage stays off too — we
+    // don't show a photo.
+    path += `?${new URLSearchParams({ dateLocalRole: 'Both', withAircraftImage: 'false', withFlightPlan: 'false', withLocation: 'true' })}`
     cacheControl = 'no-store, no-cache'
   } else if (icao || iata) {
     const codeType = icao ? 'icao' : 'iata'

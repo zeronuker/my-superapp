@@ -20,6 +20,15 @@ export const DEFAULT_SETTINGS = {
   clockFormat:    '24hr',     // '24hr' | '12hr' — global, applies to all clocks
   rememberLastTab:true,       // reopen last-used tool on app restart
   dashboardWidgets: { utc: true, prayer: true, metar: true },
+  // Traffic tab's flight-status field toggles — which fields the status
+  // card shows. Defaults to the lean set (route/times/delay/terminal/gate);
+  // the rest are off until the user opts in via View settings.
+  trafficFields: {
+    route: true, schedArr: true, estArr: true, delay: true, terminal: true, gate: true,
+    callSign: false, baggageBelt: false, checkInDesk: false, runwayTime: false,
+    predictedTime: false, quality: false, aircraft: false, codeshare: false,
+    distance: false, position: false,
+  },
 }
 
 export const DEFAULT_CURRENCY_BASE = 'MYR'
@@ -48,6 +57,7 @@ function loadSettings() {
     const merged = { ...DEFAULT_SETTINGS, ...parsed }
     // Deep-merge nested objects so partial saved values don't drop new keys
     merged.dashboardWidgets = { ...DEFAULT_SETTINGS.dashboardWidgets, ...(parsed.dashboardWidgets || {}) }
+    merged.trafficFields = { ...DEFAULT_SETTINGS.trafficFields, ...(parsed.trafficFields || {}) }
     // Migrate: derive themeMode from the old cb-theme flag on first run
     if (!parsed.themeMode) {
       try {

@@ -10,17 +10,25 @@ import { fmtTrack, fmtLocalTime, fmtDelay, statusColorFor, normalizeFlightStatus
 // OpenAPI docs example shows — this fixture uses the real format so a
 // regression here fails the test instead of only showing up in production.
 const RAW_STATUS = {
-  number: 'OD122', status: 'Delayed', airline: { name: 'Batik Air', iata: 'OD', icao: 'BTK' },
+  number: 'OD122', callSign: 'BTK122', status: 'Delayed',
+  airline: { name: 'Batik Air', iata: 'OD', icao: 'BTK' },
+  aircraft: { model: 'B738', reg: '9M-LNA', modeS: '750A12' },
+  codeshareStatus: 'IsOperator', isCargo: false,
+  greatCircleDistance: { nm: 3306.4, km: 6123.1 },
+  location: { lat: -12.4, lon: 118.7, altitude: 37000, speed: 480, heading: 315.2 },
   departure: {
     airport: { iata: 'SYD', icao: 'YSSY', name: 'Sydney' },
     scheduledTime: { utc: '2026-07-05 22:35Z', local: '2026-07-06 08:35+10:00' },
     revisedTime: { utc: '2026-07-06 01:00Z', local: '2026-07-06 11:00+10:00' },
-    terminal: '1', gate: '26',
+    terminal: '1', gate: '26', checkInDesk: 'A1-12',
+    runwayTime: { local: '2026-07-06 08:47+10:00' },
+    quality: ['Basic', 'Live'],
   },
   arrival: {
     airport: { iata: 'KUL', icao: 'WMKK', name: 'Kuala Lumpur' },
     scheduledTime: { utc: '2026-07-06 07:40Z', local: '2026-07-06 15:40+08:00' },
-    terminal: '1', gate: 'C22',
+    terminal: '1', gate: 'C22', baggageBelt: '4',
+    predictedTime: { local: '2026-07-06 15:52+08:00' },
   },
 }
 
@@ -43,6 +51,36 @@ describe('normalizeFlightStatus', () => {
     expect(s.depGate).toBe('26')
     expect(s.arrTerminal).toBe('1')
     expect(s.arrGate).toBe('C22')
+  })
+  it('maps the extended fields (callsign, aircraft, checkin/baggage, runway/predicted times, quality, codeshare, distance, position)', () => {
+    const s = normalizeFlightStatus(RAW_STATUS)
+    expect(s.callSign).toBe('BTK122')
+    expect(s.aircraft).toBe('B738 · 9M-LNA')
+    expect(s.depCheckInDesk).toBe('A1-12')
+    expect(s.arrBaggageBelt).toBe('4')
+    expect(s.depRunwayTime).toBe('08:47 · 06 Jul')
+    expect(s.arrPredictedTime).toBe('15:52 · 06 Jul')
+    expect(s.quality).toBe('Basic, Live') // falls back to departure.quality since arrival has none
+    expect(s.codeshare).toBe('IsOperator')
+    expect(s.distance).toBe('3306 nm') // prefers the nm field over converting km
+    expect(s.position).toBe('-12.4, 118.7 · 37,000 ft · 480 kt · 315°')
+  })
+  it('falls back to converting km to nm when no nm field is present', () => {
+    const s = normalizeFlightStatus({ number: 'MH4', status: 'Scheduled', greatCircleDistance: { km: 100 } })
+    expect(s.distance).toBe('54 nm')
+  })
+  it('leaves the extended fields null when absent', () => {
+    const s = normalizeFlightStatus({ number: 'MH1', status: 'Scheduled' })
+    expect(s.callSign).toBeNull()
+    expect(s.aircraft).toBeNull()
+    expect(s.codeshare).toBeNull()
+    expect(s.distance).toBeNull()
+    expect(s.position).toBeNull()
+    expect(s.quality).toBeNull()
+  })
+  it('marks a cargo codeshare flight in one combined field', () => {
+    const s = normalizeFlightStatus({ number: 'MH5', status: 'Scheduled', codeshareStatus: 'IsCodeshare', isCargo: true })
+    expect(s.codeshare).toBe('IsCodeshare · Cargo')
   })
   it('also accepts the OpenAPI-documented "T" separator, not just the real space-separated one', () => {
     const s = normalizeFlightStatus({

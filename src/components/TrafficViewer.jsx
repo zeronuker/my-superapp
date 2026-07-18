@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useCalculatorStore } from '../store/calculatorStore'
 import { fmtDelay, normalizeFlightStatus } from '../utils/traffic'
 import ResetButton from './ResetButton'
 
@@ -11,13 +12,41 @@ async function fetchFlightStatus(flightOrCallsign, signal) {
   return body
 }
 
+// Field toggles for the status card. `lean` marks the on-by-default set;
+// everything else stays off until the user opts in via View settings.
+const FIELDS = [
+  { id: 'route', label: 'Route', lean: true, get: s => s.route },
+  { id: 'schedArr', label: 'Sched arr', lean: true, get: s => s.schedArr },
+  { id: 'estArr', label: 'Actual/est arr', lean: true, get: s => s.estArr },
+  { id: 'delay', label: 'Delay', lean: true, get: s => {
+    const label = fmtDelay(s.delayMinutes)
+    return label ? <span style={{ color: s.delayMinutes > 0 ? 'var(--cp-orange)' : 'var(--cp-txt)' }}>{label}</span> : null
+  } },
+  { id: 'terminal', label: 'Terminal', lean: true, get: s => s.arrTerminal },
+  { id: 'gate', label: 'Gate', lean: true, get: s => s.arrGate ? <span style={{ color: 'var(--cp-acc)', fontWeight: 700 }}>{s.arrGate}</span> : null },
+  { id: 'callSign', label: 'ATC callsign', lean: false, get: s => s.callSign },
+  { id: 'baggageBelt', label: 'Baggage belt', lean: false, get: s => s.arrBaggageBelt },
+  { id: 'checkInDesk', label: 'Check-in desk', lean: false, get: s => s.depCheckInDesk },
+  { id: 'runwayTime', label: 'Runway time', lean: false, get: s => s.depRunwayTime },
+  { id: 'predictedTime', label: 'Predicted arr', lean: false, get: s => s.arrPredictedTime },
+  { id: 'quality', label: 'Data quality', lean: false, get: s => s.quality },
+  { id: 'aircraft', label: 'Aircraft', lean: false, get: s => s.aircraft },
+  { id: 'codeshare', label: 'Codeshare/cargo', lean: false, get: s => s.codeshare },
+  { id: 'distance', label: 'Distance', lean: false, get: s => s.distance },
+  { id: 'position', label: 'Live position', lean: false, get: s => s.position },
+]
+
 export default function TrafficViewer() {
+  const { settings, updateSettings } = useCalculatorStore(s => ({
+    settings: s.settings, updateSettings: s.updateSettings,
+  }))
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const controllerRef = useRef(null)
 
   useEffect(() => {
@@ -54,10 +83,17 @@ export default function TrafficViewer() {
       .finally(() => setLoading(false))
   }
 
+  const cf = settings.trafficFields
+
   return (
     <div style={{ maxWidth: 480, margin: '0 auto' }}>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
+        <button title="View settings" onClick={() => setSettingsOpen(true)} style={{
+          width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', border: '1px solid var(--cp-border)', borderRadius: 6,
+          color: 'var(--cp-dim)', cursor: 'pointer', fontSize: 15,
+        }}>⚙</button>
         <ResetButton onReset={handleReset} />
       </div>
 
@@ -115,22 +151,25 @@ export default function TrafficViewer() {
           </div>
         )}
 
-        {!loading && status && <StatusCard s={status} />}
+        {!loading && status && <StatusCard s={status} cf={cf} />}
 
       </div>
+
+      {settingsOpen && (
+        <SettingsModal cf={cf}
+          onToggle={(id, val) => updateSettings({ trafficFields: { ...cf, [id]: val } })}
+          onSetFields={fields => updateSettings({ trafficFields: fields })}
+          onClose={() => setSettingsOpen(false)} />
+      )}
     </div>
   )
 }
 
-function StatusCard({ s }) {
-  const items = []
-  if (s.route) items.push(['Route', s.route])
-  if (s.schedArr) items.push(['Sched arr', s.schedArr])
-  if (s.estArr) items.push(['Actual/est arr', s.estArr])
-  const delayLabel = fmtDelay(s.delayMinutes)
-  if (delayLabel) items.push(['Delay', <span style={{ color: s.delayMinutes > 0 ? 'var(--cp-orange)' : 'var(--cp-txt)' }}>{delayLabel}</span>])
-  if (s.arrTerminal) items.push(['Terminal', s.arrTerminal])
-  if (s.arrGate) items.push(['Gate', <span style={{ color: 'var(--cp-acc)', fontWeight: 700 }}>{s.arrGate}</span>])
+function StatusCard({ s, cf }) {
+  const items = FIELDS
+    .filter(f => cf[f.id])
+    .map(f => [f.label, f.get(s)])
+    .filter(([, v]) => v != null)
 
   return (
     <div className="cp-card-accent" style={{ marginTop: 16 }}>
@@ -155,6 +194,40 @@ function StatusCard({ s }) {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// ── View settings modal — flat field list + a View all toggle. Toggling
+// "View all" checks every field; clicking again restores the lean default. ──
+function SettingsModal({ cf, onToggle, onSetFields, onClose }) {
+  const allOn = FIELDS.every(f => cf[f.id])
+  const handleViewAll = () => onSetFields(Object.fromEntries(FIELDS.map(f => [f.id, allOn ? f.lean : true])))
+  return (
+    <div onClick={e => e.target === e.currentTarget && onClose()} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20,
+    }}>
+      <div style={{
+        background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 8,
+        width: 340, maxWidth: '100%', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--cp-border)', position: 'sticky', top: 0, background: 'var(--cp-bg2)' }}>
+          <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--cp-acc)' }}>View settings</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--cp-dim)', fontSize: 16, cursor: 'pointer', padding: '2px 6px' }}>✕</button>
+        </div>
+        <div style={{ padding: '16px 20px 20px' }}>
+          <button className="cp-btn" style={{ width: '100%', marginBottom: 12 }} onClick={handleViewAll}>
+            {allOn ? 'Reset to lean view' : 'View all'}
+          </button>
+          {FIELDS.map(f => (
+            <label key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 0', fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-muted)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={!!cf[f.id]} onChange={e => onToggle(f.id, e.target.checked)} style={{ accentColor: 'var(--cp-acc)', cursor: 'pointer' }} />
+              {f.label}
+            </label>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
