@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { fmtDelay, normalizeFlightStatus } from '../utils/traffic'
 import ResetButton from './ResetButton'
 
@@ -18,6 +18,7 @@ export default function TrafficViewer() {
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
+  const controllerRef = useRef(null)
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false)
@@ -30,24 +31,28 @@ export default function TrafficViewer() {
     }
   }, [])
 
-  const handleReset = () => { setQuery(''); setStatus(null); setError(''); setSearched(false) }
+  // Aborts any in-flight lookup on unmount.
+  useEffect(() => () => controllerRef.current?.abort(), [])
 
-  // Debounced lookup — refires as the user types, cancels the in-flight
-  // request on the next keystroke.
-  useEffect(() => {
-    if (isOffline) return
+  const handleReset = () => {
+    controllerRef.current?.abort()
+    setQuery(''); setStatus(null); setError(''); setSearched(false); setLoading(false)
+  }
+
+  // Explicit search only — AeroDataBox's Basic plan is rate-limited to ~1
+  // req/sec, so this can't fire on every keystroke like a typeahead.
+  const handleSearch = () => {
     const term = query.trim()
-    if (term.length < 2) { setStatus(null); setError(''); setSearched(false); return }
+    if (!term || isOffline) return
+    controllerRef.current?.abort()
     const controller = new AbortController()
-    const t = setTimeout(() => {
-      setLoading(true); setError(''); setSearched(true)
-      fetchFlightStatus(term, controller.signal)
-        .then(raw => setStatus(normalizeFlightStatus(raw)))
-        .catch(e => { if (e.name !== 'AbortError') setError(e.message || 'Failed to fetch flight status') })
-        .finally(() => setLoading(false))
-    }, 400)
-    return () => { clearTimeout(t); controller.abort() }
-  }, [query, isOffline])
+    controllerRef.current = controller
+    setLoading(true); setError(''); setSearched(true); setStatus(null)
+    fetchFlightStatus(term, controller.signal)
+      .then(raw => setStatus(normalizeFlightStatus(raw)))
+      .catch(e => { if (e.name !== 'AbortError') setError(e.message || 'Failed to fetch flight status') })
+      .finally(() => setLoading(false))
+  }
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto' }}>
@@ -70,11 +75,15 @@ export default function TrafficViewer() {
 
         <div style={{ display: 'flex', gap: 8 }}>
           <input className="cp-input" autoFocus style={{ flex: 1, fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase' }}
-            placeholder="🔍 Callsign or flight number, e.g. MAS123"
-            value={query} onChange={e => setQuery(e.target.value)} />
+            placeholder="Callsign or flight number, e.g. MAS123"
+            value={query} onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSearch()} />
           {query && (
-            <button className="cp-btn" style={{ padding: '7px 10px', flexShrink: 0 }} onClick={() => setQuery('')}>✕</button>
+            <button className="cp-btn" style={{ padding: '7px 10px', flexShrink: 0 }} onClick={() => { setQuery(''); setStatus(null); setError(''); setSearched(false) }}>✕</button>
           )}
+          <button className="cp-btn" style={{ padding: '7px 14px', flexShrink: 0 }} disabled={loading || !query.trim()} onClick={handleSearch}>
+            {loading ? '…' : '🔍 Search'}
+          </button>
         </div>
 
         {error && (
@@ -102,7 +111,7 @@ export default function TrafficViewer() {
         {!loading && !searched && (
           <div style={{ textAlign: 'center', color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
             fontSize: 11, letterSpacing: '0.1em', padding: '24px 0' }}>
-            TYPE A CALLSIGN OR FLIGHT NUMBER TO CHECK STATUS
+            ENTER A CALLSIGN OR FLIGHT NUMBER, THEN SEARCH
           </div>
         )}
 
