@@ -20,22 +20,16 @@ export const DEFAULT_SETTINGS = {
   clockFormat:    '24hr',     // '24hr' | '12hr' — global, applies to all clocks
   rememberLastTab:true,       // reopen last-used tool on app restart
   dashboardWidgets: { utc: true, prayer: true, metar: true },
-  // Show/Hide Fields (Traffic tab) — which ADS-B/lookup/flight-status fields
-  // appear in the bottom-pane info card. The results table itself is fixed
-  // (Callsign/Reg/Type) and not configurable.
+  // Traffic tab's flight-status field toggles — which fields the status
+  // card shows. Defaults to the lean set: departure/arrival airport (route),
+  // sched dep/arr, actual dep, actual/est arr, dep+arr terminal/gate, and
+  // arrival delay. The rest are off until the user opts in via View settings.
   trafficFields: {
-    card: {
-      registration: true, icao24: true, aircraft_type: true, altitude: true,
-      ground_speed: true, track: true, vertical_rate: true, squawk: true,
-      on_ground: false, pinged: true, dist_brg: true,
-      type_name: true, manufacturer: true, operator: true, operator_icao: true,
-      operator_iata: false, country: true, engine_type: true, year_manufactured: true,
-      serial_number: false,
-      wake_category: false, cruise_speed: false, max_range: false, mtow: false,
-      service_ceiling: false, wingspan: false, length: false,
-      flight_number: true, airline: true, scheduled: true, estimated: true,
-      status: true, delay: true,
-    },
+    route: true, schedDep: true, schedArr: true, depActual: true, estArr: true,
+    terminal: true, gate: true, delay: true,
+    callSign: false, baggageBelt: false, checkInDesk: false,
+    predictedTime: false, quality: false, aircraft: false, airlineLogo: false, codeshare: false,
+    distance: false, position: false,
   },
 }
 
@@ -65,9 +59,7 @@ function loadSettings() {
     const merged = { ...DEFAULT_SETTINGS, ...parsed }
     // Deep-merge nested objects so partial saved values don't drop new keys
     merged.dashboardWidgets = { ...DEFAULT_SETTINGS.dashboardWidgets, ...(parsed.dashboardWidgets || {}) }
-    merged.trafficFields = {
-      card: { ...DEFAULT_SETTINGS.trafficFields.card, ...(parsed.trafficFields?.card || {}) },
-    }
+    merged.trafficFields = { ...DEFAULT_SETTINGS.trafficFields, ...(parsed.trafficFields || {}) }
     // Migrate: derive themeMode from the old cb-theme flag on first run
     if (!parsed.themeMode) {
       try {

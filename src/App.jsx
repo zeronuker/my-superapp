@@ -20,7 +20,6 @@ const CurrencyCalculator      = lazy(() => import('./components/CurrencyCalculat
 const METARTAFCalculator      = lazy(() => import('./components/METARTAFCalculator'))
 const NotamViewer             = lazy(() => import('./components/NotamViewer'))
 const SigmetViewer            = lazy(() => import('./components/SigmetViewer'))
-const FlightSchedulesViewer   = lazy(() => import('./components/FlightSchedulesViewer'))
 const TrafficViewer           = lazy(() => import('./components/TrafficViewer'))
 const FTLCalculator           = lazy(() => import('./components/FTLCalculator'))
 const WorldTimeCalculator     = lazy(() => import('./components/WorldTimeCalculator'))
@@ -41,7 +40,6 @@ export const CALCULATORS = [
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
   { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
   { id: 'sigmet',        icon: '⛈️',  name: 'SIGMET',         component: SigmetViewer },
-  { id: 'schedules',     icon: '🛬',  name: 'Schedules',      component: FlightSchedulesViewer },
   { id: 'traffic',       icon: '🛰️', name: 'Traffic',        component: TrafficViewer },
   { id: 'ftl',           icon: '⏳',  name: 'FTL',            component: FTLCalculator },
   { id: 'dutylog',       icon: '🛫',  name: 'Duty Log',       component: DutyLogModule },
@@ -54,7 +52,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.15'
+const APP_VERSION = 'v3.16'
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -1162,6 +1160,19 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.16', date: 'Jul 2026',
+    entries: [
+      { type: 'feat', text: 'Traffic tab rebuilt as a lean flight-status lookup — search a callsign or flight number, see status/route/sched vs actual-or-estimated arrival/delay/arrival terminal/gate. Dropped the ADS-B radar plot, GPS/ICAO center + range picker, and aircraft-spec lookup (manufacturer/wingspan/MTOW/engine/cruise speed/airline logo) — none of it served the tab\'s actual job' },
+      { type: 'feat', text: 'Traffic: View settings panel (default lean, View all toggle) with sectioned Live position/Departure/Arrival detail cards, an airline logo field (via SkyLink, since AeroDataBox\'s flight data has none), and a SkyLink ADS-B cross-check for live position when AeroDataBox has none' },
+      { type: 'feat', text: 'Traffic: every departure/arrival airport now defaults to showing scheduled + actual departure, scheduled + actual-or-estimated arrival, both legs\' terminal/gate, and arrival delay — the ten data points this tab now guarantees by default' },
+      { type: 'feat', text: 'Traffic: status now cross-checks the provider\'s label against the flight\'s own timestamps and overrides it only on a direct contradiction (e.g. "Arrived" while the arrival time is still hours away) — fixes a real case where a still-airborne flight showed as landed' },
+      { type: 'feat', text: 'Traffic: every displayed time now shows its UTC offset (e.g. "12:15 +05:30") alongside the departure/arrival airport it belongs to, so departure- and arrival-local times are never mistaken for the same clock' },
+      { type: 'feat', text: 'Removed the Flight Schedules tab — airport-board browsing is retired; Traffic\'s flight-number search is now the only way to check a flight, with a fuller default detail card taking over what Schedules\' terminal/gate popup used to show' },
+      { type: 'feat', text: 'Traffic: search now also accepts an aircraft registration (e.g. 9M-MXA), not just a flight number — tries flight number first, falls back to registration on a miss. A registration matching multiple sectors flown that day shows a picker with the most relevant leg pre-selected and marked LIVE only when its departure is actually confirmed, not just scheduled; tap Confirm to load it' },
+      { type: 'fix',  text: 'Traffic: search box no longer shows two redundant instructions (placeholder + idle-state text) — placeholder now reads "Flight number or registration" instead of the confusing "callsign or flight number" pairing' },
+    ],
+  },
   {
     version: 'v3.15', date: 'Jul 2026',
     entries: [

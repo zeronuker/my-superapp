@@ -1,16 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  fmtAlt, fmtVs, fmtPinged, fmtDistBrg, fmtSpeed, fmtTrack, fmtLocalTime, fmtDelay, fmtWakeCategory, statusColorFor,
-  normalizeAircraft, normalizeFlightStatus, normalizeAircraftLookup, normalizeAirline, normalizeAircraftPerformance,
-} from './traffic'
-
-// Shape confirmed against a live /adsb/aircraft response (see the comment on
-// normalizeAircraft) — flat lat/lon, is_on_ground, no origin/destination.
-const RAW_AIRCRAFT = {
-  icao24: '750a01', callsign: 'MAS123 ', registration: '9M-MTA', aircraft_type: 'B738',
-  latitude: 3.1, longitude: 101.6, altitude: 35000, ground_speed: 450, track: 90,
-  vertical_rate: 0, squawk: '2000', is_on_ground: false, airline: 'Malaysia Airlines',
-}
+import { fmtTrack, fmtDelay, statusColorFor, normalizeFlightStatus, normalizeSkylinkPosition, normalizeSkylinkAirlineLogo, rankFlightCandidates } from './traffic'
 
 // Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
 // response (RapidAPI console + production, OD122, 11 Jul 2026) — explicit
@@ -21,65 +10,126 @@ const RAW_AIRCRAFT = {
 // OpenAPI docs example shows — this fixture uses the real format so a
 // regression here fails the test instead of only showing up in production.
 const RAW_STATUS = {
-  number: 'OD122', status: 'Delayed', airline: { name: 'Batik Air', iata: 'OD', icao: 'BTK' },
+  number: 'OD122', callSign: 'BTK122', status: 'Delayed',
+  airline: { name: 'Batik Air', iata: 'OD', icao: 'BTK' },
+  aircraft: { model: 'B738', reg: '9M-LNA', modeS: '750A12' },
+  codeshareStatus: 'IsOperator', isCargo: false,
+  greatCircleDistance: { nm: 3306.4, km: 6123.1 },
+  location: { lat: -12.4, lon: 118.7, altitude: 37000, speed: 480, heading: 315.2 },
   departure: {
     airport: { iata: 'SYD', icao: 'YSSY', name: 'Sydney' },
     scheduledTime: { utc: '2026-07-05 22:35Z', local: '2026-07-06 08:35+10:00' },
     revisedTime: { utc: '2026-07-06 01:00Z', local: '2026-07-06 11:00+10:00' },
-    terminal: '1', gate: '26',
+    terminal: '1', gate: '26', checkInDesk: 'A1-12',
+    runwayTime: { local: '2026-07-06 08:47+10:00' },
+    quality: ['Basic', 'Live'],
   },
   arrival: {
     airport: { iata: 'KUL', icao: 'WMKK', name: 'Kuala Lumpur' },
     scheduledTime: { utc: '2026-07-06 07:40Z', local: '2026-07-06 15:40+08:00' },
-    terminal: '1', gate: 'C22',
+    terminal: '1', gate: 'C22', baggageBelt: '4',
+    predictedTime: { local: '2026-07-06 15:52+08:00' },
   },
 }
-
-describe('normalizeAircraft', () => {
-  it('maps the live-API field names', () => {
-    expect(normalizeAircraft(RAW_AIRCRAFT)).toEqual({
-      icao24: '750a01', callsign: 'MAS123', registration: '9M-MTA', aircraft_type: 'B738',
-      lat: 3.1, lon: 101.6, altitude_ft: 35000, ground_speed_kts: 450, track: 90,
-      vertical_rate: 0, squawk: '2000', on_ground: false,
-      origin: null, destination: null, airline: 'Malaysia Airlines', pingedAt: null,
-    })
-  })
-  it('falls back sanely on missing fields', () => {
-    const a = normalizeAircraft({ icao24: 'abc123' })
-    expect(a.registration).toBe('—')
-    expect(a.squawk).toBe('----')
-    expect(a.altitude_ft).toBe(0)
-    expect(a.on_ground).toBe(false)
-    expect(a.callsign).toBe('abc123')
-  })
-})
 
 describe('normalizeFlightStatus', () => {
   it('returns null when there is no matching flight', () => {
     expect(normalizeFlightStatus(null)).toBeNull()
   })
-  it('maps status, route, times, and delay from ISO datetimes', () => {
+  it('maps status, route, times (with UTC offset), and delay', () => {
     const s = normalizeFlightStatus(RAW_STATUS)
     expect(s.flight).toBe('OD122')
     expect(s.airline).toBe('Batik Air')
     expect(s.route).toBe('SYD → KUL')
     expect(s.status).toBe('DELAYED')
     expect(s.statusColor).toBe('var(--cp-orange)')
-    expect(s.schedDep).toBe('08:35 · 06 Jul')
-    expect(s.schedArr).toBe('15:40 · 06 Jul')
+    expect(s.schedDep).toBe('08:35 +10:00 · 06 Jul')
+    expect(s.schedArr).toBe('15:40 +08:00 · 06 Jul')
+    expect(s.depActual).toBe('08:47 +10:00 · 06 Jul') // from departure.runwayTime
     expect(s.estArr).toBeNull() // no arrival.revisedTime in this fixture
+    // Prefers arrival's own delay; falls back to departure's here because
+    // this fixture's arrival has no revisedTime at all.
     expect(s.delayMinutes).toBe(145) // 22:35Z -> 01:00Z departure, actual UTC diff
     expect(s.depTerminal).toBe('1')
     expect(s.depGate).toBe('26')
     expect(s.arrTerminal).toBe('1')
     expect(s.arrGate).toBe('C22')
+    expect(s.depCode).toBe('SYD')
+    expect(s.arrCode).toBe('KUL')
   })
-  it('also accepts the OpenAPI-documented "T" separator, not just the real space-separated one', () => {
+  it('falls back to departure revisedTime for depActual when there is no runwayTime', () => {
+    const s = normalizeFlightStatus({
+      number: 'MH9', status: 'Departed',
+      departure: { revisedTime: { local: '2026-07-18 09:12+08:00' } },
+    })
+    expect(s.depActual).toBe('09:12 +08:00 · 18 Jul')
+  })
+  it('prefers the arrival leg delay over departure when both are available', () => {
+    // Regression for a real report: departure ran 17 min late but arrival
+    // was revised 25 min early — "Delay" must reflect arrival (this tab is
+    // about arrival), not silently fall back to the unrelated departure number.
+    const s = normalizeFlightStatus({
+      number: 'MH174', status: 'EnRoute',
+      departure: { scheduledTime: { utc: '2026-07-18 01:00Z' }, revisedTime: { utc: '2026-07-18 01:17Z' } },
+      arrival: { scheduledTime: { utc: '2026-07-18 06:45Z' }, revisedTime: { utc: '2026-07-18 06:20Z' } },
+    })
+    expect(s.delayMinutes).toBe(-25)
+  })
+  it('maps the extended fields (callsign, aircraft, checkin/baggage, predicted time, quality, codeshare, distance, position)', () => {
+    const s = normalizeFlightStatus(RAW_STATUS)
+    expect(s.callSign).toBe('BTK122')
+    expect(s.aircraft).toBe('B738 · 9M-LNA · modeS 750A12')
+    expect(s.airlineIcao).toBe('BTK')
+    expect(s.airlineIata).toBe('OD')
+    expect(s.depCheckInDesk).toBe('A1-12')
+    expect(s.arrBaggageBelt).toBe('4')
+    expect(s.arrPredictedTime).toBe('15:52 +08:00 · 06 Jul')
+    expect(s.quality).toBe('Basic, Live') // falls back to departure.quality since arrival has none
+    expect(s.codeshare).toBe('Operator')
+    expect(s.distance).toBe('3306 nm') // prefers the nm field over converting km
+    expect(s.position).toEqual({ latLon: '-12.4, 118.7', alt: 'FL370', speed: '480kt', heading: '315°' })
+  })
+  it('formats altitude in feet below FL180 and flight levels at/above it', () => {
+    const low = normalizeFlightStatus({ number: 'MH6', status: 'EnRoute', location: { lat: 1, lon: 1, altitude: 4500 } })
+    expect(low.position.alt).toBe('4,500 ft')
+    const high = normalizeFlightStatus({ number: 'MH7', status: 'EnRoute', location: { lat: 1, lon: 1, altitude: 18000 } })
+    expect(high.position.alt).toBe('FL180')
+  })
+  it('falls back to converting km to nm when no nm field is present', () => {
+    const s = normalizeFlightStatus({ number: 'MH4', status: 'Scheduled', greatCircleDistance: { km: 100 } })
+    expect(s.distance).toBe('54 nm')
+  })
+  it('leaves the extended fields null when absent', () => {
+    const s = normalizeFlightStatus({ number: 'MH1', status: 'Scheduled' })
+    expect(s.callSign).toBeNull()
+    expect(s.aircraft).toBeNull()
+    expect(s.airlineIcao).toBeNull()
+    expect(s.airlineIata).toBeNull()
+    expect(s.codeshare).toBeNull()
+    expect(s.distance).toBeNull()
+    expect(s.position).toBeNull()
+    expect(s.quality).toBeNull()
+    expect(s.depCode).toBeNull()
+    expect(s.arrCode).toBeNull()
+  })
+  it('marks a cargo codeshare flight in one combined field, with friendly labels', () => {
+    const s = normalizeFlightStatus({ number: 'MH5', status: 'Scheduled', codeshareStatus: 'IsCodeshare', isCargo: true })
+    expect(s.codeshare).toBe('Codeshare · Cargo')
+  })
+  it('shows an unrecognized codeshareStatus value as-is rather than guessing at it', () => {
+    const s = normalizeFlightStatus({ number: 'MH11', status: 'Scheduled', codeshareStatus: 'Unknown' })
+    expect(s.codeshare).toBe('Unknown')
+  })
+  it('also accepts the OpenAPI-documented "T" separator and seconds, not just the real space-separated one', () => {
     const s = normalizeFlightStatus({
       number: 'MH3', status: 'Scheduled',
       departure: { scheduledTime: { local: '2026-07-06T08:35:00+10:00' } },
     })
-    expect(s.schedDep).toBe('08:35 · 06 Jul')
+    expect(s.schedDep).toBe('08:35 +10:00 · 06 Jul')
+  })
+  it('formats a "Z" (UTC) offset as +00:00', () => {
+    const s = normalizeFlightStatus({ number: 'MH10', status: 'Scheduled', departure: { scheduledTime: { local: '2026-07-06T08:35:00Z' } } })
+    expect(s.schedDep).toBe('08:35 +00:00 · 06 Jul')
   })
   it('leaves route/delay unset when the raw fields are missing', () => {
     const s = normalizeFlightStatus({ number: 'MH1', status: 'Scheduled' })
@@ -103,78 +153,93 @@ describe('normalizeFlightStatus', () => {
     })
     expect(s.delayMinutes).toBe(20)
   })
-})
 
-// Shape confirmed against a live /aircraft/registration/:reg response and the
-// API's own official example schema (RapidAPI console, G-STBC) — wrapped in
-// { query, found, aircraft: {...} }, not flat.
-const RAW_LOOKUP = {
-  query: 'G-STBC', found: true,
-  aircraft: {
-    registration: 'G-STBC', icao24: '40621d', icao_type: 'B77W',
-    type_name: '777-36N', manufacturer: 'Boeing', manufacturer_and_model: 'Boeing 777-36N',
-    owner_operator: 'British Airways', airline_code: 'BAW',
-    is_private_operator: false, serial_number: '38695', year_built: '2013',
-    photos: [{ image: 'https://image.airport-data.com/aircraft/001912010.jpg', link: 'https://airport-data.com/aircraft/photo/001912010.html', photographer: 'Roberto Cassar' }],
-  },
-}
-
-// Shape confirmed against a live /airlines/search response (icao=BAW).
-const RAW_AIRLINE = [{
-  id: 1355, name: 'British Airways', iata: 'BA', icao: 'BAW',
-  callsign: 'SPEEDBIRD', country: 'United Kingdom', active: 'Y',
-  logo: 'https://media.skylinkapi.com/logos/BA.png',
-}]
-
-// Shape confirmed against a live /aircraft/performance/:icao_type response.
-const RAW_PERFORMANCE = {
-  icao_type: 'B77W', name: 'BOEING 777-300ER', engine_type: 'Jet', engine_code: 'L2J',
-  wake_category: 'H', cruise_speed_ktas: 490, service_ceiling_ft: 43000,
-  max_range_nm: 7370, wing_span_m: 64.8, length_m: 73.9, mtow_t: 351.5, max_passengers: 396,
-}
-
-describe('normalizeAircraftLookup', () => {
-  it('unwraps the aircraft object and maps real field names', () => {
-    expect(normalizeAircraftLookup(RAW_LOOKUP)).toEqual({
-      registration: 'G-STBC', icao24: '40621d', icao_type: 'B77W', type_name: '777-36N',
-      manufacturer: 'Boeing', operator: 'British Airways', operator_icao: 'BAW',
-      serial_number: '38695', year_manufactured: '2013',
-      photos: RAW_LOOKUP.aircraft.photos,
+  describe('derived status (cross-checked against the provider label)', () => {
+    it('overrides a stale "Arrived" status when the flight has not reached its estimated arrival time yet (MH174 regression)', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH174', status: 'Arrived',
+        departure: { runwayTime: { utc: '2026-07-18 01:12Z' } },
+        arrival: { predictedTime: { utc: '2026-07-18 06:20Z' } },
+      }, Date.parse('2026-07-18 02:30Z'))
+      expect(s.status).toBe('AIRBORNE')
     })
-  })
-  it('returns null when the aircraft was not found', () => {
-    expect(normalizeAircraftLookup({ query: 'ZZZZZ', found: false })).toBeNull()
-  })
-  it('returns null for a missing/malformed response', () => {
-    expect(normalizeAircraftLookup(null)).toBeNull()
-    expect(normalizeAircraftLookup({})).toBeNull()
-  })
-})
-
-describe('normalizeAirline', () => {
-  it('maps the first match', () => {
-    expect(normalizeAirline(RAW_AIRLINE)).toEqual({
-      name: 'British Airways', iata: 'BA', icao: 'BAW',
-      callsign: 'SPEEDBIRD', country: 'United Kingdom', logo: 'https://media.skylinkapi.com/logos/BA.png',
+    it('overrides a stale "Scheduled" status once well past the arrival time', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH2b', status: 'Scheduled',
+        departure: { scheduledTime: { utc: '2026-07-18 01:00Z' } },
+        arrival: { scheduledTime: { utc: '2026-07-18 06:00Z' } },
+      }, Date.parse('2026-07-18 08:00Z'))
+      expect(s.status).toBe('LANDED')
     })
-  })
-  it('returns null for an empty result set', () => {
-    expect(normalizeAirline([])).toBeNull()
-    expect(normalizeAirline(null)).toBeNull()
+    it('never overrides an explicit cancellation, regardless of timestamps', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH3b', status: 'Cancelled',
+        departure: { scheduledTime: { utc: '2026-07-18 01:00Z' } },
+        arrival: { scheduledTime: { utc: '2026-07-18 06:00Z' } },
+      }, Date.parse('2026-07-18 08:00Z'))
+      expect(s.status).toBe('CANCELLED')
+    })
+    it('keeps a richer in-progress status (e.g. Boarding) when it does not contradict the derived guess', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH4b', status: 'Boarding',
+        departure: { scheduledTime: { utc: '2026-07-18 01:00Z' } },
+        arrival: { scheduledTime: { utc: '2026-07-18 06:00Z' } },
+      }, Date.parse('2026-07-18 00:30Z'))
+      expect(s.status).toBe('BOARDING')
+    })
+    it('keeps the raw status when departure time has passed but nothing confirms actual departure (ambiguous)', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH5b', status: 'Delayed',
+        departure: { scheduledTime: { utc: '2026-07-18 01:00Z' } },
+      }, Date.parse('2026-07-18 02:00Z'))
+      expect(s.status).toBe('DELAYED')
+    })
+    it('uses the derived status when the provider gives none at all', () => {
+      const s = normalizeFlightStatus({
+        number: 'MH6b',
+        departure: { runwayTime: { utc: '2026-07-18 01:00Z' } },
+        arrival: { scheduledTime: { utc: '2026-07-18 06:00Z' } },
+      }, Date.parse('2026-07-18 02:00Z'))
+      expect(s.status).toBe('AIRBORNE')
+    })
   })
 })
 
-describe('normalizeAircraftPerformance', () => {
-  it('maps the real field names', () => {
-    expect(normalizeAircraftPerformance(RAW_PERFORMANCE)).toEqual({
-      engineType: 'Jet', engineCode: 'L2J', wakeCategory: 'H',
-      cruiseSpeedKt: 490, serviceCeilingFt: 43000, maxRangeNm: 7370,
-      wingSpanM: 64.8, lengthM: 73.9, mtowT: 351.5,
-    })
+describe('rankFlightCandidates', () => {
+  // A registration search can return several sectors flown by one aircraft
+  // in a day — this ranks them so the UI can pre-select the most relevant.
+  const morningLeg = { number: 'MH1', departure: { runwayTime: { utc: '2026-07-18 01:00Z' } }, arrival: { scheduledTime: { utc: '2026-07-18 03:00Z' } } }
+  const middayLeg = { number: 'MH2', departure: { runwayTime: { utc: '2026-07-18 05:00Z' } }, arrival: { scheduledTime: { utc: '2026-07-18 07:00Z' } } }
+  const eveningLeg = { number: 'MH3', departure: { scheduledTime: { utc: '2026-07-18 10:00Z' } }, arrival: { scheduledTime: { utc: '2026-07-18 12:00Z' } } }
+
+  it('ranks the leg currently in progress first, even if another leg is numerically closer', () => {
+    // now is inside middayLeg's window (05:00-07:00), and only 1hr past
+    // morningLeg's arrival — closer in raw distance, but not in progress.
+    const ranked = rankFlightCandidates([morningLeg, middayLeg, eveningLeg], Date.parse('2026-07-18 06:00Z'))
+    expect(ranked[0].raw.number).toBe('MH2')
+    expect(ranked[0]._rank.inProgress).toBe(true)
   })
-  it('returns null when the type code is unknown', () => {
-    expect(normalizeAircraftPerformance(null)).toBeNull()
-    expect(normalizeAircraftPerformance({})).toBeNull()
+  it('when nothing is in progress, ranks by smallest distance to now', () => {
+    // now is 30 min before eveningLeg departs — closer than midayLeg's
+    // completed arrival (3hr away) or morningLeg's (7hr away).
+    const ranked = rankFlightCandidates([morningLeg, middayLeg, eveningLeg], Date.parse('2026-07-18 09:30Z'))
+    expect(ranked[0].raw.number).toBe('MH3')
+    expect(ranked[0]._rank.inProgress).toBe(false)
+  })
+  it('preserves the raw flight objects unchanged, just reordered', () => {
+    const ranked = rankFlightCandidates([eveningLeg, morningLeg], Date.parse('2026-07-18 02:00Z'))
+    expect(ranked.map(r => r.raw.number)).toEqual(['MH1', 'MH3'])
+  })
+  it('handles an empty list', () => {
+    expect(rankFlightCandidates([], Date.now())).toEqual([])
+  })
+  it('does not mark a leg in progress from its scheduled window alone — departure must be confirmed', () => {
+    // now falls between this leg's scheduled dep/arr times, but neither
+    // runwayTime nor revisedTime confirms it actually left the ground yet
+    // (could still be delayed at the gate) — must not claim it's live.
+    const scheduledOnly = { number: 'MH9', departure: { scheduledTime: { utc: '2026-07-18 09:00Z' } }, arrival: { scheduledTime: { utc: '2026-07-18 11:00Z' } } }
+    const ranked = rankFlightCandidates([scheduledOnly], Date.parse('2026-07-18 10:00Z'))
+    expect(ranked[0]._rank.inProgress).toBe(false)
   })
 })
 
@@ -203,52 +268,9 @@ describe('statusColorFor', () => {
   })
 })
 
-describe('fmtAlt', () => {
-  it('shows flight levels above 18000 ft', () => { expect(fmtAlt(35000)).toBe('FL350') })
-  it('shows feet below 18000 ft', () => { expect(fmtAlt(1200)).toBe('1,200 ft') })
-})
-
-describe('fmtVs', () => {
-  it('flags climbing', () => { expect(fmtVs(800)).toBe('↑ 800 fpm') })
-  it('flags descending', () => { expect(fmtVs(-800)).toBe('↓ 800 fpm') })
-  it('treats small rates as level', () => { expect(fmtVs(50)).toBe('level') })
-})
-
-describe('fmtPinged', () => {
-  it('reports never pinged', () => { expect(fmtPinged(null, Date.now())).toBe('Not pinged yet') })
-  it('reports elapsed seconds', () => { expect(fmtPinged(1000, 6000)).toBe('Pinged 5s ago') })
-})
-
-describe('fmtDistBrg', () => {
-  it('handles missing geometry', () => { expect(fmtDistBrg(null, null)).toBe('—') })
-  it('formats distance and bearing', () => { expect(fmtDistBrg(42.4, 7)).toBe('42 NM · 007°') })
-})
-
-describe('fmtSpeed', () => {
-  it('rounds to the nearest knot', () => { expect(fmtSpeed(294.33313)).toBe('294 kts') })
-})
-
 describe('fmtTrack', () => {
   it('rounds and pads to 3 digits', () => { expect(fmtTrack(64.653824)).toBe('065°') })
   it('pads single-digit tracks', () => { expect(fmtTrack(7)).toBe('007°') })
-})
-
-describe('fmtLocalTime', () => {
-  it('combines time and date', () => { expect(fmtLocalTime('08:35', '06 Jul')).toBe('08:35 · 06 Jul') })
-  it('shows time alone when there is no date', () => { expect(fmtLocalTime('08:35', '')).toBe('08:35') })
-  it('treats the "--:--" placeholder as no data', () => { expect(fmtLocalTime('--:--', '')).toBeNull() })
-  it('returns null when there is no time', () => { expect(fmtLocalTime(null, '06 Jul')).toBeNull() })
-})
-
-describe('fmtWakeCategory', () => {
-  it('expands known codes', () => {
-    expect(fmtWakeCategory('H')).toBe('Heavy')
-    expect(fmtWakeCategory('M')).toBe('Medium')
-    expect(fmtWakeCategory('L')).toBe('Light')
-    expect(fmtWakeCategory('J')).toBe('Super')
-  })
-  it('falls back to the raw code for anything unrecognized', () => { expect(fmtWakeCategory('X')).toBe('X') })
-  it('returns null for missing input', () => { expect(fmtWakeCategory(null)).toBeNull() })
 })
 
 describe('fmtDelay', () => {
@@ -257,4 +279,34 @@ describe('fmtDelay', () => {
   it('reports a multi-hour delay as h/m', () => { expect(fmtDelay(145)).toBe('+2h25m') })
   it('reports an early arrival', () => { expect(fmtDelay(-5)).toBe('5 min early') })
   it('returns null when no delay data is available', () => { expect(fmtDelay(null)).toBeNull() })
+})
+
+describe('normalizeSkylinkPosition', () => {
+  // Field names confirmed against a live /adsb/aircraft response (see the
+  // git history on this file) — flat lat/lon, ground_speed, track; response
+  // wrapped in { aircraft: [...] }.
+  it('formats the first matching aircraft the same way as AeroDataBox position', () => {
+    const p = normalizeSkylinkPosition({ aircraft: [{ latitude: 3.1, longitude: 101.6, altitude: 35000, ground_speed: 420, track: 45 }] })
+    expect(p).toEqual({ latLon: '3.1, 101.6', alt: 'FL350', speed: '420kt', heading: '045°' })
+  })
+  it('returns null when no aircraft matched', () => {
+    expect(normalizeSkylinkPosition({ aircraft: [] })).toBeNull()
+    expect(normalizeSkylinkPosition(null)).toBeNull()
+    expect(normalizeSkylinkPosition({})).toBeNull()
+  })
+})
+
+describe('normalizeSkylinkAirlineLogo', () => {
+  // Shape confirmed live for BAW -> British Airways (see git history on this
+  // file, from before the old aircraft-lookup UI was removed) — search
+  // returns an array, first match wins.
+  it('extracts the logo URL from the first matching airline', () => {
+    const raw = [{ id: 1355, name: 'British Airways', iata: 'BA', icao: 'BAW', logo: 'https://media.skylinkapi.com/logos/BA.png' }]
+    expect(normalizeSkylinkAirlineLogo(raw)).toBe('https://media.skylinkapi.com/logos/BA.png')
+  })
+  it('returns null for an empty result set or missing logo', () => {
+    expect(normalizeSkylinkAirlineLogo([])).toBeNull()
+    expect(normalizeSkylinkAirlineLogo(null)).toBeNull()
+    expect(normalizeSkylinkAirlineLogo([{ name: 'No Logo Air' }])).toBeNull()
+  })
 })

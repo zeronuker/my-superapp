@@ -1,31 +1,9 @@
-// Pure translation layer for the Traffic tab — turns raw SkyLink API
-// responses into the shape TrafficViewer renders, plus the display
-// formatters it uses. Kept separate and tested because this exact step
-// has already broken once: the ADS-B endpoint was first built against the
-// SDK's own test fixtures, which didn't match the real API's field names
-// (flat lat/lon, is_on_ground not on_ground, no origin/destination) — see
-// the comment on normalizeAircraft below.
+// Pure translation layer for the Traffic tab's flight-status lookup — turns
+// AeroDataBox's raw response into the shape TrafficViewer renders, plus the
+// display formatters it uses. fmtTrack is also used by METARTAFCalculator
+// for wind heading display.
 
-export function fmtAlt(ft) { return ft >= 18000 ? `FL${Math.round(ft / 100)}` : `${ft.toLocaleString()} ft` }
-export function fmtVs(vr) { return vr > 100 ? `↑ ${vr} fpm` : vr < -100 ? `↓ ${Math.abs(vr)} fpm` : 'level' }
-export function fmtPinged(ts, nowMs) {
-  if (!ts) return 'Not pinged yet'
-  const s = Math.max(0, Math.round((nowMs - ts) / 1000))
-  return s < 1 ? 'Just pinged' : `Pinged ${s}s ago`
-}
-export function fmtDistBrg(distNm, brgDeg) {
-  if (distNm == null || brgDeg == null) return '—'
-  return `${Math.round(distNm)} NM · ${String(Math.round(brgDeg)).padStart(3, '0')}°`
-}
-export function fmtSpeed(kts) { return `${Math.round(kts)} kts` }
 export function fmtTrack(deg) { return `${String(Math.round(deg)).padStart(3, '0')}°` }
-// flight_status times are split "HH:MM" + "DD Mon" strings with no year or
-// timezone — this is the airport's local time, not Zulu, so it's shown as-is
-// rather than relabelled with a "Z" suffix that would misrepresent it.
-export function fmtLocalTime(time, date) {
-  if (!time || /^-+:-+$/.test(time)) return null
-  return date ? `${time} · ${date}` : time
-}
 export function fmtDelay(min) {
   if (typeof min !== 'number' || isNaN(min)) return null
   if (min === 0) return 'On time'
@@ -34,106 +12,27 @@ export function fmtDelay(min) {
   const hhmm = h > 0 ? `${h}h${String(m).padStart(2, '0')}m` : `${m} min`
   return min > 0 ? `+${hhmm}` : `${hhmm} early`
 }
-const WAKE_LABEL = { L: 'Light', M: 'Medium', H: 'Heavy', J: 'Super' }
-export function fmtWakeCategory(code) {
-  if (!code) return null
-  return WAKE_LABEL[code] || code
+// Formats a raw UTC-offset suffix ("Z", "+0800", "+08:00") into "+08:00" —
+// always shown next to a local time so it's never ambiguous which airport's
+// clock a time belongs to (paired with the "Departure · KUL" / "Arrival ·
+// BOM" section headers that say which airport).
+function fmtOffset(raw) {
+  if (!raw) return null
+  if (raw === 'Z') return '+00:00'
+  const m = /^([+-])(\d{2}):?(\d{2})$/.exec(raw)
+  return m ? `${m[1]}${m[2]}:${m[3]}` : null
 }
-
-// Field names confirmed against a live response (the SDK's own test fixtures
-// turned out not to match reality — flat lat/lon, is_on_ground not on_ground,
-// no origin/destination on this endpoint, but a bonus `airline` name).
-export function normalizeAircraft(raw) {
-  return {
-    icao24: raw.icao24 || '',
-    callsign: (raw.callsign || raw.icao24 || '').trim(),
-    registration: raw.registration || '—',
-    aircraft_type: raw.aircraft_type || '—',
-    lat: raw.latitude, lon: raw.longitude,
-    altitude_ft: raw.altitude ?? 0,
-    ground_speed_kts: raw.ground_speed ?? 0,
-    track: raw.track ?? 0,
-    vertical_rate: raw.vertical_rate ?? 0,
-    squawk: raw.squawk || '----',
-    on_ground: !!raw.is_on_ground,
-    origin: null,
-    destination: null,
-    airline: raw.airline || null,
-    pingedAt: null,
-  }
-}
-
-// Field names confirmed against a live /aircraft/registration/:reg response
-// (production test against 9M-MXB, and the API's own official example
-// schema for G-STBC) — the response is wrapped in { query, found,
-// aircraft: {...} }, not flat, which is why this card used to render
-// entirely blank. No country/engines/military fields exist anywhere on this
-// endpoint — confirmed against the official schema, not just one sample.
-// Engine data comes from a separate Aircraft Performance call keyed by
-// icao_type; operator IATA/country come from a separate Airlines search
-// keyed by airline_code (both below).
-export function normalizeAircraftLookup(raw) {
-  const a = raw?.found ? raw.aircraft : null
-  if (!a) return null
-  return {
-    registration: a.registration || null,
-    icao24: a.icao24 || null,
-    icao_type: a.icao_type || null,
-    type_name: a.type_name || null,
-    manufacturer: a.manufacturer || null,
-    operator: a.owner_operator || null,
-    operator_icao: a.airline_code || null,
-    serial_number: a.serial_number || null,
-    year_manufactured: a.year_built || null,
-    photos: Array.isArray(a.photos) ? a.photos : [],
-  }
-}
-
-// Airlines search returns an array — take the first match (an exact ICAO/IATA
-// code query should only ever match one airline). Confirmed live for BAW →
-// British Airways. `country` here is the airline's home country, not the
-// aircraft's country of registration — kept distinct in the UI label.
-export function normalizeAirline(raw) {
-  const a = Array.isArray(raw) ? raw[0] : null
-  if (!a) return null
-  return {
-    name: a.name || null,
-    iata: a.iata || null,
-    icao: a.icao || null,
-    callsign: a.callsign || null,
-    country: a.country || null,
-    logo: a.logo || null,
-  }
-}
-
-// Confirmed live for B77W. There is no engine *count* field anywhere in
-// SkyLink's data (only engine_type/engine_code), so the old "2× Jet" style
-// display is replaced with just the type + code.
-export function normalizeAircraftPerformance(raw) {
-  if (!raw?.icao_type) return null
-  return {
-    engineType: raw.engine_type || null,
-    engineCode: raw.engine_code || null,
-    wakeCategory: raw.wake_category || null,
-    cruiseSpeedKt: typeof raw.cruise_speed_ktas === 'number' ? raw.cruise_speed_ktas : null,
-    serviceCeilingFt: typeof raw.service_ceiling_ft === 'number' ? raw.service_ceiling_ft : null,
-    maxRangeNm: typeof raw.max_range_nm === 'number' ? raw.max_range_nm : null,
-    wingSpanM: typeof raw.wing_span_m === 'number' ? raw.wing_span_m : null,
-    lengthM: typeof raw.length_m === 'number' ? raw.length_m : null,
-    mtowT: typeof raw.mtow_t === 'number' ? raw.mtow_t : null,
-  }
-}
-
-// Extracts "HH:MM · DD Mon" from an AeroDataBox datetime string. The
-// OpenAPI docs show ISO 8601 with a "T" separator (e.g.
-// "2026-07-11T08:35:00+08:00"), but the real API uses a space instead
-// (confirmed live: "2026-07-11 08:35+08:00") — accept either.
+// Extracts "HH:MM ±HH:MM · DD Mon" from an AeroDataBox datetime string. The
+// OpenAPI docs show ISO 8601 with a "T" separator and seconds (e.g.
+// "2026-07-11T08:35:00+08:00"), but the real API uses a space and omits
+// seconds instead (confirmed live: "2026-07-11 08:35+08:00") — accept either.
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function fmtIsoLocal(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(iso || '')
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::\d{2})?(Z|[+-]\d{2}:?\d{2})?/.exec(iso || '')
   if (!m) return null
-  const [, , mo, d, h, mi] = m
-  return `${h}:${mi} · ${d} ${MONTHS[parseInt(mo, 10) - 1]}`
+  const [, , mo, d, h, mi, off] = m
+  const offset = fmtOffset(off)
+  return `${h}:${mi}${offset ? ` ${offset}` : ''} · ${d} ${MONTHS[parseInt(mo, 10) - 1]}`
 }
 // AeroDataBox gives full ISO datetimes for both scheduled and revised times,
 // so delay is a straight diff — no same-date guard needed like SkyLink's
@@ -157,30 +56,202 @@ export function statusColorFor(text) {
   return hit ? hit[1] : 'var(--cp-dim)'
 }
 
+// Derives a coarse status (Scheduled/Airborne/Landed) purely from UTC
+// timestamps already trusted elsewhere in this file — a cross-check against
+// AeroDataBox's own `status` field, which was observed reporting "Arrived"
+// for a flight that FlightRadar24 showed still 3+ hours from landing (the
+// timestamps in that same response were accurate; only the status word was
+// stale). Compares absolute instants (UTC) only — never a local wall-clock
+// string against `now`, which would silently break across timezones.
+function deriveStatus(raw, nowMs) {
+  const depConfirmedUtc = raw.departure?.runwayTime?.utc || raw.departure?.revisedTime?.utc || null
+  const depTime = depConfirmedUtc || raw.departure?.scheduledTime?.utc || null
+  if (!depTime) return null
+  const depMs = Date.parse(depTime)
+  if (isNaN(depMs)) return null
+  if (nowMs < depMs) return 'Scheduled'
+
+  const arrTime = raw.arrival?.revisedTime?.utc || raw.arrival?.predictedTime?.utc || raw.arrival?.scheduledTime?.utc || null
+  if (arrTime) {
+    const arrMs = Date.parse(arrTime)
+    if (!isNaN(arrMs) && nowMs >= arrMs) return 'Landed'
+  }
+  // Only claim airborne once departure is actually confirmed (runway/revised
+  // time), not just because the scheduled departure time has passed — a
+  // flight can be delayed at the gate long past its scheduled departure.
+  return depConfirmedUtc ? 'Airborne' : null
+}
+
+// Best-available UTC departure/arrival instants for a leg, used only for
+// ranking registration-search results — not as confident as deriveStatus's
+// own distinction between "confirmed" and "scheduled-only", since ranking
+// just needs *a* time to measure distance from, not a status verdict.
+// `depConfirmed` is tracked separately so "in progress" (below) can require
+// an actual confirmed departure, not just a scheduled window that happens
+// to contain `now` — a flight due to leave at the same moment "now" falls
+// in isn't necessarily airborne yet.
+function flightUtcWindow(raw) {
+  const depConfirmedIso = raw.departure?.runwayTime?.utc || raw.departure?.revisedTime?.utc || null
+  const depIso = depConfirmedIso || raw.departure?.scheduledTime?.utc || null
+  const arrIso = raw.arrival?.revisedTime?.utc || raw.arrival?.predictedTime?.utc || raw.arrival?.scheduledTime?.utc || null
+  const depMs = depIso ? Date.parse(depIso) : NaN
+  const arrMs = arrIso ? Date.parse(arrIso) : NaN
+  return { depMs: isNaN(depMs) ? null : depMs, arrMs: isNaN(arrMs) ? null : arrMs, depConfirmed: !!depConfirmedIso }
+}
+// Ranks raw flight-search results (as returned for a registration search,
+// which can match several sectors flown by the same aircraft in a day) by
+// relevance to `nowMs`: a leg with a *confirmed* departure that's currently
+// between departure and arrival ranks first (it's the one actually in the
+// air right now); otherwise whichever leg's departure or arrival is closest
+// to now — soonest upcoming or most recently completed — ranks first.
+// Returns the same raw objects, reordered, each tagged with `_rank`
+// metadata the UI can use to decide what "this one's live" badge to show.
+export function rankFlightCandidates(rawFlights, nowMs = Date.now()) {
+  return rawFlights
+    .map(raw => {
+      const { depMs, arrMs, depConfirmed } = flightUtcWindow(raw)
+      const withinWindow = depMs != null && arrMs != null && nowMs >= depMs && nowMs <= arrMs
+      const inProgress = withinWindow && depConfirmed
+      const distances = [depMs, arrMs].filter(t => t != null).map(t => Math.abs(nowMs - t))
+      const distanceMs = distances.length ? Math.min(...distances) : Infinity
+      return { raw, _rank: { inProgress, distanceMs } }
+    })
+    .sort((a, b) => {
+      if (a._rank.inProgress !== b._rank.inProgress) return a._rank.inProgress ? -1 : 1
+      return a._rank.distanceMs - b._rank.distanceMs
+    })
+}
+
+const RAW_IMPLIES_COMPLETED = /landed|arrived/i
+const RAW_IMPLIES_NOT_YET_DEPARTED = /scheduled|on time|expected|check-?in|boarding|gate ?closed/i
+const RAW_IMPLIES_CANCEL_DIVERT = /cancel|divert/i
+// Only overrides the provider's status text when it directly contradicts
+// our own timestamp math (the exact failure pattern above) — otherwise
+// trusts AeroDataBox's richer vocabulary (Boarding/GateClosed/Delayed/etc.),
+// which our simple math has no way to derive, and never overrides an
+// explicit cancellation/diversion, which no timestamp comparison could infer.
+function reconcileStatus(rawStatusText, derived) {
+  if (!rawStatusText || rawStatusText === '—') return derived || rawStatusText || '—'
+  if (!derived) return rawStatusText
+  if (RAW_IMPLIES_CANCEL_DIVERT.test(rawStatusText)) return rawStatusText
+  if (RAW_IMPLIES_COMPLETED.test(rawStatusText) && derived !== 'Landed') return derived
+  if (RAW_IMPLIES_NOT_YET_DEPARTED.test(rawStatusText) && derived === 'Landed') return derived
+  return rawStatusText
+}
+
+function fmtDistanceNm(gcd) {
+  if (typeof gcd === 'number') return `${Math.round(gcd)} nm`
+  if (typeof gcd?.nm === 'number') return `${Math.round(gcd.nm)} nm`
+  if (typeof gcd?.km === 'number') return `${Math.round(gcd.km * 0.539957)} nm`
+  return null
+}
+function fmtQuality(quality) {
+  return Array.isArray(quality) && quality.length ? quality.join(', ') : null
+}
+// AeroDataBox's raw codeshareStatus values ("IsOperator"/"IsCodeshare") read
+// like enum names, not labels — anything else (e.g. "Unknown") is shown
+// as-is rather than guessed at.
+const CODESHARE_LABEL = { IsOperator: 'Operator', IsCodeshare: 'Codeshare' }
+function fmtCodeshareStatus(status) {
+  return CODESHARE_LABEL[status] || status || null
+}
+function fmtAlt(ft) { return ft >= 18000 ? `FL${Math.round(ft / 100)}` : `${Math.round(ft).toLocaleString()} ft` }
+// Returns the four live-position sub-values separately (not one joined
+// string) so the card can lay them out as individual grid cells.
+function fmtPositionParts(loc) {
+  if (typeof loc?.lat !== 'number' || typeof loc?.lon !== 'number') return null
+  return {
+    latLon: `${loc.lat.toFixed(1)}, ${loc.lon.toFixed(1)}`,
+    alt: typeof loc.altitude === 'number' ? fmtAlt(loc.altitude) : null,
+    speed: typeof loc.speed === 'number' ? `${Math.round(loc.speed)}kt` : null,
+    heading: typeof loc.heading === 'number' ? fmtTrack(loc.heading) : null,
+  }
+}
+
 // Shape confirmed against AeroDataBox's /flights/number/{flight}/{date}
 // response — used over SkyLink's flight_status endpoint because it takes an
 // explicit date (SkyLink's has none, and was observed returning a stale
 // record) and returns full ISO datetimes for every leg instead of bare
 // "HH:MM"/"DD Mon" strings with no year.
-export function normalizeFlightStatus(raw) {
+//
+// callSign/aircraft/checkInDesk/baggageBelt/runwayTime/predictedTime/quality/
+// codeshareStatus/isCargo/greatCircleDistance/location are NOT
+// yet confirmed against a live response (traffic.js has been burned by
+// doc-vs-reality mismatches before — see the ADS-B note this file used to
+// carry). They're coded from AeroDataBox's published OpenAPI schema and read
+// defensively (optional chaining throughout), so a wrong field name just
+// leaves that value null instead of breaking the lookup. Verify against a
+// real response before relying on them.
+//
+// `nowMs` defaults to the real clock but is an explicit parameter so status
+// derivation is deterministic and testable.
+export function normalizeFlightStatus(raw, nowMs = Date.now()) {
   if (!raw) return null
-  const statusText = raw.status || '—'
+  const rawStatusText = raw.status || '—'
+  const statusText = reconcileStatus(rawStatusText, deriveStatus(raw, nowMs))
   const depCode = raw.departure?.airport?.iata || raw.departure?.airport?.icao || null
   const arrCode = raw.arrival?.airport?.iata || raw.arrival?.airport?.icao || null
+  const codeshare = [fmtCodeshareStatus(raw.codeshareStatus), raw.isCargo ? 'Cargo' : null].filter(Boolean).join(' · ') || null
   return {
     flight: raw.number || '—',
+    callSign: raw.callSign || null,
     airline: raw.airline?.name || null,
+    // Kept for the airline-logo cross-check (SkyLink's airlines search takes
+    // either code) — AeroDataBox's own response has no logo.
+    airlineIcao: raw.airline?.icao || null,
+    airlineIata: raw.airline?.iata || null,
+    aircraft: [raw.aircraft?.model, raw.aircraft?.reg, raw.aircraft?.modeS ? `modeS ${raw.aircraft.modeS}` : null]
+      .filter(Boolean).join(' · ') || null,
     route: (depCode && arrCode) ? `${depCode} → ${arrCode}` : null,
+    depCode, arrCode,
     status: statusText.toUpperCase(),
     statusColor: statusColorFor(statusText),
     schedDep: fmtIsoLocal(raw.departure?.scheduledTime?.local),
     schedArr: fmtIsoLocal(raw.arrival?.scheduledTime?.local),
+    // Actual departure once it's happened (wheels-off, or the revised time
+    // as a fallback when the airport has no runway-time granularity).
+    depActual: fmtIsoLocal(raw.departure?.runwayTime?.local) || fmtIsoLocal(raw.departure?.revisedTime?.local),
     estArr: fmtIsoLocal(raw.arrival?.revisedTime?.local),
-    delayMinutes: isoDelayMinutes(raw.departure?.scheduledTime?.utc, raw.departure?.revisedTime?.utc)
-      ?? isoDelayMinutes(raw.arrival?.scheduledTime?.utc, raw.arrival?.revisedTime?.utc),
+    // Prefers the arrival leg's own delay since this tab is about arrival —
+    // falls back to departure's delay only if arrival has no revised time
+    // yet (e.g. still scheduled, no live update). Previously this preferred
+    // departure unconditionally, which showed a departure-delay number next
+    // to arrival-only times — looked contradictory (e.g. "17 min late" next
+    // to an arrival estimate that was actually early).
+    delayMinutes: isoDelayMinutes(raw.arrival?.scheduledTime?.utc, raw.arrival?.revisedTime?.utc)
+      ?? isoDelayMinutes(raw.departure?.scheduledTime?.utc, raw.departure?.revisedTime?.utc),
     depTerminal: raw.departure?.terminal || null,
     depGate: raw.departure?.gate || null,
     arrTerminal: raw.arrival?.terminal || null,
     arrGate: raw.arrival?.gate || null,
+    depCheckInDesk: raw.departure?.checkInDesk || null,
+    arrBaggageBelt: raw.arrival?.baggageBelt || null,
+    arrPredictedTime: fmtIsoLocal(raw.arrival?.predictedTime?.local),
+    quality: fmtQuality(raw.arrival?.quality) || fmtQuality(raw.departure?.quality),
+    codeshare,
+    distance: fmtDistanceNm(raw.greatCircleDistance),
+    position: fmtPositionParts(raw.location),
   }
+}
+
+// Cross-check source when AeroDataBox has no live position for a flight —
+// SkyLink's own ADS-B feed (a different vendor/network) queried by callsign.
+// Shape confirmed live for the /adsb/aircraft endpoint (see git history on
+// this file): flat lat/lon, altitude in ft, ground_speed in kts, track in
+// degrees, response wrapped in { aircraft: [...] }.
+export function normalizeSkylinkPosition(raw) {
+  const a = Array.isArray(raw?.aircraft) ? raw.aircraft[0] : null
+  if (!a) return null
+  return fmtPositionParts({ lat: a.latitude, lon: a.longitude, altitude: a.altitude, speed: a.ground_speed, heading: a.track })
+}
+
+// Airline logo source — AeroDataBox's flight response has no logo field, so
+// this is looked up separately via SkyLink's own airline search (a
+// different vendor). Search returns an array; an exact ICAO/IATA code query
+// should only ever match one airline, so this takes the first result.
+// Shape confirmed live for BAW -> British Airways (see git history on this
+// file, from before the old aircraft-lookup UI was removed).
+export function normalizeSkylinkAirlineLogo(raw) {
+  const a = Array.isArray(raw) ? raw[0] : null
+  return a?.logo || null
 }
