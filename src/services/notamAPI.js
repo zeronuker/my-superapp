@@ -290,76 +290,83 @@ export function parseSkylinkNotams(rawPerIcao) {
   return allNotams
 }
 
-// Restoring cached NOTAMs needs to know which parser produced the raw rows —
-// older caches (written before SkyLink existed) have no `source` tag and
-// default safely to the autorouter shape they were always written in.
-export function parseNotamsForSource(rawPerIcao, source) {
-  return source === 'skylink' ? parseSkylinkNotams(rawPerIcao) : parseRawNotams(rawPerIcao)
+/**
+ * Parse `[{ icao, rows, source }]` where each entry may have come from either
+ * API (per-ICAO fallback means a single batch can be mixed). Dispatches each
+ * entry through the parser matching how it was actually fetched, then merges.
+ * `fallbackSource` covers cached entries written before per-entry tagging
+ * existed (they carry no `.source`, so the caller passes the old batch-level
+ * cache field instead).
+ */
+export function parseMixedNotams(rawPerIcao, fallbackSource = 'autorouter') {
+  const autorouterEntries = []
+  const skylinkEntries    = []
+  for (const entry of rawPerIcao) {
+    const src = entry.source || fallbackSource
+    ;(src === 'skylink' ? skylinkEntries : autorouterEntries).push(entry)
+  }
+  const merged = [...parseRawNotams(autorouterEntries), ...parseSkylinkNotams(skylinkEntries)]
+  merged.sort((a, b) => SORT_ORDER[a.validity.status] - SORT_ORDER[b.validity.status])
+  return merged
 }
 
 // ── Main fetch ────────────────────────────────────────────────────────────────
-async function fetchFromAutorouter(icaoList, pageSize) {
-  const results = await Promise.allSettled(
-    icaoList.map(icao =>
-      fetch(
-        `/api/notam?icao=${icao.toUpperCase()}&pageSize=${pageSize}`,
-        { signal: AbortSignal.timeout(15_000) }
-      ).then(async r => {
-        if (r.ok) return r.json()
-        const body = await r.json().catch(() => null)
-        throw new Error(`${icao}: ${body?.error || `HTTP ${r.status}`}`)
-      })
-    )
+async function fetchOneAutorouter(icao, pageSize) {
+  const r = await fetch(
+    `/api/notam?icao=${icao.toUpperCase()}&pageSize=${pageSize}`,
+    { signal: AbortSignal.timeout(15_000) }
   )
-  const allFailed = results.every(r => r.status === 'rejected')
-  if (allFailed) throw new Error(results[0]?.reason?.message ?? 'All NOTAM requests failed')
-  const rawPerIcao = results.map((r, idx) => ({
-    icao: String(icaoList[idx] || '').toUpperCase(),
-    rows: r.status === 'fulfilled' ? (r.value?.rows ?? []) : [],
-  }))
-  return { notams: parseRawNotams(rawPerIcao), rawPerIcao, source: 'autorouter' }
+  if (r.ok) return (await r.json())?.rows ?? []
+  const body = await r.json().catch(() => null)
+  throw new Error(`${icao}: ${body?.error || `HTTP ${r.status}`}`)
 }
 
-async function fetchFromSkylink(icaoList) {
-  const results = await Promise.allSettled(
-    icaoList.map(icao =>
-      fetch(
-        `/api/skylink?resource=notam&icao=${icao.toUpperCase()}`,
-        { signal: AbortSignal.timeout(15_000) }
-      ).then(async r => {
-        if (r.ok) return r.json()
-        const body = await r.json().catch(() => null)
-        throw new Error(`${icao}: ${body?.error || `HTTP ${r.status}`}`)
-      })
-    )
+async function fetchOneSkylink(icao) {
+  const r = await fetch(
+    `/api/skylink?resource=notam&icao=${icao.toUpperCase()}`,
+    { signal: AbortSignal.timeout(15_000) }
   )
-  const allFailed = results.every(r => r.status === 'rejected')
-  if (allFailed) throw new Error(results[0]?.reason?.message ?? 'All SkyLink NOTAM requests failed')
-  const rawPerIcao = results.map((r, idx) => ({
-    icao: String(icaoList[idx] || '').toUpperCase(),
-    rows: r.status === 'fulfilled' ? (r.value?.notams ?? []) : [],
-  }))
-  return { notams: parseSkylinkNotams(rawPerIcao), rawPerIcao, source: 'skylink' }
+  if (r.ok) return (await r.json())?.notams ?? []
+  const body = await r.json().catch(() => null)
+  throw new Error(`${icao}: ${body?.error || `HTTP ${r.status}`}`)
 }
+
+const FETCHERS = { autorouter: fetchOneAutorouter, skylink: fetchOneSkylink }
 
 /**
  * Fetch NOTAMs for a list of ICAO location codes (airports or FIRs).
- * Picks SkyLink or autorouter.aero by UTC even/odd day, and silently falls
- * back to the other source if the scheduled one fails outright.
- * Returns { notams, rawPerIcao, source } — rawPerIcao is the compact raw
- * payload suitable for caching (re-parsed on restore via
- * parseNotamsForSource so validity status stays fresh), source is whichever
- * one actually supplied the data (not necessarily the scheduled one).
+ * Picks SkyLink or autorouter.aero by UTC even/odd day. If an individual
+ * ICAO fails on the scheduled source, only that ICAO retries against the
+ * other source — one bad airport no longer waits for the whole batch to
+ * fail before falling back.
+ * Returns { notams, rawPerIcao } — rawPerIcao is `[{ icao, rows, source }]`,
+ * suitable for caching (re-parsed on restore via parseMixedNotams so
+ * validity status stays fresh); `source` on each entry is whichever API
+ * actually supplied that ICAO's rows.
  */
 export async function fetchNotams(icaoList, pageSize = 100) {
-  if (!icaoList?.length) return { notams: [], rawPerIcao: [], source: 'autorouter' }
+  if (!icaoList?.length) return { notams: [], rawPerIcao: [] }
 
   const preferSkylink = isSkyLinkDay()
-  try {
-    return preferSkylink ? await fetchFromSkylink(icaoList) : await fetchFromAutorouter(icaoList, pageSize)
-  } catch (e) {
-    return preferSkylink ? await fetchFromAutorouter(icaoList, pageSize) : await fetchFromSkylink(icaoList)
-  }
+  const primary = preferSkylink ? 'skylink' : 'autorouter'
+  const backup  = preferSkylink ? 'autorouter' : 'skylink'
+
+  const primaryResults = await Promise.allSettled(
+    icaoList.map(icao => FETCHERS[primary](icao, pageSize))
+  )
+
+  const rawPerIcao = await Promise.all(primaryResults.map(async (r, idx) => {
+    const icao = String(icaoList[idx] || '').toUpperCase()
+    if (r.status === 'fulfilled') return { icao, rows: r.value, source: primary }
+    try {
+      const rows = await FETCHERS[backup](icao, pageSize)
+      return { icao, rows, source: backup }
+    } catch (_) {
+      return { icao, rows: [], source: primary }
+    }
+  }))
+
+  return { notams: parseMixedNotams(rawPerIcao), rawPerIcao }
 }
 
 // ── FIR route detection ───────────────────────────────────────────────────────

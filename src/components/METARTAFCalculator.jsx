@@ -38,46 +38,50 @@ function parseDateStr(str) {
   return Date.parse(str.replace(' ', 'T') + 'Z') / 1000
 }
 
-async function fetchWeatherFromAWC(icao, hours) {
-  const [mr, tr] = await Promise.all([
-    fetch(`/api/weather?ids=${icao}&type=metar&hours=${hours}`),
-    fetch(`/api/weather?ids=${icao}&type=taf&hours=${hours}`),
-  ])
-  if (!mr.ok && !tr.ok) throw new Error('Weather request failed')
-  return {
-    metar: mr.ok ? await mr.json() : [],
-    taf:   tr.ok ? await tr.json() : [],
-  }
+async function fetchOneAWC(icao, type, hours) {
+  const r = await fetch(`/api/weather?ids=${icao}&type=${type}&hours=${hours}`)
+  if (!r.ok) throw new Error(`${type.toUpperCase()} request failed`)
+  return r.json()
 }
-async function fetchWeatherFromSkylink(icao) {
-  const [mr, tr] = await Promise.all([
-    fetch(`/api/skylink?resource=metar&icao=${icao}`),
-    fetch(`/api/skylink?resource=taf&icao=${icao}`),
-  ])
-  if (!mr.ok && !tr.ok) throw new Error('SkyLink weather request failed')
-  const metarRaw = mr.ok ? await mr.json().catch(() => null) : null
-  const tafRaw   = tr.ok ? await tr.json().catch(() => null) : null
-  const metar = skylinkMetarToAWCShape(metarRaw)
-  const taf   = skylinkTafToAWCShape(tafRaw)
-  return { metar: metar ? [metar] : [], taf: taf ? [taf] : [] }
+async function fetchOneSkylinkWeather(icao, type) {
+  const r = await fetch(`/api/skylink?resource=${type}&icao=${icao}`)
+  if (!r.ok) throw new Error(`SkyLink ${type.toUpperCase()} request failed`)
+  const raw = await r.json().catch(() => null)
+  const shaped = type === 'metar' ? skylinkMetarToAWCShape(raw) : skylinkTafToAWCShape(raw)
+  return shaped ? [shaped] : []
 }
 async function fetchRunways(icao, signal) {
   const res = await fetch(`/api/aerodatabox?icao=${encodeURIComponent(icao)}`, { signal })
   if (!res.ok) throw new Error('Runway request failed')
   return normalizeRunways(await res.json().catch(() => null))
 }
-// UTC even/odd day picks the source (see utils/sourceSwitch); if the
-// scheduled one fails outright, silently retry with the other rather than
-// surfacing an error the user can't act on.
+
+const WEATHER_FETCHERS = { aviationweather: fetchOneAWC, skylink: fetchOneSkylinkWeather }
+
+// UTC even/odd day picks the source (see utils/sourceSwitch). METAR and TAF
+// retry independently — if only one of the two fails on the scheduled
+// source, just that one falls back to the other rather than both, and a
+// type that fails on both sources degrades to an empty report instead of
+// failing the whole airport.
 async function fetchWeather(icao, hours) {
   const preferSkylink = isSkyLinkDay()
-  try {
-    const out = preferSkylink ? await fetchWeatherFromSkylink(icao) : await fetchWeatherFromAWC(icao, hours)
-    return { ...out, source: preferSkylink ? 'skylink' : 'aviationweather' }
-  } catch (e) {
-    const out = preferSkylink ? await fetchWeatherFromAWC(icao, hours) : await fetchWeatherFromSkylink(icao)
-    return { ...out, source: preferSkylink ? 'aviationweather' : 'skylink' }
+  const primary = preferSkylink ? 'skylink' : 'aviationweather'
+  const backup  = preferSkylink ? 'aviationweather' : 'skylink'
+
+  const fetchType = async (type) => {
+    try {
+      return { data: await WEATHER_FETCHERS[primary](icao, type, hours), source: primary }
+    } catch (e) {
+      try {
+        return { data: await WEATHER_FETCHERS[backup](icao, type, hours), source: backup }
+      } catch (e2) {
+        return { data: [], source: primary }
+      }
+    }
   }
+
+  const [metarR, tafR] = await Promise.all([fetchType('metar'), fetchType('taf')])
+  return { metar: metarR.data, taf: tafR.data, metarSource: metarR.source, tafSource: tafR.source }
 }
 
 function saveCache(data) {
@@ -628,7 +632,7 @@ function SeverityLegend() {
 
 // ── Airport result card ─────────────────────────────────────────────────────
 function AirportCard({ data, now }) {
-  const { icao, label, metar, taf, error, source } = data
+  const { icao, label, metar, taf, error, metarSource, tafSource } = data
   const [decoded, setDecoded] = useState(false)
   const role         = getRoleStyle(label)
   const stationName  = metar?.[0]?.name || ''
@@ -654,7 +658,16 @@ function AirportCard({ data, now }) {
             {stationName.toUpperCase()}
           </span>
         )}
-        {!error && source && <SourceChip source={source} />}
+        {!error && metarSource && tafSource && (
+          metarSource === tafSource ? <SourceChip source={metarSource} /> : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 7, color: 'var(--cp-dim)' }}>M</span>
+              <SourceChip source={metarSource} />
+              <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 7, color: 'var(--cp-dim)' }}>T</span>
+              <SourceChip source={tafSource} />
+            </div>
+          )
+        )}
         <div className="cp-divider" style={{ borderColor: role.borderDim }} />
         {!error && (metar?.length || taf?.length) ? (
           <button

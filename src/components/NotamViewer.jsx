@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react'
-import { fetchNotams, parseNotamsForSource, detectRouteFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
+import { fetchNotams, parseMixedNotams, detectRouteFirs } from '../services/notamAPI'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
 import { icaoToFir } from '../data/firLookup'
@@ -80,60 +80,25 @@ function SectionHeader({ title }) {
   )
 }
 
-// ── NOTAM card (category-coloured) ────────────────────────────────────────────
-function ValidityBadge({ status }) {
-  const styles = {
-    ACTIVE:  { bg: 'rgba(34,197,94,0.12)',   color: '#22c55e', border: 'rgba(34,197,94,0.3)' },
-    FUTURE:  { bg: 'rgba(234,179,8,0.12)',   color: '#eab308', border: 'rgba(234,179,8,0.3)' },
-    EXPIRED: { bg: 'rgba(107,114,128,0.12)', color: '#6b7280', border: 'rgba(107,114,128,0.3)' },
-    UNKNOWN: { bg: 'rgba(107,114,128,0.12)', color: '#6b7280', border: 'rgba(107,114,128,0.3)' },
-  }
-  const s = styles[status] ?? styles.UNKNOWN
+// ── Raw NOTAM line (ID — location [STATUS] + raw text) ───────────────────────
+function RawNotamEntry({ notam, isLast }) {
+  const statusColor = notam.validity.status === 'ACTIVE' ? T.green
+    : notam.validity.status === 'FUTURE' ? '#eab308' : T.dim
   return (
-    <span style={{ fontFamily: T.mono, fontSize: 8, fontWeight: 700, letterSpacing: '0.12em',
-      padding: '2px 7px', borderRadius: 3, background: s.bg, color: s.color,
-      border: `1px solid ${s.border}`, flexShrink: 0 }}>{status}</span>
-  )
-}
-
-function NotamCard({ notam }) {
-  const [expanded, setExpanded] = useState(false)
-  const cat = NOTAM_CATEGORIES[notam.category] ?? NOTAM_CATEGORIES.OTHER
-  return (
-    <div style={{ background: cat.bg, border: `1px solid ${cat.border}`,
-      borderRadius: 6, padding: '10px 12px', borderLeft: `3px solid ${cat.color}` }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: T.mono, fontSize: 9, fontWeight: 700, color: cat.color,
-            letterSpacing: '0.1em', background: cat.bg, padding: '2px 6px',
-            border: `1px solid ${cat.border}`, borderRadius: 3 }}>{cat.label.toUpperCase()}</span>
-          <span style={{ fontFamily: T.mono, fontSize: 10, fontWeight: 700, color: T.ink,
-            letterSpacing: '0.08em' }}>{notam.id}</span>
-        </div>
-        <ValidityBadge status={notam.validity.status} />
+    <div style={{ borderBottom: isLast ? 'none' : `1px solid ${T.bord}`, padding: '9px 0' }}>
+      <div style={{ fontFamily: T.mono, fontSize: 10, fontWeight: 700, color: T.ink, letterSpacing: '0.08em', marginBottom: 4 }}>
+        {notam.id} — {notam.icao}{' '}
+        <span style={{ fontFamily: T.mono, fontSize: 8, color: statusColor }}>[{notam.validity.status}]</span>
       </div>
-      <div style={{ fontFamily: T.sans, fontSize: 13, color: T.ink, marginBottom: 6, lineHeight: 1.5 }}>
-        {notam.summary}
+      <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink2, whiteSpace: 'pre-wrap', wordBreak: 'break-all', lineHeight: 1.6 }}>
+        {notam.raw}
       </div>
-      <div style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.08em', marginBottom: 6 }}>
-        FROM {notam.startStr} · TO {notam.endStr}
-      </div>
-      <button onClick={() => setExpanded(v => !v)} style={{ background: 'none', border: 'none',
-        cursor: 'pointer', fontFamily: T.mono, fontSize: 9, color: cat.color, letterSpacing: '0.1em', padding: 0 }}>
-        {expanded ? '▲ HIDE RAW' : '▼ SHOW RAW'}
-      </button>
-      {expanded && (
-        <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.2)', borderRadius: 4, padding: '8px 10px',
-          fontFamily: T.mono, fontSize: 11, color: T.ink2, whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all', lineHeight: 1.6 }}>{notam.raw}</div>
-      )}
     </div>
   )
 }
 
 // ── Role-coloured location section ────────────────────────────────────────────
-function LocationSection({ target, all, shown, collapsed, onToggle }) {
+function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
   const r = ROLE_STYLE[target.role] ?? ROLE_STYLE.other
   const activeCount = all.filter(n => n.validity.status === 'ACTIVE').length
   return (
@@ -147,7 +112,8 @@ function LocationSection({ target, all, shown, collapsed, onToggle }) {
           letterSpacing: '0.08em' }}>{target.icao}</span>
         <span style={{ fontFamily: T.mono, fontSize: 8, color: r.color, opacity: 0.8,
           letterSpacing: '0.1em' }}>{target.label}</span>
-        <span style={{ marginLeft: 'auto', fontFamily: T.mono, fontSize: 8, fontWeight: 700,
+        {source && <span style={{ marginLeft: 'auto' }}><SourceChip source={source} /></span>}
+        <span style={{ marginLeft: source ? 0 : 'auto', fontFamily: T.mono, fontSize: 8, fontWeight: 700,
           letterSpacing: '0.1em', padding: '2px 8px', borderRadius: 3,
           background: 'rgba(34,197,94,0.12)', color: T.green, border: '1px solid rgba(34,197,94,0.3)' }}>
           {activeCount} ACTIVE
@@ -155,14 +121,18 @@ function LocationSection({ target, all, shown, collapsed, onToggle }) {
         <span style={{ fontFamily: T.mono, fontSize: 11, color: T.dim }}>{collapsed ? '▶' : '▼'}</span>
       </button>
       {!collapsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+        <div style={{ marginTop: 8 }}>
           {all.length === 0
             ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim, padding: '4px 2px' }}>
                 No NOTAMs available for this location.</div>
             : shown.length === 0
               ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim, padding: '4px 2px' }}>
                   No NOTAMs match the current filters.</div>
-              : shown.map(n => <NotamCard key={n.id} notam={n} />)}
+              : (
+                <div className="cp-card-bg3" style={{ border: '1px solid var(--cp-border)', borderRadius: 6, padding: '0 14px' }}>
+                  {shown.map((n, i) => <RawNotamEntry key={n.id} notam={n} isLast={i === shown.length - 1} />)}
+                </div>
+              )}
         </div>
       )}
     </div>
@@ -187,12 +157,11 @@ export default function NotamViewer() {
   const [detecting,    setDetecting]    = useState(false)
 
   // Results — restore from raw cache (re-parsed so validity status is fresh)
-  const [view,         setView]         = useState('parsed')
   const [loading,      setLoading]      = useState(false)
   const [manualFetch,  setManualFetch]  = useState(false)
   const [activeTargets, setActiveTargets] = useState([])
   const [notams,       setNotams]       = useState(() => {
-    if (cache?.rawPerIcao) return parseNotamsForSource(cache.rawPerIcao, cache.source)
+    if (cache?.rawPerIcao) return parseMixedNotams(cache.rawPerIcao, cache.source)
     if (cache?.notams)     return cache.notams   // backwards compat: old cache format
     return null
   })
@@ -200,13 +169,11 @@ export default function NotamViewer() {
 
   // Filters
   const [statusLevel, setStatusLevel] = useState('active')
-  const [catFilter, setCatFilter] = useState(() => new Set(CATEGORY_ORDER))
   const [search, setSearch] = useState('')
   const [collapsedMap, setCollapsedMap] = useState({})
 
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [savedRaw, setSavedRaw] = useState(cache?.rawPerIcao || null)
-  const [savedSource, setSavedSource] = useState(cache?.source || null)
   const [fetchedAt, setFetchedAt] = useState(cache?.fetchedAt || null)
 
   useEffect(() => {
@@ -220,8 +187,8 @@ export default function NotamViewer() {
   // Persist airport inputs as they're typed (not just after a fetch) so the
   // METAR/TAF module's copy-airports button always sees current values
   useEffect(() => {
-    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw, source: savedSource, fetchedAt })
-  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw, savedSource, fetchedAt])
+    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw, fetchedAt })
+  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw, fetchedAt])
 
   const applyCopiedAirports = (data) => {
     setDep(data.dep)
@@ -243,7 +210,6 @@ export default function NotamViewer() {
     setExtraChips([])
     setNotams(null)
     setSavedRaw(null)
-    setSavedSource(null)
     setFetchedAt(null)
     setError('')
     setCollapsedMap({})
@@ -314,12 +280,11 @@ export default function NotamViewer() {
       setManualFetch(true)
     }
     try {
-      const { notams: result, rawPerIcao, source } = await fetchNotams(t.map(x => x.icao))
+      const { notams: result, rawPerIcao } = await fetchNotams(t.map(x => x.icao))
 
       const reveal = () => {
         setNotams(result)
         setSavedRaw(rawPerIcao)
-        setSavedSource(source)
         setFetchedAt(Date.now())
         setLoading(false)
         if (isManual) setManualFetch(false)
@@ -356,21 +321,24 @@ export default function NotamViewer() {
     wasOnline.current = isOnline
   }, [isOnline, notams])
 
-  const toggleCat = (cat) => setCatFilter(prev => {
-    const next = new Set(prev); next.has(cat) ? next.delete(cat) : next.add(cat); return next
-  })
-
   const bySource = useMemo(() => {
     const m = {}
     for (const n of notams ?? []) (m[n.source] ??= []).push(n)
     return m
   }, [notams])
 
+  // Which API actually served each ICAO's rows — drives the per-airport
+  // SourceChip now that fallback happens per-ICAO instead of per-batch.
+  const sourceByIcao = useMemo(() => {
+    const m = {}
+    for (const e of savedRaw ?? []) m[e.icao] = e.source
+    return m
+  }, [savedRaw])
+
   const matches = (n) => {
     const st = n.validity.status
     if (statusLevel === 'active' && st !== 'ACTIVE') return false
     if (statusLevel === 'future' && !(st === 'ACTIVE' || st === 'FUTURE')) return false
-    if (!catFilter.has(n.category)) return false
     if (search && !`${n.id} ${n.summary} ${n.raw} ${n.icao}`.toUpperCase().includes(search.toUpperCase())) return false
     return true
   }
@@ -380,17 +348,8 @@ export default function NotamViewer() {
     .map(target => ({ target, all: bySource[target.icao] ?? [] }))
     .map(s => ({ ...s, shown: s.all.filter(matches).sort(comparator) }))
 
-  const totalShown = sections.reduce((sum, s) => sum + s.shown.length, 0)
-  const hiddenExpired = statusLevel !== 'expired'
-    ? (notams ?? []).filter(n => n.validity.status === 'EXPIRED').length : 0
-
   const isCollapsed = (icao) => collapsedMap[icao] ?? true   // default: collapsed
   const toggleSection = (icao) => setCollapsedMap(m => ({ ...m, [icao]: !isCollapsed(icao) }))
-  const jumpTo = (icao) => {
-    setCollapsedMap(m => ({ ...m, [icao]: false }))
-    requestAnimationFrame(() =>
-      document.getElementById(`notam-sec-${icao}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-  }
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
@@ -528,51 +487,16 @@ export default function NotamViewer() {
       {/* ── Results ── */}
       {notams && (
         <>
-          {savedSource && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-              <SourceChip source={savedSource} />
-            </div>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
-            <div style={{ display: 'inline-flex', background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
-              borderRadius: 6, padding: 3, gap: 3 }}>
-              {[['parsed', 'PARSED VIEW'], ['raw', 'RAW TEXT']].map(([id, label]) => (
-                <button key={id} onClick={() => setView(id)} style={{
-                  fontFamily: T.mono, fontSize: 9, fontWeight: 700, letterSpacing: '0.14em',
-                  padding: '6px 16px', borderRadius: 4,
-                  border: `1px solid ${view === id ? 'var(--cp-acc)' : 'transparent'}`,
-                  background: view === id ? 'var(--cp-accdim)' : 'transparent',
-                  color: view === id ? T.acc : T.dim, cursor: 'pointer', transition: 'all 0.12s' }}>{label}</button>
-              ))}
-            </div>
-          </div>
-
           {notams.length === 0 && (
             <div style={{ fontFamily: T.sans, fontSize: 13, color: T.dim, textAlign: 'center', padding: '24px 0' }}>
               No NOTAMs found for the selected locations.
             </div>
           )}
 
-          {view === 'parsed' && notams.length > 0 && (
+          {notams.length > 0 && (
             <>
-              {/* Summary chips (role-coloured) */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                {sections.filter(s => s.all.length > 0).map(({ target, all }) => {
-                  const r = ROLE_STYLE[target.role] ?? ROLE_STYLE.other
-                  const active = all.filter(n => n.validity.status === 'ACTIVE').length
-                  return (
-                    <button key={target.icao} onClick={() => jumpTo(target.icao)} style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 7, background: r.soft,
-                      border: `1px solid ${r.border}`, borderRadius: 20, padding: '4px 10px', cursor: 'pointer' }}>
-                      <span style={{ fontFamily: T.mono, fontSize: 11, fontWeight: 700, color: r.color, letterSpacing: '0.06em' }}>{target.icao}</span>
-                      <span style={{ fontFamily: T.mono, fontSize: 9, fontWeight: 700, color: T.green }}>{active}</span>
-                    </button>
-                  )
-                })}
-              </div>
-
               {/* Status + search */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 14 }}>
                 <div style={{ display: 'inline-flex', background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
                   borderRadius: 6, padding: 3, gap: 3 }}>
                   {[['active', 'ACTIVE'], ['future', '+FUTURE'], ['expired', '+EXPIRED']].map(([id, label]) => (
@@ -589,87 +513,12 @@ export default function NotamViewer() {
                     color: T.ink, fontFamily: T.mono, fontSize: 11, padding: '6px 10px', outline: 'none', letterSpacing: '0.06em' }} />
               </div>
 
-              {/* Category chips */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 16 }}>
-                {CATEGORY_ORDER.map(cat => {
-                  const c = NOTAM_CATEGORIES[cat], on = catFilter.has(cat)
-                  return (
-                    <button key={cat} onClick={() => toggleCat(cat)} style={{
-                      fontFamily: T.mono, fontSize: 8, fontWeight: 700, letterSpacing: '0.08em',
-                      padding: '4px 9px', borderRadius: 12, cursor: 'pointer',
-                      background: on ? c.bg : 'transparent', border: `1px solid ${on ? c.border : T.bord2}`,
-                      color: on ? c.color : T.dim }}>{c.label.toUpperCase()}</button>
-                  )
-                })}
-              </div>
-
-              {/* ── Severity summary bar ── */}
-              {(() => {
-                const counts = {}
-                for (const n of notams) counts[n.category] = (counts[n.category] || 0) + 1
-                const cats = CATEGORY_ORDER.filter(cat => counts[cat])
-                if (!cats.length) return null
-                return (
-                  <div style={{
-                    display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6,
-                    marginBottom: 14, padding: '9px 12px',
-                    background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
-                    borderRadius: 6,
-                  }}>
-                    <span style={{ fontFamily: T.mono, fontSize: 8, letterSpacing: '0.14em',
-                      color: T.dim, marginRight: 2 }}>SUMMARY</span>
-                    {cats.map(cat => {
-                      const c = NOTAM_CATEGORIES[cat]
-                      return (
-                        <div key={cat} style={{
-                          display: 'flex', alignItems: 'center', gap: 5,
-                          background: c.bg, border: `1px solid ${c.border}`,
-                          borderRadius: 4, padding: '3px 8px',
-                        }}>
-                          <div style={{ width: 6, height: 6, borderRadius: '50%',
-                            background: c.color, flexShrink: 0 }} />
-                          <span style={{ fontFamily: T.mono, fontSize: 9, fontWeight: 700,
-                            color: c.color, letterSpacing: '0.06em' }}>{counts[cat]}</span>
-                          <span style={{ fontFamily: T.mono, fontSize: 8, color: c.color,
-                            letterSpacing: '0.06em', opacity: 0.85 }}>{c.label.toUpperCase()}</span>
-                        </div>
-                      )
-                    })}
-                    <span style={{ marginLeft: 'auto', fontFamily: T.mono, fontSize: 8,
-                      color: T.dim, letterSpacing: '0.1em' }}>{notams.length} TOTAL</span>
-                  </div>
-                )
-              })()}
-
               {sections.map(({ target, all, shown }) => (
                 <LocationSection key={target.icao} target={target} all={all} shown={shown}
+                  source={sourceByIcao[target.icao]}
                   collapsed={isCollapsed(target.icao)} onToggle={() => toggleSection(target.icao)} />
               ))}
-
-              <div style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.08em',
-                textAlign: 'center', padding: '6px 0 0' }}>
-                {totalShown} SHOWN{hiddenExpired > 0 && ` · ${hiddenExpired} EXPIRED HIDDEN`}{` · SORT: ${sortMode.toUpperCase()}`}
-              </div>
             </>
-          )}
-
-          {view === 'raw' && notams.length > 0 && (
-            <div className="cp-card-bg3" style={{ border: '1px solid var(--cp-border)', borderRadius: 6, padding: '14px 16px' }}>
-              <div style={{ fontFamily: T.mono, fontSize: 8, color: T.acc, letterSpacing: '0.18em', marginBottom: 12 }}>
-                NOTAM BRIEFING — {new Date().toISOString().slice(0, 16).replace('T', ' ')}Z
-              </div>
-              {notams.map((n, i) => (
-                <div key={n.id} style={{ borderBottom: i < notams.length - 1 ? `1px solid ${T.bord}` : 'none', paddingBottom: 12, marginBottom: 12 }}>
-                  <div style={{ fontFamily: T.mono, fontSize: 10, fontWeight: 700, color: T.ink, letterSpacing: '0.08em', marginBottom: 4 }}>
-                    {n.id} — {n.icao}{' '}
-                    <span style={{ fontFamily: T.mono, fontSize: 8, color: n.validity.status === 'ACTIVE' ? '#22c55e' : n.validity.status === 'FUTURE' ? '#eab308' : T.dim }}>
-                      [{n.validity.status}]</span>
-                  </div>
-                  <div style={{ fontFamily: T.mono, fontSize: 11, color: T.ink2, whiteSpace: 'pre-wrap', wordBreak: 'break-all', lineHeight: 1.6 }}>
-                    {n.raw}</div>
-                </div>
-              ))}
-            </div>
           )}
         </>
       )}
