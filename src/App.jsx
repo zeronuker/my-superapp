@@ -435,7 +435,7 @@ export default function App() {
       )}
 
       {/* ── Update prompt ────────────────────────────────────────────── */}
-      <UpdatePrompt ready={!showSplash} update={update} appLabel="CLAUDEBORNE PILOT UTILITY SUITE" />
+      <UpdatePrompt ready={!showSplash} update={update} />
 
       {/* ── Search overlay ───────────────────────────────────────────── */}
       {searchOpen && (
