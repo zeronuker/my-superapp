@@ -25,7 +25,7 @@ function Aircraft({ logId, aircraft, index, total, actions }) {
   const set = (patch) => actions.updateAircraft(logId, aircraft.id, patch)
   const f = (key) => (v) => set({ [key]: v })
   return (
-    <div style={{ border: '1px solid var(--cp-border2)', borderRadius: 6, padding: 10, marginBottom: 9, background: 'var(--cp-bg2)' }}>
+    <div style={{ border: '1px solid var(--cp-border2)', borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)',
           background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px' }}>
@@ -71,7 +71,7 @@ function Sector({ logId, sector, index, total, actions, onRemarks }) {
   const f = (key) => (v) => set({ [key]: v })
   const hasRemark = (sector.remark || '').trim().length > 0
   return (
-    <div style={{ border: '1px solid var(--cp-border2)', borderRadius: 6, padding: 10, marginBottom: 9, background: 'var(--cp-bg2)' }}>
+    <div style={{ border: '1px solid var(--cp-border2)', borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)',
           background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px' }}>
@@ -228,20 +228,24 @@ export default function LogEditor({ log, actions, onBack }) {
           {atMaxAircraft ? 'MAX 2 AIRCRAFT PER DUTY' : '+ ADD AIRCRAFT'}
         </button>
       </div>
-      {(log.aircraft || []).map((a, i) => (
-        <Aircraft key={a.id} logId={log.id} aircraft={a} index={i}
-          total={(log.aircraft || []).length} actions={actions} />
-      ))}
+      <div className="dutylog-aircraft-list" style={{ marginBottom: 9 }}>
+        {(log.aircraft || []).map((a, i) => (
+          <Aircraft key={a.id} logId={log.id} aircraft={a} index={i}
+            total={(log.aircraft || []).length} actions={actions} />
+        ))}
+      </div>
 
       <div style={{ ...secLabel, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>SECTORS</span>
         <button onClick={() => actions.addSector(log.id)} className="cp-btn"
           style={{ padding: '4px 8px', color: 'var(--cp-acc)', borderColor: 'var(--cp-acc)', background: 'var(--cp-accdim)' }}>+ ADD SECTOR</button>
       </div>
-      {log.sectors.map((s, i) => (
-        <Sector key={s.id} logId={log.id} sector={s} index={i} total={log.sectors.length}
-          actions={actions} onRemarks={setRemarkSid} />
-      ))}
+      <div className="dutylog-sector-list" style={{ marginBottom: 9 }}>
+        {log.sectors.map((s, i) => (
+          <Sector key={s.id} logId={log.id} sector={s} index={i} total={log.sectors.length}
+            actions={actions} onRemarks={setRemarkSid} />
+        ))}
+      </div>
 
       <div style={secLabel}>NOTES</div>
       <textarea className="cp-input" rows={3} style={{ resize: 'vertical' }}
@@ -251,19 +255,30 @@ export default function LogEditor({ log, actions, onBack }) {
         <span>CREW</span>
         <button onClick={() => actions.addCrew(log.id)} className="cp-btn" style={{ padding: '4px 8px' }}>+ ADD</button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 4 }}>
+      <div className="dutylog-crew-header-single" style={{ gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 4 }}>
         <label style={lblStyle}>Name</label>
         <label style={lblStyle}>Position</label>
         <span />
       </div>
-      {log.crew.map((c) => (
-        <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 7, alignItems: 'center' }}>
-          <Field value={c.name} onChange={(v) => actions.updateCrew(log.id, c.id, { name: v })} />
-          <Field value={c.position} onChange={(v) => actions.updateCrew(log.id, c.id, { position: v })} />
-          <button onClick={() => actions.removeCrew(log.id, c.id)} aria-label="remove crew"
-            className="cp-btn" style={{ padding: '4px 8px', color: 'var(--cp-red)' }}>✕</button>
-        </div>
-      ))}
+      <div className="dutylog-crew-columns">
+        {[log.crew.slice(0, Math.ceil(log.crew.length / 2)), log.crew.slice(Math.ceil(log.crew.length / 2))].map((col, ci) => (
+          <div key={ci} className="dutylog-crew-col">
+            <div className="dutylog-crew-header-col" style={{ gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 4 }}>
+              <label style={lblStyle}>Name</label>
+              <label style={lblStyle}>Position</label>
+              <span />
+            </div>
+            {col.map((c) => (
+              <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 7, alignItems: 'center' }}>
+                <Field value={c.name} onChange={(v) => actions.updateCrew(log.id, c.id, { name: v })} />
+                <Field value={c.position} onChange={(v) => actions.updateCrew(log.id, c.id, { position: v })} />
+                <button onClick={() => actions.removeCrew(log.id, c.id)} aria-label="remove crew"
+                  className="cp-btn" style={{ padding: '4px 8px', color: 'var(--cp-red)' }}>✕</button>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
 
       {remarkSector && (
         <RemarksModal

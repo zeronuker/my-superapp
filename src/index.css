@@ -403,6 +403,45 @@ html[data-hico="true"] .cp-input:focus {
 @keyframes cpSearchIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 .cp-search-anim { animation: cpSearchIn 0.14s ease; }
 
+/* ── Duty log responsive layout ── */
+.dutylog-shell { max-width: 480px; margin: 0 auto; }
+.dutylog-aircraft-list, .dutylog-sector-list { display: flex; flex-direction: column; gap: 9px; }
+
+@media (orientation: landscape) {
+  .dutylog-shell { max-width: 900px; }
+  .dutylog-aircraft-list, .dutylog-sector-list {
+    display: grid; grid-template-columns: 1fr 1fr; align-items: start;
+  }
+  /* Odd count — lone last card spans both columns, centered at half-width
+     instead of sticking to column 1 with dead space beside it. */
+  .dutylog-aircraft-list > div:only-child,
+  .dutylog-aircraft-list > div:nth-child(odd):last-child,
+  .dutylog-sector-list > div:only-child,
+  .dutylog-sector-list > div:nth-child(odd):last-child {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc(50% - 4.5px);
+  }
+}
+
+/* Phone landscape (short viewport height) — tighten card spacing so 2 aircraft
+   + 2 sectors have a better chance of fitting without scrolling. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .dutylog-aircraft-list > div, .dutylog-sector-list > div { padding: 6px 8px; }
+}
+
+/* Crew — single column (portrait) vs 2 evenly-split columns (landscape). */
+.dutylog-crew-header-single { display: grid; }
+.dutylog-crew-header-col { display: none; }
+.dutylog-crew-columns { display: flex; flex-direction: column; }
+
+@media (orientation: landscape) {
+  .dutylog-crew-header-single { display: none; }
+  .dutylog-crew-header-col { display: grid; }
+  .dutylog-crew-columns { flex-direction: row; gap: 16px; }
+  .dutylog-crew-col { flex: 1; min-width: 0; }
+}
+
 /* ── Offline banner ── */
 .cp-offline-banner {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;

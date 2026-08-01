@@ -79,7 +79,7 @@ export default function DutyLogModule({ onOpenSettings }) {
   const actions = { updateLog, deleteLog, addAircraft, removeAircraft, updateAircraft, addSector, removeSector, updateSector, addCrew, updateCrew, removeCrew }
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto' }}>
+    <div className="dutylog-shell">
       {editing ? (
         <LogEditor
           log={editing}
