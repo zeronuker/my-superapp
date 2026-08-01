@@ -3,7 +3,23 @@ import { lookupAirport } from '../data/airports'
 import { icaoToFir } from '../data/firLookup'
 import { detectRouteFirs } from '../services/notamAPI'
 import { normalizeSigmet, filterSigmetsByFir, fmtHazard, hazardColor, fmtSigmetAlt, fmtSigmetTime } from '../utils/sigmet'
+import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import ResetButton from './ResetButton'
+
+const CACHE_KEY = 'cb-sigmet-cache'
+
+function saveCache(data) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch (_) {}
+}
+
+function formatAge(fetchedAtMs, nowMs) {
+  if (!fetchedAtMs) return null
+  const diffMin = Math.floor((nowMs - fetchedAtMs) / 60000)
+  if (diffMin < 1) return 'JUST NOW'
+  if (diffMin < 60) return `${diffMin} MIN AGO`
+  const h = Math.floor(diffMin / 60), m = diffMin % 60
+  return m > 0 ? `${h}H ${m}M AGO` : `${h}H AGO`
+}
 
 function SectionHeader({ title }) {
   return (
@@ -30,17 +46,31 @@ async function fetchAllSigmets(signal) {
   return Array.isArray(raw) ? raw.map(normalizeSigmet) : []
 }
 
+// JSON round-tripping through localStorage turns validFrom/validTo Date
+// objects into strings — revive them so expiry checks keep working.
+function reviveSigmets(sigmets) {
+  return (sigmets || []).map(s => ({
+    ...s,
+    validFrom: s.validFrom ? new Date(s.validFrom) : null,
+    validTo: s.validTo ? new Date(s.validTo) : null,
+  }))
+}
+
 export default function SigmetViewer() {
-  const [dep, setDep] = useState('')
-  const [arr, setArr] = useState('')
-  const [chips, setChips] = useState([])
+  const [cache] = useState(() => loadWithExpiry(CACHE_KEY))
+
+  const [dep, setDep] = useState(cache?.dep || '')
+  const [arr, setArr] = useState(cache?.arr || '')
+  const [chips, setChips] = useState(cache?.chips || [])
   const [customInput, setCustomInput] = useState('')
   const [detecting, setDetecting] = useState(false)
 
-  const [sigmets, setSigmets] = useState(null)
+  const [sigmets, setSigmets] = useState(() => cache?.sigmets ? reviveSigmets(cache.sigmets) : null)
+  const [fetchedAt, setFetchedAt] = useState(cache?.fetchedAt || null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
+  const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
     const on = () => setIsOnline(true)
@@ -50,10 +80,24 @@ export default function SigmetViewer() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
+  // Ticks so cached-data age and per-SIGMET expiry (validTo) stay current
+  // while the tab is left open — including while offline.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    saveCache({ dep, arr, chips, sigmets, fetchedAt })
+  }, [dep, arr, chips, sigmets, fetchedAt])
+
   const handleReset = () => {
     setDep(''); setArr(''); setChips([]); setCustomInput('')
-    setSigmets(null); setError('')
+    setSigmets(null); setFetchedAt(null); setError('')
+    try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
   }
+
+  useExpiry(fetchedAt, handleReset)
 
   const handleDetect = () => {
     setDetecting(true)
@@ -88,6 +132,7 @@ export default function SigmetViewer() {
       const filtered = filterSigmetsByFir(all, firIds)
       filtered.sort((a, b) => (a.validTo?.getTime() ?? Infinity) - (b.validTo?.getTime() ?? Infinity))
       setSigmets(filtered)
+      setFetchedAt(Date.now())
     } catch (e) {
       setError(`Failed to fetch SIGMETs: ${e.message}`)
     } finally {
@@ -104,11 +149,24 @@ export default function SigmetViewer() {
 
       {!isOnline && (
         <div style={{
-          background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.25)',
-          borderLeft: '3px solid var(--cp-yellow)', borderRadius: 4, padding: '8px 14px', marginBottom: 20,
-          fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--cp-yellow)',
+          background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.35)',
+          borderLeft: '3px solid var(--cp-red)', borderRadius: 4, padding: '8px 14px', marginBottom: 20,
+          fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--cp-red)', fontWeight: 700,
         }}>
-          ⚠ OFFLINE — SIGMETs are live-only, reconnect to fetch
+          ⚠ OFFLINE
+          {sigmets
+            ? <span style={{ color: 'var(--cp-dim)', fontWeight: 400 }}>
+                {' '}— SHOWING CACHED SIGMETs{fetchedAt ? ` · FETCHED ${formatAge(fetchedAt, now)}` : ''} · MAY BE EXPIRED
+              </span>
+            : <span style={{ color: 'var(--cp-dim)', fontWeight: 400 }}> — NO CACHED SIGMETs AVAILABLE, reconnect to fetch</span>
+          }
+        </div>
+      )}
+
+      {fetchedAt && isOnline && (
+        <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em',
+          fontFamily: 'var(--cb-font-mono)', marginBottom: 20 }}>
+          LAST FETCH · {new Date(fetchedAt).toUTCString().toUpperCase()}
         </div>
       )}
 
@@ -188,7 +246,7 @@ export default function SigmetViewer() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {sigmets.map((s, i) => <SigmetCard key={i} s={s} />)}
+            {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} />)}
           </div>
         )
       )}
@@ -196,8 +254,9 @@ export default function SigmetViewer() {
   )
 }
 
-function SigmetCard({ s }) {
+function SigmetCard({ s, now }) {
   const color = hazardColor(s.hazard)
+  const expired = s.validTo && s.validTo.getTime() < now
   const altParts = []
   if (s.base != null) altParts.push(fmtSigmetAlt(s.base))
   if (s.top != null) altParts.push(fmtSigmetAlt(s.top))
@@ -209,12 +268,17 @@ function SigmetCard({ s }) {
 
   return (
     <div style={{
-      background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderLeft: `3px solid ${color}`,
-      borderRadius: 6, padding: '10px 14px',
+      background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
+      borderLeft: `3px solid ${expired ? 'var(--cp-red)' : color}`,
+      borderRadius: 6, padding: '10px 14px', opacity: expired ? 0.7 : 1,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, color, letterSpacing: '0.08em' }}>
+          <span style={{
+            fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+            color: expired ? 'var(--cp-dim)' : color,
+            textDecoration: expired ? 'line-through' : 'none',
+          }}>
             {fmtHazard(s.hazard).toUpperCase()}{s.qualifier ? ` · ${s.qualifier}` : ''}
           </span>
           <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)' }}>{s.firName || s.firId}</span>
@@ -225,6 +289,15 @@ function SigmetCard({ s }) {
           </span>
         )}
       </div>
+      {expired && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(248,113,113,0.12)',
+          color: 'var(--cp-red)', borderRadius: 4, padding: '3px 8px', marginBottom: 6,
+          fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+        }}>
+          ⚠ EXPIRED — DO NOT USE FOR PLANNING
+        </div>
+      )}
       {(altText || moveParts.length > 0) && (
         <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-txt)', marginBottom: 4 }}>
           {[altText, ...moveParts].filter(Boolean).join(' · ')}
