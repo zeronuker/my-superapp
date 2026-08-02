@@ -133,11 +133,11 @@ export default function TimeCalculator() {
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
       {/* Display */}
-      <div style={{ flexShrink: 0, background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: '14px 20px', textAlign: 'right' }}>
+      <div style={{ flexShrink: 0, background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: '18px 22px', textAlign: 'right' }}>
         <div style={{ fontSize: 13, color: 'var(--cp-dim)', fontFamily: "var(--cb-font-mono)", height: 20, marginBottom: 6 }}>{expression}</div>
         <div style={{
           color: 'var(--cp-acc)', fontWeight: 700, fontFamily: "var(--cb-font-mono)",
-          fontSize: currentDisplay.length > 7 ? '3rem' : '4rem', lineHeight: 1, letterSpacing: '0.05em',
+          fontSize: currentDisplay.length > 7 ? '3.2rem' : '4.4rem', lineHeight: 1, letterSpacing: '0.05em',
         }}>{currentDisplay}</div>
         {isMultiplierMode && (
           <div style={{ fontSize: 11, color: 'var(--cp-dim)', marginTop: 8, letterSpacing: '0.1em' }}>
@@ -147,7 +147,7 @@ export default function TimeCalculator() {
       </div>
 
       {/* Grid — fills all remaining space */}
-      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(6, 1fr)', gap: CALC_GRID_GAP }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
         <Btn onClick={handleClear} style={BTN.clr} colSpan={2} hapticType="medium">C</Btn>
         <Btn onClick={handleBackspace} style={BTN.util}>⌫</Btn>
         <Btn onClick={() => handleOperation('÷')} style={opStyle('÷')}>÷</Btn>
@@ -159,12 +159,11 @@ export default function TimeCalculator() {
         <Btn onClick={() => handleOperation('-')} style={opStyle('-')}>−</Btn>
 
         {[1,2,3].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
-        <Btn onClick={() => handleOperation('+')} style={opStyle('+')} rowSpan={2}>+</Btn>
+        <Btn onClick={() => handleOperation('+')} style={opStyle('+')}>+</Btn>
 
-        <Btn onClick={() => handleDigit('0')} style={BTN.num} colSpan={2}>0</Btn>
+        <Btn onClick={() => handleDigit('0')} style={BTN.num}>0</Btn>
         <Btn onClick={handleDecimal} style={BTN.util}>.</Btn>
-
-        <Btn onClick={handleEquals} style={BTN.eq} colSpan={4} hapticType="heavy">=</Btn>
+        <Btn onClick={handleEquals} style={BTN.eq} colSpan={2} hapticType="heavy">=</Btn>
       </div>
     </div>
   )

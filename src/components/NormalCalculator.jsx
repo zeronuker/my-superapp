@@ -138,25 +138,25 @@ export default function NormalCalculator() {
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
       {/* Display */}
-      <div style={{ flexShrink: 0, background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: '14px 20px', textAlign: 'right' }}>
+      <div style={{ flexShrink: 0, background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: '18px 22px', textAlign: 'right' }}>
         <div style={{ fontSize: 13, color: 'var(--cp-dim)', fontFamily: "var(--cb-font-mono)", height: 20, marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '0.05em' }}>
           {exprLine}
         </div>
         <div style={{
           color: 'var(--cp-acc)', fontWeight: 700, fontFamily: "var(--cb-font-mono)",
-          fontSize: formattedDisplay.length > 18 ? '1.4rem'
-                  : formattedDisplay.length > 15 ? '1.8rem'
-                  : formattedDisplay.length > 12 ? '2.4rem'
-                  : formattedDisplay.length > 9  ? '3rem'
-                  : formattedDisplay.length > 7  ? '3.4rem'
-                  : '4rem',
+          fontSize: formattedDisplay.length > 18 ? '1.6rem'
+                  : formattedDisplay.length > 15 ? '2rem'
+                  : formattedDisplay.length > 12 ? '2.6rem'
+                  : formattedDisplay.length > 9  ? '3.2rem'
+                  : formattedDisplay.length > 7  ? '3.6rem'
+                  : '4.4rem',
           lineHeight: 1, letterSpacing: '0.05em',
           whiteSpace: 'nowrap',
         }}>{formattedDisplay}</div>
       </div>
 
       {/* Buttons — fills all remaining space */}
-      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(6, 1fr)', gap: CALC_GRID_GAP }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
         <Btn onClick={handleClear} style={BTN.clr} colSpan={2} hapticType="medium">C</Btn>
         <Btn onClick={handleBackspace} style={BTN.util}>⌫</Btn>
         <Btn onClick={() => handleOperation('÷')} style={opStyle('÷')}>÷</Btn>
@@ -168,12 +168,11 @@ export default function NormalCalculator() {
         <Btn onClick={() => handleOperation('-')} style={opStyle('-')}>−</Btn>
 
         {[1,2,3].map(d => <Btn key={d} onClick={() => handleNumber(d)} style={BTN.num}>{d}</Btn>)}
-        <Btn onClick={() => handleOperation('+')} style={opStyle('+')} rowSpan={2}>+</Btn>
+        <Btn onClick={() => handleOperation('+')} style={opStyle('+')}>+</Btn>
 
-        <Btn onClick={() => handleNumber(0)} style={BTN.num} colSpan={2}>0</Btn>
+        <Btn onClick={() => handleNumber(0)} style={BTN.num}>0</Btn>
         <Btn onClick={handleDecimal} style={BTN.util}>.</Btn>
-
-        <Btn onClick={handleEquals} style={BTN.eq} colSpan={4} hapticType="heavy">=</Btn>
+        <Btn onClick={handleEquals} style={BTN.eq} colSpan={2} hapticType="heavy">=</Btn>
       </div>
     </div>
   )

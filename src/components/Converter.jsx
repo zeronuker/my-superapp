@@ -151,12 +151,11 @@ export default function Converter() {
       )}
 
       {/* bidirectional from/to */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
-        <div style={{ width: '100%' }}>{twinCard('from')}</div>
-        <button onClick={swap} style={{ background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
-          borderRadius: 6, color: 'var(--cp-acc)', fontSize: 16, cursor: 'pointer', padding: '8px 12px',
-          margin: '-2px 0' }}>⇄</button>
-        <div style={{ width: '100%' }}>{twinCard('to')}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>{twinCard('from')}</div>
+        <button onClick={swap} style={{ flexShrink: 0, background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
+          borderRadius: 6, color: 'var(--cp-acc)', fontSize: 16, cursor: 'pointer', padding: '10px 12px' }}>⇄</button>
+        <div style={{ flex: 1, minWidth: 0 }}>{twinCard('to')}</div>
       </div>
     </div>
   )

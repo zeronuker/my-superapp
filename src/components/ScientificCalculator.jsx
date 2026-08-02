@@ -83,43 +83,42 @@ export default function ScientificCalculator() {
         <Btn style={BTN.util} onClick={() => insert(fmt(mem))}>MR</Btn>
       </div>
 
-      {/* scientific functions — 3 rows */}
-      <div style={{ flex: 3, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gridTemplateRows: 'repeat(3, 1fr)', gap: CALC_GRID_GAP }}>
-        <Btn style={BTN.sci} onClick={() => insert('sin(')}>sin</Btn>
-        <Btn style={BTN.sci} onClick={() => insert('cos(')}>cos</Btn>
-        <Btn style={BTN.sci} onClick={() => insert('tan(')}>tan</Btn>
-        <Btn style={BTN.sci} onClick={() => insert('asin(')}>sin⁻¹</Btn>
-        <Btn style={BTN.sci} onClick={() => insert('acos(')}>cos⁻¹</Btn>
-        <Btn style={BTN.sci} onClick={() => insert('atan(')}>tan⁻¹</Btn>
+      {/* functions (left) + numpad/equals (right) side by side — fills all remaining space */}
+      <div style={{ flex: 8, minHeight: 0, display: 'flex', gap: 8 }}>
+        <div style={{ flex: '0 0 44%', minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(6, 1fr)', gap: CALC_GRID_GAP }}>
+          <Btn style={BTN.sci} onClick={() => insert('sin(')}>sin</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('cos(')}>cos</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('tan(')}>tan</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('asin(')}>sin⁻¹</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('acos(')}>cos⁻¹</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('atan(')}>tan⁻¹</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('log(')}>log</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('ln(')}>ln</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('√(')}>√</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('^2')}>x²</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('^')}>xʸ</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('^-1')}>1/x</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('(')}>(</Btn>
+          <Btn style={BTN.sci} onClick={() => insert(')')}>)</Btn>
+          <Btn style={BTN.pi}  onClick={() => insert('π')}>π</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('e')}>e</Btn>
+          <Btn style={BTN.sci} onClick={() => insert(fmt(ans))}>Ans</Btn>
+          <Btn style={BTN.util} onClick={back}>⌫</Btn>
+        </div>
 
-        <Btn style={BTN.sci} onClick={() => insert('log(')}>log</Btn>
-        <Btn style={BTN.sci} onClick={() => insert('ln(')}>ln</Btn>
-        <Btn style={BTN.sci} onClick={() => insert('√(')}>√</Btn>
-        <Btn style={BTN.sci} onClick={() => insert('^2')}>x²</Btn>
-        <Btn style={BTN.sci} onClick={() => insert('^')}>xʸ</Btn>
-        <Btn style={BTN.sci} onClick={() => insert('^-1')}>1/x</Btn>
-
-        <Btn style={BTN.sci} onClick={() => insert('(')}>(</Btn>
-        <Btn style={BTN.sci} onClick={() => insert(')')}>)</Btn>
-        <Btn style={BTN.pi}  onClick={() => insert('π')}>π</Btn>
-        <Btn style={BTN.sci} onClick={() => insert('e')}>e</Btn>
-        <Btn style={BTN.sci} onClick={() => insert(fmt(ans))}>Ans</Btn>
-        <Btn style={BTN.util} onClick={back}>⌫</Btn>
-      </div>
-
-      {/* numpad + equals — 5 rows */}
-      <div style={{ flex: 5, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
-        {[7, 8, 9].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
-        <Btn style={BTN.op} onClick={() => insert('÷')}>÷</Btn>
-        {[4, 5, 6].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
-        <Btn style={BTN.op} onClick={() => insert('×')}>×</Btn>
-        {[1, 2, 3].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
-        <Btn style={BTN.op} onClick={() => insert('-')}>−</Btn>
-        <Btn style={BTN.clr} onClick={clear}>C</Btn>
-        <Btn style={BTN.num} onClick={() => insert('0')}>0</Btn>
-        <Btn style={BTN.num} onClick={() => insert('.')}>.</Btn>
-        <Btn style={BTN.op} onClick={() => insert('+')}>+</Btn>
-        <Btn style={BTN.eq} onClick={equals} colSpan={4} hapticType="heavy">=</Btn>
+        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
+          {[7, 8, 9].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
+          <Btn style={BTN.op} onClick={() => insert('÷')}>÷</Btn>
+          {[4, 5, 6].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
+          <Btn style={BTN.op} onClick={() => insert('×')}>×</Btn>
+          {[1, 2, 3].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
+          <Btn style={BTN.op} onClick={() => insert('-')}>−</Btn>
+          <Btn style={BTN.clr} onClick={clear}>C</Btn>
+          <Btn style={BTN.num} onClick={() => insert('0')}>0</Btn>
+          <Btn style={BTN.num} onClick={() => insert('.')}>.</Btn>
+          <Btn style={BTN.op} onClick={() => insert('+')}>+</Btn>
+          <Btn style={BTN.eq} onClick={equals} colSpan={4} hapticType="heavy">=</Btn>
+        </div>
       </div>
     </div>
   )
