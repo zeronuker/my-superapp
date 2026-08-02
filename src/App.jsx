@@ -175,6 +175,11 @@ export default function App() {
 
   const currentCalc      = activeCalculator ? CALCULATORS.find(c => c.id === activeCalculator) : undefined
   const CurrentComponent = currentCalc?.component
+  // The calculator tab fills the exact remaining screen space (see
+  // CombinedCalculator.jsx) instead of being sized by its content, so its
+  // button grid can flex-fill both width and height with no empty margins
+  // and no scroll — every other tab keeps today's normal scrolling page.
+  const isCalcFullScreen = activeCalculator === 'calculator'
 
   // ── Migrate legacy tab IDs + choose the initial view ──────────────────
   React.useEffect(() => {
@@ -300,7 +305,9 @@ export default function App() {
         </Suspense>
       )}
       <div style={{
-        minHeight: '100vh',
+        ...(isCalcFullScreen
+          ? { height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+          : { minHeight: '100vh' }),
         background: 'var(--cp-bg)',
         fontFamily: 'var(--cb-font-body)',
         opacity: fading ? 0 : 1,
@@ -367,8 +374,10 @@ export default function App() {
         <main
           className={isLauncherHome ? 'cb-grid-bg' : ''}
           style={{
-            maxWidth: 960, margin: '0 auto',
-            padding: landscapeCompact ? '12px 24px 24px' : '24px 24px 48px',
+            maxWidth: 960, margin: '0 auto', width: '100%',
+            ...(isCalcFullScreen
+              ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 12px 12px' }
+              : { padding: landscapeCompact ? '12px 24px 24px' : '24px 24px 48px' }),
           }}
         >
           {isLauncherHome ? (
@@ -380,11 +389,13 @@ export default function App() {
             <div className="cp-card-bg2" style={{
               border: '1px solid var(--cp-border)',
               borderRadius: 4,
-              padding: landscapeCompact ? '16px' : '24px',
-              zoom: landscapeCompact ? 0.82 : undefined,
+              ...(isCalcFullScreen
+                ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px' }
+                : { padding: landscapeCompact ? '16px' : '24px', zoom: landscapeCompact ? 0.82 : undefined }),
             }}>
               <div key={activeCalculator}
-                className="cp-calc-fade">
+                className="cp-calc-fade"
+                style={isCalcFullScreen ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : undefined}>
                 <ErrorBoundary name={currentCalc?.name} resetKey={activeCalculator}>
                   <Suspense fallback={<TabLoading />}>
                     {CurrentComponent && (

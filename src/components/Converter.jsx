@@ -123,7 +123,7 @@ export default function Converter() {
   }
 
   return (
-    <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ flex: 1, minHeight: 0, maxWidth: 700, width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
       {/* category */}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cats.length, 4)}, 1fr)`, gap: 6 }}>
         {cats.map(c => (

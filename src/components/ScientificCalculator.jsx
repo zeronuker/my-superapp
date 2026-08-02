@@ -53,12 +53,12 @@ export default function ScientificCalculator() {
   }, [])
 
   return (
-    <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'clamp(2px, 0.4vh, 5px)' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
 
       {/* display */}
-      <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
-        borderRadius: 6, padding: 'clamp(5px, 1.2vh, 10px) 18px clamp(6px, 1.4vh, 11px)', textAlign: 'right' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9,
+      <div style={{ flexShrink: 0, background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
+        borderRadius: 6, padding: '10px 18px', textAlign: 'right' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10,
           color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.1em', marginBottom: 6 }}>
           <span style={{ display: 'flex', gap: 8 }}>
             <span style={{ color: 'var(--cp-acc)' }}>{angle.toUpperCase()}</span>
@@ -68,14 +68,14 @@ export default function ScientificCalculator() {
         </div>
         <div style={{ fontSize: 13, color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', height: 20, marginBottom: 6 }}>{expression}</div>
         <div style={{ color: 'var(--cp-acc)', fontWeight: 700, fontFamily: 'var(--cb-font-mono)',
-          fontSize: d.length > 20 ? '1.2rem' : d.length > 14 ? '1.7rem' : '2.4rem',
+          fontSize: d.length > 20 ? '1.4rem' : d.length > 14 ? '2rem' : '2.8rem',
           lineHeight: 1.1, letterSpacing: '0.02em', overflowWrap: 'break-word', wordBreak: 'break-all' }}>
           {d}
         </div>
       </div>
 
-      {/* controls: angle + memory */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
+      {/* controls: angle + memory — 1 row */}
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
         <Btn style={BTN.util} onClick={() => setAngle(a => a === 'deg' ? 'rad' : 'deg')}>{angle === 'deg' ? 'RAD' : 'DEG'}</Btn>
         <Btn style={BTN.util} onClick={() => setMem(0)}>MC</Btn>
         <Btn style={BTN.util} onClick={() => memAdd(1)}>M+</Btn>
@@ -83,8 +83,8 @@ export default function ScientificCalculator() {
         <Btn style={BTN.util} onClick={() => insert(fmt(mem))}>MR</Btn>
       </div>
 
-      {/* scientific functions */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: CALC_GRID_GAP }}>
+      {/* scientific functions — 3 rows */}
+      <div style={{ flex: 3, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gridTemplateRows: 'repeat(3, 1fr)', gap: CALC_GRID_GAP }}>
         <Btn style={BTN.sci} onClick={() => insert('sin(')}>sin</Btn>
         <Btn style={BTN.sci} onClick={() => insert('cos(')}>cos</Btn>
         <Btn style={BTN.sci} onClick={() => insert('tan(')}>tan</Btn>
@@ -107,8 +107,8 @@ export default function ScientificCalculator() {
         <Btn style={BTN.util} onClick={back}>⌫</Btn>
       </div>
 
-      {/* numpad */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: CALC_GRID_GAP }}>
+      {/* numpad + equals — 5 rows */}
+      <div style={{ flex: 5, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
         {[7, 8, 9].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
         <Btn style={BTN.op} onClick={() => insert('÷')}>÷</Btn>
         {[4, 5, 6].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
@@ -119,9 +119,8 @@ export default function ScientificCalculator() {
         <Btn style={BTN.num} onClick={() => insert('0')}>0</Btn>
         <Btn style={BTN.num} onClick={() => insert('.')}>.</Btn>
         <Btn style={BTN.op} onClick={() => insert('+')}>+</Btn>
+        <Btn style={BTN.eq} onClick={equals} colSpan={4} hapticType="heavy">=</Btn>
       </div>
-
-      <Btn style={BTN.eq} onClick={equals} hapticType="heavy">=</Btn>
     </div>
   )
 }
