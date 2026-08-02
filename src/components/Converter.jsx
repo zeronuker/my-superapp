@@ -123,7 +123,7 @@ export default function Converter() {
   }
 
   return (
-    <div className="cp-calc-shell-wide" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* category */}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cats.length, 4)}, 1fr)`, gap: 6 }}>
         {cats.map(c => (

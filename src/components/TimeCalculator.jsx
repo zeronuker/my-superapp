@@ -131,13 +131,13 @@ export default function TimeCalculator() {
   const opStyle = o => operation === o && !justCalculated ? BTN.opActive : BTN.op
 
   return (
-    <div className="cp-calc-shell cp-basic-shell">
+    <div style={{ maxWidth: 380, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'clamp(4px, 0.8vh, 7px)' }}>
       {/* Display */}
-      <div className="cp-basic-area-display" style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: 'clamp(10px, 3.5vh, 30px) 24px clamp(12px, 4vh, 36px)', textAlign: 'right' }}>
+      <div style={{ background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, padding: 'clamp(10px, 2.2vh, 16px) 24px clamp(12px, 2.6vh, 20px)', textAlign: 'right' }}>
         <div style={{ fontSize: 13, color: 'var(--cp-dim)', fontFamily: "var(--cb-font-mono)", height: 20, marginBottom: 6 }}>{expression}</div>
         <div style={{
           color: 'var(--cp-acc)', fontWeight: 700, fontFamily: "var(--cb-font-mono)",
-          fontSize: currentDisplay.length > 7 ? '2.6rem' : 'clamp(2rem, 8vh, 5.6rem)', lineHeight: 1, letterSpacing: '0.05em',
+          fontSize: currentDisplay.length > 7 ? '2.6rem' : 'clamp(2rem, 5.2vh, 3.6rem)', lineHeight: 1, letterSpacing: '0.05em',
         }}>{currentDisplay}</div>
         {isMultiplierMode && (
           <div style={{ fontSize: 11, color: 'var(--cp-dim)', marginTop: 8, letterSpacing: '0.1em' }}>
@@ -146,28 +146,26 @@ export default function TimeCalculator() {
         )}
       </div>
 
-      <div className="cp-basic-area-grid">
-        {/* Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: CALC_GRID_GAP }}>
-          <Btn onClick={handleClear} style={BTN.clr} colSpan={2} hapticType="medium">C</Btn>
-          <Btn onClick={handleBackspace} style={BTN.util}>⌫</Btn>
-          <Btn onClick={() => handleOperation('÷')} style={opStyle('÷')}>÷</Btn>
+      {/* Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: CALC_GRID_GAP }}>
+        <Btn onClick={handleClear} style={BTN.clr} colSpan={2} hapticType="medium">C</Btn>
+        <Btn onClick={handleBackspace} style={BTN.util}>⌫</Btn>
+        <Btn onClick={() => handleOperation('÷')} style={opStyle('÷')}>÷</Btn>
 
-          {[7,8,9].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
-          <Btn onClick={() => handleOperation('×')} style={opStyle('×')}>×</Btn>
+        {[7,8,9].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
+        <Btn onClick={() => handleOperation('×')} style={opStyle('×')}>×</Btn>
 
-          {[4,5,6].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
-          <Btn onClick={() => handleOperation('-')} style={opStyle('-')}>−</Btn>
+        {[4,5,6].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
+        <Btn onClick={() => handleOperation('-')} style={opStyle('-')}>−</Btn>
 
-          {[1,2,3].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
-          <Btn onClick={() => handleOperation('+')} style={opStyle('+')} rowSpan={2}>+</Btn>
+        {[1,2,3].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
+        <Btn onClick={() => handleOperation('+')} style={opStyle('+')} rowSpan={2}>+</Btn>
 
-          <Btn onClick={() => handleDigit('0')} style={BTN.num} colSpan={2}>0</Btn>
-          <Btn onClick={handleDecimal} style={BTN.util}>.</Btn>
-        </div>
-
-        <Btn onClick={handleEquals} style={BTN.eq} hapticType="heavy">=</Btn>
+        <Btn onClick={() => handleDigit('0')} style={BTN.num} colSpan={2}>0</Btn>
+        <Btn onClick={handleDecimal} style={BTN.util}>.</Btn>
       </div>
+
+      <Btn onClick={handleEquals} style={BTN.eq} hapticType="heavy">=</Btn>
     </div>
   )
 }
