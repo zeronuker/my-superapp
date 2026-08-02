@@ -5,8 +5,10 @@ import { detectRouteFirs } from '../services/notamAPI'
 import { normalizeSigmet, filterSigmetsByFir, fmtHazard, hazardColor, fmtSigmetAlt, fmtSigmetTime } from '../utils/sigmet'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import ResetButton from './ResetButton'
+import CopyAirportsButton from './CopyAirportsButton'
 
 const CACHE_KEY = 'cb-sigmet-cache'
+const ERA_MAX = 5
 
 function saveCache(data) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch (_) {}
@@ -61,6 +63,9 @@ export default function SigmetViewer() {
 
   const [dep, setDep] = useState(cache?.dep || '')
   const [arr, setArr] = useState(cache?.arr || '')
+  const [destAlts, setDestAlts] = useState(cache?.destAlts || { alt1: '', alt2: '' })
+  const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount || 0)
+  const [enrouteAlts, setEnrouteAlts] = useState(cache?.enrouteAlts || Array(ERA_MAX).fill(''))
   const [chips, setChips] = useState(cache?.chips || [])
   const [customInput, setCustomInput] = useState('')
   const [detecting, setDetecting] = useState(false)
@@ -88,11 +93,26 @@ export default function SigmetViewer() {
   }, [])
 
   useEffect(() => {
-    saveCache({ dep, arr, chips, sigmets, fetchedAt })
-  }, [dep, arr, chips, sigmets, fetchedAt])
+    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt })
+  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt])
+
+  const applyCopiedAirports = (data) => {
+    setDep(data.dep)
+    setArr(data.arr)
+    setDestAlts(data.destAlts)
+    setEnrouteCount(data.enrouteCount)
+    setEnrouteAlts(Array.from({ length: ERA_MAX }, (_, i) => data.enrouteAlts[i] || ''))
+    // FIRs were likely derived from the old route (auto-detect or manual) and
+    // go stale once it's replaced — leave any manually-added standalone
+    // entries alone since we can't tell them apart from route-derived ones.
+  }
 
   const handleReset = () => {
-    setDep(''); setArr(''); setChips([]); setCustomInput('')
+    setDep(''); setArr('')
+    setDestAlts({ alt1: '', alt2: '' })
+    setEnrouteCount(0)
+    setEnrouteAlts(Array(ERA_MAX).fill(''))
+    setChips([]); setCustomInput('')
     setSigmets(null); setFetchedAt(null); setError('')
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
   }
@@ -101,10 +121,12 @@ export default function SigmetViewer() {
 
   const handleDetect = () => {
     setDetecting(true)
+    const airports = [dep, arr, destAlts.alt1, destAlts.alt2, ...enrouteAlts.slice(0, enrouteCount)]
+      .map(x => (x || '').trim().toUpperCase()).filter(x => x.length >= 3)
     const seen = new Set(chips.map(c => c.icao))
     const found = []
     const pushFir = (fir) => { if (fir && !seen.has(fir.icao)) { seen.add(fir.icao); found.push({ icao: fir.icao, name: fir.name }) } }
-    for (const ap of [dep, arr]) { const t = ap.trim().toUpperCase(); if (t.length >= 3) pushFir(icaoToFir(t)) }
+    for (const ap of airports) pushFir(icaoToFir(ap))
     const depC = getAirportCoords(dep), arrC = getAirportCoords(arr)
     if (depC && arrC) for (const fir of detectRouteFirs(depC, arrC)) pushFir(fir)
     setChips(prev => [...prev, ...found])
@@ -143,7 +165,8 @@ export default function SigmetViewer() {
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
+        <CopyAirportsButton sourceModule="metar" sourceLabel="METAR/TAF" onApply={applyCopiedAirports} />
         <ResetButton onReset={handleReset} />
       </div>
 
@@ -187,6 +210,47 @@ export default function SigmetViewer() {
             placeholder="e.g. RJBB" value={arr} maxLength={4} onChange={e => setArr(upper(e.target.value))} />
         </div>
       </div>
+
+      {/* ── Destination Alternates ── */}
+      <SectionHeader title="Destination Alternates" />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+        {[{ key: 'alt1', label: 'DEST ALT 1' }, { key: 'alt2', label: 'DEST ALT 2' }].map(({ key, label }) => (
+          <div key={key}>
+            <div className="cp-label" style={{ marginBottom: 4 }}>{label}</div>
+            <input className="cp-input" style={{ width: '100%', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+              placeholder="ICAO" value={destAlts[key]} maxLength={4}
+              onChange={e => setDestAlts(p => ({ ...p, [key]: upper(e.target.value) }))} />
+          </div>
+        ))}
+      </div>
+
+      {/* ── Enroute Alternates ── */}
+      <div className="cp-section-header">
+        <span className="cp-section-title">Enroute Alternates</span>
+        <div className="cp-divider" />
+        <select value={enrouteCount} onChange={e => setEnrouteCount(Number(e.target.value))} style={{
+          background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)',
+          borderRadius: 4, color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)',
+          fontSize: 12, padding: '7px 10px', outline: 'none', cursor: 'pointer',
+        }}>
+          <option value={0}>NONE</option>
+          {Array.from({ length: ERA_MAX }, (_, i) => (
+            <option key={i + 1} value={i + 1}>{i + 1} AIRPORT{i > 0 ? 'S' : ''}</option>
+          ))}
+        </select>
+      </div>
+      {enrouteCount > 0 ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
+          {Array.from({ length: enrouteCount }, (_, i) => (
+            <div key={i}>
+              <div className="cp-label" style={{ marginBottom: 4 }}>ERA {i + 1}</div>
+              <input className="cp-input" style={{ width: '100%', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+                placeholder="ICAO" value={enrouteAlts[i] || ''} maxLength={4}
+                onChange={e => setEnrouteAlts(p => { const n = [...p]; n[i] = upper(e.target.value); return n })} />
+            </div>
+          ))}
+        </div>
+      ) : <div style={{ marginBottom: 20 }} />}
 
       {/* ── FIRs ── */}
       <SectionHeader title="FIRs & Manual Entries" />

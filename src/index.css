@@ -162,6 +162,18 @@ input[type="number"] { -moz-appearance: textfield; }
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 .cp-btn:hover { border-color: var(--cp-acc2); color: var(--cp-muted); }
+
+/* Settings button — box/glyph sizes matched to my-edoc's settings-toggle
+   (App.css .icon-btn / .topbar .settings-toggle): 32x32 box with a 16px
+   glyph above 880px width, 42x42 at or below it. */
+.cp-settings-btn {
+  width: 32px; height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+@media (max-width: 880px) {
+  .cp-settings-btn { width: 42px; height: 42px; }
+}
 .cp-btn.active {
   border-color: var(--cp-acc);
   color: var(--cp-acc);
@@ -398,10 +410,6 @@ html[data-hico="true"] .cp-input:focus {
   min-width: 0;
   box-shadow: 0 2px 10px rgba(0,0,0,0.28);
 }
-
-/* ── Search overlay ── */
-@keyframes cpSearchIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-.cp-search-anim { animation: cpSearchIn 0.14s ease; }
 
 /* ── Duty log responsive layout ── */
 .dutylog-shell { max-width: 480px; margin: 0 auto; }

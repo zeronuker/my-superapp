@@ -158,7 +158,7 @@ export default function NormalCalculator() {
       {/* Buttons — fills all remaining space */}
       <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
         <Btn onClick={handleClear} style={BTN.clr} hapticType="medium">C</Btn>
-        <Btn onClick={handleBackspace} style={BTN.util}>⌫</Btn>
+        <Btn onClick={handleBackspace} style={BTN.utilLg}>⌫</Btn>
         <Btn onClick={() => handleOperation('÷')} style={opStyle('÷')}>÷</Btn>
         <Btn onClick={() => handleOperation('×')} style={opStyle('×')}>×</Btn>
 
@@ -172,7 +172,7 @@ export default function NormalCalculator() {
         <Btn onClick={handleEquals} style={BTN.eq} rowSpan={2} hapticType="heavy">=</Btn>
 
         <Btn onClick={() => handleNumber(0)} style={BTN.num} colSpan={2}>0</Btn>
-        <Btn onClick={handleDecimal} style={BTN.util}>.</Btn>
+        <Btn onClick={handleDecimal} style={BTN.utilLg}>.</Btn>
       </div>
     </div>
   )

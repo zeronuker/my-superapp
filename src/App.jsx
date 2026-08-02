@@ -9,7 +9,6 @@ import SplashScreen from '@brand/SplashScreen'
 import UpdatePrompt from '@brand/UpdatePrompt'
 import { useUpdate } from '@brand/useUpdate'
 import { TabIcon, ICON_SETS } from './components/TabIcon'
-import { searchZones } from './data/worldTimezones'
 
 // Each tab is code-split into its own chunk, loaded on demand when first opened.
 // vite-plugin-pwa precaches every emitted chunk, so offline still works.
@@ -52,7 +51,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.16'
+const APP_VERSION = 'v3.17'
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -155,7 +154,6 @@ export default function App() {
     setSettingsInitialTab('about')
     setSettingsOpen(true)
   }, [])
-  const [searchOpen,   setSearchOpen]   = useState(false)
   const [fading, setFading] = React.useState(false)
 
   // Build ordered tab list — respects user-saved order, appends unknown new tabs at end
@@ -328,18 +326,9 @@ export default function App() {
 
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
               <button
-                onClick={() => setSearchOpen(true)}
-                className="cp-btn"
-                style={{ fontSize: 15, padding: '6px 12px' }}
-                title="Search tools"
-                aria-label="Search tools"
-              >
-                ⌕
-              </button>
-              <button
                 onClick={() => { setSettingsInitialTab('appearance'); setSettingsOpen(true) }}
-                className="cp-btn"
-                style={{ fontSize: 15, padding: '6px 12px', position: 'relative' }}
+                className="cp-btn cp-settings-btn"
+                style={{ position: 'relative' }}
                 title={update.needRefresh ? 'Settings · update available' : 'Settings'}
                 aria-label="Open settings"
               >
@@ -447,15 +436,6 @@ export default function App() {
 
       {/* ── Update prompt ────────────────────────────────────────────── */}
       <UpdatePrompt ready={!showSplash} update={update} />
-
-      {/* ── Search overlay ───────────────────────────────────────────── */}
-      {searchOpen && (
-        <SearchOverlay
-          calcs={orderedCalcs}
-          onSelect={(id) => { handleSelectCalculator(id); setSearchOpen(false) }}
-          onClose={() => setSearchOpen(false)}
-        />
-      )}
 
       {/* ── Settings overlay ─────────────────────────────────────────── */}
       {settingsOpen && (
@@ -611,128 +591,6 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
         )}
       </div>
     </div>
-  )
-}
-
-// ── Search Overlay ──────────────────────────────────────────────────────────
-function SearchOverlay({ calcs, onSelect, onClose }) {
-  const [query, setQuery] = React.useState('')
-  const inputRef = React.useRef(null)
-
-  React.useEffect(() => {
-    inputRef.current?.focus()
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const results = React.useMemo(() => {
-    const q = query.trim()
-    if (!q) return []
-    const out = []
-    const qU  = q.toUpperCase()
-
-    // Tool name search
-    for (const c of calcs) {
-      if (c.name.toUpperCase().includes(qU) || c.id.toUpperCase().includes(qU)) {
-        out.push({ key: `tool-${c.id}`, icon: c.icon, label: c.name, sub: 'TOOL', action: () => onSelect(c.id) })
-      }
-    }
-
-    // Airport/zone search — produces World Time + METAR + NOTAM shortcuts
-    const zones = searchZones(q)
-    const seenIcao = new Set()
-    for (const z of zones) {
-      out.push({ key: `wt-${z.label}`, icon: '🌐', label: z.label, sub: `${z.country} · WORLD TIME`, action: () => onSelect('worldtime') })
-      if (z.icao && !seenIcao.has(z.icao)) {
-        seenIcao.add(z.icao)
-        out.push({ key: `mt-${z.icao}`, icon: '🌤️', label: `METAR/TAF · ${z.icao}`, sub: z.label, action: () => onSelect('metartaf') })
-        out.push({ key: `nt-${z.icao}`, icon: '📋', label: `NOTAM · ${z.icao}`,     sub: z.label, action: () => onSelect('notam') })
-      }
-    }
-
-    return out.slice(0, 9)
-  }, [query, calcs, onSelect])
-
-  return (
-    <>
-      <div onClick={onClose} style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 150,
-        backdropFilter: 'blur(3px)',
-      }} />
-      <div className="cp-search-anim" style={{
-        position: 'fixed', top: 72, left: '50%', transform: 'translateX(-50%)',
-        width: 'min(520px, 92vw)', zIndex: 160,
-        background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
-        borderRadius: 8, overflow: 'hidden',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
-      }}>
-        <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--cp-border)',
-          display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 16, color: 'var(--cp-dim)' }}>⌕</span>
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search tools or airport…"
-            style={{
-              flex: 1, background: 'transparent', border: 'none', outline: 'none',
-              fontFamily: 'var(--cb-font-mono)', fontSize: 13, color: 'var(--cp-txt)',
-              letterSpacing: '0.04em',
-            }}
-          />
-          {query && (
-            <button onClick={() => setQuery('')} style={{
-              background: 'none', border: 'none', color: 'var(--cp-dim)',
-              cursor: 'pointer', fontSize: 14, padding: '2px 4px',
-            }}>✕</button>
-          )}
-        </div>
-        {results.length > 0 ? (
-          <div style={{ maxHeight: 360, overflowY: 'auto' }}>
-            {results.map(r => (
-              <button key={r.key} onClick={r.action} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                width: '100%', background: 'transparent',
-                border: 'none', borderBottom: '1px solid var(--cp-border3)',
-                padding: '11px 14px', cursor: 'pointer', textAlign: 'left',
-                transition: 'background 0.1s',
-              }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--cp-hover)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <span style={{ fontSize: 18, flexShrink: 0 }}>{r.icon}</span>
-                <div>
-                  <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12,
-                    color: 'var(--cp-txt)', letterSpacing: '0.06em' }}>{r.label}</div>
-                  <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
-                    color: 'var(--cp-dim)', letterSpacing: '0.12em', marginTop: 2 }}>{r.sub}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        ) : query.trim() ? (
-          <div style={{ padding: '20px 14px', fontFamily: 'var(--cb-font-mono)', fontSize: 10,
-            letterSpacing: '0.14em', color: 'var(--cp-dim)', textAlign: 'center' }}>
-            NO RESULTS FOR "{query.toUpperCase()}"
-          </div>
-        ) : (
-          <div style={{ padding: '14px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {calcs.slice(0, 6).map(c => (
-              <button key={c.id} onClick={() => onSelect(c.id)} style={{
-                background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)',
-                borderRadius: 4, padding: '5px 10px', cursor: 'pointer',
-                fontFamily: 'var(--cb-font-mono)', fontSize: 10,
-                letterSpacing: '0.1em', color: 'var(--cp-muted)',
-                display: 'flex', alignItems: 'center', gap: 6,
-              }}>
-                <TabIcon id={c.id} emoji={c.icon} size={13} />{c.name.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
   )
 }
 
@@ -1171,6 +1029,19 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.17', date: 'Aug 2026',
+    entries: [
+      { type: 'feat', text: 'Calculator: Basic/Scientific/Time/Convert rebuilt to fill available screen space using CSS flexbox/grid instead of a JS viewport-measuring scale — removes empty margins in both portrait and landscape, and can no longer overflow into a scrollbar the way the JS approach occasionally did' },
+      { type: 'feat', text: 'Calculator: Basic/Time equals moved from a full-width bottom bar to a corner button spanning the last two rows, freeing a row for a bigger display; Scientific\'s function keys now sit in their own left-hand column instead of stacking above the numpad' },
+      { type: 'feat', text: 'Calculator: numpad rearranged to match a physical numpad\'s layout — operators sit one per digit row, equals spans the bottom two rows next to 1-2-3 and 0/.' },
+      { type: 'feat', text: 'Calculator: digit, equals, backspace, decimal, and clear buttons are now all the same 26px size — backspace/decimal/clear used to be visibly smaller than the rest' },
+      { type: 'feat', text: 'Converter: FROM/TO cards now sit side by side instead of stacked, with the swap button between them' },
+      { type: 'fix',  text: 'Settings icon resized to a fixed 32×32px box (16px glyph) on desktop, 42×42px (16px glyph) on mobile — was a single inconsistent size at all widths' },
+      { type: 'feat', text: 'Removed the header search tool (icon + search-everything overlay) — unused' },
+      { type: 'feat', text: 'SIGMET: added Destination Alternates and Enroute Alternates fields plus a Copy from METAR/TAF button; auto-detect FIRs now scans all of them — matches NOTAM\'s route entry' },
+    ],
+  },
   {
     version: 'v3.16', date: 'Jul 2026',
     entries: [

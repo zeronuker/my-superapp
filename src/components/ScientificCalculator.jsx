@@ -108,7 +108,7 @@ export default function ScientificCalculator() {
 
         <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
           <Btn style={BTN.clr} onClick={clear}>C</Btn>
-          <Btn style={BTN.util} onClick={back}>⌫</Btn>
+          <Btn style={BTN.utilLg} onClick={back}>⌫</Btn>
           <Btn style={BTN.op} onClick={() => insert('÷')}>÷</Btn>
           <Btn style={BTN.op} onClick={() => insert('×')}>×</Btn>
 

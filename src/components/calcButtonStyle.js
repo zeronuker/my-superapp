@@ -26,8 +26,12 @@ export const CALC_BTN = {
   op:       { ...base, fontSize: 26, background: 'var(--cp-accdim)',        color: 'var(--cp-acc)',    borderColor: 'var(--cp-border)'  },
   opActive: { ...base, fontSize: 26, background: 'var(--cp-accdim)',        color: 'var(--cp-acc)',    borderColor: 'var(--cp-acc)', boxShadow: '0 0 8px var(--cp-accdim)' },
   util:     { ...base, fontSize: 15, background: 'var(--cp-bg2)',           color: 'var(--cp-muted)',  borderColor: 'var(--cp-border)'  },
-  clr:      { ...base, fontSize: 13, background: 'rgba(239,68,68,0.12)',    color: 'var(--cp-red)',    borderColor: 'rgba(239,68,68,0.4)' },
-  eq:       { ...base, fontSize: 28, background: 'rgba(34,197,94,0.12)',    color: 'var(--cp-green)',  borderColor: 'rgba(34,197,94,0.4)' },
+  // Same role/colors as util, but sized to match digits — for backspace and
+  // decimal, which sit directly among the digit/operator grid rather than
+  // in a dense multi-character row like RAD/DEG/MC/M+/M-/MR.
+  utilLg:   { ...base, fontSize: 26, background: 'var(--cp-bg2)',           color: 'var(--cp-muted)',  borderColor: 'var(--cp-border)'  },
+  clr:      { ...base, fontSize: 26, background: 'rgba(239,68,68,0.12)',    color: 'var(--cp-red)',    borderColor: 'rgba(239,68,68,0.4)' },
+  eq:       { ...base, fontSize: 26, background: 'rgba(34,197,94,0.12)',    color: 'var(--cp-green)',  borderColor: 'rgba(34,197,94,0.4)' },
   // Scientific-only extras — no Basic/Time equivalent to match, sized smaller
   // to fit multi-character labels (sin, cos⁻¹, ...) in a 6-column grid.
   sci:      { ...base, fontSize: 14, background: 'var(--cp-bg2)',           color: 'var(--cp-acc2)',   borderColor: 'var(--cp-border)'  },
