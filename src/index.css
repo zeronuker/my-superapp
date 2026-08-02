@@ -442,6 +442,60 @@ html[data-hico="true"] .cp-input:focus {
   .dutylog-crew-col { flex: 1; min-width: 0; }
 }
 
+/* ── Calculator responsive layout ──
+   Portrait keeps each calculator at its natural width; landscape widens the
+   cap so the button grid stretches to use the extra screen width instead of
+   sitting small in the middle. The JS fit-to-viewport scale in
+   CombinedCalculator.jsx then handles the remaining height fit. */
+.cp-calc-shell { max-width: 380px; margin: 0 auto; }
+.cp-calc-shell-wide { max-width: 440px; margin: 0 auto; }
+@media (orientation: landscape) {
+  .cp-calc-shell, .cp-calc-shell-wide { max-width: min(94vw, 900px); }
+}
+
+/* Basic/Time calculator: portrait stacks display above the button grid.
+   Landscape puts them side by side instead — a short-wide viewport can't
+   fit "tall display + 5 button rows" stacked without heavy shrinking, but
+   easily fits them side by side. */
+.cp-basic-shell { display: flex; flex-direction: column; gap: clamp(4px, 1.4vh, 13px); }
+.cp-basic-area-grid { display: flex; flex-direction: column; gap: clamp(4px, 1.4vh, 13px); }
+@media (orientation: landscape) {
+  .cp-basic-shell {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    grid-template-areas: "display grid";
+    align-items: center;
+    column-gap: 12px;
+  }
+  .cp-basic-area-display { grid-area: display; }
+  .cp-basic-area-grid { grid-area: grid; }
+}
+
+/* Scientific calculator: portrait stacks everything in one column (DOM
+   order = visual order). Landscape puts the function grid in its own
+   left-hand column, tall/narrow instead of short/wide, roughly halving the
+   stack height so it fits a short landscape viewport without scrolling. */
+.cp-sci-shell { display: flex; flex-direction: column; gap: clamp(2px, 0.8vh, 10px); }
+@media (orientation: landscape) {
+  .cp-sci-shell {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "sci controls"
+      "sci display"
+      "sci numpad"
+      "sci equals";
+    align-items: start;
+    column-gap: 12px;
+    row-gap: clamp(2px, 0.8vh, 10px);
+  }
+  .cp-sci-area-display  { grid-area: display; }
+  .cp-sci-area-controls { grid-area: controls; }
+  .cp-sci-area-functions { grid-area: sci; }
+  .cp-sci-area-numpad   { grid-area: numpad; }
+  .cp-sci-area-equals   { grid-area: equals; }
+}
+
 /* ── Offline banner ── */
 .cp-offline-banner {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
