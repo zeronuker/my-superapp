@@ -107,17 +107,22 @@ export default function ScientificCalculator() {
         </div>
 
         <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
-          {[7, 8, 9].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
-          <Btn style={BTN.op} onClick={() => insert('÷')}>÷</Btn>
-          {[4, 5, 6].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
-          <Btn style={BTN.op} onClick={() => insert('×')}>×</Btn>
-          {[1, 2, 3].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
-          <Btn style={BTN.op} onClick={() => insert('-')}>−</Btn>
           <Btn style={BTN.clr} onClick={clear}>C</Btn>
-          <Btn style={BTN.num} onClick={() => insert('0')}>0</Btn>
-          <Btn style={BTN.num} onClick={() => insert('.')}>.</Btn>
+          <Btn style={BTN.util} onClick={back}>⌫</Btn>
+          <Btn style={BTN.op} onClick={() => insert('÷')}>÷</Btn>
+          <Btn style={BTN.op} onClick={() => insert('×')}>×</Btn>
+
+          {[7, 8, 9].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
+          <Btn style={BTN.op} onClick={() => insert('-')}>−</Btn>
+
+          {[4, 5, 6].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
           <Btn style={BTN.op} onClick={() => insert('+')}>+</Btn>
-          <Btn style={BTN.eq} onClick={equals} colSpan={4} hapticType="heavy">=</Btn>
+
+          {[1, 2, 3].map(n => <Btn key={n} style={BTN.num} onClick={() => insert(String(n))}>{n}</Btn>)}
+          <Btn style={BTN.eq} onClick={equals} rowSpan={2} hapticType="heavy">=</Btn>
+
+          <Btn style={BTN.num} onClick={() => insert('0')} colSpan={2}>0</Btn>
+          <Btn style={BTN.num} onClick={() => insert('.')}>.</Btn>
         </div>
       </div>
     </div>

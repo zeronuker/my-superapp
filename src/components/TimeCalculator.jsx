@@ -148,22 +148,22 @@ export default function TimeCalculator() {
 
       {/* Grid — fills all remaining space */}
       <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
-        <Btn onClick={handleClear} style={BTN.clr} colSpan={2} hapticType="medium">C</Btn>
+        <Btn onClick={handleClear} style={BTN.clr} hapticType="medium">C</Btn>
         <Btn onClick={handleBackspace} style={BTN.util}>⌫</Btn>
         <Btn onClick={() => handleOperation('÷')} style={opStyle('÷')}>÷</Btn>
-
-        {[7,8,9].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
         <Btn onClick={() => handleOperation('×')} style={opStyle('×')}>×</Btn>
 
-        {[4,5,6].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
+        {[7,8,9].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
         <Btn onClick={() => handleOperation('-')} style={opStyle('-')}>−</Btn>
 
-        {[1,2,3].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
+        {[4,5,6].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
         <Btn onClick={() => handleOperation('+')} style={opStyle('+')}>+</Btn>
 
-        <Btn onClick={() => handleDigit('0')} style={BTN.num}>0</Btn>
+        {[1,2,3].map(d => <Btn key={d} onClick={() => handleDigit(String(d))} style={BTN.num}>{d}</Btn>)}
+        <Btn onClick={handleEquals} style={BTN.eq} rowSpan={2} hapticType="heavy">=</Btn>
+
+        <Btn onClick={() => handleDigit('0')} style={BTN.num} colSpan={2}>0</Btn>
         <Btn onClick={handleDecimal} style={BTN.util}>.</Btn>
-        <Btn onClick={handleEquals} style={BTN.eq} colSpan={2} hapticType="heavy">=</Btn>
       </div>
     </div>
   )
