@@ -103,7 +103,7 @@ export default function ScientificCalculator() {
           <Btn style={BTN.pi}  onClick={() => insert('π')}>π</Btn>
           <Btn style={BTN.sci} onClick={() => insert('e')}>e</Btn>
           <Btn style={BTN.sci} onClick={() => insert(fmt(ans))}>Ans</Btn>
-          <Btn style={BTN.util} onClick={back}>⌫</Btn>
+          <Btn style={BTN.sci} onClick={() => insert('exp(')}>eˣ</Btn>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
