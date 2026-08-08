@@ -51,7 +51,7 @@ const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas']
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.17'
+const APP_VERSION = 'v3.18'
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -1029,6 +1029,12 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.18', date: 'Aug 2026',
+    entries: [
+      { type: 'fix', text: 'Duty Log sync endpoint now sends CORS headers for claudeborne.my — enables eLogbook\'s new Duty Log Link feature to read your synced entries' },
+    ],
+  },
   {
     version: 'v3.17', date: 'Aug 2026',
     entries: [

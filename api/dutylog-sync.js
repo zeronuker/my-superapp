@@ -20,6 +20,9 @@ import { rateLimited } from './_rateLimit.js'
 const CODE_RE = /^[A-Z0-9]{4,8}(-[A-Z0-9]{4,8}){1,3}$/
 const MAX_PAYLOAD_BYTES = 900_000 // Firestore doc limit is 1 MiB
 
+// Read-only cross-origin access for eLogbook's duty-log link feature.
+const CORS_ORIGINS = ['https://www.claudeborne.my', 'http://localhost:5173']
+
 function getDb() {
   if (!getApps().length) {
     const projectId = process.env.FIREBASE_PROJECT_ID
@@ -36,6 +39,14 @@ function getDb() {
 }
 
 export default async function handler(req, res) {
+  const origin = req.headers.origin
+  if (CORS_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  }
+  if (req.method === 'OPTIONS') return res.status(204).end()
+
   if (rateLimited(req, res, { limit: 20, windowMs: 60_000 })) return
 
   const code = String(req.query.code || '').toUpperCase()
