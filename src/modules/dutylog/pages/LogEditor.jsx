@@ -10,6 +10,7 @@ const secLabel = {
   fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase',
   color: 'var(--cp-muted)', margin: '16px 0 8px',
 }
+const sectorStripeColors = ['var(--cp-acc)', 'var(--cp-orange)', 'var(--cp-green)', '#f43f5e', 'var(--cp-yellow)']
 
 function Field({ label, value, onChange }) {
   return (
@@ -70,8 +71,9 @@ function Sector({ logId, sector, index, total, actions, onRemarks }) {
   const set = (patch) => actions.updateSector(logId, sector.id, patch)
   const f = (key) => (v) => set({ [key]: v })
   const hasRemark = (sector.remark || '').trim().length > 0
+  const stripeColor = sectorStripeColors[index % sectorStripeColors.length]
   return (
-    <div style={{ border: '1px solid var(--cp-border2)', borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
+    <div style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)',
           background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px' }}>
