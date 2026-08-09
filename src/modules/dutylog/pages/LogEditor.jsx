@@ -25,8 +25,9 @@ function Field({ label, value, onChange }) {
 function Aircraft({ logId, aircraft, index, total, actions }) {
   const set = (patch) => actions.updateAircraft(logId, aircraft.id, patch)
   const f = (key) => (v) => set({ [key]: v })
+  const stripeColor = sectorStripeColors[index % sectorStripeColors.length]
   return (
-    <div style={{ border: '1px solid var(--cp-border2)', borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
+    <div style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)',
           background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px' }}>
