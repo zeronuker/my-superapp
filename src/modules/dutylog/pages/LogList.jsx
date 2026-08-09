@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import QrScanner from '../components/QrScanner'
 import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
 import { CODE_RE } from '../services/sync'
+import { sectorStripeColors } from '../utils/sectorColors'
 
 // Saved duty logs — newest first. Tap to open, trash to delete, NEW to create.
 const mono = 'var(--cb-font-mono)'
@@ -103,31 +104,38 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
   const n = log.sectors.length
   return (
     <div onClick={() => onOpen(log.id)} style={{
-      background: 'var(--cp-bg2)', border: '1px solid var(--cp-border2)', borderRadius: 6,
-      padding: 11, marginBottom: 9, cursor: 'pointer', position: 'relative',
+      display: 'flex', background: 'var(--cp-bg2)', border: '1px solid var(--cp-border2)', borderRadius: 6,
+      marginBottom: 9, cursor: 'pointer', position: 'relative', overflow: 'hidden',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-        <span style={{ fontFamily: mono, fontSize: 12, color: 'var(--cp-txt)', letterSpacing: '0.06em' }}>
-          {log.date || 'UNDATED'}
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--cp-acc)' }}>{log.aircraft?.[0]?.reg || '—'}</span>
-          <button
-            onClick={(e) => { e.stopPropagation(); if (window.confirm('Delete this log? This cannot be undone.')) onDelete(log.id) }}
-            aria-label="delete log"
-            className="cp-btn"
-            style={{ padding: '2px 6px', color: 'var(--cp-red)', borderColor: 'var(--cp-border)' }}
-          >✕</button>
-        </span>
+      <div style={{ width: 3, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+        {Array.from({ length: n }).map((_, i) => (
+          <div key={i} style={{ flex: 1, background: sectorStripeColors[i % sectorStripeColors.length] }} />
+        ))}
       </div>
-      <div style={{ fontFamily: mono, fontSize: 11, color: 'var(--cp-muted)', letterSpacing: '0.08em' }}>
-        {routeOf(log)}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-        <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em' }}>
-          {n} SECTOR{n === 1 ? '' : 'S'} · {log.aircraft?.[0]?.type || '—'}
-        </span>
-        <SyncBadge log={log} syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy} />
+      <div style={{ flex: 1, minWidth: 0, padding: 11 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+          <span style={{ fontFamily: mono, fontSize: 12, color: 'var(--cp-txt)', letterSpacing: '0.06em' }}>
+            {log.date || 'UNDATED'}
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--cp-acc)' }}>{log.aircraft?.[0]?.reg || '—'}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); if (window.confirm('Delete this log? This cannot be undone.')) onDelete(log.id) }}
+              aria-label="delete log"
+              className="cp-btn"
+              style={{ padding: '2px 6px', color: 'var(--cp-red)', borderColor: 'var(--cp-border)' }}
+            >✕</button>
+          </span>
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 11, color: 'var(--cp-muted)', letterSpacing: '0.08em' }}>
+          {routeOf(log)}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+          <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em' }}>
+            {n} SECTOR{n === 1 ? '' : 'S'} · {log.aircraft?.[0]?.type || '—'}
+          </span>
+          <SyncBadge log={log} syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy} />
+        </div>
       </div>
     </div>
   )

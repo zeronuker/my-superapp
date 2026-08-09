@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { sectorStripeColors } from '../utils/sectorColors'
 
 const mono = 'var(--cb-font-mono)'
 
@@ -10,7 +11,6 @@ const secLabel = {
   fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase',
   color: 'var(--cp-muted)', margin: '16px 0 8px',
 }
-const sectorStripeColors = ['var(--cp-acc)', 'var(--cp-orange)', 'var(--cp-green)', '#f43f5e', 'var(--cp-yellow)']
 
 function Field({ label, value, onChange }) {
   return (
