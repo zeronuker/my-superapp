@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import QrScanner from '../components/QrScanner'
 import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
 import { CODE_RE } from '../services/sync'
-import { sectorStripeColors } from '../utils/sectorColors'
+import { logSegmentColors } from '../utils/sectorColors'
 
 // Saved duty logs — newest first. Tap to open, trash to delete, NEW to create.
 const mono = 'var(--cb-font-mono)'
@@ -109,7 +109,7 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
     }}>
       <div style={{ width: 3, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         {Array.from({ length: n }).map((_, i) => (
-          <div key={i} style={{ flex: 1, background: sectorStripeColors[i % sectorStripeColors.length] }} />
+          <div key={i} style={{ flex: 1, background: logSegmentColors[i % logSegmentColors.length] }} />
         ))}
       </div>
       <div style={{ flex: 1, minWidth: 0, padding: 11 }}>
