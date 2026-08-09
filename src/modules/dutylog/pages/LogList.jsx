@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import QrScanner from '../components/QrScanner'
 import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
 import { CODE_RE } from '../services/sync'
-import { logSegmentColors } from '../utils/sectorColors'
+import { sectorStripeColors, aircraftStripeColors, logSegmentColors } from '../utils/sectorColors'
 
 // Saved duty logs — newest first. Tap to open, trash to delete, NEW to create.
 const mono = 'var(--cb-font-mono)'
@@ -147,14 +147,21 @@ function ViewedLogRow({ log, onOpen }) {
   const n = log.sectors?.length || 0
   return (
     <div onClick={() => onOpen(log)} style={{
-      background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 4,
-      padding: '8px 10px', marginBottom: 7, cursor: 'pointer',
+      display: 'flex', background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 4,
+      marginBottom: 7, cursor: 'pointer', overflow: 'hidden',
     }}>
-      <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 500, color: 'var(--cp-txt)', letterSpacing: '0.06em' }}>
-        {log.date || 'UNDATED'}
+      <div style={{ width: 3, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+        {Array.from({ length: n }).map((_, i) => (
+          <div key={i} style={{ flex: 1, background: logSegmentColors[i % logSegmentColors.length] }} />
+        ))}
       </div>
-      <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', marginTop: 2, letterSpacing: '0.06em' }}>
-        {routeOf(log)} · {n} SECTOR{n === 1 ? '' : 'S'}
+      <div style={{ flex: 1, minWidth: 0, padding: '8px 10px' }}>
+        <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 500, color: 'var(--cp-txt)', letterSpacing: '0.06em' }}>
+          {log.date || 'UNDATED'}
+        </div>
+        <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', marginTop: 2, letterSpacing: '0.06em' }}>
+          {routeOf(log)} · {n} SECTOR{n === 1 ? '' : 'S'}
+        </div>
       </div>
     </div>
   )
@@ -181,8 +188,9 @@ function ReadOnlyField({ label, value, labelStyle }) {
 }
 
 function ViewedAircraft({ aircraft, index }) {
+  const stripeColor = aircraftStripeColors[index % aircraftStripeColors.length]
   return (
-    <div style={{ border: '1px solid var(--cp-border2)', borderRadius: 6, padding: 10, marginBottom: 9, background: 'var(--cp-bg2)' }}>
+    <div style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, marginBottom: 9, background: 'var(--cp-bg2)' }}>
       <div style={{ marginBottom: 8 }}>
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)',
           background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px' }}>
@@ -209,8 +217,9 @@ function ViewedAircraft({ aircraft, index }) {
 
 function ViewedSector({ sector, index }) {
   const hasRemark = (sector.remark || '').trim().length > 0
+  const stripeColor = sectorStripeColors[index % sectorStripeColors.length]
   return (
-    <div style={{ border: '1px solid var(--cp-border2)', borderRadius: 6, padding: 10, marginBottom: 9, background: 'var(--cp-bg2)' }}>
+    <div style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, marginBottom: 9, background: 'var(--cp-bg2)' }}>
       <div style={{ marginBottom: 8 }}>
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)',
           background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px' }}>
