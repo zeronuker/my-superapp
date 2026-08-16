@@ -14,10 +14,10 @@ export default defineConfig({
   json: { namedExports: false, stringify: true },
   resolve: {
     alias: {
-      '@brand/BrandBanner': resolve(__dirname, 'brand-kit/component/BrandBanner.jsx'),
-      '@brand/SplashScreen': resolve(__dirname, 'brand-kit/component/SplashScreen.jsx'),
-      '@brand/UpdatePrompt': resolve(__dirname, 'brand-kit/component/UpdatePrompt.jsx'),
-      '@brand/useUpdate': resolve(__dirname, 'brand-kit/component/useUpdate.js'),
+      '@brand/BrandBanner': resolve(import.meta.dirname, 'brand-kit/component/BrandBanner.jsx'),
+      '@brand/SplashScreen': resolve(import.meta.dirname, 'brand-kit/component/SplashScreen.jsx'),
+      '@brand/UpdatePrompt': resolve(import.meta.dirname, 'brand-kit/component/UpdatePrompt.jsx'),
+      '@brand/useUpdate': resolve(import.meta.dirname, 'brand-kit/component/useUpdate.js'),
     },
   },
   plugins: [

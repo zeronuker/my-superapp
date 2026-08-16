@@ -1,40 +1,33 @@
 # Security Notes
 
-## `npm audit` findings — accepted (dev-only)
+## Vite 5 → 8 migration — done (2026-08-16)
 
-Last reviewed: 2026-06-07
+Upgraded `vite` (5→8), `@vitejs/plugin-react` (4→6), `vitest` (2→4), and
+`vite-plugin-static-copy` (3→4) together; `vite-plugin-pwa` stayed at 1.3.0
+(already compatible with Vite 8). Fixed the resulting `__dirname` deprecation
+warning in `vite.config.js` (native config loader wants `import.meta.dirname`).
+Verified: all 298 tests pass, `npm run build` is clean, service worker still
+precaches correctly, dev server serves the app with no console errors.
 
-`npm audit` reports 5 vulnerabilities (4 moderate, 1 critical). **All are in the
-build/test toolchain and none ship to users.**
+This resolved the esbuild dev-server-leak advisory (GHSA-67mh-4wv8-2f99) that
+motivated the migration — `esbuild`/`vite`/`vitest` no longer appear in
+`npm audit` at all.
 
-The shipped production dependencies are only:
+## `npm audit` findings — accepted (dev-only / server-only)
+
+Last reviewed: 2026-08-16
+
+Remaining findings are unrelated to the Vite toolchain: transitive deps of
+`firebase-admin` (`uuid`, `gaxios`, `teeny-request`, `@google-cloud/storage` —
+used server-side only, in `api/dutylog-sync.js`, never in the client bundle)
+and `sharp` (used only by the brand-kit icon-generation scripts, dev-time).
+Run `npm audit` for the current list. None of these ship to the browser
+bundle — the shipped production client dependencies are still only:
 
 ```
 adhan, react, react-dom, zustand
 ```
 
-These have no outstanding advisories. The flagged packages are all
-dev-/build-time:
-
-| Package | Where | Advisory |
-|---------|-------|----------|
-| esbuild | transitive (via vite) | GHSA-67mh-4wv8-2f99 (dev-server request leak) |
-| vite | devDependency | depends on the above esbuild |
-| vitest / vite-node / @vitest/mocker | devDependency | depend on the above vite |
-
-### Why we are not "fixing" it
-
-- The critical esbuild advisory only affects the **local dev server**
-  (`npm run dev`) on a shared network — it cannot be reached in the deployed
-  Vercel build, which serves static assets only.
-- `npm audit fix` (non-breaking) clears none of them.
-- `npm audit fix --force` pulls **Vite 8** — a major upgrade from our Vite 5,
-  with breaking changes to config and the PWA plugin. Patching a dev-only issue
-  is not worth risking the production build.
-
-### If/when we revisit
-
-A Vite 5 → 6/7/8 migration should be done deliberately on its own branch:
-upgrade `vite`, `@vitejs/plugin-react`, `vite-plugin-pwa`, and `vitest`
-together, then verify `npm run build`, the generated service worker, and the
-offline experience before merging.
+Bumping `firebase-admin` or `sharp` are breaking-change upgrades
+(`npm audit fix --force` territory) and out of scope here — revisit
+separately if warranted.
