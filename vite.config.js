@@ -24,9 +24,9 @@ export default defineConfig({
     react(),
     viteStaticCopy({
       targets: [
-        { src: 'brand-kit/static/css/brand.css',  dest: 'brand' },
-        { src: 'brand-kit/static/logo/logo-mark.svg',       dest: 'brand' },
-        { src: 'brand-kit/static/logo/logo-mark-light.svg', dest: 'brand' },
+        { src: 'brand-kit/static/css/brand.css',  dest: 'brand', rename: { stripBase: true } },
+        { src: 'brand-kit/static/logo/logo-mark.svg',       dest: 'brand', rename: { stripBase: true } },
+        { src: 'brand-kit/static/logo/logo-mark-light.svg', dest: 'brand', rename: { stripBase: true } },
       ],
     }),
     VitePWA({
