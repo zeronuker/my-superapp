@@ -32,6 +32,21 @@ export default class ErrorBoundary extends React.Component {
       error,
       info?.componentStack,
     )
+
+    // Best-effort crash beacon so real users' crashes are visible in Vercel's
+    // logs. Must never throw or block — offline/network failure is silently
+    // swallowed (PWA has to degrade gracefully with no network).
+    fetch('/api/client-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tab: this.props.name ?? 'tab',
+        message: error?.message || String(error),
+        stack: error?.stack,
+        componentStack: info?.componentStack,
+        url: typeof location !== 'undefined' ? location.href : undefined,
+      }),
+    }).catch(() => {})
   }
 
   componentDidUpdate(prevProps) {
