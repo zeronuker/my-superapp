@@ -19,13 +19,20 @@ export default async function handler(req, res) {
 
   const hours = Math.min(Math.max(parseInt(hoursRaw, 10) || 3, 1), 48)
 
-  const url = `${BASE}/${type}?ids=${encodeURIComponent(idsUpper)}&format=json&hours=${hours}`
+  // The TAF endpoint doesn't accept `hours` (it always returns the current
+  // TAF) and 400s with a non-array error body if it's included — that error
+  // object was slipping through as a 200 response and crashing the client's
+  // .map() over what it assumed was an array of TAFs.
+  const hoursParam = type === 'metar' ? `&hours=${hours}` : ''
+  const url = `${BASE}/${type}?ids=${encodeURIComponent(idsUpper)}&format=json${hoursParam}`
 
   try {
     const upstream = await fetch(url, { signal: AbortSignal.timeout(8000) })
     const data = await upstream.json()
     res.setHeader('Cache-Control', 'no-store, no-cache')
-    res.status(200).json(data)
+    // Forward the upstream's real status instead of assuming 200 — the
+    // client relies on !r.ok to fall back to the backup weather source.
+    res.status(upstream.ok ? 200 : 502).json(data)
   } catch (e) {
     const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
     res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'Weather API timed out' : String(e) })
