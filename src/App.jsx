@@ -19,7 +19,6 @@ const CurrencyCalculator      = lazy(() => import('./components/CurrencyCalculat
 const METARTAFCalculator      = lazy(() => import('./components/METARTAFCalculator'))
 const NotamViewer             = lazy(() => import('./components/NotamViewer'))
 const SigmetViewer            = lazy(() => import('./components/SigmetViewer'))
-const TrafficViewer           = lazy(() => import('./components/TrafficViewer'))
 const FTLCalculator           = lazy(() => import('./components/FTLCalculator'))
 const WorldTimeCalculator     = lazy(() => import('./components/WorldTimeCalculator'))
 const PrayerModule            = lazy(() => import('./modules/prayer'))
@@ -39,7 +38,6 @@ export const CALCULATORS = [
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
   { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
   { id: 'sigmet',        icon: '⛈️',  name: 'SIGMET',         component: SigmetViewer },
-  { id: 'traffic',       icon: '🛰️', name: 'Traffic',        component: TrafficViewer },
   { id: 'ftl',           icon: '⏳',  name: 'FTL',            component: FTLCalculator },
   { id: 'dutylog',       icon: '🛫',  name: 'Duty Log',       component: DutyLogModule },
   { id: 'worldtime',     icon: '🌐',  name: 'World Time',     component: WorldTimeCalculator },
@@ -47,7 +45,7 @@ export const CALCULATORS = [
 ]
 
 // IDs that no longer exist — remap to 'calculator'
-const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas'])
+const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas', 'traffic'])
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 

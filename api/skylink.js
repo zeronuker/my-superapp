@@ -7,10 +7,7 @@
  *
  * GET /api/skylink?resource=<name>&...params
  *
- *   adsb                 — lat&lon&radius | icao24 | callsign   (live ADS-B positions; callsign
- *                           alone searches the whole global feed, no location needed)
  *   aircraft             — registration | icao24                (aircraft identity lookup)
- *   airlines             — icao | iata                          (airline name/IATA/ICAO/logo)
  *   aircraft-performance — icao_type                            (engine/speed/range/dimensions)
  *   metar                — icao                                 (raw METAR)
  *   taf                  — icao                                 (raw TAF)
@@ -22,36 +19,12 @@ import { rateLimited } from './_rateLimit.js'
 // Each builder returns { path, params, timeoutMs, cacheControl, notFoundIsNull? } or throws
 // an Error with a user-facing message for a missing/invalid param.
 const RESOURCES = {
-  adsb: ({ lat, lon, radius, icao24, callsign }) => {
-    if (!icao24 && !callsign && (!lat || !lon)) {
-      throw new Error('lat and lon (or icao24, or callsign) are required')
-    }
-    const params = {}
-    if (icao24) params.icao24 = icao24
-    if (callsign) params.callsign = callsign
-    if (lat && lon) {
-      params.lat = lat
-      params.lon = lon
-      // Our UI works in nautical miles; SkyLink's radius is kilometers.
-      if (radius) params.radius = Math.round(Number(radius) * 1.852)
-    }
-    return { path: '/adsb/aircraft', params, timeoutMs: 10_000, cacheControl: 'no-store, no-cache' }
-  },
-
   aircraft: ({ registration, icao24 }) => {
     if (!registration && !icao24) throw new Error('registration or icao24 query parameter is required')
     const path = registration
       ? `/aircraft/registration/${encodeURIComponent(registration.trim().toUpperCase())}`
       : `/aircraft/icao24/${encodeURIComponent(icao24.trim().toLowerCase())}`
     return { path, params: {}, timeoutMs: 8000, cacheControl: 'public, max-age=3600' }
-  },
-
-  airlines: ({ icao, iata }) => {
-    if (!icao && !iata) throw new Error('icao or iata query parameter is required')
-    const params = {}
-    if (icao) params.icao = icao.trim().toUpperCase()
-    if (iata) params.iata = iata.trim().toUpperCase()
-    return { path: '/airlines/search', params, timeoutMs: 8000, cacheControl: 'public, max-age=86400' }
   },
 
   'aircraft-performance': ({ icao_type }) => {
