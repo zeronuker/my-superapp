@@ -1,0 +1,8 @@
+<svg id="col-goaround" viewBox="0 0 64 64" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="30" cy="34" r="24" fill="#EF5350" fill-opacity="0.08"></circle>
+            <line x1="10" y1="46" x2="26" y2="46" stroke="white" stroke-width="2.5" stroke-linecap="round"></line>
+            <line x1="26" y1="46" x2="46" y2="16" stroke="white" stroke-width="2.5" stroke-linecap="round"></line>
+            <polygon points="46,16 45.45,24.04 38.79,19.60" fill="#EF5350"></polygon>
+            <circle cx="10" cy="46" r="4" fill="none" stroke="#EF5350" stroke-width="2"></circle>
+            <line x1="7" y1="49" x2="13" y2="43" stroke="#EF5350" stroke-width="2" stroke-linecap="round"></line>
+          </svg>

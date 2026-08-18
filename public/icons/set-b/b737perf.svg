@@ -1,0 +1,8 @@
+<svg id="col-b737perf" viewBox="0 0 64 64" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="30" cy="34" r="24" fill="#3B8DFF" fill-opacity="0.08"></circle>
+            <line x1="8" y1="52" x2="54" y2="52" stroke="#3B8DFF" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.4"></line>
+            <path d="M10,50 Q28,50 50,16" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"></path>
+            <circle cx="23.09" cy="45.84" r="2" fill="#3FE0C5"></circle>
+            <circle cx="37.16" cy="33.34" r="2" fill="#3FE0C5"></circle>
+            <circle cx="50" cy="16" r="3.5" fill="#3FE0C5"></circle>
+          </svg>

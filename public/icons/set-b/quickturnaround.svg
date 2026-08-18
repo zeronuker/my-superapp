@@ -1,0 +1,12 @@
+<svg id="col-quickturnaround" viewBox="0 0 64 64" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="32" cy="40" r="22" fill="#FFA726" fill-opacity="0.08"></circle>
+            <circle cx="32" cy="40" r="14" fill="none" stroke="white" stroke-width="2.5"></circle>
+            <circle cx="32" cy="40" r="3" fill="#FFA726"></circle>
+            <line x1="32" y1="40" x2="32" y2="26" stroke="white" stroke-width="2" stroke-linecap="round"></line>
+            <line x1="32" y1="40" x2="32" y2="54" stroke="white" stroke-width="2" stroke-linecap="round"></line>
+            <line x1="32" y1="40" x2="46" y2="40" stroke="white" stroke-width="2" stroke-linecap="round"></line>
+            <line x1="32" y1="40" x2="18" y2="40" stroke="white" stroke-width="2" stroke-linecap="round"></line>
+            <path d="M18,20 Q22,14 18,8" fill="none" stroke="#FFA726" stroke-width="2" stroke-linecap="round" opacity="0.75"></path>
+            <path d="M31,18 Q35,12 31,6" fill="none" stroke="#FFA726" stroke-width="2" stroke-linecap="round"></path>
+            <path d="M44,20 Q48,14 44,8" fill="none" stroke="#FFA726" stroke-width="2" stroke-linecap="round" opacity="0.75"></path>
+          </svg>

@@ -8,7 +8,7 @@ export const DEFAULT_SETTINGS = {
   numberFormat:   'en',       // 'en' (1,000.00) | 'eu' (1.000,00)
   defaultHistory: 3,
   autoRefresh:    true,
-  tabOrder:       ['calculator', 'interpolation', 'edto', 'currency', 'metartaf', 'notam', 'ftl', 'dutylog', 'worldtime', 'prayer'],
+  tabOrder:       ['calculator', 'interpolation', 'b737perf', 'currency', 'metartaf', 'notam', 'ftl', 'dutylog', 'worldtime', 'prayer'],
   navStyle:       'launcher', // 'launcher' | 'tabs' | 'grouped'
   tabPosition:    'top',      // 'top' | 'bottom'  (only used when navStyle === 'tabs')
   notamSort:      'relevance',// 'relevance' | 'category'  (NOTAM sort within a location)
@@ -66,6 +66,17 @@ export const useCalculatorStore = create((set) => ({
     isaDeviation: '', antiIce: 'none',
     longRangeCruiseAlt: null, kias310Alt: null,
   },
+  goAround: {
+    aircraft: 'b737-8', variant: 'leap-1b25', weight: '',
+    oat: '', pressureAltitude: '', speedOffset: '',
+    bleedConfig: 'packsOn', antiIce: 'none', icingConditions: false,
+    results: null,
+  },
+  quickTurnaround: {
+    aircraft: 'b737-8', brakeType: 'steel',
+    oat: '', pressureAltitude: '', slopePercent: '', windComponent: '', landingWeight: '',
+    results: null,
+  },
   normal:     { display: '0', previousValue: 0, operation: null, expression: '', clearNext: false },
   scientific: { display: '0', expression: '' },
   time: {
@@ -102,6 +113,13 @@ export const useCalculatorStore = create((set) => ({
   setEDTOIsaDeviation: (v)       => set(s => ({ edto: { ...s.edto, isaDeviation: v } })),
   setEDTOAntiIce:    (antiIce)   => set(s => ({ edto: { ...s.edto, antiIce } })),
   setEDTOResults:    (l, k)      => set(s => ({ edto: { ...s.edto, longRangeCruiseAlt: l, kias310Alt: k } })),
+  setGoAroundAircraft: (aircraft) => set(s => ({ goAround: { ...s.goAround, aircraft, variant: null } })),
+  setGoAroundVariant:  (variant)  => set(s => ({ goAround: { ...s.goAround, variant } })),
+  setGoAroundField:    (partial)  => set(s => ({ goAround: { ...s.goAround, ...partial } })),
+  setGoAroundResults:  (results)  => set(s => ({ goAround: { ...s.goAround, results } })),
+  setQuickTurnaroundAircraft: (aircraft) => set(s => ({ quickTurnaround: { ...s.quickTurnaround, aircraft } })),
+  setQuickTurnaroundField:    (partial)  => set(s => ({ quickTurnaround: { ...s.quickTurnaround, ...partial } })),
+  setQuickTurnaroundResults:  (results)  => set(s => ({ quickTurnaround: { ...s.quickTurnaround, results } })),
   setNormal:         (partial)   => set(s => ({ normal: { ...s.normal, ...partial } })),
   setScientificDisplay: (d)      => set(s => ({ scientific: { ...s.scientific, display: d } })),
   setScientific:     (partial)   => set(s => ({ scientific: { ...s.scientific, ...partial } })),

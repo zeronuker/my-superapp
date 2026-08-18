@@ -14,7 +14,7 @@ import { TabIcon, ICON_SETS } from './components/TabIcon'
 // vite-plugin-pwa precaches every emitted chunk, so offline still works.
 const CombinedCalculator      = lazy(() => import('./components/CombinedCalculator'))
 const InterpolationCalculator = lazy(() => import('./components/InterpolationCalculator'))
-const EDTOCalculator          = lazy(() => import('./components/EDTOCalculator'))
+const B737Performance         = lazy(() => import('./components/B737Performance'))
 const CurrencyCalculator      = lazy(() => import('./components/CurrencyCalculator'))
 const METARTAFCalculator      = lazy(() => import('./components/METARTAFCalculator'))
 const NotamViewer             = lazy(() => import('./components/NotamViewer'))
@@ -33,7 +33,7 @@ const PrayerBackgroundSync = lazy(() => import('./modules/prayer/PrayerBackgroun
 export const CALCULATORS = [
   { id: 'calculator',    icon: '🧮',  name: 'Calculator',     component: CombinedCalculator },
   { id: 'interpolation', icon: '📐',  name: 'Interpolation',  component: InterpolationCalculator },
-  { id: 'edto',          icon: '✈️', name: 'EDTO',           component: EDTOCalculator },
+  { id: 'b737perf',      icon: '✈️', name: 'B737 Performance', component: B737Performance },
   { id: 'currency',      icon: '💱',  name: 'Currency',       component: CurrencyCalculator },
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
   { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
@@ -44,12 +44,16 @@ export const CALCULATORS = [
   { id: 'prayer',        icon: '🕌',  name: 'Qiblat & Solat', component: PrayerModule },
 ]
 
-// IDs that no longer exist — remap to 'calculator'
-const LEGACY_IDS = new Set(['normal', 'scientific', 'time', 'densityalt', 'tas', 'traffic'])
+// IDs that no longer exist — remap to whichever current tab replaced them
+const LEGACY_ID_MAP = {
+  normal: 'calculator', scientific: 'calculator', time: 'calculator',
+  densityalt: 'calculator', tas: 'calculator', traffic: 'calculator',
+  edto: 'b737perf',
+}
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.18'
+const APP_VERSION = 'v3.19'
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -179,8 +183,8 @@ export default function App() {
 
   // ── Migrate legacy tab IDs + choose the initial view ──────────────────
   React.useEffect(() => {
-    if (LEGACY_IDS.has(activeCalculator)) setActiveCalculator('calculator')
-    if (LEGACY_IDS.has(settings.defaultTab)) handleSettingsUpdate({ defaultTab: 'calculator' })
+    if (LEGACY_ID_MAP[activeCalculator]) setActiveCalculator(LEGACY_ID_MAP[activeCalculator])
+    if (LEGACY_ID_MAP[settings.defaultTab]) handleSettingsUpdate({ defaultTab: LEGACY_ID_MAP[settings.defaultTab] })
     const remembered = settings.rememberLastTab
       ? (() => { try {
           const last = localStorage.getItem('cb-lasttab')
@@ -1027,6 +1031,15 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 
 // ── Changelog ───────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  {
+    version: 'v3.19', date: 'Aug 2026',
+    entries: [
+      { type: 'feat', text: 'New B737 PERFORMANCE tab — combines EDTO and two new calculators as sub-modes in one tab. EDTO is no longer a separate top-level tab' },
+      { type: 'feat', text: 'Go-Around Climb Gradient (ENG INOP) — single-engine go-around climb gradient for Flaps 15/Gear Up, covering NG (CFM56-7B24, CFM56-7B26 FAA/JAA) and MAX (LEAP-1B25, LEAP-1B27). Full report: reference/weight-adjusted/speed-adjusted gradient plus packs-off/anti-ice/icing corrections, digitized from the FCOM Performance Dispatch pages. Speed is a VREF40+X dropdown matching the table\'s own published values; fields ordered OAT → Pressure Altitude → Weight → Speed to match the calc sequence' },
+      { type: 'feat', text: 'Quick Turnaround Limit Weight — landing-weight limit for a quick turnaround (Flaps 40), covering NG Category C/Steel and Category N/Carbon brakes plus MAX (single table, no brake-type split). Adjusts for runway slope and wind component (asymmetric rates — favorable vs unfavorable direction), then gives a WITHIN LIMIT / EXCEEDS LIMIT verdict against your actual landing weight, with the manual\'s wait-time/brake-temperature/BTMS guidance shown when exceeded. Fields ordered Landing Weight → OAT → Pressure Altitude → Slope → Wind' },
+      { type: 'feat', text: 'New icons for B737 Performance and its three sub-tabs (EDTO, Go-Around, Quick Turnaround), in both mono and color icon sets' },
+    ],
+  },
   {
     version: 'v3.18', date: 'Aug 2026',
     entries: [
