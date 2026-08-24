@@ -105,6 +105,13 @@ export default function InterpolationCalculator() {
     colBg: ci => isColActive(ci) ? 'rgba(79,195,247,0.05)' : 'transparent',
     rowBg: ri => isRowActive(ri) ? 'var(--cp-hover)' : 'var(--cp-bg2)',
     cellText: (ri, ci) => (isRowActive(ri) || isColActive(ci)) ? 'var(--cp-acc)' : 'var(--cp-txt)',
+    // Visible box for every editable cell — otherwise a borderless/transparent
+    // input is indistinguishable from static table chrome until clicked.
+    cellInputBox: active => ({
+      background: 'var(--cp-bginput)',
+      border: `1px solid ${active ? 'var(--cp-acc)' : 'var(--cp-border)'}`,
+      borderRadius: 3,
+    }),
   }
 
   const hasEnoughData = rows.filter(r => r.x !== '').length >= 2 && zValues.filter(z => z !== '').length >= 1
@@ -231,11 +238,12 @@ export default function InterpolationCalculator() {
                         type="number"
                         value={z}
                         onChange={e => updateZ(ci, e.target.value)}
-                        placeholder="Col val"
+                        placeholder="Column Header Value"
                         style={{
-                          background: 'transparent', border: 'none', color: isColActive(ci) ? 'var(--cp-acc)' : 'var(--cp-dim)',
+                          ...S.cellInputBox(isColActive(ci)),
+                          color: isColActive(ci) ? 'var(--cp-acc)' : 'var(--cp-dim)',
                           fontFamily: "var(--cb-font-mono)", fontSize: 11, textAlign: 'center',
-                          width: '100%', outline: 'none', letterSpacing: '0.1em',
+                          width: '100%', outline: 'none', letterSpacing: '0.1em', padding: '4px 2px',
                         }}
                       />
                       {zValues.length > 1 && (
@@ -255,13 +263,13 @@ export default function InterpolationCalculator() {
                 <tr key={ri} style={{ background: S.rowBg(ri), borderBottom: '1px solid var(--cp-border3)' }}>
                   <td style={{ textAlign: 'center', color: 'var(--cp-dim)', fontSize: 11, padding: '0 6px' }}>{ri + 1}</td>
                   <td>
-                    <input type="number" value={row.x} onChange={e => updateX(ri, e.target.value)} placeholder="row value"
-                      style={{ background: 'transparent', border: 'none', color: S.cellText(ri, -1), fontFamily: "var(--cb-font-mono)", fontSize: 13, textAlign: 'center', width: '100%', padding: '8px 4px', outline: 'none' }} />
+                    <input type="number" value={row.x} onChange={e => updateX(ri, e.target.value)} placeholder="Row Header Value"
+                      style={{ ...S.cellInputBox(isRowActive(ri)), color: S.cellText(ri, -1), fontFamily: "var(--cb-font-mono)", fontSize: 13, textAlign: 'center', width: '100%', padding: '6px 4px', outline: 'none' }} />
                   </td>
                   {zValues.map((_, ci) => (
                     <td key={ci} style={{ borderLeft: S.colBorder(ci), background: S.colBg(ci) }}>
-                      <input type="number" value={row.ys[ci] ?? ''} onChange={e => updateCell(ri, ci, e.target.value)} placeholder="y"
-                        style={{ background: 'transparent', border: 'none', color: S.cellText(ri, ci), fontFamily: "var(--cb-font-mono)", fontSize: 13, textAlign: 'center', width: '100%', padding: '8px 4px', outline: 'none' }} />
+                      <input type="number" value={row.ys[ci] ?? ''} onChange={e => updateCell(ri, ci, e.target.value)} placeholder="Cell Value"
+                        style={{ ...S.cellInputBox(isRowActive(ri) || isColActive(ci)), color: S.cellText(ri, ci), fontFamily: "var(--cb-font-mono)", fontSize: 13, textAlign: 'center', width: '100%', padding: '6px 4px', outline: 'none' }} />
                     </td>
                   ))}
                   <td style={{ textAlign: 'center' }}>
