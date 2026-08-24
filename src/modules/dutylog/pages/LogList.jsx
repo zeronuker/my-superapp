@@ -415,6 +415,7 @@ export default function LogList({
   syncCode, lastSyncedAt, onSyncNow, syncBusy, syncError,
   syncPromptId, onDismissSyncPrompt, onOpenSettings,
   onView, onImport,
+  viewCodeHistory, onAddViewCode, onRemoveViewCode,
 }) {
   const [expanded, setExpanded] = useState(() => new Set())
   const toggle = (key) => setExpanded(prev => {
@@ -423,7 +424,7 @@ export default function LogList({
     return next
   })
 
-  const [viewInput, setViewInput] = useState('')
+  const [viewInput, setViewInput] = useState(() => viewCodeHistory[0] ?? '')
   const [viewBusy, setViewBusy] = useState(false)
   const [pendingCode, setPendingCode] = useState('')
   const [viewError, setViewError] = useState('')
@@ -451,6 +452,7 @@ export default function LogList({
       setViewedLogs(result)
       setViewedCode(code)
       setConfirmImport(false)
+      onAddViewCode(code)
     } catch (e) {
       setViewError(e.message)
     } finally {
@@ -613,6 +615,33 @@ export default function LogList({
           {viewBusy ? '…' : 'VIEW'}
         </button>
       </div>
+
+      {viewCodeHistory.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          {viewCodeHistory.map((code) => (
+            <span
+              key={code}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                fontFamily: mono, fontSize: 9, letterSpacing: '0.06em', color: 'var(--cp-txt)',
+                background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 4,
+                padding: '4px 4px 4px 8px',
+              }}
+            >
+              <button
+                onClick={() => { setViewInput(code); runView(code) }}
+                disabled={viewBusy}
+                style={{ background: 'none', border: 'none', color: 'inherit', fontFamily: 'inherit', fontSize: 'inherit', letterSpacing: 'inherit', cursor: 'pointer', padding: 0 }}
+              >{code}</button>
+              <button
+                onClick={() => onRemoveViewCode(code)}
+                aria-label={`remove ${code}`}
+                style={{ background: 'none', border: 'none', color: 'var(--cp-dim)', cursor: 'pointer', padding: '0 2px', fontSize: 11, lineHeight: 1 }}
+              >×</button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {viewError && (
         <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>

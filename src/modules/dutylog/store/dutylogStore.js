@@ -48,12 +48,19 @@ const useDutyLogStore = create(persist(
     syncCode: null,
     lastSyncedAt: null,
     deviceId: null,
+    viewCodeHistory: [],
 
     setEditingId: (id) => set({ editingId: id }),
 
     clearAll: () => set({ logs: [], editingId: null }),
 
     markSynced: (code) => set({ syncCode: code, lastSyncedAt: Date.now() }),
+
+    addViewCode: (code) =>
+      set((s) => ({ viewCodeHistory: [code, ...s.viewCodeHistory.filter(c => c !== code)].slice(0, 5) })),
+
+    removeViewCode: (code) =>
+      set((s) => ({ viewCodeHistory: s.viewCodeHistory.filter(c => c !== code) })),
 
     replaceLogs: (logs) => set({ logs }),
 
@@ -129,9 +136,12 @@ const useDutyLogStore = create(persist(
   }),
   {
     name: 'dutylog-module-store',
-    version: 2,
+    version: 3,
     migrate: (state, version) => {
       let s = state
+      if (version < 3) {
+        s = { ...s, viewCodeHistory: s.viewCodeHistory ?? [] }
+      }
       if (version === 0) {
         s = {
           ...s,

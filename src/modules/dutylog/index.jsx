@@ -16,6 +16,7 @@ export default function DutyLogModule({ onOpenSettings }) {
     addSector, removeSector, updateSector,
     addCrew, updateCrew, removeCrew,
     syncCode, lastSyncedAt, markSynced, replaceLogs, ensureDeviceId,
+    viewCodeHistory, addViewCode, removeViewCode,
   } = useDutyLogStore()
 
   const editing = logs.find(l => l.id === editingId)
@@ -103,6 +104,9 @@ export default function DutyLogModule({ onOpenSettings }) {
           onOpenSettings={onOpenSettings}
           onView={viewLogs}
           onImport={handleImport}
+          viewCodeHistory={viewCodeHistory}
+          onAddViewCode={addViewCode}
+          onRemoveViewCode={removeViewCode}
         />
       )}
     </div>
