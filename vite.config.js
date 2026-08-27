@@ -18,6 +18,7 @@ export default defineConfig({
       '@brand/SplashScreen': resolve(import.meta.dirname, 'brand-kit/component/SplashScreen.jsx'),
       '@brand/UpdatePrompt': resolve(import.meta.dirname, 'brand-kit/component/UpdatePrompt.jsx'),
       '@brand/useUpdate': resolve(import.meta.dirname, 'brand-kit/component/useUpdate.js'),
+      '@brand/Changelog': resolve(import.meta.dirname, 'brand-kit/component/Changelog.jsx'),
     },
   },
   plugins: [

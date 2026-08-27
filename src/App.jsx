@@ -10,6 +10,7 @@ import UpdatePrompt from '@brand/UpdatePrompt'
 import { useUpdate } from '@brand/useUpdate'
 import { TabIcon, ICON_SETS } from './components/TabIcon'
 import { CHANGELOG } from './changelog'
+import Changelog, { currentVersion } from '@brand/Changelog'
 
 // Each tab is code-split into its own chunk, loaded on demand when first opened.
 // vite-plugin-pwa precaches every emitted chunk, so offline still works.
@@ -56,7 +57,7 @@ const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
 // Single source of truth: the displayed version is always the newest
 // changelog entry, so it can never drift out of sync with the changelog.
-const APP_VERSION = CHANGELOG[CHANGELOG.length - 1].v
+const APP_VERSION = currentVersion(CHANGELOG)
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -929,7 +930,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
           </SettingsSection>
 
           <SettingsSection title="CHANGELOG">
-            <Changelog />
+            <Changelog changelog={CHANGELOG} />
           </SettingsSection>
           <div style={{
             textAlign: 'center', fontFamily: 'var(--cb-font-mono)',
@@ -1032,60 +1033,6 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
   )
 }
 
-// ── Changelog ───────────────────────────────────────────────────────────────
-// Render a changelog note: pull a leading NEW/IMP/FIX/DEP tag into a styled badge.
-function renderChangelogNote(n) {
-  const m = /^(NEW|IMP|FIX|DEP):\s*/.exec(n)
-  if (!m) return n
-  return (
-    <>
-      <span className={`sm-cl-tag sm-cl-tag-${m[1]}`}>{m[1]}</span>
-      {n.slice(m[0].length)}
-    </>
-  )
-}
-
-function Changelog() {
-  const [showHistory, setShowHistory] = React.useState(false)
-  const currentEntry = CHANGELOG.find(e => e.current) || CHANGELOG[CHANGELOG.length - 1]
-  const pastEntries = CHANGELOG.filter(e => e !== currentEntry).slice().reverse()
-
-  return (
-    <div className="sm-changelog">
-      <article className="sm-cl-entry current">
-        <div className="sm-cl-head">
-          <span className="sm-cl-v">{currentEntry.v}</span>
-          <span className="sm-cl-date">{currentEntry.date}</span>
-          <span className="sm-cl-now">// you are here</span>
-        </div>
-        <h4 className="sm-cl-title">{currentEntry.title}</h4>
-        <ul className="sm-cl-notes">
-          {currentEntry.notes.map((n, i) => <li key={i}>{renderChangelogNote(n)}</li>)}
-        </ul>
-      </article>
-
-      {pastEntries.length > 0 && (
-        <button className="sm-cl-history-toggle" onClick={() => setShowHistory(v => !v)}>
-          <span>{showHistory ? '▲' : '▼'}</span>
-          <span>{showHistory ? 'Hide' : 'Show'} previous versions ({pastEntries.length})</span>
-        </button>
-      )}
-
-      {showHistory && pastEntries.map(e => (
-        <article key={e.v} className="sm-cl-entry">
-          <div className="sm-cl-head">
-            <span className="sm-cl-v">{e.v}</span>
-            <span className="sm-cl-date">{e.date}</span>
-          </div>
-          <h4 className="sm-cl-title">{e.title}</h4>
-          <ul className="sm-cl-notes">
-            {e.notes.map((n, i) => <li key={i}>{renderChangelogNote(n)}</li>)}
-          </ul>
-        </article>
-      ))}
-    </div>
-  )
-}
 
 
 // ── Update checker ──────────────────────────────────────────────────────────
