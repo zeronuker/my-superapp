@@ -1,10 +1,12 @@
-// One entry per release. Historic pre-v3.5 releases are summarized in
-// batches (v3.0, v2.x) rather than reconstructed release-by-release; every
-// release from v3.5 onward is one entry per shipped version. Oldest first
+// Version labels follow Eledger's scheme: first entry is v1.0, each
+// subsequent entry is +0.1, up to a max of x.10 — the entry after any x.10
+// rolls to (x+1).0. One entry per release (not per commit — a release here
+// can bundle several commits; historic pre-2026 releases are summarized in
+// batches rather than reconstructed release-by-release). Oldest first
 // below (rendered newest-first in the UI).
 export const CHANGELOG = [
   {
-    v: "v2.x", date: "2024–2025",
+    v: "v1.0", date: "2024–2025",
     title: "Early flight, prayer, and NOTAM features",
     notes: [
       "NEW: METAR/TAF flight category + wind severity colour coding",
@@ -20,7 +22,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.0", date: "2025",
+    v: "v1.1", date: "2025",
     title: "Scientific calculator and NOTAM revamp",
     notes: [
       "NEW: Scientific calculator — expression engine + unit converter",
@@ -33,7 +35,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.5", date: "Jun 2026",
+    v: "v1.2", date: "Jun 2026",
     title: "NOTAM persistence and prayer fixes",
     notes: [
       "FIX: NOTAM inputs & results persist to localStorage for offline viewing",
@@ -43,7 +45,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.6", date: "Jun 2026",
+    v: "v1.3", date: "Jun 2026",
     title: "Settings reorganized, Duty Log module added",
     notes: [
       "NEW: Settings reorganised into Appearance / Navigation / Tools / Prayer / About",
@@ -59,7 +61,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.7", date: "Jun 2026",
+    v: "v1.4", date: "Jun 2026",
     title: "Offline reliability and fix pass",
     notes: [
       "NEW: Currency: all pairs available offline — rates cached on first use, auto-refreshed on open",
@@ -85,7 +87,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.8", date: "Jun 2026",
+    v: "v1.5", date: "Jun 2026",
     title: "5-day prayer times and timezone-aware clock mode",
     notes: [
       "NEW: Prayer: 5-day prayer times — day selector strip shows today + 4 days, computed offline instantly",
@@ -100,7 +102,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.9", date: "Jun 2026",
+    v: "v1.6", date: "Jun 2026",
     title: "Flight prayer timeline",
     notes: [
       "FIX: Flight: clock-mode local-time elapsed calc anchored to the wrong calendar date, could show 100% complete shortly after a UTC+8 morning departure",
@@ -111,7 +113,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.10", date: "Jun 2026",
+    v: "v1.7", date: "Jun 2026",
     title: "Per-module reset buttons and Duty Log grouping",
     notes: [
       "FIX: Header banner color now updates correctly in light mode",
@@ -127,7 +129,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.11", date: "Jun 2026",
+    v: "v1.8", date: "Jun 2026",
     title: "Duty Log backup and sync",
     notes: [
       "NEW: Duty Log: Backup & Sync — back up your logs to the cloud and restore them on another device using a short anonymous code (no account required)",
@@ -137,7 +139,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.12", date: "Jun 2026",
+    v: "v1.9", date: "Jun 2026",
     title: "Duty Log backup and sync redesign",
     notes: [
       "NEW: Duty Log: Backup & Sync redesign — each device claims ownership of a sync code; only the owner can push, and restoring/importing transfers ownership to the new device",
@@ -147,14 +149,14 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.13", date: "Jun 2026",
+    v: "v1.10", date: "Jun 2026",
     title: "Animated launch splash",
     notes: [
       "NEW: Animated splash screen on launch — the C mark fades in, the chamfered double-line frame draws on around it, then the CLAUDEBORNE wordmark fades in, before settling into the app",
     ],
   },
   {
-    v: "v3.14", date: "Jun 2026",
+    v: "v2.0", date: "Jun 2026",
     title: "FTL Calculator: CAD 1901 compliance audit",
     notes: [
       "FIX: FTL: standby Max FDP now correctly compares the standby-start time band against the report-time band and uses whichever is more limiting (Ch. 2.9.1) — was previously ignoring the standby-start band entirely",
@@ -170,7 +172,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.15", date: "Jul 2026",
+    v: "v2.1", date: "Jul 2026",
     title: "Traffic, Flight Schedules and SIGMET tabs",
     notes: [
       "NEW: New Traffic tab — live ADS-B aircraft tracking via SkyLink, radar map, center picker (ICAO/GPS/POPULAR), 250/500NM range, multi-callsign/registration/flight# search, Show/Hide Fields with select-all, greys out and auto-resumes with connectivity",
@@ -193,7 +195,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.16", date: "Jul 2026",
+    v: "v2.2", date: "Jul 2026",
     title: "Traffic tab rebuilt as flight-status lookup",
     notes: [
       "NEW: Traffic tab rebuilt as a lean flight-status lookup — search a callsign or flight number, see status/route/sched vs actual-or-estimated arrival/delay/arrival terminal/gate. Dropped the ADS-B radar plot, GPS/ICAO center + range picker, and aircraft-spec lookup (manufacturer/wingspan/MTOW/engine/cruise speed/airline logo) — none of it served the tab's actual job",
@@ -207,7 +209,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.17", date: "Aug 2026",
+    v: "v2.3", date: "Aug 2026",
     title: "Calculator, Converter and SIGMET polish",
     notes: [
       "NEW: Calculator: Basic/Scientific/Time/Convert rebuilt to fill available screen space using CSS flexbox/grid instead of a JS viewport-measuring scale — removes empty margins in both portrait and landscape, and can no longer overflow into a scrollbar the way the JS approach occasionally did",
@@ -221,14 +223,14 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.18", date: "Aug 2026",
+    v: "v2.4", date: "Aug 2026",
     title: "Duty Log CORS fix",
     notes: [
       "FIX: Duty Log sync endpoint now sends CORS headers for claudeborne.my — enables eLogbook's new Duty Log Link feature to read your synced entries",
     ],
   },
   {
-    v: "v3.19", date: "Aug 2026", current: true,
+    v: "v2.5", date: "Aug 2026", current: true,
     title: "B737 Performance tab",
     notes: [
       "NEW: New B737 PERFORMANCE tab — combines EDTO and two new calculators as sub-modes in one tab. EDTO is no longer a separate top-level tab",
