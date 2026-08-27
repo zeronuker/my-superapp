@@ -9,6 +9,7 @@ import SplashScreen from '@brand/SplashScreen'
 import UpdatePrompt from '@brand/UpdatePrompt'
 import { useUpdate } from '@brand/useUpdate'
 import { TabIcon, ICON_SETS } from './components/TabIcon'
+import { CHANGELOG } from './changelog'
 
 // Each tab is code-split into its own chunk, loaded on demand when first opened.
 // vite-plugin-pwa precaches every emitted chunk, so offline still works.
@@ -53,7 +54,9 @@ const LEGACY_ID_MAP = {
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
 
-const APP_VERSION = 'v3.19'
+// Single source of truth: the displayed version is always the newest
+// changelog entry, so it can never drift out of sync with the changelog.
+const APP_VERSION = CHANGELOG[CHANGELOG.length - 1].v
 
 // Matches elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) — same ids, same hex values.
 const ACCENT_SWATCHES = [
@@ -1030,278 +1033,60 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
 }
 
 // ── Changelog ───────────────────────────────────────────────────────────────
-const CHANGELOG = [
-  {
-    version: 'v3.19', date: 'Aug 2026',
-    entries: [
-      { type: 'feat', text: 'New B737 PERFORMANCE tab — combines EDTO and two new calculators as sub-modes in one tab. EDTO is no longer a separate top-level tab' },
-      { type: 'feat', text: 'Go-Around Climb Gradient (ENG INOP) — single-engine go-around climb gradient for Flaps 15/Gear Up, covering NG (CFM56-7B24, CFM56-7B26 FAA/JAA) and MAX (LEAP-1B25, LEAP-1B27). Full report: reference/weight-adjusted/speed-adjusted gradient plus packs-off/anti-ice/icing corrections, digitized from the FCOM Performance Dispatch pages. Speed is a VREF40+X dropdown matching the table\'s own published values; fields ordered OAT → Pressure Altitude → Weight → Speed to match the calc sequence' },
-      { type: 'feat', text: 'Quick Turnaround Limit Weight — landing-weight limit for a quick turnaround (Flaps 40), covering NG Category C/Steel and Category N/Carbon brakes plus MAX (single table, no brake-type split). Adjusts for runway slope and wind component (asymmetric rates — favorable vs unfavorable direction), then gives a WITHIN LIMIT / EXCEEDS LIMIT verdict against your actual landing weight, with the manual\'s wait-time/brake-temperature/BTMS guidance shown when exceeded. Fields ordered Landing Weight → OAT → Pressure Altitude → Slope → Wind' },
-      { type: 'feat', text: 'New icons for B737 Performance and its three sub-tabs (EDTO, Go-Around, Quick Turnaround), in both mono and color icon sets' },
-    ],
-  },
-  {
-    version: 'v3.18', date: 'Aug 2026',
-    entries: [
-      { type: 'fix', text: 'Duty Log sync endpoint now sends CORS headers for claudeborne.my — enables eLogbook\'s new Duty Log Link feature to read your synced entries' },
-    ],
-  },
-  {
-    version: 'v3.17', date: 'Aug 2026',
-    entries: [
-      { type: 'feat', text: 'Calculator: Basic/Scientific/Time/Convert rebuilt to fill available screen space using CSS flexbox/grid instead of a JS viewport-measuring scale — removes empty margins in both portrait and landscape, and can no longer overflow into a scrollbar the way the JS approach occasionally did' },
-      { type: 'feat', text: 'Calculator: Basic/Time equals moved from a full-width bottom bar to a corner button spanning the last two rows, freeing a row for a bigger display; Scientific\'s function keys now sit in their own left-hand column instead of stacking above the numpad' },
-      { type: 'feat', text: 'Calculator: numpad rearranged to match a physical numpad\'s layout — operators sit one per digit row, equals spans the bottom two rows next to 1-2-3 and 0/.' },
-      { type: 'feat', text: 'Calculator: digit, equals, backspace, decimal, and clear buttons are now all the same 26px size — backspace/decimal/clear used to be visibly smaller than the rest' },
-      { type: 'feat', text: 'Converter: FROM/TO cards now sit side by side instead of stacked, with the swap button between them' },
-      { type: 'fix',  text: 'Settings icon resized to a fixed 32×32px box (16px glyph) on desktop, 42×42px (16px glyph) on mobile — was a single inconsistent size at all widths' },
-      { type: 'feat', text: 'Removed the header search tool (icon + search-everything overlay) — unused' },
-      { type: 'feat', text: 'SIGMET: added Destination Alternates and Enroute Alternates fields plus a Copy from METAR/TAF button; auto-detect FIRs now scans all of them — matches NOTAM\'s route entry' },
-    ],
-  },
-  {
-    version: 'v3.16', date: 'Jul 2026',
-    entries: [
-      { type: 'feat', text: 'Traffic tab rebuilt as a lean flight-status lookup — search a callsign or flight number, see status/route/sched vs actual-or-estimated arrival/delay/arrival terminal/gate. Dropped the ADS-B radar plot, GPS/ICAO center + range picker, and aircraft-spec lookup (manufacturer/wingspan/MTOW/engine/cruise speed/airline logo) — none of it served the tab\'s actual job' },
-      { type: 'feat', text: 'Traffic: View settings panel (default lean, View all toggle) with sectioned Live position/Departure/Arrival detail cards, an airline logo field (via SkyLink, since AeroDataBox\'s flight data has none), and a SkyLink ADS-B cross-check for live position when AeroDataBox has none' },
-      { type: 'feat', text: 'Traffic: every departure/arrival airport now defaults to showing scheduled + actual departure, scheduled + actual-or-estimated arrival, both legs\' terminal/gate, and arrival delay — the ten data points this tab now guarantees by default' },
-      { type: 'feat', text: 'Traffic: status now cross-checks the provider\'s label against the flight\'s own timestamps and overrides it only on a direct contradiction (e.g. "Arrived" while the arrival time is still hours away) — fixes a real case where a still-airborne flight showed as landed' },
-      { type: 'feat', text: 'Traffic: every displayed time now shows its UTC offset (e.g. "12:15 +05:30") alongside the departure/arrival airport it belongs to, so departure- and arrival-local times are never mistaken for the same clock' },
-      { type: 'feat', text: 'Removed the Flight Schedules tab — airport-board browsing is retired; Traffic\'s flight-number search is now the only way to check a flight, with a fuller default detail card taking over what Schedules\' terminal/gate popup used to show' },
-      { type: 'feat', text: 'Traffic: search now also accepts an aircraft registration (e.g. 9M-MXA), not just a flight number — tries flight number first, falls back to registration on a miss. A registration matching multiple sectors flown that day shows a picker with the most relevant leg pre-selected and marked LIVE only when its departure is actually confirmed, not just scheduled; tap Confirm to load it' },
-      { type: 'fix',  text: 'Traffic: search box no longer shows two redundant instructions (placeholder + idle-state text) — placeholder now reads "Flight number or registration" instead of the confusing "callsign or flight number" pairing' },
-    ],
-  },
-  {
-    version: 'v3.15', date: 'Jul 2026',
-    entries: [
-      { type: 'feat', text: 'New Traffic tab — live ADS-B aircraft tracking via SkyLink, radar map, center picker (ICAO/GPS/POPULAR), 250/500NM range, multi-callsign/registration/flight# search, Show/Hide Fields with select-all, greys out and auto-resumes with connectivity' },
-      { type: 'feat', text: 'Traffic: Aircraft Lookup card now shows operator, country, engine type, wake category, cruise speed, range, MTOW, service ceiling, wingspan, length, and an airline logo' },
-      { type: 'feat', text: 'Added Flight Schedules tab — SkyLink arrivals/departures board per airport with date/time-range filtering, pagination, and terminal/gate/status lookup' },
-      { type: 'feat', text: 'Added SIGMET tab (aviationweather.gov international feed, reuses NOTAM\'s FIR/route detection)' },
-      { type: 'feat', text: 'METAR/TAF and NOTAM now alternate between SkyLink and the existing sources (aviationweather.gov / autorouter.aero) by UTC even/odd day, with silent fallback and a source chip showing what was actually used' },
-      { type: 'feat', text: 'METAR/TAF: each role card gets a collapsed RUNWAYS section — headwind/crosswind/tailwind for every runway against that card\'s own latest wind' },
-      { type: 'fix',  text: 'Runways panel no longer gets stuck on a stale airport or stuck in an error state after an abort mid-fetch' },
-      { type: 'fix',  text: 'Sched Dep/Arr times showing blank — AeroDataBox separates date/time with a space, not "T" as documented' },
-      { type: 'feat', text: 'Calculator: Basic/Scientific/Time now dynamically scale to always fit the viewport without scrolling, growing to fill tablet screens instead of just shrinking' },
-      { type: 'feat', text: 'Calculator: unit converter revamped — bidirectional FROM/TO inputs, tappable unit chips with category icons, replacing dropdowns' },
-      { type: 'fix',  text: 'Time calculator expression history was clearing on equals instead of showing the completed line; Scientific now has the same history' },
-      { type: 'feat', text: 'Radar-sweep loading animation on manual METAR/TAF and NOTAM fetches' },
-      { type: 'feat', text: 'Duty Log: scanning a QR code matching your sync-code format now auto-loads it, with a scan-viewfinder loading animation' },
-      { type: 'fix',  text: 'NOTAM: real API error detail now shown instead of a bare HTTP status code' },
-      { type: 'fix',  text: 'NOTAM: "COPY FROM METAR/TAF" no longer leaves stale FIR entries behind' },
-      { type: 'feat', text: 'Flight prayer timeline: added a UTC TIME option alongside DEP/ARR TIME' },
-      { type: 'fix',  text: 'Settings: removed redundant "new version available" badge' },
-    ],
-  },
-  {
-    version: 'v3.14', date: 'Jun 2026',
-    entries: [
-      { type: 'fix',  text: 'FTL: standby Max FDP now correctly compares the standby-start time band against the report-time band and uses whichever is more limiting (Ch. 2.9.1) — was previously ignoring the standby-start band entirely' },
-      { type: 'feat', text: 'FTL: added Delayed Reporting (Ch. 2.7) — models planned vs actual report time, with the correct <4h vs ≥4h delay rules' },
-      { type: 'feat', text: 'FTL: added Positioning (Ch. 2.8) — FDP now correctly commences at the positioning report time instead of the flight\'s own report time' },
-      { type: 'feat', text: 'FTL: added standby location (Home / Airport) and the home ≤2h-notice exception (Ch. 2.9.1/2.9.2) — airport standby shows Max FDP immediately from standby start, with FDP Expires pending the actual call-out time' },
-      { type: 'feat', text: 'FTL: added "Reduced Preceding Rest" toggle, gating the Split Duty prohibition, PIC discretion restriction, and mandatory CAAM reporting rules (Ch. 2.13.4 / 2.15.3 / 2.15.4)' },
-      { type: 'feat', text: 'FTL: cabin crew can now report at a different time than flight crew (Ch. 2.21.2a) — the table band uses flight crew\'s report time, the FDP clock uses cabin crew\'s own' },
-      { type: 'feat', text: 'FTL: result panel now distinguishes pending inputs (amber) from mandatory CAAM reporting and rule violations (red)' },
-      { type: 'fix',  text: 'FTL: PIC discretion before/after the last sector now caps correctly at 2h/3h using the real sector count, not the long-range-modified count' },
-      { type: 'fix',  text: 'FTL: long range sector boundary corrected to trigger only above 7h (was triggering at exactly 7h)' },
-      { type: 'fix',  text: 'FTL: single-pilot operations no longer allow "Not Acclimatised" — CAD 1901 defines no such table for single-pilot ops' },
-    ],
-  },
-  {
-    version: 'v3.13', date: 'Jun 2026',
-    entries: [
-      { type: 'feat', text: 'Animated splash screen on launch — the C mark fades in, the chamfered double-line frame draws on around it, then the CLAUDEBORNE wordmark fades in, before settling into the app' },
-    ],
-  },
-  {
-    version: 'v3.12', date: 'Jun 2026',
-    entries: [
-      { type: 'feat', text: 'Duty Log: Backup & Sync redesign — each device claims ownership of a sync code; only the owner can push, and restoring/importing transfers ownership to the new device' },
-      { type: 'feat', text: 'Duty Log: per-entry sync status on each log card (SYNCED dot or a one-tap ○ SYNC), plus a prompt to sync right after creating a new log' },
-      { type: 'feat', text: 'Duty Log: new "Have a code? Enter here to view it" panel — view another device\'s backed-up logs read-only, with an optional confirm-gated import that overwrites local logs and transfers ownership' },
-      { type: 'feat', text: 'Settings: sync code & QR now always visible once created, instead of hidden behind a tab; restore now requires a two-tap in-place confirmation instead of a browser dialog' },
-    ],
-  },
-  {
-    version: 'v3.11', date: 'Jun 2026',
-    entries: [
-      { type: 'feat', text: 'Duty Log: Backup & Sync — back up your logs to the cloud and restore them on another device using a short anonymous code (no account required)' },
-      { type: 'feat', text: 'Duty Log: Backup & Sync moved into Settings, with a status card showing last-synced time and a BACKUP / RESTORE tab switcher' },
-      { type: 'feat', text: 'Duty Log: generate a QR code for your backup code, or scan one with the camera to restore — manual code entry still works as a fallback' },
-      { type: 'fix',  text: 'Settings: removed the JSON export/import and reset-to-defaults section, superseded by Duty Log Backup & Sync' },
-    ],
-  },
-  {
-    version: 'v3.10', date: 'Jun 2026',
-    entries: [
-      { type: 'fix',  text: 'Header banner color now updates correctly in light mode' },
-      { type: 'fix',  text: 'Removed swipe gesture navigation (was triggering unintended tab changes)' },
-      { type: 'fix',  text: 'Flight prayer tab coordinates now shown in N/E degree-minute notation' },
-      { type: 'feat', text: 'Per-module RESET buttons (Calculator, METAR/TAF, NOTAM, Interpolation, EDTO, Currency, FTL, Flight prayer) replace the old global "Reset All", each confirming before clearing' },
-      { type: 'feat', text: 'Duty Log: past entries auto-group into collapsible year › month banners; current month and undated entries stay flat' },
-      { type: 'feat', text: 'Duty Log: disclaimer that logs are stored on-device only and are not synced' },
-      { type: 'feat', text: 'Calculator: new Volume, Area, Pressure, Time, and Angle conversion categories, plus a Fuel mass/volume converter with a density input' },
-      { type: 'feat', text: 'Calculator: unit converter moved out of Scientific mode into its own CONVERT mode' },
-      { type: 'feat', text: 'METAR/TAF and NOTAM: swap (⇄) button for departure/arrival fields' },
-      { type: 'fix',  text: 'Combined Calculator and FTL: RESET button no longer clips into the row below it' },
-    ],
-  },
-  {
-    version: 'v3.9', date: 'Jun 2026',
-    entries: [
-      { type: 'fix',  text: 'Flight: clock-mode local-time elapsed calc anchored to the wrong calendar date, could show 100% complete shortly after a UTC+8 morning departure' },
-      { type: 'feat', text: 'Flight: in-flight prayer timeline — plots every Imsak/Fajr/Sunrise/Dhuhr/Asr/Maghrib/Isha along the route (replaces the single position snapshot), including repeats on long-haul flights' },
-      { type: 'feat', text: 'Flight: DEP TIME / ARR TIME toggle — read the same in-flight prayer moment on either the departure or arrival watch' },
-      { type: 'feat', text: 'Flight: current-position card with manual refresh button; auto-refreshes when returning to the tab or the app is foregrounded' },
-      { type: 'fix',  text: 'Flight: timeline rows now spaced proportionally to elapsed time so the progress line lines up exactly with the current-position marker' },
-    ],
-  },
-  {
-    version: 'v3.8', date: 'Jun 2026',
-    entries: [
-      { type: 'feat', text: 'Prayer: 5-day prayer times — day selector strip shows today + 4 days, computed offline instantly' },
-      { type: 'fix',  text: 'Prayer: next prayer widget now counts down to next day\'s Fajr after Isha (no more disappearing)' },
-      { type: 'fix',  text: 'Prayer: launcher style always opens dashboard home, ignoring remembered last tab' },
-      { type: 'feat', text: 'Flight: clock mode local time is timezone-aware — dep/arr interpreted in airport\'s own timezone' },
-      { type: 'feat', text: 'Flight: live flight time banner shows total duration + UTC offsets as you type' },
-      { type: 'feat', text: 'Flight: swap button (⇄) swaps dep/dest for quick return-leg entry' },
-      { type: 'feat', text: 'Flight: cabin direction dial updated to narrow-body airliner silhouette' },
-      { type: 'fix',  text: 'Flight: departure label updated to DEP TIME (ETD); disclaimer updated' },
-      { type: 'fix',  text: 'Airport database: 4,906 airports; 4,345 now carry IANA timezone data' },
-    ],
-  },
-  {
-    version: 'v3.7', date: 'Jun 2026',
-    entries: [
-      { type: 'feat', text: 'Currency: all pairs available offline — rates cached on first use, auto-refreshed on open' },
-      { type: 'fix',  text: 'Currency: offline shows last downloaded rates with age and effective date (3-tier fallback)' },
-      { type: 'fix',  text: 'NOTAM: offline viewing after restart now works correctly' },
-      { type: 'fix',  text: 'METAR: weather tokens no longer appear garbled in plain-English decode' },
-      { type: 'fix',  text: 'METAR: history-window setting change now syncs to the active session immediately' },
-      { type: 'fix',  text: 'METAR: auto-refresh only fires when flight routes are entered' },
-      { type: 'fix',  text: 'Prayer: city search and GPS geocoding comply with OpenStreetMap ToS' },
-      { type: 'fix',  text: 'Prayer: GPS location no longer re-read on every render (faster startup)' },
-      { type: 'fix',  text: 'Prayer: offline mode no longer auto-switches to the flight tab' },
-      { type: 'fix',  text: 'FTL: time label corrected to "LOCAL TIME AT REPORTING"' },
-      { type: 'fix',  text: 'FTL: helicopter option greyed out with tooltip (tables not yet available)' },
-      { type: 'fix',  text: 'FTL: DST ambiguity in flight-time UTC conversion corrected (two-pass)' },
-      { type: 'fix',  text: 'Scientific calculator: scientific notation (1e-3, 2.5e6) now evaluates correctly' },
-      { type: 'fix',  text: 'Settings: import validates structure before applying; malformed files rejected' },
-      { type: 'fix',  text: 'Settings: keyboard navigation in settings panel corrected' },
-      { type: 'fix',  text: 'Dashboard: next-prayer widget reads live times (no stale display after midnight)' },
-      { type: 'fix',  text: 'Update checker: interval and visibility listener cleaned up on unmount' },
-      { type: 'fix',  text: 'Error boundary: label updated to "DEBUG INFO — copy when reporting a bug"' },
-      { type: 'fix',  text: 'Changelog badges: Android WebView compatibility improved' },
-      { type: 'fix',  text: 'Service worker: removed duplicate registration that conflicted with PWA plugin' },
-    ],
-  },
-  {
-    version: 'v3.6', date: 'Jun 2026',
-    entries: [
-      { type: 'feat', text: 'Settings reorganised into Appearance / Navigation / Tools / Prayer / About' },
-      { type: 'feat', text: 'Theme AUTO mode — follows system light/dark in real time' },
-      { type: 'feat', text: 'Five accent colours: teal, amber, cyan, violet, green' },
-      { type: 'feat', text: 'Card style: flat / raised / glass' },
-      { type: 'feat', text: 'Global clock format — one 12/24h setting for all clocks' },
-      { type: 'feat', text: 'Unit preferences (temp, wind, visibility, altitude, pressure)' },
-      { type: 'feat', text: 'Export / import settings as JSON; reset settings to defaults' },
-      { type: 'feat', text: 'Haptic strength, dashboard widget toggles, confirm-before-reset' },
-      { type: 'fix',  text: 'Auto-detect app updates without manual check' },
-      { type: 'feat', text: 'Flight Duty Log — new module for logging sectors, fuel, times, ENG OUT data, crew, and per-sector remarks with offline persistence' },
-    ],
-  },
-  {
-    version: 'v3.5', date: 'Jun 2026',
-    entries: [
-      { type: 'fix', text: 'NOTAM inputs & results persist to localStorage for offline viewing' },
-      { type: 'fix', text: 'Show "No NOTAMs available" per location when API returns nothing' },
-      { type: 'fix', text: 'Dhuha styled as full prayer row; greys out with ✓ after time passes' },
-      { type: 'fix', text: 'UTC/Z toggle relabelled to UTC / ZULU' },
-    ],
-  },
-  {
-    version: 'v3.0', date: '2025',
-    entries: [
-      { type: 'feat', text: 'Scientific calculator — expression engine + unit converter' },
-      { type: 'feat', text: 'Flight tab — clock-time mode (dep/arr) with UTC/local toggle' },
-      { type: 'feat', text: 'Dhuha prayer time added' },
-      { type: 'feat', text: 'NOTAM revamped — grouped by location, role-coloured, filterable' },
-      { type: 'feat', text: 'Full OurAirports dataset (worldwide ICAO coverage)' },
-      { type: 'fix',  text: 'Day-shifted prayer times from UTC cache key' },
-      { type: 'fix',  text: 'Reset All no longer leaves stale fields' },
-    ],
-  },
-  {
-    version: 'v2.x', date: '2024–2025',
-    entries: [
-      { type: 'feat', text: 'METAR/TAF flight category + wind severity colour coding' },
-      { type: 'feat', text: 'METAR/TAF plain-English decode toggle' },
-      { type: 'feat', text: 'Imsak & Sunrise styled as reference times' },
-      { type: 'feat', text: 'Prayer times auto-refresh after midnight' },
-      { type: 'feat', text: 'Launcher / tabs / grouped navigation styles' },
-      { type: 'feat', text: 'Settings responsive tabbed UI (sheet on mobile, modal on desktop)' },
-      { type: 'feat', text: 'Per-tab error boundaries + code-split lazy loading' },
-      { type: 'fix',  text: 'Qibla compass — rotate with device, true North tracking' },
-      { type: 'feat', text: 'NOTAM module — autorouter.aero OAuth proxy' },
-      { type: 'feat', text: 'Vitest unit tests (92 tests)' },
-    ],
-  },
-]
-
-const TYPE_COLOR = {
-  feat: { color: 'var(--cp-acc)',    label: 'NEW', bg: 'rgba(63,224,197,0.12)',   borderColor: 'rgba(63,224,197,0.30)'   },
-  fix:  { color: 'var(--cp-orange)', label: 'FIX', bg: 'rgba(253,186,116,0.12)',  borderColor: 'rgba(253,186,116,0.30)'  },
+// Render a changelog note: pull a leading NEW/IMP/FIX/DEP tag into a styled badge.
+function renderChangelogNote(n) {
+  const m = /^(NEW|IMP|FIX|DEP):\s*/.exec(n)
+  if (!m) return n
+  return (
+    <>
+      <span className={`sm-cl-tag sm-cl-tag-${m[1]}`}>{m[1]}</span>
+      {n.slice(m[0].length)}
+    </>
+  )
 }
 
 function Changelog() {
-  const [open, setOpen] = React.useState(() => new Set([CHANGELOG[0].version]))
-  const toggle = (v) => setOpen(prev => {
-    const next = new Set(prev); next.has(v) ? next.delete(v) : next.add(v); return next
-  })
+  const [showHistory, setShowHistory] = React.useState(false)
+  const currentEntry = CHANGELOG.find(e => e.current) || CHANGELOG[CHANGELOG.length - 1]
+  const pastEntries = CHANGELOG.filter(e => e !== currentEntry).slice().reverse()
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {CHANGELOG.map(({ version, date, entries }) => {
-        const expanded = open.has(version)
-        return (
-          <div key={version} style={{ border: '1px solid var(--cp-border2)', borderRadius: 4, overflow: 'hidden' }}>
-            <button onClick={() => toggle(version)} style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-              background: expanded ? 'var(--cp-accdim)' : 'var(--cp-bg3)',
-              border: 'none', padding: '8px 12px', cursor: 'pointer', textAlign: 'left',
-            }}>
-              <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700,
-                color: 'var(--cp-acc)', letterSpacing: '0.1em' }}>{version}</span>
-              <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
-                color: 'var(--cp-dim)', letterSpacing: '0.1em' }}>{date}</span>
-              <span style={{ marginLeft: 'auto', fontFamily: 'var(--cb-font-mono)', fontSize: 10,
-                color: 'var(--cp-dim)' }}>{expanded ? '▲' : '▼'}</span>
-            </button>
-            {expanded && (
-              <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {entries.map((e, i) => {
-                  const t = TYPE_COLOR[e.type] ?? TYPE_COLOR.feat
-                  return (
-                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                      <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, fontWeight: 700,
-                        letterSpacing: '0.1em', color: t.color, flexShrink: 0,
-                        background: t.bg,
-                        border: `1px solid ${t.borderColor}`,
-                        borderRadius: 3, padding: '1px 5px' }}>{t.label}</span>
-                      <span style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12,
-                        color: 'var(--cp-muted)', lineHeight: 1.5 }}>{e.text}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+    <div className="sm-changelog">
+      <article className="sm-cl-entry current">
+        <div className="sm-cl-head">
+          <span className="sm-cl-v">{currentEntry.v}</span>
+          <span className="sm-cl-date">{currentEntry.date}</span>
+          <span className="sm-cl-now">// you are here</span>
+        </div>
+        <h4 className="sm-cl-title">{currentEntry.title}</h4>
+        <ul className="sm-cl-notes">
+          {currentEntry.notes.map((n, i) => <li key={i}>{renderChangelogNote(n)}</li>)}
+        </ul>
+      </article>
+
+      {pastEntries.length > 0 && (
+        <button className="sm-cl-history-toggle" onClick={() => setShowHistory(v => !v)}>
+          <span>{showHistory ? '▲' : '▼'}</span>
+          <span>{showHistory ? 'Hide' : 'Show'} previous versions ({pastEntries.length})</span>
+        </button>
+      )}
+
+      {showHistory && pastEntries.map(e => (
+        <article key={e.v} className="sm-cl-entry">
+          <div className="sm-cl-head">
+            <span className="sm-cl-v">{e.v}</span>
+            <span className="sm-cl-date">{e.date}</span>
           </div>
-        )
-      })}
+          <h4 className="sm-cl-title">{e.title}</h4>
+          <ul className="sm-cl-notes">
+            {e.notes.map((n, i) => <li key={i}>{renderChangelogNote(n)}</li>)}
+          </ul>
+        </article>
+      ))}
     </div>
   )
 }
+
 
 // ── Update checker ──────────────────────────────────────────────────────────
 function UpdateChecker({ update }) {
