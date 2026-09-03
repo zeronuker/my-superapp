@@ -230,13 +230,45 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v2.5", date: "Aug 2026", current: true,
+    v: "v2.5", date: "Aug 2026",
     title: "B737 Performance tab",
     notes: [
       "NEW: New B737 PERFORMANCE tab — combines EDTO and two new calculators as sub-modes in one tab. EDTO is no longer a separate top-level tab",
       "NEW: Go-Around Climb Gradient (ENG INOP) — single-engine go-around climb gradient for Flaps 15/Gear Up, covering NG (CFM56-7B24, CFM56-7B26 FAA/JAA) and MAX (LEAP-1B25, LEAP-1B27). Full report: reference/weight-adjusted/speed-adjusted gradient plus packs-off/anti-ice/icing corrections, digitized from the FCOM Performance Dispatch pages. Speed is a VREF40+X dropdown matching the table's own published values; fields ordered OAT → Pressure Altitude → Weight → Speed to match the calc sequence",
       "NEW: Quick Turnaround Limit Weight — landing-weight limit for a quick turnaround (Flaps 40), covering NG Category C/Steel and Category N/Carbon brakes plus MAX (single table, no brake-type split). Adjusts for runway slope and wind component (asymmetric rates — favorable vs unfavorable direction), then gives a WITHIN LIMIT / EXCEEDS LIMIT verdict against your actual landing weight, with the manual's wait-time/brake-temperature/BTMS guidance shown when exceeded. Fields ordered Landing Weight → OAT → Pressure Altitude → Slope → Wind",
       "NEW: New icons for B737 Performance and its three sub-tabs (EDTO, Go-Around, Quick Turnaround), in both mono and color icon sets",
+    ],
+  },
+  {
+    v: "v2.6", date: "Aug 2026",
+    title: "Duty Log and Interpolation fixes",
+    notes: [
+      "NEW: Duty Log: view-code entry remembers your last 5 codes as tappable chips instead of requiring retyping",
+      "FIX: Interpolation: table header/cell inputs now show a visible box instead of being indistinguishable from static chrome until clicked",
+    ],
+  },
+  {
+    v: "v2.7", date: "Sep 2026",
+    title: "Malaysia Airports gate finder",
+    notes: [
+      "NEW: Malaysia Airports — new gate finder tab (departure/arrival board lookup by airport/day/flight/city/airline), with a large boxed gate number, colored status pill, airline logo, and a collapsible codeshare list per card",
+      "NEW: Malaysia Airports: gate box gets its own go/hurry/missed traffic-light color, independent of the overall flight status",
+      "FIX: Malaysia Airports: status colors corrected to match the API's real per-leg vocabulary (departures track check-in → gate, arrivals track baggage) after real data showed most flights falling through to a gray default",
+    ],
+  },
+  {
+    v: "v2.8", date: "Sep 2026", current: true,
+    title: "Flight Briefing",
+    notes: [
+      "NEW: Flight Briefing — a ✈ BRIEFING button in METAR/TAF, NOTAM and SIGMET opens a combined overlay (METAR/TAF + NOTAM + SIGMET) built from that module's own route input, so dep/arr/alternates/enroute never has to be re-typed across modules. METAR/TAF has no FIR concept of its own, so the overlay auto-detects route FIRs the same way NOTAM/SIGMET already do",
+      "NEW: Briefing: route map with real coastlines and a great-circle route curve, plotting departure/arrival, alternates and enroute alternates by actual lat/lng, replacing the earlier summary cards",
+      "NEW: Briefing: NOTAMs now also fetched and shown per route FIR (airspace/oceanic notices), not just per airport",
+      "NEW: Briefing: opening it now also auto-populates and fetches METAR/TAF, NOTAM and SIGMET's own standalone caches from the same fetch (no extra API calls), so opening any of the 3 modules directly afterward shows the same route and data already loaded",
+      "NEW: Briefing: persists across reloads and offline reopens like the other modules; closing (✕/Escape/backdrop) now pauses instead of discarding, so an offline reopen still finds the cached data; a \"Resume Briefing\" pill brings it back with no refetch",
+      "NEW: Briefing: per-airport NOTAMs sorted runway/taxiway/obstacle/navaid first and capped at 5, each entry clamped to 5 lines, with a link to the full NOTAM tab for anything longer",
+      "FIX: Briefing: wrapped in the app's error boundary so a render crash on real (non-mock) NOTAM/METAR data shows a retryable error card instead of white-screening the whole app",
+      "FIX: PWA offline caching added for /api/notam, /api/skylink and /api/isigmet — NOTAM and SIGMET now survive offline the same way METAR/TAF already did",
+      "NEW: RESET buttons — now ask whether to reset just the current module or all 3 (METAR/TAF, NOTAM, SIGMET); either choice also clears the Flight Briefing cache",
     ],
   },
 ]
