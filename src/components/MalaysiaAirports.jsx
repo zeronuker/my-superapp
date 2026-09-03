@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
+import { ROLE_TINT } from '../utils/roleStyle'
 
 const AIRPORTS = [
   { label: 'KUL — KLIA Terminal 1', value: 'KLIA' },
@@ -36,10 +37,17 @@ const label = {
 // returns free-text status strings, not a fixed enum).
 function statusColor(status) {
   const s = (status || '').toUpperCase()
-  if (/DELAY|CANCEL/.test(s)) return 'var(--cp-red)'
+  if (/CANCEL|DELAY/.test(s)) return 'var(--cp-red)'
+  if (/DIVERT/.test(s)) return 'var(--cp-purple)'
   if (/BOARD|GATE OPEN|CHECK/.test(s)) return 'var(--cp-yellow)'
   if (/DEPART|ARRIV|LAND/.test(s)) return 'var(--cp-green)'
+  if (/SCHED|EXPECT|ON TIME/.test(s)) return 'var(--cp-acc2)'
   return 'var(--cp-dim)'
+}
+
+const CATEGORY = {
+  I: { label: 'INTL', color: 'var(--cp-acc2)' },
+  D: { label: 'DOM',  color: 'var(--cp-green)' },
 }
 
 const hm = (t) => (t ? t.slice(11, 16) : '—')
@@ -47,6 +55,7 @@ const hm = (t) => (t ? t.slice(11, 16) : '—')
 function FlightCard({ f }) {
   const color = statusColor(f.status)
   const place = f.leg === 'A' ? f.origin : f.destination
+  const category = CATEGORY[f.category]
   return (
     <div style={{
       background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
@@ -65,20 +74,30 @@ function FlightCard({ f }) {
         </span>
       </div>
 
-      <div style={{ fontSize: 13, color: 'var(--cp-muted)', marginBottom: 12 }}>
-        {f.name} → {place?.city}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+        <span style={{ fontSize: 13, color: 'var(--cp-muted)' }}>{f.name} →</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: ROLE_TINT.dep.color }}>{place?.city}</span>
+        {category && (
+          <span style={{
+            fontFamily: 'var(--cb-font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
+            color: category.color, background: `color-mix(in srgb, ${category.color} 16%, transparent)`,
+            border: `1px solid ${category.color}`, borderRadius: 3, padding: '2px 6px',
+          }}>
+            {category.label}
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}>
         <div style={{
-          background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 6,
+          background: `color-mix(in srgb, ${color} 12%, transparent)`, border: `1px solid ${color}`, borderRadius: 6,
           padding: '6px 16px', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', minWidth: 84,
         }}>
-          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.14em', color: 'var(--cp-acc)', opacity: 0.85 }}>
-            GATE
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em', color, opacity: 0.9 }}>
+            GATE · {f.gate?.status || 'TBA'}
           </div>
-          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 24, fontWeight: 700, color: 'var(--cp-acc)', lineHeight: 1.15 }}>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 24, fontWeight: 700, color, lineHeight: 1.15 }}>
             {f.gate?.name || '—'}
           </div>
         </div>
