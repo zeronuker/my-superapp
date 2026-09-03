@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
 import { icaoToFir } from '../data/firLookup'
 import { detectRouteFirs } from '../services/notamAPI'
@@ -7,7 +8,6 @@ import { fetchAllSigmets } from '../services/sigmetAPI'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
-import BriefingView from './BriefingView'
 import SigmetCard from './SigmetCard'
 
 const CACHE_KEY = 'cb-sigmet-cache'
@@ -52,6 +52,7 @@ function reviveSigmets(sigmets) {
 }
 
 export default function SigmetViewer() {
+  const openBriefing = useCalculatorStore(s => s.openBriefing)
   const [cache] = useState(() => loadWithExpiry(CACHE_KEY))
 
   const [dep, setDep] = useState(cache?.dep || '')
@@ -66,7 +67,6 @@ export default function SigmetViewer() {
   const [sigmets, setSigmets] = useState(() => cache?.sigmets ? reviveSigmets(cache.sigmets) : null)
   const [fetchedAt, setFetchedAt] = useState(cache?.fetchedAt || null)
   const [loading, setLoading] = useState(false)
-  const [showBriefing, setShowBriefing] = useState(false)
   const [error, setError] = useState('')
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [now, setNow] = useState(Date.now())
@@ -296,22 +296,14 @@ export default function SigmetViewer() {
           letterSpacing: '0.16em', color: 'var(--cp-acc)', opacity: chips.length ? 1 : 0.5 }}>
           {loading ? '⊙ FETCHING SIGMETs…' : '⊕ FETCH SIGMETs'}
         </button>
-        <button onClick={() => setShowBriefing(true)} disabled={!chips.length} style={{
+        <button onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts, firs: chips })}
+          disabled={!chips.length} style={{
           padding: '12px 16px', background: 'transparent', border: '1px solid var(--cp-border)',
           borderRadius: 6, cursor: chips.length ? 'pointer' : 'default', fontFamily: 'var(--cb-font-mono)',
           fontSize: 10, letterSpacing: '0.16em', color: 'var(--cp-dim)', opacity: chips.length ? 1 : 0.5 }}>
           ✈ BRIEFING
         </button>
       </div>
-
-      {showBriefing && (
-        <BriefingView
-          dep={dep} arr={arr} destAlts={destAlts}
-          enrouteCount={enrouteCount} enrouteAlts={enrouteAlts}
-          firs={chips}
-          onClose={() => setShowBriefing(false)}
-        />
-      )}
 
       {/* ── Results ── */}
       {sigmets && (

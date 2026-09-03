@@ -106,6 +106,14 @@ export const useCalculatorStore = create((set) => ({
   // ── Settings ────────────────────────────────────────────────────────────
   settings: loadSettings(),
 
+  // ── Briefing (cross-module overlay) ────────────────────────────────────
+  // Lives here (not local component state) so it survives a tab switch —
+  // jumping from the overlay to the standalone NOTAM tab must not lose the
+  // already-fetched briefing. `route` is the input the 3 modules hand in
+  // (dep/arr/destAlts/enrouteCount/enrouteAlts/firs); `data` is the fetched
+  // result, filled in once by BriefingView and left alone after that.
+  briefing: { open: false, route: null, data: null },
+
   // ── Actions ─────────────────────────────────────────────────────────────
   setEDTOAircraft:   (aircraft)  => set(s => ({ edto: { ...s.edto, aircraft, variant: null } })),
   setEDTOVariant:    (variant)   => set(s => ({ edto: { ...s.edto, variant } })),
@@ -142,6 +150,17 @@ export const useCalculatorStore = create((set) => ({
   toggleDarkMode:    ()          => set(s => ({ darkMode: !s.darkMode })),
   setDarkMode:       (v)         => set({ darkMode: v }),
   setActiveCalculator: (id)      => set({ activeCalculator: id }),
+
+  // route: { dep, arr, destAlts, enrouteCount, enrouteAlts, firs }. Starts a
+  // fresh fetch — data:null tells BriefingView to fetch rather than reuse.
+  openBriefing:     (route)      => set({ briefing: { open: true, route, data: null } }),
+  setBriefingData:  (data)       => set(s => ({ briefing: { ...s.briefing, data } })),
+  // Hide without discarding — used when the pilot jumps to the standalone
+  // NOTAM tab so the same fetched briefing is still there to come back to.
+  pauseBriefing:    ()           => set(s => ({ briefing: { ...s.briefing, open: false } })),
+  resumeBriefing:   ()           => set(s => ({ briefing: { ...s.briefing, open: true } })),
+  // Full discard — the ✕ button and Escape/backdrop dismiss.
+  closeBriefing:    ()           => set({ briefing: { open: false, route: null, data: null } }),
 
   updateSettings: (partial) => set(s => {
     const next = { ...s.settings, ...partial }

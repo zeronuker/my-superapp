@@ -25,6 +25,10 @@ const MalaysiaAirports        = lazy(() => import('./components/MalaysiaAirports
 const FTLCalculator           = lazy(() => import('./components/FTLCalculator'))
 const WorldTimeCalculator     = lazy(() => import('./components/WorldTimeCalculator'))
 const PrayerModule            = lazy(() => import('./modules/prayer'))
+// Not a CALCULATORS tab, but still worth code-splitting — it pulls in the
+// airports database, and eagerly importing it here would drag that into
+// the main bundle instead of only loading it when Briefing actually opens.
+const BriefingView            = lazy(() => import('./components/BriefingView'))
 const DutyLogModule           = lazy(() => import('./modules/dutylog'))
 // Named export → adapt to the default shape React.lazy expects (same chunk as PrayerModule)
 const PrayerSettings = lazy(() =>
@@ -136,6 +140,7 @@ export default function App() {
     activeCalculator, setActiveCalculator,
     darkMode, setDarkMode,
     settings, updateSettings,
+    briefing, resumeBriefing,
   } = useCalculatorStore()
 
   const isOnline = useOnlineStatus()
@@ -467,6 +472,36 @@ export default function App() {
             update={update}
           />
         </>
+      )}
+
+      {/* ── Briefing overlay — rendered here (not inside a tab) so switching
+           tabs to look something up doesn't unmount it ──────────────────── */}
+      {briefing.open && (
+        <Suspense fallback={null}>
+          <BriefingView />
+        </Suspense>
+      )}
+
+      {/* ── Resume Briefing pill — shown after the pilot jumps to a module
+           tab from inside the overlay, so the paused briefing isn't lost ── */}
+      {!briefing.open && briefing.data && (
+        <button
+          onClick={resumeBriefing}
+          style={{
+            position: 'fixed', right: 16, zIndex: 95,
+            bottom: navStyle === 'tabs' && tabPosition === 'bottom'
+              ? 'calc(74px + env(safe-area-inset-bottom))'
+              : 'calc(16px + env(safe-area-inset-bottom))',
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '10px 16px', borderRadius: 999, cursor: 'pointer',
+            background: 'var(--cp-bg2)', border: '1px solid var(--cp-acc)',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+            fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700,
+            letterSpacing: '0.1em', color: 'var(--cp-acc)',
+          }}
+        >
+          ✈ RESUME BRIEFING
+        </button>
       )}
     </>
   )

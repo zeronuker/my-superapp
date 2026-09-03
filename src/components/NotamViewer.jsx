@@ -6,7 +6,6 @@ import { icaoToFir } from '../data/firLookup'
 import { haptic } from '../utils/haptic'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
-import BriefingView from './BriefingView'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import SourceChip from './SourceChip'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
@@ -142,8 +141,9 @@ function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function NotamViewer() {
-  const { sortMode } = useCalculatorStore(s => ({
+  const { sortMode, openBriefing } = useCalculatorStore(s => ({
     sortMode: s.settings.notamSort || 'relevance',
+    openBriefing: s.openBriefing,
   }))
 
   const [cache]        = useState(() => loadWithExpiry(CACHE_KEY))
@@ -160,7 +160,6 @@ export default function NotamViewer() {
   // Results — restore from raw cache (re-parsed so validity status is fresh)
   const [loading,      setLoading]      = useState(false)
   const [manualFetch,  setManualFetch]  = useState(false)
-  const [showBriefing, setShowBriefing] = useState(false)
   const [activeTargets, setActiveTargets] = useState([])
   const [notams,       setNotams]       = useState(() => {
     if (cache?.rawPerIcao) return parseMixedNotams(cache.rawPerIcao, cache.source)
@@ -481,22 +480,14 @@ export default function NotamViewer() {
           letterSpacing: '0.16em', color: T.acc, opacity: targets.length ? 1 : 0.5 }}>
           {loading ? '⊙ FETCHING NOTAMs…' : '⊕ FETCH NOTAMs'}
         </button>
-        <button onClick={() => setShowBriefing(true)} disabled={!targets.length} style={{
+        <button onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts, firs: extraChips.filter(c => c.type === 'fir') })}
+          disabled={!targets.length} style={{
           padding: '12px 16px', background: 'transparent', border: `1px solid ${T.bord}`,
           borderRadius: 6, cursor: targets.length ? 'pointer' : 'default', fontFamily: T.mono,
           fontSize: 10, letterSpacing: '0.16em', color: T.dim, opacity: targets.length ? 1 : 0.5 }}>
           ✈ BRIEFING
         </button>
       </div>
-
-      {showBriefing && (
-        <BriefingView
-          dep={dep} arr={arr} destAlts={destAlts}
-          enrouteCount={enrouteCount} enrouteAlts={enrouteAlts}
-          firs={extraChips.filter(c => c.type === 'fir')}
-          onClose={() => setShowBriefing(false)}
-        />
-      )}
 
       {/* ── Loading ── */}
       {manualFetch && <RadarSweepLoader targets={activeTargets} />}

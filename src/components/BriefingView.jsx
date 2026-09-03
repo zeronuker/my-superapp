@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
+import { useCalculatorStore } from '../store/calculatorStore'
 import { fetchWeather } from '../services/weatherAPI'
-import { fetchNotams, detectRouteFirs } from '../services/notamAPI'
+import { fetchNotams, detectRouteFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
 import { fetchAllSigmets } from '../services/sigmetAPI'
 import { icaoToFir } from '../data/firLookup'
 import { lookupAirport } from '../data/airports'
@@ -10,9 +11,15 @@ import {
   getRoleStyle,
 } from '../utils/metarSeverity'
 import { filterSigmetsByFir } from '../utils/sigmet'
+import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
+import { projectLatLng, WORLD_LAND_PATH, WORLD_MAP_WIDTH, WORLD_MAP_HEIGHT } from '../data/worldMap'
 import SigmetCard from './SigmetCard'
+import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 
-const CAT_ORDER = ['VFR', 'MVFR', 'IFR', 'LIFR']
+// Airports/taxiways/obstacles/navaids are what a pilot scans a NOTAM list
+// for first — routine admin notices can wait for the full NOTAM tab.
+const NOTAM_PRIORITY = { AERODROME: 0, OBSTACLE: 1, NAVAID: 2 }
+const NOTAM_CAP = 5
 
 // ── Build the same ordered, deduped airport list every module builds ──
 function buildAirportTargets(dep, arr, destAlts, enrouteCount, enrouteAlts) {
@@ -50,15 +57,6 @@ function autoDetectFirs(dep, arr, destAlts, enrouteCount, enrouteAlts) {
   return found
 }
 
-function worstCategory(cats) {
-  let worst = null
-  for (const c of cats) {
-    if (!c) continue
-    if (worst === null || CAT_ORDER.indexOf(c) > CAT_ORDER.indexOf(worst)) worst = c
-  }
-  return worst
-}
-
 // ── One airport's METAR/TAF/NOTAM summary, latest report only ──
 function AirportCard({ target, weather, notams }) {
   const role = getRoleStyle(target.label)
@@ -71,7 +69,16 @@ function AirportCard({ target, weather, notams }) {
   const windColor = windSev !== 'NORMAL' ? WIND_COLORS[windSev] : null
   const metarTokens = latestMetar ? tokenizeRaw(latestMetar.rawOb, catColor, windColor) : null
   const tafSegments = latestTaf ? parseTafSegments(latestTaf.rawTAF) : null
+
   const activeNotams = (notams || []).filter(n => n.validity.status === 'ACTIVE')
+  const sortedNotams = [...activeNotams].sort((a, b) =>
+    (NOTAM_PRIORITY[a.category] ?? 99) - (NOTAM_PRIORITY[b.category] ?? 99))
+  const visibleNotams = sortedNotams.slice(0, NOTAM_CAP)
+  const hiddenCount = sortedNotams.length - visibleNotams.length
+
+  const pauseBriefing = useCalculatorStore(s => s.pauseBriefing)
+  const setActiveCalculator = useCalculatorStore(s => s.setActiveCalculator)
+  const viewAllNotams = () => { pauseBriefing(); setActiveCalculator('notam') }
 
   return (
     <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -138,17 +145,34 @@ function AirportCard({ target, weather, notams }) {
             <div style={{ fontSize: 11, color: 'var(--cp-dim)', fontStyle: 'italic' }}>No active NOTAMs</div>
           ) : (
             <div>
-              {activeNotams.map((n, i) => (
+              {visibleNotams.map((n, i) => (
                 <div key={n.id} style={{
                   fontSize: 11.5, lineHeight: 1.4, padding: '6px 0',
-                  borderTop: i === 0 ? 'none' : '1px solid var(--cp-border3)', display: 'flex', gap: 8,
+                  borderTop: i === 0 ? 'none' : '1px solid var(--cp-border3)', display: 'flex', gap: 8, alignItems: 'baseline',
                 }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                    background: NOTAM_CATEGORIES[n.category]?.color || 'var(--cp-dim)',
+                  }} />
                   <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, color: 'var(--cp-dim)', flexShrink: 0 }}>
                     {n.id}
                   </span>
                   <span style={{ color: 'var(--cp-muted)' }}>{n.summary}</span>
                 </div>
               ))}
+              {hiddenCount > 0 && (
+                <button onClick={viewAllNotams} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%',
+                  marginTop: 6, padding: '8px 10px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
+                  border: '1px dashed var(--cp-border)', background: 'var(--cp-bg3)',
+                  fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, letterSpacing: '0.02em', color: 'var(--cp-acc)',
+                }}>
+                  <span style={{ color: 'var(--cp-dim)' }}>
+                    <span style={{ color: 'var(--cp-acc)' }}>+ {hiddenCount} more</span> · runway/taxiway, obstacle &amp; navaid notices shown first
+                  </span>
+                  <span style={{ flexShrink: 0 }}>view all in NOTAM tab →</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -157,14 +181,124 @@ function AirportCard({ target, weather, notams }) {
   )
 }
 
-export default function BriefingView({ dep, arr, destAlts, enrouteCount, enrouteAlts, firs, onClose }) {
-  const [loading, setLoading] = useState(true)
+// ── Route map: real coastlines (worldMap.js) + role-colored airport dots ──
+// Grid step for the graticule overlay, in degrees — only lines that fall
+// inside the auto-fit viewBox actually get drawn.
+const GRID_STEP_DEG = 30
+
+function computeMapBounds(points) {
+  const xs = points.map(p => p.x), ys = points.map(p => p.y)
+  let minX = Math.min(...xs), maxX = Math.max(...xs)
+  let minY = Math.min(...ys), maxY = Math.max(...ys)
+  const padX = Math.max((maxX - minX) * 0.3, 30)
+  const padY = Math.max((maxY - minY) * 0.3, 30)
+  minX = Math.max(minX - padX, 0)
+  maxX = Math.min(maxX + padX, WORLD_MAP_WIDTH)
+  minY = Math.max(minY - padY, 0)
+  maxY = Math.min(maxY + padY, WORLD_MAP_HEIGHT)
+  return { minX, minY, w: maxX - minX, h: maxY - minY }
+}
+
+function RouteMap({ dep, arr, destAltList, eraList }) {
+  const depAp = dep && lookupAirport(dep)
+  const arrAp = arr && lookupAirport(arr)
+
+  const markers = []
+  if (depAp) markers.push({ icao: dep, label: 'DEPARTURE', ap: depAp, big: true })
+  if (arrAp) markers.push({ icao: arr, label: 'ARRIVAL', ap: arrAp, big: true })
+  for (const a of destAltList) {
+    const ap = lookupAirport(a.icao)
+    if (ap) markers.push({ icao: a.icao, label: a.label, ap })
+  }
+  for (const a of eraList) {
+    const ap = lookupAirport(a.icao)
+    if (ap) markers.push({ icao: a.icao, label: a.label, ap })
+  }
+  if (markers.length === 0) return null
+
+  const projected = markers.map(m => ({ ...m, ...projectLatLng(m.ap.lat, m.ap.lng) }))
+  const bounds = computeMapBounds(projected)
+
+  // Route curve: a quadratic Bezier through the real great-circle midpoint
+  // (not just a straight line or a guessed bow) between dep and arr.
+  let routePath = null
+  if (depAp && arrAp) {
+    const p0 = projectLatLng(depAp.lat, depAp.lng)
+    const p2 = projectLatLng(arrAp.lat, arrAp.lng)
+    const mid = interpolateGreatCircle(depAp.lat, depAp.lng, arrAp.lat, arrAp.lng, 0.5)
+    const pMid = projectLatLng(mid.lat, mid.lng)
+    const p1 = { x: 2 * pMid.x - 0.5 * (p0.x + p2.x), y: 2 * pMid.y - 0.5 * (p0.y + p2.y) }
+    routePath = `M ${p0.x} ${p0.y} Q ${p1.x} ${p1.y} ${p2.x} ${p2.y}`
+  }
+
+  const gridLines = []
+  for (let lng = -180; lng <= 180; lng += GRID_STEP_DEG) {
+    const { x } = projectLatLng(0, lng)
+    if (x >= bounds.minX && x <= bounds.minX + bounds.w) gridLines.push({ type: 'v', pos: x })
+  }
+  for (let lat = -60; lat <= 60; lat += GRID_STEP_DEG) {
+    const { y } = projectLatLng(lat, 0)
+    if (y >= bounds.minY && y <= bounds.minY + bounds.h) gridLines.push({ type: 'h', pos: y, isEquator: lat === 0 })
+  }
+
+  return (
+    <div style={{
+      position: 'relative', border: '1px solid var(--cp-border3)', borderRadius: 10,
+      overflow: 'hidden', marginBottom: 20, background: 'var(--cp-bg3)', boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+    }}>
+      <div style={{
+        position: 'absolute', top: 10, left: 14, fontFamily: 'var(--cb-font-mono)', fontSize: 10,
+        letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cp-dim)', zIndex: 1,
+      }}>
+        Route &amp; Alternates
+      </div>
+      <svg viewBox={`${bounds.minX} ${bounds.minY} ${bounds.w} ${bounds.h}`} style={{ display: 'block', width: '100%', height: 'auto', aspectRatio: '2 / 1.15' }}>
+        <rect x={bounds.minX} y={bounds.minY} width={bounds.w} height={bounds.h} fill="var(--cp-bg3)" />
+
+        {gridLines.map((g, i) => g.type === 'v'
+          ? <line key={i} x1={g.pos} y1={bounds.minY} x2={g.pos} y2={bounds.minY + bounds.h}
+              stroke="var(--cp-border2)" strokeWidth={bounds.w / 500} />
+          : <line key={i} x1={bounds.minX} y1={g.pos} x2={bounds.minX + bounds.w} y2={g.pos}
+              stroke="var(--cp-border2)" strokeWidth={g.isEquator ? bounds.h / 350 : bounds.h / 500}
+              strokeDasharray={g.isEquator ? `${bounds.w / 150} ${bounds.w / 150}` : undefined} />
+        )}
+
+        <path d={WORLD_LAND_PATH} fill="var(--cp-dim)" fillOpacity={0.28} fillRule="evenodd" />
+
+        {routePath && (
+          <path d={routePath} fill="none" stroke="var(--cp-txt)" strokeWidth={bounds.w / 300}
+            strokeDasharray={`${bounds.w / 130} ${bounds.w / 180}`} opacity={0.85} />
+        )}
+
+        {projected.map(m => {
+          const role = getRoleStyle(m.label)
+          const r = (m.big ? bounds.w / 100 : bounds.w / 130)
+          return (
+            <g key={m.icao}>
+              {m.big && <circle cx={m.x} cy={m.y} r={r * 1.7} fill="none" stroke={role.color} strokeWidth={bounds.w / 500} opacity={0.4} />}
+              <circle cx={m.x} cy={m.y} r={r} fill={role.color} stroke="var(--cp-bg3)" strokeWidth={bounds.w / 450} />
+              <text x={m.x} y={m.y + (m.y < bounds.minY + bounds.h / 2 ? r * 2.6 : -r * 1.8)}
+                textAnchor="middle" fontFamily="var(--cb-font-mono)" fontSize={bounds.w / (m.big ? 65 : 78)}
+                fontWeight={m.big ? 700 : 500} fill={role.color}>
+                {m.icao}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
+
+export default function BriefingView() {
+  const briefing = useCalculatorStore(s => s.briefing)
+  const setBriefingData = useCalculatorStore(s => s.setBriefingData)
+  const closeBriefing = useCalculatorStore(s => s.closeBriefing)
+  const { route, data } = briefing
+
+  const [targets] = useState(() => buildAirportTargets(route.dep, route.arr, route.destAlts, route.enrouteCount, route.enrouteAlts))
+  const [loading, setLoading] = useState(!data)
   const [error, setError] = useState('')
-  const [airports, setAirports] = useState([])       // [{ icao, label, metar, taf, ... }]
-  const [notamsByIcao, setNotamsByIcao] = useState({})
-  const [sigmets, setSigmets] = useState([])
-  const [firsUsed, setFirsUsed] = useState([])
-  const [fetchedAt, setFetchedAt] = useState(null)
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -173,26 +307,32 @@ export default function BriefingView({ dep, arr, destAlts, enrouteCount, enroute
   }, [])
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e) => { if (e.key === 'Escape') closeBriefing() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [closeBriefing])
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60_000)
     return () => clearInterval(t)
   }, [])
 
+  // A resumed session (route already fetched once, just re-opened) skips
+  // the fetch entirely and renders straight from the cached briefing data.
   useEffect(() => {
+    if (data) return
     let cancelled = false
+    let revealTimer = null
     async function run() {
-      const targets = buildAirportTargets(dep, arr, destAlts, enrouteCount, enrouteAlts)
       if (targets.length === 0) {
         setError('No airports entered.')
         setLoading(false)
         return
       }
-      const resolvedFirs = (firs && firs.length) ? firs : autoDetectFirs(dep, arr, destAlts, enrouteCount, enrouteAlts)
+      const startedAt = Date.now()
+      const resolvedFirs = (route.firs && route.firs.length)
+        ? route.firs
+        : autoDetectFirs(route.dep, route.arr, route.destAlts, route.enrouteCount, route.enrouteAlts)
 
       const [weatherList, notamResult, allSigmets] = await Promise.all([
         Promise.all(targets.map(async (t) => ({ ...t, ...(await fetchWeather(t.icao, 2)) }))),
@@ -208,28 +348,42 @@ export default function BriefingView({ dep, arr, destAlts, enrouteCount, enroute
       const scopedSigmets = filterSigmetsByFir(allSigmets, firIds)
         .sort((a, b) => (a.validTo?.getTime() ?? Infinity) - (b.validTo?.getTime() ?? Infinity))
 
-      setAirports(weatherList)
-      setNotamsByIcao(notamBySource)
-      setSigmets(scopedSigmets)
-      setFirsUsed(resolvedFirs)
-      setFetchedAt(Date.now())
-      setLoading(false)
+      const reveal = () => {
+        setBriefingData({
+          airports: weatherList,
+          notamsByIcao: notamBySource,
+          sigmets: scopedSigmets,
+          firsUsed: resolvedFirs,
+          fetchedAt: Date.now(),
+        })
+        setLoading(false)
+      }
+
+      // Same rule as the other modules' fetch: let the radar-sweep animation
+      // finish playing out before revealing results, so a fast response
+      // doesn't cut it short.
+      const remaining = computeAnimDuration(targets.length) - (Date.now() - startedAt)
+      if (remaining > 0) revealTimer = setTimeout(reveal, remaining)
+      else reveal()
     }
     run()
-    return () => { cancelled = true }
+    return () => { cancelled = true; if (revealTimer) clearTimeout(revealTimer) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const airports = data?.airports || []
+  const notamsByIcao = data?.notamsByIcao || {}
+  const sigmets = data?.sigmets || []
+  const firsUsed = data?.firsUsed || []
+  const fetchedAt = data?.fetchedAt || null
 
   const depArr = airports.filter(a => a.label === 'DEPARTURE' || a.label === 'ARRIVAL')
   const destAltList = airports.filter(a => a.label.startsWith('DESTINATION ALTERNATE'))
   const eraList = airports.filter(a => a.label.startsWith('ENROUTE ALTERNATE'))
 
-  const worstCat = worstCategory(airports.map(a => getMetarFlightCat(a.metar?.[0])))
-  const activeNotamCount = Object.values(notamsByIcao).flat().filter(n => n.validity.status === 'ACTIVE').length
-
   return (
     <div
-      onClick={onClose}
+      onClick={closeBriefing}
       style={{
         position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
@@ -251,15 +405,12 @@ export default function BriefingView({ dep, arr, destAlts, enrouteCount, enroute
             letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--cp-txt)' }}>
             ✈ Flight Briefing
           </span>
-          <button onClick={onClose} className="cp-btn" style={{ width: 28, height: 28, padding: 0 }}>✕</button>
+          <button onClick={closeBriefing} className="cp-btn" style={{ width: 28, height: 28, padding: 0 }}>✕</button>
         </div>
 
         <div style={{ padding: '18px 20px 24px' }}>
           {loading ? (
-            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12, color: 'var(--cp-dim)',
-              letterSpacing: '0.1em', padding: '40px 0', textAlign: 'center' }}>
-              ⊙ FETCHING BRIEFING…
-            </div>
+            <RadarSweepLoader targets={targets.map(t => t.icao)} />
           ) : error ? (
             <div style={{ color: 'var(--cp-red)', fontFamily: 'var(--cb-font-mono)', fontSize: 12,
               letterSpacing: '0.08em', padding: '20px 0' }}>
@@ -269,27 +420,11 @@ export default function BriefingView({ dep, arr, destAlts, enrouteCount, enroute
             <>
               <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)',
                 letterSpacing: '0.08em', marginBottom: 14 }}>
-                {dep && arr ? `${dep} → ${arr}` : dep || arr}
+                {route.dep && route.arr ? `${route.dep} → ${route.arr}` : route.dep || route.arr}
                 {fetchedAt && ` · FETCHED ${new Date(fetchedAt).toUTCString().toUpperCase()}`}
               </div>
 
-              {/* ── Summary ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                gap: 10, marginBottom: 20 }}>
-                {[
-                  { label: 'AIRPORTS', value: airports.length, color: 'var(--cp-txt)' },
-                  { label: 'WORST CATEGORY', value: worstCat || '—', color: worstCat ? CAT_COLORS[worstCat] : 'var(--cp-dim)' },
-                  { label: 'ACTIVE NOTAMS', value: activeNotamCount, color: 'var(--cp-txt)' },
-                  { label: 'SIGMETS (ROUTE FIRS)', value: sigmets.length, color: sigmets.length ? 'var(--cp-red)' : 'var(--cp-txt)' },
-                ].map(s => (
-                  <div key={s.label} className="cp-card-bg2" style={{ border: '1px solid var(--cp-border3)',
-                    borderRadius: 6, padding: '10px 12px' }}>
-                    <div className="cp-label" style={{ marginBottom: 4, fontSize: 9.5 }}>{s.label}</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: s.color, fontFamily: 'var(--cb-font-mono)',
-                      fontVariantNumeric: 'tabular-nums' }}>{s.value}</div>
-                  </div>
-                ))}
-              </div>
+              <RouteMap dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} />
 
               {/* ── Departure / Arrival ── */}
               {depArr.length > 0 && (

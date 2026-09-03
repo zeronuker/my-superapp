@@ -7,7 +7,6 @@ import {
   tokenizeRaw, parseTafSegments,
   getRoleStyle,
 } from '../utils/metarSeverity'
-import BriefingView from './BriefingView'
 import { decodeMetar, decodeTaf } from '../utils/metarDecode'
 import { fetchWeather } from '../services/weatherAPI'
 import { normalizeRunways, windComponents, fmtWindComponent, windSeverity } from '../utils/runways'
@@ -50,8 +49,9 @@ function saveCache(data) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function METARTAFCalculator() {
-  const { settings } = useCalculatorStore(s => ({
+  const { settings, openBriefing } = useCalculatorStore(s => ({
     settings: s.settings,
+    openBriefing: s.openBriefing,
   }))
 
   // Initialise state from cache (synchronous read — no flash)
@@ -66,7 +66,6 @@ export default function METARTAFCalculator() {
   const [fetchedAt,    setFetchedAt]    = useState(cache?.fetchedAt    || null)
   const [loading,      setLoading]      = useState(false)
   const [manualFetch,  setManualFetch]  = useState(false)
-  const [showBriefing, setShowBriefing] = useState(false)
   const [activeTargets, setActiveTargets] = useState([])
   const [now,          setNow]          = useState(Date.now())
 
@@ -372,7 +371,7 @@ export default function METARTAFCalculator() {
           </span>
         )}
 
-        <button className="cp-btn" onClick={() => setShowBriefing(true)} disabled={!hasInput}
+        <button className="cp-btn" onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts })} disabled={!hasInput}
           style={{ marginLeft: 'auto', opacity: hasInput ? 1 : 0.4, letterSpacing: '0.15em' }}>
           ✈ BRIEFING
         </button>
@@ -387,14 +386,6 @@ export default function METARTAFCalculator() {
           {loading ? 'FETCHING…' : '⟳  FETCH WEATHER'}
         </button>
       </div>
-
-      {showBriefing && (
-        <BriefingView
-          dep={dep} arr={arr} destAlts={destAlts}
-          enrouteCount={enrouteCount} enrouteAlts={enrouteAlts}
-          onClose={() => setShowBriefing(false)}
-        />
-      )}
 
       {/* ── OFFLINE BANNER ──────────────────────────────────────────────── */}
       {isOffline && (
