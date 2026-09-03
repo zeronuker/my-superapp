@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 
 const AIRPORTS = [
   { label: 'KUL — KLIA Terminal 1', value: 'KLIA' },
@@ -49,23 +50,43 @@ function FlightCard({ f }) {
   return (
     <div style={{
       background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
-      borderLeft: `3px solid ${color}`, borderRadius: 6, padding: '10px 12px',
+      borderLeft: `3px solid ${color}`, borderRadius: 6, padding: '12px 14px',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--cp-txt)', letterSpacing: '0.04em' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 16, fontWeight: 700, color: 'var(--cp-txt)', letterSpacing: '0.03em' }}>
           {f.flightNumber}
         </span>
-        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color }}>
-          {f.status}
+        <span style={{
+          fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+          color, background: `color-mix(in srgb, ${color} 16%, transparent)`,
+          border: `1px solid ${color}`, borderRadius: 4, padding: '3px 8px', whiteSpace: 'nowrap',
+        }}>
+          {f.status || 'UNKNOWN'}
         </span>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--cp-muted)', marginBottom: 8 }}>
+
+      <div style={{ fontSize: 13, color: 'var(--cp-muted)', marginBottom: 12 }}>
         {f.name} → {place?.city}
       </div>
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontFamily: 'var(--cb-font-mono)', fontSize: 10 }}>
-        <div><span style={{ color: 'var(--cp-dim)' }}>SCHED </span><span style={{ color: 'var(--cp-txt)' }}>{hm(f.scheduledTime)}</span></div>
-        <div><span style={{ color: 'var(--cp-dim)' }}>GATE </span><span style={{ color: 'var(--cp-txt)' }}>{f.gate?.name || '—'}</span></div>
-        <div><span style={{ color: 'var(--cp-dim)' }}>CHECK-IN </span><span style={{ color: 'var(--cp-txt)' }}>{f.checkIn?.counters || '—'}</span></div>
+
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}>
+        <div style={{
+          background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 6,
+          padding: '6px 16px', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', minWidth: 84,
+        }}>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.14em', color: 'var(--cp-acc)', opacity: 0.85 }}>
+            GATE
+          </div>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 24, fontWeight: 700, color: 'var(--cp-acc)', lineHeight: 1.15 }}>
+            {f.gate?.name || '—'}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 5, fontFamily: 'var(--cb-font-mono)', fontSize: 11 }}>
+          <div><span style={{ color: 'var(--cp-dim)' }}>SCHED </span><span style={{ color: 'var(--cp-txt)', fontWeight: 700 }}>{hm(f.scheduledTime)}</span></div>
+          <div><span style={{ color: 'var(--cp-dim)' }}>CHECK-IN </span><span style={{ color: 'var(--cp-txt)' }}>{f.checkIn?.counters || '—'}</span></div>
+        </div>
       </div>
     </div>
   )
@@ -78,9 +99,11 @@ export default function MalaysiaAirports() {
   const [criteria, setCriteria]   = useState('flight')
   const [query, setQuery]         = useState('')
 
-  const [results, setResults] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
+  const [results, setResults]         = useState(null)
+  const [loading, setLoading]         = useState(false)
+  const [manualFetch, setManualFetch] = useState(false)
+  const [scanTarget, setScanTarget]   = useState('')
+  const [error, setError]             = useState(null)
 
   const search = async () => {
     if (criteria !== 'all' && !query.trim()) {
@@ -88,7 +111,13 @@ export default function MalaysiaAirports() {
       return
     }
     setLoading(true)
+    setManualFetch(true)
+    setScanTarget(query.trim() || AIRPORTS.find(a => a.value === terminal)?.value || terminal)
     setError(null)
+    const startedAt = Date.now()
+
+    let out = null
+    let err = null
     try {
       const params = new URLSearchParams({
         code: direction, terminal, dayKey: String(dayKey), key: criteria, value: query.trim(),
@@ -96,13 +125,24 @@ export default function MalaysiaAirports() {
       const r = await fetch(`/api/gatefinder?${params}`, { signal: AbortSignal.timeout(15_000) })
       const data = await r.json().catch(() => null)
       if (!r.ok || !data) throw new Error(data?.error || 'Search failed')
-      setResults(data.flightStatuses || [])
+      out = data.flightStatuses || []
     } catch (e) {
-      setError(e.name === 'TimeoutError' ? 'Request timed out' : (e.message || 'Search failed'))
-      setResults(null)
-    } finally {
-      setLoading(false)
+      err = e.name === 'TimeoutError' ? 'Request timed out' : (e.message || 'Search failed')
     }
+
+    const reveal = () => {
+      if (err) { setError(err); setResults(null) } else { setResults(out) }
+      setLoading(false)
+      setManualFetch(false)
+    }
+
+    // Animation always finishes before results are revealed — unless the
+    // search errored, in which case surface it immediately.
+    if (!err) {
+      const remaining = computeAnimDuration(1) - (Date.now() - startedAt)
+      if (remaining > 0) { setTimeout(reveal, remaining); return }
+    }
+    reveal()
   }
 
   return (
@@ -166,7 +206,9 @@ export default function MalaysiaAirports() {
         </div>
       )}
 
-      {results && (
+      {manualFetch && <RadarSweepLoader targets={[scanTarget]} />}
+
+      {results && !manualFetch && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {results.length === 0 ? (
             <div style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12, color: 'var(--cp-dim)' }}>
