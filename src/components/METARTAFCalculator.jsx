@@ -372,7 +372,11 @@ export default function METARTAFCalculator() {
         )}
 
         <button className="cp-btn" onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts })} disabled={!hasInput}
-          style={{ marginLeft: 'auto', opacity: hasInput ? 1 : 0.4, letterSpacing: '0.15em' }}>
+          style={{
+            marginLeft: 'auto', opacity: hasInput ? 1 : 0.4, letterSpacing: '0.15em',
+            border: '2px solid var(--cp-green)', color: 'var(--cp-green)',
+            background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
+          }}>
           ✈ BRIEFING
         </button>
         <button className="cp-btn" onClick={handleFetch}

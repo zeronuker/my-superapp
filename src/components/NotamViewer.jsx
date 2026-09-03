@@ -482,9 +482,10 @@ export default function NotamViewer() {
         </button>
         <button onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts, firs: extraChips.filter(c => c.type === 'fir') })}
           disabled={!targets.length} style={{
-          padding: '12px 16px', background: 'transparent', border: `1px solid ${T.bord}`,
+          padding: '12px 16px', background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
+          border: '2px solid var(--cp-green)',
           borderRadius: 6, cursor: targets.length ? 'pointer' : 'default', fontFamily: T.mono,
-          fontSize: 10, letterSpacing: '0.16em', color: T.dim, opacity: targets.length ? 1 : 0.5 }}>
+          fontSize: 10, letterSpacing: '0.16em', color: 'var(--cp-green)', opacity: targets.length ? 1 : 0.5 }}>
           ✈ BRIEFING
         </button>
       </div>
