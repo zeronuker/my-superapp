@@ -16,11 +16,12 @@ import CopyAirportsButton from './CopyAirportsButton'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import SourceChip from './SourceChip'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
+import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const HOURS_OPTIONS  = [1, 2, 3, 6, 12, 24]
 const ERA_MAX        = 5
-const CACHE_KEY      = 'cb-metar-cache'
+const CACHE_KEY      = METAR_CACHE_KEY
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function formatAge(unixSec, nowMs) {
@@ -49,9 +50,10 @@ function saveCache(data) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function METARTAFCalculator() {
-  const { settings, openBriefing } = useCalculatorStore(s => ({
+  const { settings, openBriefing, closeBriefing } = useCalculatorStore(s => ({
     settings: s.settings,
     openBriefing: s.openBriefing,
+    closeBriefing: s.closeBriefing,
   }))
 
   // Initialise state from cache (synchronous read — no flash)
@@ -113,8 +115,8 @@ export default function METARTAFCalculator() {
     setEnrouteAlts(Array.from({ length: ERA_MAX }, (_, i) => data.enrouteAlts[i] || ''))
   }
 
-  // ── Reset this tab ──────────────────────────────────────────────────────
-  const handleReset = () => {
+  // ── Reset this tab (scope: 'module' default, or 'all' for all 3) ────────
+  const handleReset = (scope) => {
     setDep(''); setArr('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(0)
@@ -123,6 +125,12 @@ export default function METARTAFCalculator() {
     setResults(null)
     setFetchedAt(null)
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
+    // Reset always discards the Briefing cache — stale route/data otherwise
+    // lingers there regardless of which scope was picked.
+    closeBriefing()
+    if (scope === 'all') {
+      try { localStorage.removeItem(NOTAM_CACHE_KEY); localStorage.removeItem(SIGMET_CACHE_KEY) } catch (_) {}
+    }
   }
 
   useExpiry(fetchedAt, handleReset)

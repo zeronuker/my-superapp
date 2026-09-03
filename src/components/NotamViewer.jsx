@@ -10,6 +10,7 @@ import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import SourceChip from './SourceChip'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import { ROLE_TINT } from '../utils/roleStyle'
+import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const T = {
@@ -20,7 +21,7 @@ const T = {
 }
 
 const ERA_MAX = 5
-const CACHE_KEY = 'cb-notam-cache'
+const CACHE_KEY = NOTAM_CACHE_KEY
 function saveCache(data) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch (_) {}
 }
@@ -141,9 +142,10 @@ function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function NotamViewer() {
-  const { sortMode, openBriefing } = useCalculatorStore(s => ({
+  const { sortMode, openBriefing, closeBriefing } = useCalculatorStore(s => ({
     sortMode: s.settings.notamSort || 'relevance',
     openBriefing: s.openBriefing,
+    closeBriefing: s.closeBriefing,
   }))
 
   const [cache]        = useState(() => loadWithExpiry(CACHE_KEY))
@@ -203,7 +205,7 @@ export default function NotamViewer() {
     setExtraChips(prev => prev.filter(c => c.type !== 'fir'))
   }
 
-  const handleReset = () => {
+  const handleReset = (scope) => {
     setDep(''); setArr('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(0)
@@ -215,6 +217,10 @@ export default function NotamViewer() {
     setError('')
     setCollapsedMap({})
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
+    closeBriefing()
+    if (scope === 'all') {
+      try { localStorage.removeItem(METAR_CACHE_KEY); localStorage.removeItem(SIGMET_CACHE_KEY) } catch (_) {}
+    }
   }
 
   useExpiry(fetchedAt, handleReset)

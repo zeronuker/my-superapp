@@ -9,8 +9,9 @@ import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
 import SigmetCard from './SigmetCard'
+import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
-const CACHE_KEY = 'cb-sigmet-cache'
+const CACHE_KEY = SIGMET_CACHE_KEY
 const ERA_MAX = 5
 
 function saveCache(data) {
@@ -52,7 +53,10 @@ function reviveSigmets(sigmets) {
 }
 
 export default function SigmetViewer() {
-  const openBriefing = useCalculatorStore(s => s.openBriefing)
+  const { openBriefing, closeBriefing } = useCalculatorStore(s => ({
+    openBriefing: s.openBriefing,
+    closeBriefing: s.closeBriefing,
+  }))
   const [cache] = useState(() => loadWithExpiry(CACHE_KEY))
 
   const [dep, setDep] = useState(cache?.dep || '')
@@ -101,7 +105,7 @@ export default function SigmetViewer() {
     // entries alone since we can't tell them apart from route-derived ones.
   }
 
-  const handleReset = () => {
+  const handleReset = (scope) => {
     setDep(''); setArr('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(0)
@@ -109,6 +113,10 @@ export default function SigmetViewer() {
     setChips([]); setCustomInput('')
     setSigmets(null); setFetchedAt(null); setError('')
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
+    closeBriefing()
+    if (scope === 'all') {
+      try { localStorage.removeItem(METAR_CACHE_KEY); localStorage.removeItem(NOTAM_CACHE_KEY) } catch (_) {}
+    }
   }
 
   useExpiry(fetchedAt, handleReset)

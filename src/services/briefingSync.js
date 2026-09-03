@@ -5,9 +5,7 @@
 // shows this same route + data already loaded, with zero extra API calls.
 // Always overwrites; there's no merge with whatever a module already had.
 
-const METAR_CACHE_KEY = 'cb-metar-cache'
-const NOTAM_CACHE_KEY = 'cb-notam-cache'
-const SIGMET_CACHE_KEY = 'cb-sigmet-cache'
+import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
 function safeSet(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch (_) {}
