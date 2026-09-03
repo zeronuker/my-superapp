@@ -21,6 +21,7 @@ const CurrencyCalculator      = lazy(() => import('./components/CurrencyCalculat
 const METARTAFCalculator      = lazy(() => import('./components/METARTAFCalculator'))
 const NotamViewer             = lazy(() => import('./components/NotamViewer'))
 const SigmetViewer            = lazy(() => import('./components/SigmetViewer'))
+const MalaysiaAirports        = lazy(() => import('./components/MalaysiaAirports'))
 const FTLCalculator           = lazy(() => import('./components/FTLCalculator'))
 const WorldTimeCalculator     = lazy(() => import('./components/WorldTimeCalculator'))
 const PrayerModule            = lazy(() => import('./modules/prayer'))
@@ -40,6 +41,7 @@ export const CALCULATORS = [
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
   { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
   { id: 'sigmet',        icon: '⛈️',  name: 'SIGMET',         component: SigmetViewer },
+  { id: 'gatefinder',    icon: '🛬',  name: 'Malaysia Airports', component: MalaysiaAirports },
   { id: 'ftl',           icon: '⏳',  name: 'FTL',            component: FTLCalculator },
   { id: 'dutylog',       icon: '🛫',  name: 'Duty Log',       component: DutyLogModule },
   { id: 'worldtime',     icon: '🌐',  name: 'World Time',     component: WorldTimeCalculator },

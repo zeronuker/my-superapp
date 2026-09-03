@@ -7,6 +7,12 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "my-superapp-vercel",
+      "runtimeExecutable": "vercel",
+      "runtimeArgs": ["dev", "--listen", "3010"],
+      "port": 3010
     }
   ]
 }
