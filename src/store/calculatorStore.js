@@ -213,7 +213,10 @@ export const useCalculatorStore = create((set) => ({
   // NOTAM tab so the same fetched briefing is still there to come back to.
   pauseBriefing:    ()           => set(s => ({ briefing: { ...s.briefing, open: false } })),
   resumeBriefing:   ()           => set(s => ({ briefing: { ...s.briefing, open: true } })),
-  // Full discard — the ✕ button and Escape/backdrop dismiss.
+  // Full discard — only the 12h staleness expiry (App.jsx) calls this now.
+  // ✕/Escape/backdrop just pause (see pauseBriefing) — a full discard there
+  // would wipe the cache the moment anyone actually closes the overlay,
+  // defeating the point of persisting it for an offline reopen.
   closeBriefing:    ()           => set(() => {
     saveBriefingCache(null, null)
     return { briefing: { open: false, route: null, data: null } }

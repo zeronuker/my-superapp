@@ -309,7 +309,13 @@ function RouteMap({ dep, arr, destAltList, eraList }) {
 export default function BriefingView() {
   const briefing = useCalculatorStore(s => s.briefing)
   const setBriefingData = useCalculatorStore(s => s.setBriefingData)
-  const closeBriefing = useCalculatorStore(s => s.closeBriefing)
+  // ✕/Escape/backdrop only hide the overlay — they don't discard the fetched
+  // data. A full closeBriefing() would defeat the whole point of caching it:
+  // nobody leaves this open indefinitely, so if closing wiped the cache,
+  // "survives an offline reopen" would never apply in the one moment it
+  // matters (right after actually looking at it). Real staleness is still
+  // handled by the 12h expiry (App.jsx) and by a fresh fetch overwriting it.
+  const pauseBriefing = useCalculatorStore(s => s.pauseBriefing)
   const { route, data } = briefing
 
   const [targets] = useState(() => buildAirportTargets(route.dep, route.arr, route.destAlts, route.enrouteCount, route.enrouteAlts))
@@ -332,10 +338,10 @@ export default function BriefingView() {
   }, [])
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') closeBriefing() }
+    const onKey = (e) => { if (e.key === 'Escape') pauseBriefing() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [closeBriefing])
+  }, [pauseBriefing])
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60_000)
@@ -416,7 +422,7 @@ export default function BriefingView() {
 
   return (
     <div
-      onClick={closeBriefing}
+      onClick={pauseBriefing}
       style={{
         position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
@@ -438,7 +444,7 @@ export default function BriefingView() {
             letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--cp-txt)' }}>
             ✈ Flight Briefing
           </span>
-          <button onClick={closeBriefing} className="cp-btn" style={{ width: 28, height: 28, padding: 0 }}>✕</button>
+          <button onClick={pauseBriefing} className="cp-btn" style={{ width: 28, height: 28, padding: 0 }}>✕</button>
         </div>
 
         <div style={{ padding: '18px 20px 24px' }}>
