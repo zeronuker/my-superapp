@@ -3,6 +3,7 @@ import { useCalculatorStore } from '../store/calculatorStore'
 import { fetchWeather } from '../services/weatherAPI'
 import { fetchNotams, detectRouteFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
 import { fetchAllSigmets } from '../services/sigmetAPI'
+import { syncModuleCaches } from '../services/briefingSync'
 import { icaoToFir } from '../data/firLookup'
 import { lookupAirport } from '../data/airports'
 import {
@@ -23,19 +24,25 @@ const NOTAM_CAP = 5
 // Rough chars-to-5-lines estimate at this card's font/width — see the
 // "no DOM measurement available" note where it's used.
 const NOTAM_TEXT_CLAMP_CHARS = 260
+// METAR/TAF history depth Briefing fetches with — also recorded as the
+// synced METAR/TAF cache's `hours`, so it accurately reflects what was
+// actually fetched rather than claiming a wider window than it has.
+const BRIEFING_METAR_HOURS = 2
 
 // ── Build the same ordered, deduped airport list every module builds ──
+// `key` (dep/arr/alt1/alt2/eraN) matches METARTAFCalculator's own target
+// keys — needed to write results back into its cache shape (briefingSync).
 function buildAirportTargets(dep, arr, destAlts, enrouteCount, enrouteAlts) {
   const list = []
-  const add = (icao, label) => {
+  const add = (key, icao, label) => {
     if (!icao || typeof icao !== 'string') return
-    if (icao.trim().length >= 3) list.push({ icao: icao.trim().toUpperCase(), label })
+    if (icao.trim().length >= 3) list.push({ key, icao: icao.trim().toUpperCase(), label })
   }
-  add(dep, 'DEPARTURE')
-  add(arr, 'ARRIVAL')
-  add(destAlts?.alt1, 'DESTINATION ALTERNATE 1')
-  add(destAlts?.alt2, 'DESTINATION ALTERNATE 2')
-  for (let i = 0; i < enrouteCount; i++) add(enrouteAlts?.[i], `ENROUTE ALTERNATE ${i + 1}`)
+  add('dep', dep, 'DEPARTURE')
+  add('arr', arr, 'ARRIVAL')
+  add('alt1', destAlts?.alt1, 'DESTINATION ALTERNATE 1')
+  add('alt2', destAlts?.alt2, 'DESTINATION ALTERNATE 2')
+  for (let i = 0; i < enrouteCount; i++) add(`era${i + 1}`, enrouteAlts?.[i], `ENROUTE ALTERNATE ${i + 1}`)
   const seen = new Set()
   return list.filter(t => { if (seen.has(t.icao)) return false; seen.add(t.icao); return true })
 }
@@ -60,6 +67,112 @@ function autoDetectFirs(dep, arr, destAlts, enrouteCount, enrouteAlts) {
   return found
 }
 
+// Pausing (not discarding — see BriefingView) and jumping to the NOTAM tab
+// for the full, untruncated list. Shared by AirportCard and FirNotamCard.
+function useViewAllNotams() {
+  const pauseBriefing = useCalculatorStore(s => s.pauseBriefing)
+  const setActiveCalculator = useCalculatorStore(s => s.setActiveCalculator)
+  return () => { pauseBriefing(); setActiveCalculator('notam') }
+}
+
+// Capped, prioritized, line-clamped NOTAM list — shared by AirportCard
+// (per-airport) and FirNotamCard (per-FIR, e.g. airspace/oceanic notices).
+function NotamListSection({ notams, onViewAll }) {
+  const activeNotams = (notams || []).filter(n => n.validity.status === 'ACTIVE')
+  const sortedNotams = [...activeNotams].sort((a, b) =>
+    (NOTAM_PRIORITY[a.category] ?? 99) - (NOTAM_PRIORITY[b.category] ?? 99))
+  const visibleNotams = sortedNotams.slice(0, NOTAM_CAP)
+  const hiddenCount = sortedNotams.length - visibleNotams.length
+
+  return (
+    <div>
+      <div className="cp-label" style={{ marginBottom: 3 }}>NOTAMS · {activeNotams.length} ACTIVE</div>
+      {activeNotams.length === 0 ? (
+        <div style={{ fontSize: 11, color: 'var(--cp-dim)', fontStyle: 'italic' }}>No active NOTAMs</div>
+      ) : (
+        <div>
+          {visibleNotams.map((n, i) => {
+            // No DOM measurement available at render time — a character
+            // count is a reasonable stand-in for "this will run past 5
+            // lines at this card's width" without needing a ref/resize
+            // observer for something this low-stakes.
+            const likelyOverflows = (n.summary || '').length > NOTAM_TEXT_CLAMP_CHARS
+            return (
+              <div key={n.id} style={{
+                fontSize: 11.5, lineHeight: 1.4, padding: '6px 0',
+                borderTop: i === 0 ? 'none' : '1px solid var(--cp-border3)',
+              }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0, marginTop: 4,
+                    background: NOTAM_CATEGORIES[n.category]?.color || 'var(--cp-dim)',
+                  }} />
+                  <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, color: 'var(--cp-dim)', flexShrink: 0 }}>
+                    {n.id}
+                  </span>
+                  <span style={{
+                    color: 'var(--cp-muted)', display: '-webkit-box',
+                    WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                  }}>
+                    {n.summary}
+                  </span>
+                </div>
+                {likelyOverflows && (
+                  <button onClick={onViewAll} style={{
+                    marginTop: 3, marginLeft: 14, padding: 0, border: 'none', background: 'none', cursor: 'pointer',
+                    fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-acc)',
+                    textDecoration: 'underline', textUnderlineOffset: 2,
+                  }}>
+                    read full text in NOTAM tab →
+                  </button>
+                )}
+              </div>
+            )
+          })}
+          {hiddenCount > 0 && (
+            <button onClick={onViewAll} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%',
+              marginTop: 6, padding: '8px 10px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
+              border: '1px dashed var(--cp-border)', background: 'var(--cp-bg3)',
+              fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, letterSpacing: '0.02em', color: 'var(--cp-acc)',
+            }}>
+              <span style={{ color: 'var(--cp-dim)' }}>
+                <span style={{ color: 'var(--cp-acc)' }}>+ {hiddenCount} more</span> · runway/taxiway, obstacle &amp; navaid notices shown first
+              </span>
+              <span style={{ flexShrink: 0 }}>view all in NOTAM tab →</span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── One FIR's NOTAMs — airspace/oceanic notices, not tied to any one airport ──
+function FirNotamCard({ fir, notams }) {
+  const viewAllNotams = useViewAllNotams()
+  return (
+    <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', gap: 9, padding: '10px 14px',
+        borderBottom: '1px solid var(--cp-border3)', borderLeft: '3px solid var(--cp-acc)',
+      }}>
+        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--cp-txt)' }}>
+          {fir.icao}
+        </span>
+        {fir.name && (
+          <span style={{ fontSize: 11, color: 'var(--cp-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {fir.name}
+          </span>
+        )}
+      </div>
+      <div style={{ padding: '12px 14px 14px' }}>
+        <NotamListSection notams={notams} onViewAll={viewAllNotams} />
+      </div>
+    </div>
+  )
+}
+
 // ── One airport's METAR/TAF/NOTAM summary, latest report only ──
 function AirportCard({ target, weather, notams }) {
   const role = getRoleStyle(target.label)
@@ -72,16 +185,7 @@ function AirportCard({ target, weather, notams }) {
   const windColor = windSev !== 'NORMAL' ? WIND_COLORS[windSev] : null
   const metarTokens = latestMetar ? tokenizeRaw(latestMetar.rawOb, catColor, windColor) : null
   const tafSegments = latestTaf ? parseTafSegments(latestTaf.rawTAF) : null
-
-  const activeNotams = (notams || []).filter(n => n.validity.status === 'ACTIVE')
-  const sortedNotams = [...activeNotams].sort((a, b) =>
-    (NOTAM_PRIORITY[a.category] ?? 99) - (NOTAM_PRIORITY[b.category] ?? 99))
-  const visibleNotams = sortedNotams.slice(0, NOTAM_CAP)
-  const hiddenCount = sortedNotams.length - visibleNotams.length
-
-  const pauseBriefing = useCalculatorStore(s => s.pauseBriefing)
-  const setActiveCalculator = useCalculatorStore(s => s.setActiveCalculator)
-  const viewAllNotams = () => { pauseBriefing(); setActiveCalculator('notam') }
+  const viewAllNotams = useViewAllNotams()
 
   return (
     <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -142,66 +246,7 @@ function AirportCard({ target, weather, notams }) {
           </div>
         </div>
 
-        <div>
-          <div className="cp-label" style={{ marginBottom: 3 }}>NOTAMS · {activeNotams.length} ACTIVE</div>
-          {activeNotams.length === 0 ? (
-            <div style={{ fontSize: 11, color: 'var(--cp-dim)', fontStyle: 'italic' }}>No active NOTAMs</div>
-          ) : (
-            <div>
-              {visibleNotams.map((n, i) => {
-                // No DOM measurement available at render time — a character
-                // count is a reasonable stand-in for "this will run past 5
-                // lines at this card's width" without needing a ref/resize
-                // observer for something this low-stakes.
-                const likelyOverflows = (n.summary || '').length > NOTAM_TEXT_CLAMP_CHARS
-                return (
-                  <div key={n.id} style={{
-                    fontSize: 11.5, lineHeight: 1.4, padding: '6px 0',
-                    borderTop: i === 0 ? 'none' : '1px solid var(--cp-border3)',
-                  }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                      <span style={{
-                        width: 6, height: 6, borderRadius: '50%', flexShrink: 0, marginTop: 4,
-                        background: NOTAM_CATEGORIES[n.category]?.color || 'var(--cp-dim)',
-                      }} />
-                      <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, color: 'var(--cp-dim)', flexShrink: 0 }}>
-                        {n.id}
-                      </span>
-                      <span style={{
-                        color: 'var(--cp-muted)', display: '-webkit-box',
-                        WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                      }}>
-                        {n.summary}
-                      </span>
-                    </div>
-                    {likelyOverflows && (
-                      <button onClick={viewAllNotams} style={{
-                        marginTop: 3, marginLeft: 14, padding: 0, border: 'none', background: 'none', cursor: 'pointer',
-                        fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-acc)',
-                        textDecoration: 'underline', textUnderlineOffset: 2,
-                      }}>
-                        read full text in NOTAM tab →
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-              {hiddenCount > 0 && (
-                <button onClick={viewAllNotams} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%',
-                  marginTop: 6, padding: '8px 10px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
-                  border: '1px dashed var(--cp-border)', background: 'var(--cp-bg3)',
-                  fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, letterSpacing: '0.02em', color: 'var(--cp-acc)',
-                }}>
-                  <span style={{ color: 'var(--cp-dim)' }}>
-                    <span style={{ color: 'var(--cp-acc)' }}>+ {hiddenCount} more</span> · runway/taxiway, obstacle &amp; navaid notices shown first
-                  </span>
-                  <span style={{ flexShrink: 0 }}>view all in NOTAM tab →</span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        <NotamListSection notams={notams} onViewAll={viewAllNotams} />
       </div>
     </div>
   )
@@ -373,9 +418,17 @@ export default function BriefingView() {
         ? route.firs
         : autoDetectFirs(route.dep, route.arr, route.destAlts, route.enrouteCount, route.enrouteAlts)
 
+      // NOTAMs for the airports AND the route FIRs (airspace/oceanic notices
+      // — NOTAM/SIGMET's own auto-detect fetches these too, Briefing was
+      // only ever fetching per-airport ones).
+      const notamTargetIcaos = [...new Set([
+        ...targets.map(t => t.icao),
+        ...resolvedFirs.map(f => f.icao.toUpperCase()),
+      ])]
+
       const [weatherList, notamResult, allSigmets] = await Promise.all([
-        Promise.all(targets.map(async (t) => ({ ...t, ...(await fetchWeather(t.icao, 2)) }))),
-        fetchNotams(targets.map(t => t.icao)),
+        Promise.all(targets.map(async (t) => ({ ...t, ...(await fetchWeather(t.icao, BRIEFING_METAR_HOURS)) }))),
+        fetchNotams(notamTargetIcaos),
         fetchAllSigmets(AbortSignal.timeout(15_000)).catch(() => []),
       ])
       if (cancelled) return
@@ -395,6 +448,10 @@ export default function BriefingView() {
           firsUsed: resolvedFirs,
           fetchedAt: Date.now(),
         })
+        // Push these same, already-fetched results into METAR/TAF, NOTAM
+        // and SIGMET's own caches — no extra API calls — so opening one of
+        // those tabs directly afterwards shows this route already loaded.
+        syncModuleCaches({ route, weatherList, notamResult, resolvedFirs, scopedSigmets, hours: BRIEFING_METAR_HOURS })
         setLoading(false)
       }
 
@@ -505,6 +562,18 @@ export default function BriefingView() {
                   </div>
                 </div>
               )}
+
+              {/* ── NOTAMs for route FIRs (airspace/oceanic notices) ── */}
+              <div style={{ marginBottom: 20 }}>
+                <div className="cp-section-header"><span className="cp-section-title">Notams — Route Firs</span><div className="cp-divider" /></div>
+                {firsUsed.length === 0 ? (
+                  <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                    {firsUsed.map(fir => <FirNotamCard key={fir.icao} fir={fir} notams={notamsByIcao[fir.icao]} />)}
+                  </div>
+                )}
+              </div>
 
               {/* ── SIGMETs ── */}
               <div>
