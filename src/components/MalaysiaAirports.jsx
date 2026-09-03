@@ -33,15 +33,25 @@ const label = {
   color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', marginBottom: 4,
 }
 
-// Overall flight status → accent colour (best-effort keyword match; the API
-// returns free-text status strings, not a fixed enum).
-function statusColor(status) {
-  const s = (status || '').toUpperCase()
-  if (/CANCEL|DELAY/.test(s)) return 'var(--cp-red)'
-  if (/DIVERT/.test(s)) return 'var(--cp-purple)'
-  if (/BOARD|GATE OPEN|CHECK/.test(s)) return 'var(--cp-yellow)'
-  if (/DEPART|ARRIV|LAND/.test(s)) return 'var(--cp-green)'
-  if (/SCHED|EXPECT|ON TIME/.test(s)) return 'var(--cp-acc2)'
+// Overall flight status → accent colour. The API's `status` field means
+// different things depending on `leg`: for departures it tracks the
+// check-in desk then the gate (OPEN/CLOSED), for arrivals it tracks the
+// baggage carousel (OPEN/FIRST BAG/LAST BAG/CLOSED) — same words, opposite
+// urgency (departures' CLOSED means "hurry", arrivals' CLOSED means "done").
+function statusColor(status, leg) {
+  const s = (status || '').toUpperCase().trim()
+  if (!s) return 'var(--cp-dim)'
+  if (/DELAY|CANCEL/.test(s)) return 'var(--cp-red)'
+  if (/RETIME/.test(s)) return 'var(--cp-orange)'
+  if (/BOARD|FINAL CALL/.test(s)) return 'var(--cp-yellow)'
+  if (/DEPART/.test(s)) return 'var(--cp-green)'
+  if (leg === 'A') {
+    if (/LAST BAG|^CLOSED$/.test(s)) return 'var(--cp-green)'
+    if (/OPEN|FIRST BAG/.test(s)) return 'var(--cp-acc2)'
+  } else {
+    if (/^CLOSED$/.test(s)) return 'var(--cp-orange)'
+    if (/OPEN/.test(s)) return 'var(--cp-acc2)'
+  }
   return 'var(--cp-dim)'
 }
 
@@ -53,7 +63,7 @@ const CATEGORY = {
 const hm = (t) => (t ? t.slice(11, 16) : '—')
 
 function FlightCard({ f }) {
-  const color = statusColor(f.status)
+  const color = statusColor(f.status, f.leg)
   const place = f.leg === 'A' ? f.origin : f.destination
   const category = CATEGORY[f.category]
   return (
