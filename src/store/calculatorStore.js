@@ -24,6 +24,16 @@ function loadBriefingCache() {
   }
   return { open: false, route: cached.route, data: cached.data }
 }
+// Same route input (dep/arr/destAlts/enrouteAlts) — ignores derived fields
+// like firs, which differ by which module opened Briefing.
+function routesMatch(a, b) {
+  if (!a || !b) return false
+  return (a.dep || '') === (b.dep || '') && (a.arr || '') === (b.arr || '')
+    && (a.destAlts?.alt1 || '') === (b.destAlts?.alt1 || '')
+    && (a.destAlts?.alt2 || '') === (b.destAlts?.alt2 || '')
+    && (a.enrouteCount || 0) === (b.enrouteCount || 0)
+    && JSON.stringify(a.enrouteAlts || []) === JSON.stringify(b.enrouteAlts || [])
+}
 function saveBriefingCache(route, data) {
   try {
     if (!data) { localStorage.removeItem(BRIEFING_CACHE_KEY); return }
@@ -185,8 +195,16 @@ export const useCalculatorStore = create((set) => ({
   setActiveCalculator: (id)      => set({ activeCalculator: id }),
 
   // route: { dep, arr, destAlts, enrouteCount, enrouteAlts, firs }. Starts a
-  // fresh fetch — data:null tells BriefingView to fetch rather than reuse.
-  openBriefing:     (route)      => set({ briefing: { open: true, route, data: null } }),
+  // fresh fetch — data:null tells BriefingView to fetch rather than reuse —
+  // except offline with a cached briefing for this exact route already on
+  // hand, where refetching can only fail: show the cache immediately instead.
+  openBriefing:     (route)      => set(s => {
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+    if (offline && s.briefing.data && routesMatch(s.briefing.route, route)) {
+      return { briefing: { open: true, route, data: s.briefing.data } }
+    }
+    return { briefing: { open: true, route, data: null } }
+  }),
   setBriefingData:  (data)       => set(s => {
     saveBriefingCache(s.briefing.route, data)
     return { briefing: { ...s.briefing, data } }

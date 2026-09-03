@@ -316,10 +316,19 @@ export default function BriefingView() {
   const [loading, setLoading] = useState(!data)
   const [error, setError] = useState('')
   const [now, setNow] = useState(Date.now())
+  const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
+  }, [])
+
+  useEffect(() => {
+    const on = () => setIsOffline(false)
+    const off = () => setIsOffline(true)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
   useEffect(() => {
@@ -342,6 +351,14 @@ export default function BriefingView() {
     async function run() {
       if (targets.length === 0) {
         setError('No airports entered.')
+        setLoading(false)
+        return
+      }
+      // Offline with nothing cached for this route (openBriefing already
+      // reused a matching cache instead of getting here) — don't spin the
+      // radar-sweep animation for a fetch that can only fail.
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        setError('You are offline and no cached briefing is available for this route. Connect to fetch one.')
         setLoading(false)
         return
       }
@@ -434,6 +451,17 @@ export default function BriefingView() {
             </div>
           ) : (
             <>
+              {isOffline && (
+                <div style={{
+                  background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.25)',
+                  borderLeft: '3px solid var(--cp-yellow)', borderRadius: 4, padding: '8px 14px', marginBottom: 12,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.12em', color: 'var(--cp-yellow)',
+                }}>
+                  ⚠ OFFLINE <span style={{ color: 'var(--cp-dim)' }}>· SHOWING CACHED DATA</span>
+                </div>
+              )}
+
               <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)',
                 letterSpacing: '0.08em', marginBottom: 14 }}>
                 {route.dep && route.arr ? `${route.dep} → ${route.arr}` : route.dep || route.arr}

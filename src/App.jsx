@@ -483,11 +483,16 @@ export default function App() {
            tabs to look something up doesn't unmount it. Wrapped in the same
            ErrorBoundary every tab gets — without it, a render error here
            (e.g. an unexpected shape in cached/fetched data) white-screens
-           the whole app instead of failing gracefully. ─────────────────── */}
+           the whole app instead of failing gracefully. `key` on BriefingView
+           forces a real remount whenever the route changes — its fetch
+           effect only runs once per mount, so without this, two openBriefing
+           calls close enough together to land in the same React batch (no
+           observable unmount in between) leave it silently showing stale
+           loading/error state for the new route instead of refetching. ── */}
       {briefing.open && (
         <ErrorBoundary name="Briefing" resetKey={`${briefing.route?.dep}-${briefing.route?.arr}-${briefing.open}`}>
           <Suspense fallback={null}>
-            <BriefingView />
+            <BriefingView key={JSON.stringify(briefing.route)} />
           </Suspense>
         </ErrorBoundary>
       )}
