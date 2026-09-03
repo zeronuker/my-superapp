@@ -58,6 +58,37 @@ export default defineConfig({
               networkTimeoutSeconds: 8,
             },
           },
+          // NOTAM — autorouter.aero proxy
+          {
+            urlPattern:  /\/api\/notam\b/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'notam-data',
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 30 },
+              networkTimeoutSeconds: 8,
+            },
+          },
+          // SkyLink — shared proxy (METAR/TAF/NOTAM fallback source, ADS-B,
+          // aircraft lookup, schedules boards)
+          {
+            urlPattern:  /\/api\/skylink\b/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'skylink-data',
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 30 },
+              networkTimeoutSeconds: 8,
+            },
+          },
+          // SIGMET — aviationweather.gov international SIGMET feed
+          {
+            urlPattern:  /\/api\/isigmet\b/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'sigmet-data',
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 30 },
+              networkTimeoutSeconds: 8,
+            },
+          },
           // Aladhan prayer times API — network-first, 30-min TTL, 7-day cache window
           {
             urlPattern: /^https:\/\/api\.aladhan\.com\/.*/i,
