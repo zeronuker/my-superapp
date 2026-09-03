@@ -20,6 +20,9 @@ import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 // for first — routine admin notices can wait for the full NOTAM tab.
 const NOTAM_PRIORITY = { AERODROME: 0, OBSTACLE: 1, NAVAID: 2 }
 const NOTAM_CAP = 5
+// Rough chars-to-5-lines estimate at this card's font/width — see the
+// "no DOM measurement available" note where it's used.
+const NOTAM_TEXT_CLAMP_CHARS = 260
 
 // ── Build the same ordered, deduped airport list every module builds ──
 function buildAirportTargets(dep, arr, destAlts, enrouteCount, enrouteAlts) {
@@ -145,21 +148,44 @@ function AirportCard({ target, weather, notams }) {
             <div style={{ fontSize: 11, color: 'var(--cp-dim)', fontStyle: 'italic' }}>No active NOTAMs</div>
           ) : (
             <div>
-              {visibleNotams.map((n, i) => (
-                <div key={n.id} style={{
-                  fontSize: 11.5, lineHeight: 1.4, padding: '6px 0',
-                  borderTop: i === 0 ? 'none' : '1px solid var(--cp-border3)', display: 'flex', gap: 8, alignItems: 'baseline',
-                }}>
-                  <span style={{
-                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                    background: NOTAM_CATEGORIES[n.category]?.color || 'var(--cp-dim)',
-                  }} />
-                  <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, color: 'var(--cp-dim)', flexShrink: 0 }}>
-                    {n.id}
-                  </span>
-                  <span style={{ color: 'var(--cp-muted)' }}>{n.summary}</span>
-                </div>
-              ))}
+              {visibleNotams.map((n, i) => {
+                // No DOM measurement available at render time — a character
+                // count is a reasonable stand-in for "this will run past 5
+                // lines at this card's width" without needing a ref/resize
+                // observer for something this low-stakes.
+                const likelyOverflows = (n.summary || '').length > NOTAM_TEXT_CLAMP_CHARS
+                return (
+                  <div key={n.id} style={{
+                    fontSize: 11.5, lineHeight: 1.4, padding: '6px 0',
+                    borderTop: i === 0 ? 'none' : '1px solid var(--cp-border3)',
+                  }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <span style={{
+                        width: 6, height: 6, borderRadius: '50%', flexShrink: 0, marginTop: 4,
+                        background: NOTAM_CATEGORIES[n.category]?.color || 'var(--cp-dim)',
+                      }} />
+                      <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, color: 'var(--cp-dim)', flexShrink: 0 }}>
+                        {n.id}
+                      </span>
+                      <span style={{
+                        color: 'var(--cp-muted)', display: '-webkit-box',
+                        WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      }}>
+                        {n.summary}
+                      </span>
+                    </div>
+                    {likelyOverflows && (
+                      <button onClick={viewAllNotams} style={{
+                        marginTop: 3, marginLeft: 14, padding: 0, border: 'none', background: 'none', cursor: 'pointer',
+                        fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-acc)',
+                        textDecoration: 'underline', textUnderlineOffset: 2,
+                      }}>
+                        read full text in NOTAM tab →
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
               {hiddenCount > 0 && (
                 <button onClick={viewAllNotams} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%',
