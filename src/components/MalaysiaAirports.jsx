@@ -99,6 +99,8 @@ function FlightCard({ f, logo }) {
   const place = f.leg === 'A' ? f.origin : f.destination
   const category = CATEGORY[f.category]
   const [logoOk, setLogoOk] = useState(true)
+  const [showCodeshares, setShowCodeshares] = useState(false)
+  const codeshares = f.codeShareFlights || []
   return (
     <div style={{
       background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
@@ -134,6 +136,33 @@ function FlightCard({ f, logo }) {
           </span>
         )}
       </div>
+
+      {codeshares.length > 0 && (
+        <>
+          <button onClick={() => setShowCodeshares(s => !s)} style={{
+            fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+            color: showCodeshares ? 'var(--cp-acc)' : 'var(--cp-dim)',
+            background: showCodeshares ? 'var(--cp-accdim)' : 'transparent',
+            border: `1px solid ${showCodeshares ? 'var(--cp-acc)' : 'var(--cp-border)'}`,
+            borderRadius: 4, padding: '4px 8px', marginBottom: 8, cursor: 'pointer',
+          }}>
+            ALSO SOLD AS {codeshares.length} FLIGHT{codeshares.length === 1 ? '' : 'S'} {showCodeshares ? '▲' : '▼'}
+          </button>
+          {showCodeshares && (
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 10px',
+              background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 4,
+              padding: '8px 10px', marginBottom: 12,
+            }}>
+              {codeshares.map(cs => (
+                <div key={cs.afsKey} style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-txt)' }}>
+                  {cs.flightNumber} <span style={{ color: 'var(--cp-dim)' }}>{cs.airline?.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}>
         <div style={{
