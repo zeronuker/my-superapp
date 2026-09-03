@@ -1,6 +1,24 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import { ROLE_TINT } from '../utils/roleStyle'
+
+// Airline logos — same public, CORS-open, key-less endpoint Malaysia
+// Airports' own site calls client-side. Cached at module scope so the list
+// (108 airlines, ~30KB) is fetched once per app session, not per tab visit.
+let airlineLogosCache = null
+async function loadAirlineLogos() {
+  if (airlineLogosCache) return airlineLogosCache
+  try {
+    const r = await fetch('https://apss-prod-cms.myairports.com.my/api/get-all-airline-images', {
+      signal: AbortSignal.timeout(8000),
+    })
+    const data = await r.json()
+    airlineLogosCache = Object.fromEntries(data.map(a => [a.airlineCode, a.airlineImage]))
+  } catch {
+    airlineLogosCache = {}
+  }
+  return airlineLogosCache
+}
 
 const AIRPORTS = [
   { label: 'KUL — KLIA Terminal 1', value: 'KLIA' },
@@ -62,10 +80,11 @@ const CATEGORY = {
 
 const hm = (t) => (t ? t.slice(11, 16) : '—')
 
-function FlightCard({ f }) {
+function FlightCard({ f, logo }) {
   const color = statusColor(f.status, f.leg)
   const place = f.leg === 'A' ? f.origin : f.destination
   const category = CATEGORY[f.category]
+  const [logoOk, setLogoOk] = useState(true)
   return (
     <div style={{
       background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
@@ -85,6 +104,10 @@ function FlightCard({ f }) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+        {logo && logoOk && (
+          <img src={logo} alt="" onError={() => setLogoOk(false)}
+            style={{ height: 28, width: 'auto', maxWidth: 56, objectFit: 'contain', flexShrink: 0 }} />
+        )}
         <span style={{ fontSize: 13, color: 'var(--cp-muted)' }}>{f.name} →</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: ROLE_TINT.dep.color }}>{place?.city}</span>
         {category && (
@@ -133,6 +156,9 @@ export default function MalaysiaAirports() {
   const [manualFetch, setManualFetch] = useState(false)
   const [scanTarget, setScanTarget]   = useState('')
   const [error, setError]             = useState(null)
+  const [logos, setLogos]             = useState({})
+
+  useEffect(() => { loadAirlineLogos().then(setLogos) }, [])
 
   const search = async () => {
     if (criteria !== 'all' && !query.trim()) {
@@ -244,7 +270,7 @@ export default function MalaysiaAirports() {
               No flights found.
             </div>
           ) : (
-            results.map(f => <FlightCard key={f.afsKey} f={f} />)
+            results.map(f => <FlightCard key={f.afsKey} f={f} logo={logos[f.aircraftOperator]} />)
           )}
         </div>
       )}
