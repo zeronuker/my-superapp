@@ -238,7 +238,15 @@ function RouteMap({ dep, arr, destAltList, eraList }) {
       }}>
         Route &amp; Alternates
       </div>
-      <svg viewBox={`${bounds.minX} ${bounds.minY} ${bounds.w} ${bounds.h}`} style={{ display: 'block', width: '100%', height: 'auto', aspectRatio: '2 / 1.15' }}>
+      <svg viewBox={`${bounds.minX} ${bounds.minY} ${bounds.w} ${bounds.h}`} style={{
+        display: 'block', width: '100%', height: 'auto',
+        // Match the container to the route's own bounding-box shape — a
+        // fixed wide ratio here squeezes a mostly north-south route (small
+        // lng spread, big lat spread) into a thin sliver, shrinking the
+        // markers/labels along with it. maxHeight guards against a
+        // near-pole-to-pole route making the modal absurdly tall.
+        aspectRatio: `${bounds.w} / ${bounds.h}`, maxHeight: 900,
+      }}>
         <rect x={bounds.minX} y={bounds.minY} width={bounds.w} height={bounds.h} fill="var(--cp-bg3)" />
 
         <path d={WORLD_LAND_PATH} fill="var(--cp-dim)" fillOpacity={0.28} fillRule="evenodd" />
