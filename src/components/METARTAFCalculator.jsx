@@ -5,10 +5,11 @@ import {
   CAT_COLORS, WIND_COLORS,
   getMetarFlightCat, getWindSev,
   tokenizeRaw, parseTafSegments,
+  getRoleStyle,
 } from '../utils/metarSeverity'
+import BriefingView from './BriefingView'
 import { decodeMetar, decodeTaf } from '../utils/metarDecode'
-import { skylinkMetarToAWCShape, skylinkTafToAWCShape } from '../utils/skylinkWeather'
-import { isSkyLinkDay } from '../utils/sourceSwitch'
+import { fetchWeather } from '../services/weatherAPI'
 import { normalizeRunways, windComponents, fmtWindComponent, windSeverity } from '../utils/runways'
 import { fmtTrack } from '../utils/traffic'
 import ResetButton from './ResetButton'
@@ -37,50 +38,10 @@ function parseDateStr(str) {
   return Date.parse(str.replace(' ', 'T') + 'Z') / 1000
 }
 
-async function fetchOneAWC(icao, type, hours) {
-  const r = await fetch(`/api/weather?ids=${icao}&type=${type}&hours=${hours}`)
-  if (!r.ok) throw new Error(`${type.toUpperCase()} request failed`)
-  return r.json()
-}
-async function fetchOneSkylinkWeather(icao, type) {
-  const r = await fetch(`/api/skylink?resource=${type}&icao=${icao}`)
-  if (!r.ok) throw new Error(`SkyLink ${type.toUpperCase()} request failed`)
-  const raw = await r.json().catch(() => null)
-  const shaped = type === 'metar' ? skylinkMetarToAWCShape(raw) : skylinkTafToAWCShape(raw)
-  return shaped ? [shaped] : []
-}
 async function fetchRunways(icao, signal) {
   const res = await fetch(`/api/aerodatabox?icao=${encodeURIComponent(icao)}`, { signal })
   if (!res.ok) throw new Error('Runway request failed')
   return normalizeRunways(await res.json().catch(() => null))
-}
-
-const WEATHER_FETCHERS = { aviationweather: fetchOneAWC, skylink: fetchOneSkylinkWeather }
-
-// UTC even/odd day picks the source (see utils/sourceSwitch). METAR and TAF
-// retry independently — if only one of the two fails on the scheduled
-// source, just that one falls back to the other rather than both, and a
-// type that fails on both sources degrades to an empty report instead of
-// failing the whole airport.
-async function fetchWeather(icao, hours) {
-  const preferSkylink = isSkyLinkDay()
-  const primary = preferSkylink ? 'skylink' : 'aviationweather'
-  const backup  = preferSkylink ? 'aviationweather' : 'skylink'
-
-  const fetchType = async (type) => {
-    try {
-      return { data: await WEATHER_FETCHERS[primary](icao, type, hours), source: primary }
-    } catch (e) {
-      try {
-        return { data: await WEATHER_FETCHERS[backup](icao, type, hours), source: backup }
-      } catch (e2) {
-        return { data: [], source: primary }
-      }
-    }
-  }
-
-  const [metarR, tafR] = await Promise.all([fetchType('metar'), fetchType('taf')])
-  return { metar: metarR.data, taf: tafR.data, metarSource: metarR.source, tafSource: tafR.source }
 }
 
 function saveCache(data) {
@@ -105,6 +66,7 @@ export default function METARTAFCalculator() {
   const [fetchedAt,    setFetchedAt]    = useState(cache?.fetchedAt    || null)
   const [loading,      setLoading]      = useState(false)
   const [manualFetch,  setManualFetch]  = useState(false)
+  const [showBriefing, setShowBriefing] = useState(false)
   const [activeTargets, setActiveTargets] = useState([])
   const [now,          setNow]          = useState(Date.now())
 
@@ -410,10 +372,13 @@ export default function METARTAFCalculator() {
           </span>
         )}
 
+        <button className="cp-btn" onClick={() => setShowBriefing(true)} disabled={!hasInput}
+          style={{ marginLeft: 'auto', opacity: hasInput ? 1 : 0.4, letterSpacing: '0.15em' }}>
+          ✈ BRIEFING
+        </button>
         <button className="cp-btn" onClick={handleFetch}
           disabled={!hasInput || loading}
           style={{
-            marginLeft: 'auto',
             borderColor: hasInput && !loading ? 'var(--cp-acc)' : undefined,
             color:       hasInput && !loading ? 'var(--cp-acc)' : undefined,
             opacity: loading ? 0.6 : 1,
@@ -422,6 +387,14 @@ export default function METARTAFCalculator() {
           {loading ? 'FETCHING…' : '⟳  FETCH WEATHER'}
         </button>
       </div>
+
+      {showBriefing && (
+        <BriefingView
+          dep={dep} arr={arr} destAlts={destAlts}
+          enrouteCount={enrouteCount} enrouteAlts={enrouteAlts}
+          onClose={() => setShowBriefing(false)}
+        />
+      )}
 
       {/* ── OFFLINE BANNER ──────────────────────────────────────────────── */}
       {isOffline && (
@@ -485,40 +458,6 @@ function SectionHeader({ title }) {
   )
 }
 
-// ── Role colour map ───────────────────────────────────────────────────────────
-// One distinct color per specific slot (not just per category) so DEPARTURE vs
-// ARRIVAL and each ENROUTE ALTERNATE read apart at a glance. Chosen to avoid
-// this module's own status colors (VFR green, MVFR blue, IFR red, LIFR
-// magenta, strong-wind amber, weather yellow) so a role badge never reads as
-// a severity signal.
-const ROLE_COLORS = {
-  'DEPARTURE':                '#06b6d4', // cyan
-  'ARRIVAL':                  '#f97316', // orange
-  'DESTINATION ALTERNATE 1':  '#64748b', // slate
-  'DESTINATION ALTERNATE 2':  '#a8763e', // bronze
-  'ENROUTE ALTERNATE 1':      '#8b5cf6', // violet
-  'ENROUTE ALTERNATE 2':      '#0d9488', // teal
-  'ENROUTE ALTERNATE 3':      '#6366f1', // indigo
-  'ENROUTE ALTERNATE 4':      '#c2681d', // burnt orange
-  'ENROUTE ALTERNATE 5':      '#c026d3', // magenta-purple
-}
-
-function hexToRgba(hex, alpha) {
-  const n = parseInt(hex.slice(1), 16)
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`
-}
-
-function getRoleStyle(label) {
-  const color = ROLE_COLORS[label] || '#94a3b8'
-  return {
-    color,
-    bgLatest:     hexToRgba(color, 0.10),
-    bgDim:        hexToRgba(color, 0.04),
-    borderLatest: hexToRgba(color, 0.45),
-    borderDim:    hexToRgba(color, 0.18),
-    textDim:      hexToRgba(color, 0.50),
-  }
-}
 
 // ── Severity colour legend ──────────────────────────────────────────────────
 function SeverityLegend() {

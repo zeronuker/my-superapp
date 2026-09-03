@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { lookupAirport } from '../data/airports'
 import { icaoToFir } from '../data/firLookup'
 import { detectRouteFirs } from '../services/notamAPI'
-import { normalizeSigmet, filterSigmetsByFir, fmtHazard, hazardColor, fmtSigmetAlt, fmtSigmetTime } from '../utils/sigmet'
+import { filterSigmetsByFir } from '../utils/sigmet'
+import { fetchAllSigmets } from '../services/sigmetAPI'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
+import BriefingView from './BriefingView'
+import SigmetCard from './SigmetCard'
 
 const CACHE_KEY = 'cb-sigmet-cache'
 const ERA_MAX = 5
@@ -38,16 +41,6 @@ function getAirportCoords(icao) {
   return a ? { lat: a.lat, lng: a.lng } : null
 }
 
-async function fetchAllSigmets(signal) {
-  const res = await fetch('/api/isigmet', { signal })
-  if (!res.ok) {
-    const body = await res.json().catch(() => null)
-    throw new Error(body?.error || `HTTP ${res.status}`)
-  }
-  const raw = await res.json().catch(() => [])
-  return Array.isArray(raw) ? raw.map(normalizeSigmet) : []
-}
-
 // JSON round-tripping through localStorage turns validFrom/validTo Date
 // objects into strings — revive them so expiry checks keep working.
 function reviveSigmets(sigmets) {
@@ -73,6 +66,7 @@ export default function SigmetViewer() {
   const [sigmets, setSigmets] = useState(() => cache?.sigmets ? reviveSigmets(cache.sigmets) : null)
   const [fetchedAt, setFetchedAt] = useState(cache?.fetchedAt || null)
   const [loading, setLoading] = useState(false)
+  const [showBriefing, setShowBriefing] = useState(false)
   const [error, setError] = useState('')
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [now, setNow] = useState(Date.now())
@@ -294,13 +288,30 @@ export default function SigmetViewer() {
           border: '1px solid rgba(251,146,60,0.25)', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>⚠ {error}</div>
       )}
 
-      <button onClick={handleFetch} disabled={loading || !chips.length} style={{
-        width: '100%', marginBottom: 20, padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
-        border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)', borderRadius: 6,
-        cursor: chips.length ? 'pointer' : 'default', fontFamily: 'var(--cb-font-mono)', fontSize: 10,
-        letterSpacing: '0.16em', color: 'var(--cp-acc)', opacity: chips.length ? 1 : 0.5 }}>
-        {loading ? '⊙ FETCHING SIGMETs…' : '⊕ FETCH SIGMETs'}
-      </button>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <button onClick={handleFetch} disabled={loading || !chips.length} style={{
+          flex: 1, padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
+          border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)', borderRadius: 6,
+          cursor: chips.length ? 'pointer' : 'default', fontFamily: 'var(--cb-font-mono)', fontSize: 10,
+          letterSpacing: '0.16em', color: 'var(--cp-acc)', opacity: chips.length ? 1 : 0.5 }}>
+          {loading ? '⊙ FETCHING SIGMETs…' : '⊕ FETCH SIGMETs'}
+        </button>
+        <button onClick={() => setShowBriefing(true)} disabled={!chips.length} style={{
+          padding: '12px 16px', background: 'transparent', border: '1px solid var(--cp-border)',
+          borderRadius: 6, cursor: chips.length ? 'pointer' : 'default', fontFamily: 'var(--cb-font-mono)',
+          fontSize: 10, letterSpacing: '0.16em', color: 'var(--cp-dim)', opacity: chips.length ? 1 : 0.5 }}>
+          ✈ BRIEFING
+        </button>
+      </div>
+
+      {showBriefing && (
+        <BriefingView
+          dep={dep} arr={arr} destAlts={destAlts}
+          enrouteCount={enrouteCount} enrouteAlts={enrouteAlts}
+          firs={chips}
+          onClose={() => setShowBriefing(false)}
+        />
+      )}
 
       {/* ── Results ── */}
       {sigmets && (
@@ -318,60 +329,3 @@ export default function SigmetViewer() {
   )
 }
 
-function SigmetCard({ s, now }) {
-  const color = hazardColor(s.hazard)
-  const expired = s.validTo && s.validTo.getTime() < now
-  const altParts = []
-  if (s.base != null) altParts.push(fmtSigmetAlt(s.base))
-  if (s.top != null) altParts.push(fmtSigmetAlt(s.top))
-  const altText = altParts.length === 2 ? altParts.join(' – ') : altParts.length === 1 ? `to ${altParts[0]}` : null
-
-  const moveParts = []
-  if (s.dir && s.spd) moveParts.push(`moving ${s.dir} at ${s.spd} kt`)
-  if (s.chng) moveParts.push(s.chng)
-
-  return (
-    <div style={{
-      background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
-      borderLeft: `3px solid ${expired ? 'var(--cp-red)' : color}`,
-      borderRadius: 6, padding: '10px 14px', opacity: expired ? 0.7 : 1,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{
-            fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
-            color: expired ? 'var(--cp-dim)' : color,
-            textDecoration: expired ? 'line-through' : 'none',
-          }}>
-            {fmtHazard(s.hazard).toUpperCase()}{s.qualifier ? ` · ${s.qualifier}` : ''}
-          </span>
-          <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)' }}>{s.firName || s.firId}</span>
-        </div>
-        {(s.validFrom || s.validTo) && (
-          <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.06em' }}>
-            {fmtSigmetTime(s.validFrom)} – {fmtSigmetTime(s.validTo)}
-          </span>
-        )}
-      </div>
-      {expired && (
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(248,113,113,0.12)',
-          color: 'var(--cp-red)', borderRadius: 4, padding: '3px 8px', marginBottom: 6,
-          fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
-        }}>
-          ⚠ EXPIRED — DO NOT USE FOR PLANNING
-        </div>
-      )}
-      {(altText || moveParts.length > 0) && (
-        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-txt)', marginBottom: 4 }}>
-          {[altText, ...moveParts].filter(Boolean).join(' · ')}
-        </div>
-      )}
-      {s.raw && (
-        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: 6 }}>
-          {s.raw}
-        </div>
-      )}
-    </div>
-  )
-}

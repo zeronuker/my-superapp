@@ -313,3 +313,39 @@ function _parseTafWindSev(text) {
   if (!m) return 'NORMAL'
   return getWindSev(parseInt(m[1]) || 0, parseInt(m[2]) || 0)
 }
+
+// ── Role colour map ───────────────────────────────────────────────────────────
+// One distinct color per specific slot (not just per category) so DEPARTURE vs
+// ARRIVAL and each ENROUTE ALTERNATE read apart at a glance. Chosen to avoid
+// this module's own status colors (VFR green, MVFR blue, IFR red, LIFR
+// magenta, strong-wind amber, weather yellow) so a role badge never reads as
+// a severity signal. Shared by METARTAFCalculator and BriefingView so the
+// same airport always gets the same role color everywhere it appears.
+export const ROLE_COLORS = {
+  'DEPARTURE':                '#06b6d4', // cyan
+  'ARRIVAL':                  '#f97316', // orange
+  'DESTINATION ALTERNATE 1':  '#64748b', // slate
+  'DESTINATION ALTERNATE 2':  '#a8763e', // bronze
+  'ENROUTE ALTERNATE 1':      '#8b5cf6', // violet
+  'ENROUTE ALTERNATE 2':      '#0d9488', // teal
+  'ENROUTE ALTERNATE 3':      '#6366f1', // indigo
+  'ENROUTE ALTERNATE 4':      '#c2681d', // burnt orange
+  'ENROUTE ALTERNATE 5':      '#c026d3', // magenta-purple
+}
+
+function hexToRgba(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`
+}
+
+export function getRoleStyle(label) {
+  const color = ROLE_COLORS[label] || '#94a3b8'
+  return {
+    color,
+    bgLatest:     hexToRgba(color, 0.10),
+    bgDim:        hexToRgba(color, 0.04),
+    borderLatest: hexToRgba(color, 0.45),
+    borderDim:    hexToRgba(color, 0.18),
+    textDim:      hexToRgba(color, 0.50),
+  }
+}
