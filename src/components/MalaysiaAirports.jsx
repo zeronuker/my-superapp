@@ -73,6 +73,19 @@ function statusColor(status, leg) {
   return 'var(--cp-dim)'
 }
 
+// Gate box colour — independent of the overall status colour above, driven
+// by the gate's own OPEN/BOARDING/FINAL CALL/CLOSED lifecycle so it reads
+// as a simple traffic light: green (go) → yellow → orange → red (missed).
+function gateStatusColor(gateStatus) {
+  const s = (gateStatus || '').toUpperCase().trim()
+  if (!s) return 'var(--cp-dim)'
+  if (/CLOSED/.test(s)) return 'var(--cp-red)'
+  if (/FINAL CALL/.test(s)) return 'var(--cp-orange)'
+  if (/BOARDING/.test(s)) return 'var(--cp-yellow)'
+  if (/OPEN/.test(s)) return 'var(--cp-green)'
+  return 'var(--cp-dim)'
+}
+
 const CATEGORY = {
   I: { label: 'INTL', color: 'var(--cp-acc2)' },
   D: { label: 'DOM',  color: 'var(--cp-green)' },
@@ -82,6 +95,7 @@ const hm = (t) => (t ? t.slice(11, 16) : '—')
 
 function FlightCard({ f, logo }) {
   const color = statusColor(f.status, f.leg)
+  const gateColor = gateStatusColor(f.gate?.status)
   const place = f.leg === 'A' ? f.origin : f.destination
   const category = CATEGORY[f.category]
   const [logoOk, setLogoOk] = useState(true)
@@ -123,14 +137,14 @@ function FlightCard({ f, logo }) {
 
       <div style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}>
         <div style={{
-          background: `color-mix(in srgb, ${color} 12%, transparent)`, border: `1px solid ${color}`, borderRadius: 6,
+          background: `color-mix(in srgb, ${gateColor} 12%, transparent)`, border: `1px solid ${gateColor}`, borderRadius: 6,
           padding: '6px 16px', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', minWidth: 84,
         }}>
-          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em', color, opacity: 0.9 }}>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em', color: gateColor, opacity: 0.9 }}>
             GATE · {f.gate?.status || 'TBA'}
           </div>
-          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 24, fontWeight: 700, color, lineHeight: 1.15 }}>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 24, fontWeight: 700, color: gateColor, lineHeight: 1.15 }}>
             {f.gate?.name || '—'}
           </div>
         </div>
