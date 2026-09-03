@@ -480,11 +480,16 @@ export default function App() {
       )}
 
       {/* ── Briefing overlay — rendered here (not inside a tab) so switching
-           tabs to look something up doesn't unmount it ──────────────────── */}
+           tabs to look something up doesn't unmount it. Wrapped in the same
+           ErrorBoundary every tab gets — without it, a render error here
+           (e.g. an unexpected shape in cached/fetched data) white-screens
+           the whole app instead of failing gracefully. ─────────────────── */}
       {briefing.open && (
-        <Suspense fallback={null}>
-          <BriefingView />
-        </Suspense>
+        <ErrorBoundary name="Briefing" resetKey={`${briefing.route?.dep}-${briefing.route?.arr}-${briefing.open}`}>
+          <Suspense fallback={null}>
+            <BriefingView />
+          </Suspense>
+        </ErrorBoundary>
       )}
 
       {/* ── Resume Briefing pill — shown after the pilot jumps to a module

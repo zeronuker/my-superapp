@@ -6,9 +6,23 @@ import { loadWithExpiry } from '../utils/cacheExpiry'
 // not just an in-session tab switch.
 const BRIEFING_CACHE_KEY = 'cb-briefing-cache'
 
+// Rejects anything that isn't a well-formed cached briefing (a stale shape
+// from an older build, a partial write, etc.) rather than trusting it and
+// letting BriefingView try to render garbage.
+function isValidBriefingCache(cached) {
+  return !!cached
+    && cached.route && typeof cached.route === 'object'
+    && (typeof cached.route.dep === 'string' || typeof cached.route.arr === 'string')
+    && cached.data && typeof cached.data === 'object'
+    && Array.isArray(cached.data.airports)
+}
 function loadBriefingCache() {
   const cached = loadWithExpiry(BRIEFING_CACHE_KEY)
-  return cached ? { open: false, route: cached.route, data: cached.data } : { open: false, route: null, data: null }
+  if (!isValidBriefingCache(cached)) {
+    try { localStorage.removeItem(BRIEFING_CACHE_KEY) } catch (_) {}
+    return { open: false, route: null, data: null }
+  }
+  return { open: false, route: cached.route, data: cached.data }
 }
 function saveBriefingCache(route, data) {
   try {
