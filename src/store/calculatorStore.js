@@ -1,4 +1,21 @@
 import { create } from 'zustand'
+import { loadWithExpiry } from '../utils/cacheExpiry'
+
+// Same offline-persistence pattern every other module uses (cb-*-cache +
+// loadWithExpiry's 12h TTL) — a briefing survives a reload/offline reopen,
+// not just an in-session tab switch.
+const BRIEFING_CACHE_KEY = 'cb-briefing-cache'
+
+function loadBriefingCache() {
+  const cached = loadWithExpiry(BRIEFING_CACHE_KEY)
+  return cached ? { open: false, route: cached.route, data: cached.data } : { open: false, route: null, data: null }
+}
+function saveBriefingCache(route, data) {
+  try {
+    if (!data) { localStorage.removeItem(BRIEFING_CACHE_KEY); return }
+    localStorage.setItem(BRIEFING_CACHE_KEY, JSON.stringify({ route, data, fetchedAt: data.fetchedAt }))
+  } catch (_) {}
+}
 
 export const DEFAULT_SETTINGS = {
   fontScale:      'normal',   // 'compact' | 'normal' | 'large' | 'cockpit'
@@ -112,7 +129,9 @@ export const useCalculatorStore = create((set) => ({
   // already-fetched briefing. `route` is the input the 3 modules hand in
   // (dep/arr/destAlts/enrouteCount/enrouteAlts/firs); `data` is the fetched
   // result, filled in once by BriefingView and left alone after that.
-  briefing: { open: false, route: null, data: null },
+  // Seeded from cb-briefing-cache on load (open:false — never auto-pops the
+  // overlay open, but the Resume pill is there if a cached briefing exists).
+  briefing: loadBriefingCache(),
 
   // ── Actions ─────────────────────────────────────────────────────────────
   setEDTOAircraft:   (aircraft)  => set(s => ({ edto: { ...s.edto, aircraft, variant: null } })),
@@ -154,13 +173,19 @@ export const useCalculatorStore = create((set) => ({
   // route: { dep, arr, destAlts, enrouteCount, enrouteAlts, firs }. Starts a
   // fresh fetch — data:null tells BriefingView to fetch rather than reuse.
   openBriefing:     (route)      => set({ briefing: { open: true, route, data: null } }),
-  setBriefingData:  (data)       => set(s => ({ briefing: { ...s.briefing, data } })),
+  setBriefingData:  (data)       => set(s => {
+    saveBriefingCache(s.briefing.route, data)
+    return { briefing: { ...s.briefing, data } }
+  }),
   // Hide without discarding — used when the pilot jumps to the standalone
   // NOTAM tab so the same fetched briefing is still there to come back to.
   pauseBriefing:    ()           => set(s => ({ briefing: { ...s.briefing, open: false } })),
   resumeBriefing:   ()           => set(s => ({ briefing: { ...s.briefing, open: true } })),
   // Full discard — the ✕ button and Escape/backdrop dismiss.
-  closeBriefing:    ()           => set({ briefing: { open: false, route: null, data: null } }),
+  closeBriefing:    ()           => set(() => {
+    saveBriefingCache(null, null)
+    return { briefing: { open: false, route: null, data: null } }
+  }),
 
   updateSettings: (partial) => set(s => {
     const next = { ...s.settings, ...partial }

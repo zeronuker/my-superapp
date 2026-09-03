@@ -182,10 +182,6 @@ function AirportCard({ target, weather, notams }) {
 }
 
 // ── Route map: real coastlines (worldMap.js) + role-colored airport dots ──
-// Grid step for the graticule overlay, in degrees — only lines that fall
-// inside the auto-fit viewBox actually get drawn.
-const GRID_STEP_DEG = 30
-
 function computeMapBounds(points) {
   const xs = points.map(p => p.x), ys = points.map(p => p.y)
   let minX = Math.min(...xs), maxX = Math.max(...xs)
@@ -231,16 +227,6 @@ function RouteMap({ dep, arr, destAltList, eraList }) {
     routePath = `M ${p0.x} ${p0.y} Q ${p1.x} ${p1.y} ${p2.x} ${p2.y}`
   }
 
-  const gridLines = []
-  for (let lng = -180; lng <= 180; lng += GRID_STEP_DEG) {
-    const { x } = projectLatLng(0, lng)
-    if (x >= bounds.minX && x <= bounds.minX + bounds.w) gridLines.push({ type: 'v', pos: x })
-  }
-  for (let lat = -60; lat <= 60; lat += GRID_STEP_DEG) {
-    const { y } = projectLatLng(lat, 0)
-    if (y >= bounds.minY && y <= bounds.minY + bounds.h) gridLines.push({ type: 'h', pos: y, isEquator: lat === 0 })
-  }
-
   return (
     <div style={{
       position: 'relative', border: '1px solid var(--cp-border3)', borderRadius: 10,
@@ -254,14 +240,6 @@ function RouteMap({ dep, arr, destAltList, eraList }) {
       </div>
       <svg viewBox={`${bounds.minX} ${bounds.minY} ${bounds.w} ${bounds.h}`} style={{ display: 'block', width: '100%', height: 'auto', aspectRatio: '2 / 1.15' }}>
         <rect x={bounds.minX} y={bounds.minY} width={bounds.w} height={bounds.h} fill="var(--cp-bg3)" />
-
-        {gridLines.map((g, i) => g.type === 'v'
-          ? <line key={i} x1={g.pos} y1={bounds.minY} x2={g.pos} y2={bounds.minY + bounds.h}
-              stroke="var(--cp-border2)" strokeWidth={bounds.w / 500} />
-          : <line key={i} x1={bounds.minX} y1={g.pos} x2={bounds.minX + bounds.w} y2={g.pos}
-              stroke="var(--cp-border2)" strokeWidth={g.isEquator ? bounds.h / 350 : bounds.h / 500}
-              strokeDasharray={g.isEquator ? `${bounds.w / 150} ${bounds.w / 150}` : undefined} />
-        )}
 
         <path d={WORLD_LAND_PATH} fill="var(--cp-dim)" fillOpacity={0.28} fillRule="evenodd" />
 

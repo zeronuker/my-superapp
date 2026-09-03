@@ -1,5 +1,6 @@
 import React, { useState, lazy, Suspense } from 'react'
 import { useCalculatorStore } from './store/calculatorStore'
+import { useExpiry } from './utils/cacheExpiry'
 import usePrayerStore from './modules/prayer/store/prayerStore'
 import { loadLastPosition } from './modules/prayer/services/geolocation'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -140,8 +141,12 @@ export default function App() {
     activeCalculator, setActiveCalculator,
     darkMode, setDarkMode,
     settings, updateSettings,
-    briefing, resumeBriefing,
+    briefing, resumeBriefing, closeBriefing,
   } = useCalculatorStore()
+
+  // Same 12h cache TTL as the other modules — expires a paused/cached
+  // briefing while the app stays open, not just at next reload.
+  useExpiry(briefing.data?.fetchedAt, closeBriefing)
 
   const isOnline = useOnlineStatus()
   useMETARBadge()

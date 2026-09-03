@@ -62,16 +62,35 @@ async function main() {
   const decodedArcs = decodeArcs(topology)
 
   const subpaths = []
+  const emitFragment = (pts) => {
+    if (pts.length < 3) return
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1])
+    const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))
+    if (area < MIN_POLYGON_AREA) return
+    subpaths.push('M' + pts.map(p => p.join(',')).join('L') + 'Z')
+  }
+
   for (const geom of topology.objects.land.geometries) {
     const polygons = geom.type === 'Polygon' ? [geom.arcs] : geom.arcs // MultiPolygon: arcs = [polygon, ...]
     for (const polygon of polygons) {
       for (const ring of polygon) {
         const pts = ringPoints(decodedArcs, ring).map(([lon, lat]) => project(lon, lat))
-        if (pts.length < 3) continue
-        const xs = pts.map(p => p[0]), ys = pts.map(p => p[1])
-        const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))
-        if (area < MIN_POLYGON_AREA) continue
-        subpaths.push('M' + pts.map(p => p.join(',')).join('L') + 'Z')
+        // A ring that crosses the antimeridian (±180°) jumps from one edge
+        // of the projected map to the other — connecting those points with
+        // a straight line draws a spurious line clear across the map. Cut
+        // the ring into separate fragments at each such jump instead; each
+        // fragment gets its own M...Z (an approximation at the dateline
+        // edge itself, but that's a fair trade for not drawing a line
+        // across an ocean on a small, not-to-scale reference map).
+        let fragment = []
+        for (const p of pts) {
+          if (fragment.length && Math.abs(p[0] - fragment[fragment.length - 1][0]) > MAP_WIDTH / 2) {
+            emitFragment(fragment)
+            fragment = []
+          }
+          fragment.push(p)
+        }
+        emitFragment(fragment)
       }
     }
   }
