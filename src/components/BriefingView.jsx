@@ -186,8 +186,8 @@ function computeMapBounds(points) {
   const xs = points.map(p => p.x), ys = points.map(p => p.y)
   let minX = Math.min(...xs), maxX = Math.max(...xs)
   let minY = Math.min(...ys), maxY = Math.max(...ys)
-  const padX = Math.max((maxX - minX) * 0.3, 30)
-  const padY = Math.max((maxY - minY) * 0.3, 30)
+  const padX = Math.max((maxX - minX) * 0.15, 18)
+  const padY = Math.max((maxY - minY) * 0.15, 18)
   minX = Math.max(minX - padX, 0)
   maxX = Math.min(maxX + padX, WORLD_MAP_WIDTH)
   minY = Math.max(minY - padY, 0)
@@ -258,14 +258,18 @@ function RouteMap({ dep, arr, destAltList, eraList }) {
 
         {projected.map(m => {
           const role = getRoleStyle(m.label)
-          const r = (m.big ? bounds.w / 100 : bounds.w / 130)
+          const r = (m.big ? bounds.w / 78 : bounds.w / 100)
+          const fontSize = bounds.w / (m.big ? 42 : 50)
           return (
             <g key={m.icao}>
               {m.big && <circle cx={m.x} cy={m.y} r={r * 1.7} fill="none" stroke={role.color} strokeWidth={bounds.w / 500} opacity={0.4} />}
               <circle cx={m.x} cy={m.y} r={r} fill={role.color} stroke="var(--cp-bg3)" strokeWidth={bounds.w / 450} />
+              {/* Halo behind the code so the route line, coastline or another
+                  marker never reads as cutting through it, for any route. */}
               <text x={m.x} y={m.y + (m.y < bounds.minY + bounds.h / 2 ? r * 2.6 : -r * 1.8)}
-                textAnchor="middle" fontFamily="var(--cb-font-mono)" fontSize={bounds.w / (m.big ? 65 : 78)}
-                fontWeight={m.big ? 700 : 500} fill={role.color}>
+                textAnchor="middle" fontFamily="var(--cb-font-mono)" fontSize={fontSize}
+                fontWeight={m.big ? 700 : 500} fill={role.color}
+                paintOrder="stroke" stroke="var(--cp-bg3)" strokeWidth={fontSize / 4} strokeLinejoin="round">
                 {m.icao}
               </text>
             </g>
