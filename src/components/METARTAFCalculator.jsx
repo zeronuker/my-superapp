@@ -50,8 +50,9 @@ function saveCache(data) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function METARTAFCalculator() {
-  const { settings, openBriefing, closeBriefing } = useCalculatorStore(s => ({
+  const { settings, briefing, openBriefing, closeBriefing } = useCalculatorStore(s => ({
     settings: s.settings,
+    briefing: s.briefing,
     openBriefing: s.openBriefing,
     closeBriefing: s.closeBriefing,
   }))
@@ -86,6 +87,18 @@ export default function METARTAFCalculator() {
   useEffect(() => {
     saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt })
   }, [dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt])
+
+  // Briefing (an overlay, not a tab) leaves this module mounted underneath —
+  // its fetch writes straight into our cache key, but that write alone
+  // doesn't touch our React state. Re-read the cache each time a briefing
+  // fetch completes so results show as soon as the overlay is closed.
+  useEffect(() => {
+    if (!briefing.data) return
+    const fresh = loadWithExpiry(CACHE_KEY)
+    if (!fresh) return
+    setResults(fresh.results)
+    setFetchedAt(fresh.fetchedAt)
+  }, [briefing.data?.fetchedAt])
 
   // ── Track connectivity ─────────────────────────────────────────────────
   useEffect(() => {
@@ -285,7 +298,7 @@ export default function METARTAFCalculator() {
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
         <CopyAirportsButton sourceModule="notam" sourceLabel="NOTAM" onApply={applyCopiedAirports} />
-        <ResetButton onReset={handleReset} />
+        <ResetButton onReset={handleReset} scoped />
       </div>
 
       {/* ── ROUTE ────────────────────────────────────────────────────────── */}

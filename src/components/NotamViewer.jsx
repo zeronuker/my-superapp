@@ -142,8 +142,9 @@ function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function NotamViewer() {
-  const { sortMode, openBriefing, closeBriefing } = useCalculatorStore(s => ({
+  const { sortMode, briefing, openBriefing, closeBriefing } = useCalculatorStore(s => ({
     sortMode: s.settings.notamSort || 'relevance',
+    briefing: s.briefing,
     openBriefing: s.openBriefing,
     closeBriefing: s.closeBriefing,
   }))
@@ -192,6 +193,20 @@ export default function NotamViewer() {
   useEffect(() => {
     saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw, fetchedAt })
   }, [dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw, fetchedAt])
+
+  // Briefing (an overlay, not a tab) leaves this module mounted underneath —
+  // its fetch writes straight into our cache key, but that write alone
+  // doesn't touch our React state. Re-read the cache each time a briefing
+  // fetch completes so results show as soon as the overlay is closed.
+  useEffect(() => {
+    if (!briefing.data) return
+    const fresh = loadWithExpiry(CACHE_KEY)
+    if (!fresh) return
+    setExtraChips(fresh.extraChips || [])
+    setSavedRaw(fresh.rawPerIcao || null)
+    setNotams(fresh.rawPerIcao ? parseMixedNotams(fresh.rawPerIcao, fresh.source) : null)
+    setFetchedAt(fresh.fetchedAt)
+  }, [briefing.data?.fetchedAt])
 
   const applyCopiedAirports = (data) => {
     setDep(data.dep)
@@ -363,7 +378,7 @@ export default function NotamViewer() {
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
         <CopyAirportsButton sourceModule="metar" sourceLabel="METAR/TAF" onApply={applyCopiedAirports} />
-        <ResetButton onReset={handleReset} />
+        <ResetButton onReset={handleReset} scoped />
       </div>
 
       {/* ── ROUTE ── */}

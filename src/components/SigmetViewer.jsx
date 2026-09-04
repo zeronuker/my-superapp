@@ -53,7 +53,8 @@ function reviveSigmets(sigmets) {
 }
 
 export default function SigmetViewer() {
-  const { openBriefing, closeBriefing } = useCalculatorStore(s => ({
+  const { briefing, openBriefing, closeBriefing } = useCalculatorStore(s => ({
+    briefing: s.briefing,
     openBriefing: s.openBriefing,
     closeBriefing: s.closeBriefing,
   }))
@@ -93,6 +94,19 @@ export default function SigmetViewer() {
   useEffect(() => {
     saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt })
   }, [dep, arr, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt])
+
+  // Briefing (an overlay, not a tab) leaves this module mounted underneath —
+  // its fetch writes straight into our cache key, but that write alone
+  // doesn't touch our React state. Re-read the cache each time a briefing
+  // fetch completes so results show as soon as the overlay is closed.
+  useEffect(() => {
+    if (!briefing.data) return
+    const fresh = loadWithExpiry(CACHE_KEY)
+    if (!fresh) return
+    setChips(fresh.chips || [])
+    setSigmets(fresh.sigmets ? reviveSigmets(fresh.sigmets) : null)
+    setFetchedAt(fresh.fetchedAt)
+  }, [briefing.data?.fetchedAt])
 
   const applyCopiedAirports = (data) => {
     setDep(data.dep)
@@ -169,7 +183,7 @@ export default function SigmetViewer() {
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
         <CopyAirportsButton sourceModule="metar" sourceLabel="METAR/TAF" onApply={applyCopiedAirports} />
-        <ResetButton onReset={handleReset} />
+        <ResetButton onReset={handleReset} scoped />
       </div>
 
       {!isOnline && (

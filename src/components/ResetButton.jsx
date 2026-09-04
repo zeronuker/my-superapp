@@ -2,9 +2,13 @@ import { useState } from 'react'
 
 // Standardized reset button: visibly orange by default (no hover needed to
 // read as "careful"), escalates to red on hover/press as the action is about
-// to actually fire. Opens a modal to pick the scope — window.confirm can't
-// offer more than OK/Cancel — then calls onReset('module' | 'all').
-export default function ResetButton({ onReset }) {
+// to actually fire. Opens a confirm modal — window.confirm can't be styled
+// or offer more than OK/Cancel.
+// `scoped` modules (METAR/TAF, NOTAM, SIGMET) share a cache and the Flight
+// Briefing, so their modal offers module-only vs all-3 and calls
+// onReset('module' | 'all'). Everything else gets a single-button confirm
+// and calls onReset() with no scope.
+export default function ResetButton({ onReset, scoped = false }) {
   const [hover, setHover] = useState(false)
   const [pressed, setPressed] = useState(false)
   const [open, setOpen] = useState(false)
@@ -49,26 +53,40 @@ export default function ResetButton({ onReset }) {
             }}
           >
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--cp-txt)', marginBottom: 6 }}>
-              RESET WHAT?
+              CONFIRM RESET
             </div>
             <div style={{ fontSize: 12, color: 'var(--cp-dim)', lineHeight: 1.5, marginBottom: 18 }}>
-              Either option also clears the Flight Briefing cache.
+              {scoped
+                ? 'Both options also reset Flight Briefing.'
+                : "Clears every entered field and fetched result on this tab. Can't be undone."}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button onClick={() => choose('module')} style={{
-                padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
-                border: '1px solid var(--cp-border2)', background: 'var(--cp-bg3)', color: 'var(--cp-txt)',
-                fontFamily: 'var(--cb-font-mono)', fontSize: 12, letterSpacing: '0.03em',
-              }}>
-                Reset this module only
-              </button>
-              <button onClick={() => choose('all')} style={{
-                padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
-                border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.10)', color: 'var(--cp-red)',
-                fontFamily: 'var(--cb-font-mono)', fontSize: 12, letterSpacing: '0.03em',
-              }}>
-                Reset all 3 modules
-              </button>
+              {scoped ? (
+                <>
+                  <button onClick={() => choose('module')} style={{
+                    padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
+                    border: '1px solid var(--cp-border2)', background: 'var(--cp-bg3)', color: 'var(--cp-txt)',
+                    fontFamily: 'var(--cb-font-mono)', fontSize: 12, letterSpacing: '0.03em',
+                  }}>
+                    Reset this module only
+                  </button>
+                  <button onClick={() => choose('all')} style={{
+                    padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
+                    border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.10)', color: 'var(--cp-red)',
+                    fontFamily: 'var(--cb-font-mono)', fontSize: 12, letterSpacing: '0.03em',
+                  }}>
+                    Reset all 3 modules
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => choose()} style={{
+                  padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
+                  border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.10)', color: 'var(--cp-red)',
+                  fontFamily: 'var(--cb-font-mono)', fontSize: 12, letterSpacing: '0.03em',
+                }}>
+                  Reset
+                </button>
+              )}
               <button onClick={() => setOpen(false)} style={{
                 padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'center',
                 border: '1px solid transparent', background: 'none', color: 'var(--cp-dim)',
