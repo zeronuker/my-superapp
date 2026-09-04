@@ -1,24 +1,27 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { TIMEZONES, searchZones } from '../data/worldTimezones'
+import { lookupAirport } from '../data/airports'
+import { WORLD_LAND_PATH, WORLD_MAP_WIDTH, WORLD_MAP_HEIGHT, projectLatLng } from '../data/worldMap'
+import { nightRegionPath } from '../utils/terminator'
 
 const CACHE_KEY = 'cb-worldtime-v2'
 const MAX_ZONES = 10
 
 const DEFAULT_ZONES = [
-  { id: 'Dubai||Asia/Dubai',               label: 'Dubai',     country: 'AE', tz: 'Asia/Dubai' },
-  { id: 'Melbourne||Australia/Melbourne',  label: 'Melbourne', country: 'AU', tz: 'Australia/Melbourne' },
-  { id: 'Tokyo||Asia/Tokyo',               label: 'Tokyo',     country: 'JP', tz: 'Asia/Tokyo' },
-  { id: 'Delhi||Asia/Kolkata',             label: 'Delhi',     country: 'IN', tz: 'Asia/Kolkata' },
-  { id: 'Riyadh||Asia/Riyadh',             label: 'Riyadh',    country: 'SA', tz: 'Asia/Riyadh' },
-  { id: 'Karachi||Asia/Karachi',           label: 'Karachi',   country: 'PK', tz: 'Asia/Karachi' },
-  { id: 'London||Europe/London',           label: 'London',    country: 'GB', tz: 'Europe/London' },
-  { id: 'Auckland||Pacific/Auckland',      label: 'Auckland',  country: 'NZ', tz: 'Pacific/Auckland' },
+  { id: 'Dubai||Asia/Dubai',               label: 'Dubai',     country: 'AE', tz: 'Asia/Dubai',              icao: 'OMDB' },
+  { id: 'Melbourne||Australia/Melbourne',  label: 'Melbourne', country: 'AU', tz: 'Australia/Melbourne',     icao: 'YMML' },
+  { id: 'Tokyo||Asia/Tokyo',               label: 'Tokyo',     country: 'JP', tz: 'Asia/Tokyo',              icao: 'RJTT' },
+  { id: 'Delhi||Asia/Kolkata',             label: 'Delhi',     country: 'IN', tz: 'Asia/Kolkata',            icao: 'VIDP' },
+  { id: 'Riyadh||Asia/Riyadh',             label: 'Riyadh',    country: 'SA', tz: 'Asia/Riyadh',             icao: 'OERK' },
+  { id: 'Karachi||Asia/Karachi',           label: 'Karachi',   country: 'PK', tz: 'Asia/Karachi',            icao: 'OPKC' },
+  { id: 'London||Europe/London',           label: 'London',    country: 'GB', tz: 'Europe/London',           icao: 'EGLL' },
+  { id: 'Auckland||Pacific/Auckland',      label: 'Auckland',  country: 'NZ', tz: 'Pacific/Auckland',        icao: 'NZAA' },
 ]
 
 const T = {
   mono: 'var(--cb-font-mono)', sans: 'var(--cb-font-body)',
-  acc: 'var(--cp-acc)', dim: 'var(--cp-dim)', ink: 'var(--cp-txt)', ink2: 'var(--cp-muted)',
+  acc: 'var(--cp-acc)', acc2: 'var(--cp-acc2)', dim: 'var(--cp-dim)', ink: 'var(--cp-txt)', ink2: 'var(--cp-muted)',
   bg1: 'var(--cp-bg3)', bord: 'var(--cp-border)', bord2: 'var(--cp-border2)',
   orange: 'var(--cp-orange, #fb923c)', green: '#22c55e', yellow: '#eab308',
 }
@@ -91,6 +94,14 @@ function getLocalLabel(tz) {
   return tz.split('/').pop().replace(/_/g, ' ')
 }
 
+// City coordinates for the map — piggybacks on the airport each zone is
+// already tagged with (icao), so no separate lat/lng dataset is needed.
+function getZoneCoords(icao) {
+  if (!icao) return null
+  const a = lookupAirport(icao)
+  return a ? { lat: a.lat, lng: a.lng } : null
+}
+
 // ── Pinned card (UTC / Local) ────────────────────────────────────────────────
 function PinnedCard({ label, sublabel, timeStr, dateStr, offset, dst }) {
   return (
@@ -135,15 +146,17 @@ function PinnedCard({ label, sublabel, timeStr, dateStr, offset, dst }) {
 }
 
 // ── Zone card ────────────────────────────────────────────────────────────────
-function ZoneCard({ zone, now, fmt, dst, onRemove }) {
+function ZoneCard({ zone, now, fmt, dst, onRemove, flash }) {
   const offset  = fmtOffset(zone.tz, now)
   const timeStr = getTimeStr(now, zone.tz, fmt)
   const dateStr = getDateStr(now, zone.tz)
   const dayOff  = getDayOff(now, zone.tz)
 
   return (
-    <div className="cp-glass" style={{
-      borderRadius: 6,
+    <div id={`wt-zone-${zone.id}`} className="cp-glass" style={{
+      borderRadius: 6, transition: 'box-shadow 0.3s, border-color 0.3s',
+      border: flash ? `1px solid ${T.acc2}` : '1px solid transparent',
+      boxShadow: flash ? `0 0 0 3px color-mix(in srgb, ${T.acc2} 25%, transparent)` : 'none',
       padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10,
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -193,6 +206,51 @@ function ZoneCard({ zone, now, fmt, dst, onRemove }) {
   )
 }
 
+// ── World map: coastline (reused from the Briefing route map) + a live
+// day/night shading band + one pin per saved clock. Tap a pin to jump to
+// its card below. ──
+function WorldMap({ points, now, onSelect }) {
+  // Terminator only needs to move once a minute, not every clock tick —
+  // bucket `now` so the (cheap but non-trivial) path recompute is throttled.
+  const minuteBucket = Math.floor(now.getTime() / 60000)
+  const nightPath = useMemo(
+    () => nightRegionPath(new Date(minuteBucket * 60000), projectLatLng, WORLD_MAP_WIDTH, WORLD_MAP_HEIGHT),
+    [minuteBucket]
+  )
+
+  return (
+    <div style={{
+      position: 'relative', border: `1px solid ${T.bord}`, borderRadius: 10,
+      overflow: 'hidden', marginBottom: 20, background: T.bg1,
+    }}>
+      <svg viewBox={`0 0 ${WORLD_MAP_WIDTH} ${WORLD_MAP_HEIGHT}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
+        <rect x="0" y="0" width={WORLD_MAP_WIDTH} height={WORLD_MAP_HEIGHT} fill={T.bg1} />
+        <path d={WORLD_LAND_PATH} fill={T.dim} fillOpacity={0.28} fillRule="evenodd" />
+        <path d={nightPath} fill="#05070f" fillOpacity={0.42} />
+        {points.map(p => {
+          const pt = projectLatLng(p.lat, p.lng)
+          const r = p.isLocal ? 6 : 4.5
+          const color = p.isLocal ? T.acc : T.acc2
+          const labelBelow = pt.y < 90
+          return (
+            <g key={p.id} onClick={() => onSelect(p.id)} style={{ cursor: 'pointer' }}>
+              {p.isLocal && <circle cx={pt.x} cy={pt.y} r={r * 1.8} fill="none" stroke={color} strokeWidth={1} opacity={0.4} />}
+              <circle cx={pt.x} cy={pt.y} r={r + 3} fill="transparent" />
+              <circle cx={pt.x} cy={pt.y} r={r} fill={color} stroke={T.bg1} strokeWidth={1.5} />
+              <text
+                x={pt.x} y={labelBelow ? pt.y + 15 : pt.y - 9}
+                textAnchor="middle" fontFamily={T.mono} fontSize={10}
+                fontWeight={p.isLocal ? 700 : 500} fill={color}
+                paintOrder="stroke" stroke={T.bg1} strokeWidth={3} strokeLinejoin="round"
+              >{p.label}</text>
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
+
 function SectionHeader({ title }) {
   return (
     <div className="cp-section-header">
@@ -212,7 +270,9 @@ export default function WorldTimeCalculator() {
   const [search,  setSearch]  = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [now,     setNow]     = useState(() => new Date())
-  const searchRef = useRef(null)
+  const [flashId, setFlashId] = useState(null)
+  const searchRef  = useRef(null)
+  const flashTimer = useRef(null)
 
   // Tick every second
   useEffect(() => {
@@ -229,6 +289,31 @@ export default function WorldTimeCalculator() {
   const localTz    = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
   const localLabel = useMemo(() => getLocalLabel(localTz), [localTz])
   const localDst   = useMemo(() => isCurrentlyDST(localTz), [localTz])
+  // Coordinates piggyback on the matching TIMEZONES entry's airport, if any
+  // — Local has no fixed city, so this only resolves when localTz happens
+  // to match a curated zone (the common case for pilots).
+  const localIcao   = useMemo(() => TIMEZONES.find(z => z.tz === localTz)?.icao, [localTz])
+  const localCoords = useMemo(() => getZoneCoords(localIcao), [localIcao])
+
+  // Map pins: Local (if resolvable) + every saved zone that has coordinates
+  const mapPoints = useMemo(() => {
+    const points = []
+    if (localCoords) points.push({ id: 'local', label: localLabel, isLocal: true, ...localCoords })
+    for (const z of zones) {
+      const coords = getZoneCoords(z.icao)
+      if (coords) points.push({ id: z.id, label: z.label, isLocal: false, ...coords })
+    }
+    return points
+  }, [localCoords, localLabel, zones])
+
+  // Pin tap: jump to that clock's card and flash it briefly
+  const selectMapPoint = (id) => {
+    if (id === 'local') return
+    document.getElementById(`wt-zone-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setFlashId(id)
+    clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlashId(null), 1400)
+  }
 
   // DST precomputed per saved zone (changes twice/year — don't recompute every tick)
   const dstMap = useMemo(() => {
@@ -249,7 +334,7 @@ export default function WorldTimeCalculator() {
 
   const addZone = (z) => {
     if (zones.length >= MAX_ZONES) return
-    const zone = { id: `${z.label}||${z.tz}`, label: z.label, country: z.country || '', tz: z.tz }
+    const zone = { id: `${z.label}||${z.tz}`, label: z.label, country: z.country || '', tz: z.tz, icao: z.icao || '' }
     const next = [...zones, zone]
     setZones(next); persist(next)
     setSearch(''); setShowAdd(false)
@@ -280,6 +365,9 @@ export default function WorldTimeCalculator() {
         />
       </div>
 
+      {/* ── World map: local + saved clocks, with a live day/night band ── */}
+      {mapPoints.length > 0 && <WorldMap points={mapPoints} now={now} onSelect={selectMapPoint} />}
+
       {/* ── Saved clocks ── */}
       <SectionHeader title="Clocks" />
 
@@ -298,7 +386,7 @@ export default function WorldTimeCalculator() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {zones.map(zone => (
           <ZoneCard key={zone.id} zone={zone} now={now} fmt={fmt}
-            dst={dstMap[zone.tz]} onRemove={() => removeZone(zone.id)} />
+            dst={dstMap[zone.tz]} onRemove={() => removeZone(zone.id)} flash={flashId === zone.id} />
         ))}
       </div>
 
