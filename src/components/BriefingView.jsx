@@ -17,6 +17,38 @@ import { projectLatLng, WORLD_LAND_PATH, WORLD_MAP_WIDTH, WORLD_MAP_HEIGHT } fro
 import SigmetCard from './SigmetCard'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 
+// One fixed color per section (independent of the user's accent theme, same
+// precedent as ROLE_COLORS in metarSeverity.js) so each section of the
+// briefing reads as its own block at a glance. Hues are spread ~50-70°
+// apart for real contrast (the original blue/violet pair sat only ~30°
+// apart and read as near-identical) and avoid green/red/yellow, which
+// METAR severity already claims inside the airport cards.
+const SECTION_COLORS = {
+  depArr:  '#2563EB', // blue
+  destAlt: '#9333EA', // purple
+  era:     '#0D9488', // teal
+  notam:   '#D97706', // orange
+  sigmet:  '#DB2777', // pink
+}
+
+// One section of the briefing — colored title + divider, and a faint tint
+// over the whole block so sections stay visually distinct while scrolling.
+function Section({ title, color, children }) {
+  return (
+    <div style={{
+      marginBottom: 20, padding: '14px 16px 16px', borderRadius: 10,
+      background: `color-mix(in srgb, ${color} 6%, transparent)`,
+      border: `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
+    }}>
+      <div className="cp-section-header">
+        <span className="cp-section-title" style={{ color }}>{title}</span>
+        <div className="cp-divider" style={{ background: `color-mix(in srgb, ${color} 35%, transparent)` }} />
+      </div>
+      {children}
+    </div>
+  )
+}
+
 // Airports/taxiways/obstacles/navaids are what a pilot scans a NOTAM list
 // for first — routine admin notices can wait for the full NOTAM tab.
 const NOTAM_PRIORITY = { AERODROME: 0, OBSTACLE: 1, NAVAID: 2 }
@@ -535,37 +567,33 @@ export default function BriefingView() {
 
               {/* ── Departure / Arrival ── */}
               {depArr.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <div className="cp-section-header"><span className="cp-section-title">Departure &amp; Arrival</span><div className="cp-divider" /></div>
+                <Section title="Departure & Arrival" color={SECTION_COLORS.depArr}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
                     {depArr.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
                   </div>
-                </div>
+                </Section>
               )}
 
               {/* ── Destination Alternates ── */}
               {destAltList.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <div className="cp-section-header"><span className="cp-section-title">Destination Alternates</span><div className="cp-divider" /></div>
+                <Section title="Destination Alternates" color={SECTION_COLORS.destAlt}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
                     {destAltList.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
                   </div>
-                </div>
+                </Section>
               )}
 
               {/* ── Enroute Alternates ── */}
               {eraList.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <div className="cp-section-header"><span className="cp-section-title">Enroute Alternates</span><div className="cp-divider" /></div>
+                <Section title="Enroute Alternates" color={SECTION_COLORS.era}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
                     {eraList.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
                   </div>
-                </div>
+                </Section>
               )}
 
               {/* ── NOTAMs for route FIRs (airspace/oceanic notices) ── */}
-              <div style={{ marginBottom: 20 }}>
-                <div className="cp-section-header"><span className="cp-section-title">Notams — Route Firs</span><div className="cp-divider" /></div>
+              <Section title="Notams — Route Firs" color={SECTION_COLORS.notam}>
                 {firsUsed.length === 0 ? (
                   <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
                 ) : (
@@ -573,11 +601,10 @@ export default function BriefingView() {
                     {firsUsed.map(fir => <FirNotamCard key={fir.icao} fir={fir} notams={notamsByIcao[fir.icao]} />)}
                   </div>
                 )}
-              </div>
+              </Section>
 
               {/* ── SIGMETs ── */}
-              <div>
-                <div className="cp-section-header"><span className="cp-section-title">Sigmets — Route Firs</span><div className="cp-divider" /></div>
+              <Section title="Sigmets — Route Firs" color={SECTION_COLORS.sigmet}>
                 {firsUsed.length === 0 ? (
                   <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
                 ) : sigmets.length === 0 ? (
@@ -589,7 +616,7 @@ export default function BriefingView() {
                     {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} />)}
                   </div>
                 )}
-              </div>
+              </Section>
             </>
           )}
         </div>
