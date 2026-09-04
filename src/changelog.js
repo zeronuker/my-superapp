@@ -257,7 +257,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v2.8", date: "Sep 2026", current: true,
+    v: "v2.8", date: "Sep 2026",
     title: "Flight Briefing",
     notes: [
       "NEW: Flight Briefing — a ✈ BRIEFING button in METAR/TAF, NOTAM and SIGMET opens a combined overlay (METAR/TAF + NOTAM + SIGMET) built from that module's own route input, so dep/arr/alternates/enroute never has to be re-typed across modules. METAR/TAF has no FIR concept of its own, so the overlay auto-detects route FIRs the same way NOTAM/SIGMET already do",
@@ -269,6 +269,17 @@ export const CHANGELOG = [
       "FIX: Briefing: wrapped in the app's error boundary so a render crash on real (non-mock) NOTAM/METAR data shows a retryable error card instead of white-screening the whole app",
       "FIX: PWA offline caching added for /api/notam, /api/skylink and /api/isigmet — NOTAM and SIGMET now survive offline the same way METAR/TAF already did",
       "NEW: RESET buttons — now ask whether to reset just the current module or all 3 (METAR/TAF, NOTAM, SIGMET); either choice also clears the Flight Briefing cache",
+    ],
+  },
+  {
+    v: "v2.9", date: "Sep 2026", current: true,
+    title: "Briefing fixes, reset dialogs, and a World Time map",
+    notes: [
+      "FIX: METAR/TAF, NOTAM and SIGMET now show a Briefing's fetched results the moment the overlay closes — previously needed leaving and returning to the tab to see the synced data",
+      "NEW: RESET dialogs simplified — modules with no related caches (Calculator, Interpolation, EDTO, Go-Around, Quick Turnaround, Currency, FTL, Qiblat & Solat) now get a single-button \"CONFIRM RESET\"; METAR/TAF, NOTAM and SIGMET keep the module/all-3 scope choice, reworded to match",
+      "NEW: Briefing: each section (Departure & Arrival, Destination Alternates, Enroute Alternates, Notams, Sigmets) now has its own title colour and background tint for faster visual scanning",
+      "FIX: Duty Log: new entries start with 6 blank crew rows instead of 4",
+      "NEW: World Time — a world map plotting Local and every saved clock by city, with a live day/night shading band; tap a pin to jump to and highlight that clock's card",
     ],
   },
 ]

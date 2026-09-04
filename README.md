@@ -2,7 +2,7 @@
 
 An offline-capable PWA of aviation tools for pilots, plus a prayer times module. Runs as a single-page app with tabbed tools, installable on mobile and desktop.
 
-**Current version: v2.8**
+**Current version: v2.9**
 
 ---
 

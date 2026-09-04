@@ -8,7 +8,7 @@ Guidance for working in this repository.
 plus a prayer-times module. Single-page app, tabbed calculators, deployed to
 Vercel (auto-deploys from `master`).
 
-Current version: **v2.8** — driven by `src/changelog.js`'s `current: true`
+Current version: **v2.9** — driven by `src/changelog.js`'s `current: true`
 entry (`currentVersion(CHANGELOG)` in `App.jsx`); also keep `package.json`'s
 `version` and `README.md`'s "Current version" line in sync with it.
 
