@@ -31,7 +31,7 @@ function blankLog() {
     aircraft: [blankAircraft()],
     sectors: [blankSector()],
     notes: '',
-    crew: [blankCrew(), blankCrew(), blankCrew(), blankCrew()],
+    crew: [blankCrew(), blankCrew(), blankCrew(), blankCrew(), blankCrew(), blankCrew()],
     createdAt: now,
     updatedAt: now,
   }
