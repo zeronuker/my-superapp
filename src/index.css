@@ -228,6 +228,13 @@ input[type="number"] { -moz-appearance: textfield; }
   border-bottom: 1px solid var(--cp-bg2);
 }
 
+/* Briefing's tab bar isn't a flush panel like the calculator tabs (whose
+   active-tab bottom border is meant to blend into the content directly
+   below it) — so it stays visible here as an unwanted line. */
+.briefing-tab-bar .cp-tab.active {
+  border-bottom: none;
+}
+
 /* ── Table ── */
 .cp-table { border-collapse: collapse; width: 100%; font-size: 13px; }
 .cp-table thead tr { background: var(--cp-bghd); }

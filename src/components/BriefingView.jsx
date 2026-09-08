@@ -61,7 +61,7 @@ const BRIEFING_TABS = [
 
 function BriefingTabBar({ active, onSelect, counts }) {
   return (
-    <div className="cp-tab-bar" style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid var(--cp-border2)' }}>
+    <div className="cp-tab-bar briefing-tab-bar" style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid var(--cp-border2)' }}>
       {BRIEFING_TABS.map(tab => (
         <button key={tab.id} onClick={() => onSelect(tab.id)} className={`cp-tab${active === tab.id ? ' active' : ''}`}>
           {tab.label}
