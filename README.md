@@ -2,7 +2,7 @@
 
 An offline-capable PWA of aviation tools for pilots, plus a prayer times module. Runs as a single-page app with tabbed tools, installable on mobile and desktop.
 
-**Current version: v2.9**
+**Current version: v2.10**
 
 ---
 
@@ -112,6 +112,12 @@ The service worker caches aggressively. Users receive an in-app update prompt wh
 AUTOROUTER_EMAIL=<your autorouter.aero login>
 AUTOROUTER_PASSWORD=<your autorouter.aero password>
 ```
+
+**Required Vercel environment variable for Briefing's live weather map:**
+```
+VITE_WINDY_API_KEY=<your api.windy.com Map Forecast API key>
+```
+Domain-restricted at api.windy.com/keys, not a secret in the traditional sense — it's bundled into the client build.
 
 ---
 

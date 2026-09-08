@@ -272,7 +272,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v2.9", date: "Sep 2026", current: true,
+    v: "v2.9", date: "Sep 2026",
     title: "Briefing fixes, reset dialogs, and a World Time map",
     notes: [
       "FIX: METAR/TAF, NOTAM and SIGMET now show a Briefing's fetched results the moment the overlay closes — previously needed leaving and returning to the tab to see the synced data",
@@ -280,6 +280,14 @@ export const CHANGELOG = [
       "NEW: Briefing: each section (Departure & Arrival, Destination Alternates, Enroute Alternates, Notams, Sigmets) now has its own title colour and background tint for faster visual scanning",
       "FIX: Duty Log: new entries start with 6 blank crew rows instead of 4",
       "NEW: World Time — a world map plotting Local and every saved clock by city, with a live day/night shading band; tap a pin to jump to and highlight that clock's card",
+    ],
+  },
+  {
+    v: "v2.10", date: "Sep 2026", current: true,
+    title: "Live weather overlay and Briefing tabs",
+    notes: [
+      "NEW: Briefing: route map now has a Live Weather toggle showing Windy's real wind/temp/pressure overlay (rain/clouds greyed out — need Windy's paid plan) with the route line and role-coloured airport markers drawn on top; falls back to the existing route map when offline",
+      "NEW: Briefing: METAR/TAF, NOTAMs and SIGMETs split into their own tabs (with live count badges) instead of one long stacked scroll, using the same tab-bar style as the calculator tabs",
     ],
   },
 ]

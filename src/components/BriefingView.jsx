@@ -16,6 +16,7 @@ import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import { projectLatLng, WORLD_LAND_PATH, WORLD_MAP_WIDTH, WORLD_MAP_HEIGHT } from '../data/worldMap'
 import SigmetCard from './SigmetCard'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
+import WindyRouteMap from './WindyRouteMap'
 
 // One fixed color per section (independent of the user's accent theme, same
 // precedent as ROLE_COLORS in metarSeverity.js) so each section of the
@@ -45,6 +46,32 @@ function Section({ title, color, children }) {
         <div className="cp-divider" style={{ background: `color-mix(in srgb, ${color} 35%, transparent)` }} />
       </div>
       {children}
+    </div>
+  )
+}
+
+// Top-level sections (METAR/TAF, NOTAMs, SIGMETs) as tabs instead of one
+// long stacked scroll — reuses the app's own .cp-tab styling so it reads as
+// the same control as the calculator tab bar.
+const BRIEFING_TABS = [
+  { id: 'metar', label: 'METAR/TAF' },
+  { id: 'notam', label: 'NOTAMs' },
+  { id: 'sigmet', label: 'SIGMETs' },
+]
+
+function BriefingTabBar({ active, onSelect, counts }) {
+  return (
+    <div className="cp-tab-bar" style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid var(--cp-border2)' }}>
+      {BRIEFING_TABS.map(tab => (
+        <button key={tab.id} onClick={() => onSelect(tab.id)} className={`cp-tab${active === tab.id ? ' active' : ''}`}>
+          {tab.label}
+          <span style={{
+            marginLeft: 7, fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 8,
+            background: active === tab.id ? 'var(--cp-bg)' : 'var(--cp-bg3)',
+            color: active === tab.id ? 'var(--cp-txt)' : 'var(--cp-dim)',
+          }}>{counts[tab.id]}</span>
+        </button>
+      ))}
     </div>
   )
 }
@@ -298,7 +325,8 @@ function computeMapBounds(points) {
   return { minX, minY, w: maxX - minX, h: maxY - minY }
 }
 
-function RouteMap({ dep, arr, destAltList, eraList }) {
+function RouteMap({ dep, arr, destAltList, eraList, isOffline }) {
+  const [showLive, setShowLive] = useState(false)
   const depAp = dep && lookupAirport(dep)
   const arrAp = arr && lookupAirport(arr)
 
@@ -336,13 +364,40 @@ function RouteMap({ dep, arr, destAltList, eraList }) {
       overflow: 'hidden', marginBottom: 20, background: 'var(--cp-bg3)', boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
     }}>
       <div style={{
-        position: 'absolute', top: 10, left: 14, fontFamily: 'var(--cb-font-mono)', fontSize: 10,
-        letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cp-dim)', zIndex: 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 14px', position: 'relative', zIndex: 2,
       }}>
-        Route &amp; Alternates
+        <div style={{
+          fontFamily: 'var(--cb-font-mono)', fontSize: 10,
+          letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cp-dim)',
+        }}>
+          Route &amp; Alternates
+        </div>
+        <div style={{
+          display: 'flex', gap: 2, background: 'var(--cp-bg)', border: '1px solid var(--cp-border3)',
+          borderRadius: 7, padding: 2,
+        }}>
+          {[{ id: false, label: 'Route' }, { id: true, label: 'Live Weather' }].map(opt => (
+            <button
+              key={String(opt.id)}
+              onClick={() => !(opt.id && isOffline) && setShowLive(opt.id)}
+              disabled={opt.id && isOffline}
+              title={opt.id && isOffline ? 'Unavailable offline' : undefined}
+              style={{
+                fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase',
+                color: showLive === opt.id ? 'var(--cp-txt)' : 'var(--cp-dim)',
+                background: showLive === opt.id ? 'var(--cp-bg3)' : 'transparent',
+                border: 'none', borderRadius: 5, padding: '6px 10px',
+                cursor: opt.id && isOffline ? 'not-allowed' : 'pointer',
+                opacity: opt.id && isOffline ? 0.4 : 1,
+              }}
+            >{opt.label}</button>
+          ))}
+        </div>
       </div>
-      <svg viewBox={`${bounds.minX} ${bounds.minY} ${bounds.w} ${bounds.h}`} style={{
-        display: 'block', width: '100%', height: 'auto',
+
+      <div style={{
+        position: 'relative', width: '100%',
         // Match the container to the route's own bounding-box shape — a
         // fixed wide ratio here squeezes a mostly north-south route (small
         // lng spread, big lat spread) into a thin sliver, shrinking the
@@ -350,35 +405,41 @@ function RouteMap({ dep, arr, destAltList, eraList }) {
         // near-pole-to-pole route making the modal absurdly tall.
         aspectRatio: `${bounds.w} / ${bounds.h}`, maxHeight: 900,
       }}>
-        <rect x={bounds.minX} y={bounds.minY} width={bounds.w} height={bounds.h} fill="var(--cp-bg3)" />
+        {showLive ? (
+          <WindyRouteMap markers={projected.map(m => ({ icao: m.icao, label: m.label, lat: m.ap.lat, lng: m.ap.lng, big: m.big }))} />
+        ) : (
+          <svg viewBox={`${bounds.minX} ${bounds.minY} ${bounds.w} ${bounds.h}`} style={{ display: 'block', width: '100%', height: '100%' }}>
+            <rect x={bounds.minX} y={bounds.minY} width={bounds.w} height={bounds.h} fill="var(--cp-bg3)" />
 
-        <path d={WORLD_LAND_PATH} fill="var(--cp-dim)" fillOpacity={0.28} fillRule="evenodd" />
+            <path d={WORLD_LAND_PATH} fill="var(--cp-dim)" fillOpacity={0.28} fillRule="evenodd" />
 
-        {routePath && (
-          <path d={routePath} fill="none" stroke="var(--cp-txt)" strokeWidth={bounds.w / 300}
-            strokeDasharray={`${bounds.w / 130} ${bounds.w / 180}`} opacity={0.85} />
+            {routePath && (
+              <path d={routePath} fill="none" stroke="var(--cp-txt)" strokeWidth={bounds.w / 300}
+                strokeDasharray={`${bounds.w / 130} ${bounds.w / 180}`} opacity={0.85} />
+            )}
+
+            {projected.map(m => {
+              const role = getRoleStyle(m.label)
+              const r = (m.big ? bounds.w / 78 : bounds.w / 100)
+              const fontSize = bounds.w / (m.big ? 42 : 50)
+              return (
+                <g key={m.icao}>
+                  {m.big && <circle cx={m.x} cy={m.y} r={r * 1.7} fill="none" stroke={role.color} strokeWidth={bounds.w / 500} opacity={0.4} />}
+                  <circle cx={m.x} cy={m.y} r={r} fill={role.color} stroke="var(--cp-bg3)" strokeWidth={bounds.w / 450} />
+                  {/* Halo behind the code so the route line, coastline or another
+                      marker never reads as cutting through it, for any route. */}
+                  <text x={m.x} y={m.y + (m.y < bounds.minY + bounds.h / 2 ? r * 2.6 : -r * 1.8)}
+                    textAnchor="middle" fontFamily="var(--cb-font-mono)" fontSize={fontSize}
+                    fontWeight={m.big ? 700 : 500} fill={role.color}
+                    paintOrder="stroke" stroke="var(--cp-bg3)" strokeWidth={fontSize / 4} strokeLinejoin="round">
+                    {m.icao}
+                  </text>
+                </g>
+              )
+            })}
+          </svg>
         )}
-
-        {projected.map(m => {
-          const role = getRoleStyle(m.label)
-          const r = (m.big ? bounds.w / 78 : bounds.w / 100)
-          const fontSize = bounds.w / (m.big ? 42 : 50)
-          return (
-            <g key={m.icao}>
-              {m.big && <circle cx={m.x} cy={m.y} r={r * 1.7} fill="none" stroke={role.color} strokeWidth={bounds.w / 500} opacity={0.4} />}
-              <circle cx={m.x} cy={m.y} r={r} fill={role.color} stroke="var(--cp-bg3)" strokeWidth={bounds.w / 450} />
-              {/* Halo behind the code so the route line, coastline or another
-                  marker never reads as cutting through it, for any route. */}
-              <text x={m.x} y={m.y + (m.y < bounds.minY + bounds.h / 2 ? r * 2.6 : -r * 1.8)}
-                textAnchor="middle" fontFamily="var(--cb-font-mono)" fontSize={fontSize}
-                fontWeight={m.big ? 700 : 500} fill={role.color}
-                paintOrder="stroke" stroke="var(--cp-bg3)" strokeWidth={fontSize / 4} strokeLinejoin="round">
-                {m.icao}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
+      </div>
     </div>
   )
 }
@@ -400,6 +461,7 @@ export default function BriefingView() {
   const [error, setError] = useState('')
   const [now, setNow] = useState(Date.now())
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
+  const [activeTab, setActiveTab] = useState('metar')
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -509,6 +571,9 @@ export default function BriefingView() {
   const destAltList = airports.filter(a => a.label.startsWith('DESTINATION ALTERNATE'))
   const eraList = airports.filter(a => a.label.startsWith('ENROUTE ALTERNATE'))
 
+  const firNotamCount = firsUsed.reduce((sum, fir) =>
+    sum + (notamsByIcao[fir.icao] || []).filter(n => n.validity.status === 'ACTIVE').length, 0)
+
   return (
     <div
       onClick={pauseBriefing}
@@ -563,60 +628,74 @@ export default function BriefingView() {
                 {fetchedAt && ` · FETCHED ${new Date(fetchedAt).toUTCString().toUpperCase()}`}
               </div>
 
-              <RouteMap dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} />
+              <RouteMap dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} />
 
-              {/* ── Departure / Arrival ── */}
-              {depArr.length > 0 && (
-                <Section title="Departure & Arrival" color={SECTION_COLORS.depArr}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
-                    {depArr.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
-                  </div>
-                </Section>
-              )}
+              <BriefingTabBar
+                active={activeTab}
+                onSelect={setActiveTab}
+                counts={{ metar: airports.length, notam: firNotamCount, sigmet: sigmets.length }}
+              />
 
-              {/* ── Destination Alternates ── */}
-              {destAltList.length > 0 && (
-                <Section title="Destination Alternates" color={SECTION_COLORS.destAlt}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
-                    {destAltList.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
-                  </div>
-                </Section>
-              )}
+              {activeTab === 'metar' && (
+                <>
+                  {/* ── Departure / Arrival ── */}
+                  {depArr.length > 0 && (
+                    <Section title="Departure & Arrival" color={SECTION_COLORS.depArr}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+                        {depArr.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
+                      </div>
+                    </Section>
+                  )}
 
-              {/* ── Enroute Alternates ── */}
-              {eraList.length > 0 && (
-                <Section title="Enroute Alternates" color={SECTION_COLORS.era}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-                    {eraList.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
-                  </div>
-                </Section>
+                  {/* ── Destination Alternates ── */}
+                  {destAltList.length > 0 && (
+                    <Section title="Destination Alternates" color={SECTION_COLORS.destAlt}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+                        {destAltList.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
+                      </div>
+                    </Section>
+                  )}
+
+                  {/* ── Enroute Alternates ── */}
+                  {eraList.length > 0 && (
+                    <Section title="Enroute Alternates" color={SECTION_COLORS.era}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                        {eraList.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
+                      </div>
+                    </Section>
+                  )}
+                </>
               )}
 
               {/* ── NOTAMs for route FIRs (airspace/oceanic notices) ── */}
-              <Section title="Notams — Route Firs" color={SECTION_COLORS.notam}>
-                {firsUsed.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-                    {firsUsed.map(fir => <FirNotamCard key={fir.icao} fir={fir} notams={notamsByIcao[fir.icao]} />)}
-                  </div>
-                )}
-              </Section>
+              {activeTab === 'notam' && (
+                <Section title="Notams — Route Firs" color={SECTION_COLORS.notam}>
+                  {firsUsed.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                      {firsUsed.map(fir => <FirNotamCard key={fir.icao} fir={fir} notams={notamsByIcao[fir.icao]} />)}
+                    </div>
+                  )}
+                </Section>
+              )}
 
               {/* ── SIGMETs ── */}
-              <Section title="Sigmets — Route Firs" color={SECTION_COLORS.sigmet}>
-                {firsUsed.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
-                ) : sigmets.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>
-                    No active SIGMETs for {firsUsed.map(f => f.icao).join(', ')}.
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} />)}
-                  </div>
-                )}
-              </Section>
+              {activeTab === 'sigmet' && (
+                <Section title="Sigmets — Route Firs" color={SECTION_COLORS.sigmet}>
+                  {firsUsed.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
+                  ) : sigmets.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>
+                      No active SIGMETs for {firsUsed.map(f => f.icao).join(', ')}.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} />)}
+                    </div>
+                  )}
+                </Section>
+              )}
             </>
           )}
         </div>
