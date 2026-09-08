@@ -649,7 +649,7 @@ export default function BriefingView() {
                   display: 'flex', alignItems: 'center', gap: 8,
                   fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.12em', color: 'var(--cp-yellow)',
                 }}>
-                  ⚠ OFFLINE <span style={{ color: 'var(--cp-dim)' }}>· SHOWING CACHED DATA</span>
+                  ⚠ OFFLINE <span style={{ color: 'var(--cp-dim)' }}>· SHOWING CACHED DATA · LIVE WEATHER UNAVAILABLE</span>
                 </div>
               )}
 
