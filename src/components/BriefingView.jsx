@@ -51,8 +51,12 @@ function Section({ title, color, children }) {
 }
 
 // Top-level sections (METAR/TAF, NOTAMs, SIGMETs) as tabs instead of one
-// long stacked scroll — reuses the app's own .cp-tab styling so it reads as
-// the same control as the calculator tab bar.
+// long stacked scroll. Styled as folder tabs (eLogbook's tab bar) rather
+// than the calculator's gradient-topbar .cp-tab style: the active tab's
+// own -1px bottom margin bleeds over the row's divider line instead of
+// just hiding its own border, which is what a border-only fix can't do —
+// the row's divider is a separate element sitting right where the active
+// tab ends, so removing the tab's own border still leaves that line exposed.
 const BRIEFING_TABS = [
   { id: 'metar', label: 'METAR/TAF' },
   { id: 'notam', label: 'NOTAMs' },
@@ -61,17 +65,37 @@ const BRIEFING_TABS = [
 
 function BriefingTabBar({ active, onSelect, counts }) {
   return (
-    <div className="cp-tab-bar briefing-tab-bar" style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid var(--cp-border2)' }}>
-      {BRIEFING_TABS.map(tab => (
-        <button key={tab.id} onClick={() => onSelect(tab.id)} className={`cp-tab${active === tab.id ? ' active' : ''}`}>
-          {tab.label}
-          <span style={{
-            marginLeft: 7, fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 8,
-            background: active === tab.id ? 'var(--cp-bg)' : 'var(--cp-bg3)',
-            color: active === tab.id ? 'var(--cp-txt)' : 'var(--cp-dim)',
-          }}>{counts[tab.id]}</span>
-        </button>
-      ))}
+    <div style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', borderBottom: '1px solid var(--cp-border2)', marginBottom: 16 }}>
+        {BRIEFING_TABS.map(tab => {
+          const isActive = active === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onSelect(tab.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
+                padding: '7px 16px', borderRadius: '5px 5px 0 0', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                background: isActive ? 'var(--cp-bg)' : 'transparent',
+                borderTop: isActive ? '2px solid var(--cp-acc)' : '1px solid var(--cp-border2)',
+                borderLeft: '1px solid var(--cp-border2)',
+                borderRight: '1px solid var(--cp-border2)',
+                borderBottom: isActive ? '1px solid var(--cp-bg)' : '1px solid var(--cp-border2)',
+                color: isActive ? 'var(--cp-acc)' : 'var(--cp-dim)',
+                marginBottom: isActive ? -1 : 0,
+              }}
+            >
+              {tab.label}
+              <span style={{
+                fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 8,
+                background: isActive ? 'var(--cp-bg2)' : 'var(--cp-bg3)',
+                color: isActive ? 'var(--cp-txt)' : 'var(--cp-dim)',
+              }}>{counts[tab.id]}</span>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
