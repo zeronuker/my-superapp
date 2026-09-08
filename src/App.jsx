@@ -1,6 +1,6 @@
 import React, { useState, lazy, Suspense } from 'react'
 import { useCalculatorStore } from './store/calculatorStore'
-import { useExpiry } from './utils/cacheExpiry'
+import { useExpiry, EXPIRY_MS } from './utils/cacheExpiry'
 import usePrayerStore from './modules/prayer/store/prayerStore'
 import { loadLastPosition } from './modules/prayer/services/geolocation'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -147,6 +147,21 @@ export default function App() {
   // Same 12h cache TTL as the other modules — expires a paused/cached
   // briefing while the app stays open, not just at next reload.
   useExpiry(briefing.data?.fetchedAt, closeBriefing)
+
+  // Belt-and-braces for the above: a setTimeout scheduled hours in advance
+  // can be delayed or dropped by iOS during a long background suspension,
+  // unlike the 3 standalone modules which re-check Date.now() fresh every
+  // time their tab is mounted. Re-validate on foreground too, so a long
+  // background stint can't leave a stale Resume Briefing pill behind.
+  React.useEffect(() => {
+    const fetchedAt = briefing.data?.fetchedAt
+    if (!fetchedAt) return
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && Date.now() - fetchedAt > EXPIRY_MS) closeBriefing()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [briefing.data?.fetchedAt, closeBriefing])
 
   const isOnline = useOnlineStatus()
   useMETARBadge()

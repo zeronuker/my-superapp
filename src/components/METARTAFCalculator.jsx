@@ -259,7 +259,7 @@ export default function METARTAFCalculator() {
         : (60 - mins) * 60_000 - secs * 1000
       timerRef.current = setTimeout(() => {
         const s = stateRef.current
-        if (s.dep || s.arr || s.destAlts?.alt1 || s.destAlts?.alt2) doFetch(s)
+        if (navigator.onLine && (s.dep || s.arr || s.destAlts?.alt1 || s.destAlts?.alt2)) doFetch(s)
         schedule()
       }, ms)
     }
@@ -392,23 +392,25 @@ export default function METARTAFCalculator() {
           </span>
         )}
 
+        <button className="cp-btn" onClick={handleFetch}
+          disabled={!hasInput || loading}
+          style={{
+            marginLeft: 'auto',
+            borderColor: hasInput && !loading ? 'var(--cp-acc)' : undefined,
+            color:       hasInput && !loading ? 'var(--cp-acc)' : undefined,
+            opacity: loading ? 0.6 : 1,
+            padding: '12px 16px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em', minWidth: 152,
+          }}>
+          {loading ? 'FETCHING…' : '⟳  FETCH WEATHER'}
+        </button>
         <button className="cp-btn" onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts })} disabled={!hasInput}
           style={{
-            marginLeft: 'auto', opacity: hasInput ? 1 : 0.4, letterSpacing: '0.15em',
+            opacity: hasInput ? 1 : 0.4,
+            padding: '12px 16px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em',
             border: '2px solid var(--cp-green)', color: 'var(--cp-green)',
             background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
           }}>
           ✈ BRIEFING
-        </button>
-        <button className="cp-btn" onClick={handleFetch}
-          disabled={!hasInput || loading}
-          style={{
-            borderColor: hasInput && !loading ? 'var(--cp-acc)' : undefined,
-            color:       hasInput && !loading ? 'var(--cp-acc)' : undefined,
-            opacity: loading ? 0.6 : 1,
-            letterSpacing: '0.15em', minWidth: 152,
-          }}>
-          {loading ? 'FETCHING…' : '⟳  FETCH WEATHER'}
         </button>
       </div>
 

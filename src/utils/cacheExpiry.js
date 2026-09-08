@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-const EXPIRY_MS = 12 * 60 * 60 * 1000  // 12 hours
+export const EXPIRY_MS = 12 * 60 * 60 * 1000  // 12 hours
 
 // Returns null (and clears storage) if the cached data is older than 12 h.
 export function loadWithExpiry(key) {
