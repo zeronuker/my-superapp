@@ -6,7 +6,6 @@
 
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import { icaoToFir, latlngToFir } from '../data/firLookup'
-import { isSkyLinkDay } from '../utils/sourceSwitch'
 
 // ── Q-code subject → plain English ───────────────────────────────────────────
 const Q_SUBJECT = {
@@ -225,7 +224,7 @@ export function parseRawNotams(rawPerIcao) {
   return allNotams
 }
 
-// ── SkyLink NOTAM parsing (even-UTC-day source — see utils/sourceSwitch) ──
+// ── SkyLink NOTAM parsing (fallback source — see fetchNotams) ──
 // Shape confirmed against a live /notams/:icao response: { icao, notams: [...] }
 // with pre-split fields (notam_id, location, effective/expiration as
 // "YYYYMMDDHHmm" strings, body, scope, q_code, raw) — distinct from
@@ -335,10 +334,11 @@ const FETCHERS = { autorouter: fetchOneAutorouter, skylink: fetchOneSkylink }
 
 /**
  * Fetch NOTAMs for a list of ICAO location codes (airports or FIRs).
- * Picks SkyLink or autorouter.aero by UTC even/odd day. If an individual
- * ICAO fails on the scheduled source, only that ICAO retries against the
- * other source — one bad airport no longer waits for the whole batch to
- * fail before falling back.
+ * autorouter.aero is free and unlimited, so it's always primary — SkyLink
+ * (metered, low free-tier quota) is only a fallback for when it's down. If
+ * an individual ICAO fails on autorouter, only that ICAO retries against
+ * SkyLink — one bad airport no longer waits for the whole batch to fail
+ * before falling back.
  * Returns { notams, rawPerIcao } — rawPerIcao is `[{ icao, rows, source }]`,
  * suitable for caching (re-parsed on restore via parseMixedNotams so
  * validity status stays fresh); `source` on each entry is whichever API
@@ -347,9 +347,8 @@ const FETCHERS = { autorouter: fetchOneAutorouter, skylink: fetchOneSkylink }
 export async function fetchNotams(icaoList, pageSize = 100) {
   if (!icaoList?.length) return { notams: [], rawPerIcao: [] }
 
-  const preferSkylink = isSkyLinkDay()
-  const primary = preferSkylink ? 'skylink' : 'autorouter'
-  const backup  = preferSkylink ? 'autorouter' : 'skylink'
+  const primary = 'autorouter'
+  const backup  = 'skylink'
 
   const primaryResults = await Promise.allSettled(
     icaoList.map(icao => FETCHERS[primary](icao, pageSize))

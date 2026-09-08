@@ -290,6 +290,7 @@ export const CHANGELOG = [
       "NEW: Briefing: METAR/TAF, NOTAMs and SIGMETs split into their own tabs (with live count badges) instead of one long stacked scroll, using the same tab-bar style as the calculator tabs",
       "NEW: Briefing: per-airport NOTAMs moved out of the METAR/TAF airport cards into their own \"Notams — Airports\" section on the NOTAMs tab, alongside the existing per-FIR NOTAMs",
       "NEW: Briefing: Live Weather gets an altitude tape (Surface through FL450) next to the overlay picker, so Wind/Temp/Pressure can show conditions at cruise altitude instead of just the surface",
+      "FIX: METAR/TAF and NOTAM: aviationweather.gov / autorouter.aero (free, unlimited) are now always the primary source, with SkyLink only as a fallback — previously alternated primary by even/odd UTC day, which could burn through SkyLink's low free-tier quota on days it didn't need to be primary at all",
     ],
   },
 ]

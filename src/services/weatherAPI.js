@@ -3,7 +3,6 @@
 // the source-fallback logic.
 
 import { skylinkMetarToAWCShape, skylinkTafToAWCShape } from '../utils/skylinkWeather'
-import { isSkyLinkDay } from '../utils/sourceSwitch'
 
 async function fetchOneAWC(icao, type, hours) {
   const r = await fetch(`/api/weather?ids=${icao}&type=${type}&hours=${hours}`)
@@ -20,15 +19,15 @@ async function fetchOneSkylinkWeather(icao, type) {
 
 const WEATHER_FETCHERS = { aviationweather: fetchOneAWC, skylink: fetchOneSkylinkWeather }
 
-// UTC even/odd day picks the source (see utils/sourceSwitch). METAR and TAF
-// retry independently — if only one of the two fails on the scheduled
-// source, just that one falls back to the other rather than both, and a
-// type that fails on both sources degrades to an empty report instead of
-// failing the whole airport.
+// aviationweather.gov is free and unlimited, so it's always primary — SkyLink
+// (metered, low free-tier quota) is only a fallback for when it's down. METAR
+// and TAF retry independently — if only one of the two fails on the primary
+// source, just that one falls back to SkyLink rather than both, and a type
+// that fails on both sources degrades to an empty report instead of failing
+// the whole airport.
 export async function fetchWeather(icao, hours) {
-  const preferSkylink = isSkyLinkDay()
-  const primary = preferSkylink ? 'skylink' : 'aviationweather'
-  const backup  = preferSkylink ? 'aviationweather' : 'skylink'
+  const primary = 'aviationweather'
+  const backup  = 'skylink'
 
   const fetchType = async (type) => {
     try {
