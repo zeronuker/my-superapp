@@ -232,8 +232,41 @@ function FirNotamCard({ fir, notams }) {
   )
 }
 
-// ── One airport's METAR/TAF/NOTAM summary, latest report only ──
-function AirportCard({ target, weather, notams }) {
+// ── One airport's NOTAMs, in the NOTAMs tab — same header treatment as
+// AirportCard (role-colored, name), without the METAR/TAF fields ──
+function AirportNotamCard({ target, notams }) {
+  const role = getRoleStyle(target.label)
+  const airport = lookupAirport(target.icao)
+  const viewAllNotams = useViewAllNotams()
+
+  return (
+    <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', gap: 9, padding: '10px 14px',
+        borderBottom: '1px solid var(--cp-border3)', borderLeft: `3px solid ${role.color}`,
+      }}>
+        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--cp-txt)' }}>
+          {target.icao}
+        </span>
+        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.12em',
+          textTransform: 'uppercase', color: role.color, whiteSpace: 'nowrap' }}>
+          {target.label}
+        </span>
+        {airport && (
+          <span style={{ fontSize: 11, color: 'var(--cp-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {airport.name}
+          </span>
+        )}
+      </div>
+      <div style={{ padding: '12px 14px 14px' }}>
+        <NotamListSection notams={notams} onViewAll={viewAllNotams} />
+      </div>
+    </div>
+  )
+}
+
+// ── One airport's METAR/TAF summary, latest report only ──
+function AirportCard({ target, weather }) {
   const role = getRoleStyle(target.label)
   const airport = lookupAirport(target.icao)
   const latestMetar = weather?.metar?.[0] || null
@@ -244,7 +277,6 @@ function AirportCard({ target, weather, notams }) {
   const windColor = windSev !== 'NORMAL' ? WIND_COLORS[windSev] : null
   const metarTokens = latestMetar ? tokenizeRaw(latestMetar.rawOb, catColor, windColor) : null
   const tafSegments = latestTaf ? parseTafSegments(latestTaf.rawTAF) : null
-  const viewAllNotams = useViewAllNotams()
 
   return (
     <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -304,8 +336,6 @@ function AirportCard({ target, weather, notams }) {
               : <span style={{ color: 'var(--cp-dim)' }}>No TAF data</span>}
           </div>
         </div>
-
-        <NotamListSection notams={notams} onViewAll={viewAllNotams} />
       </div>
     </div>
   )
@@ -571,8 +601,9 @@ export default function BriefingView() {
   const destAltList = airports.filter(a => a.label.startsWith('DESTINATION ALTERNATE'))
   const eraList = airports.filter(a => a.label.startsWith('ENROUTE ALTERNATE'))
 
-  const firNotamCount = firsUsed.reduce((sum, fir) =>
-    sum + (notamsByIcao[fir.icao] || []).filter(n => n.validity.status === 'ACTIVE').length, 0)
+  const activeNotamCount = (icaos) => icaos.reduce((sum, icao) =>
+    sum + (notamsByIcao[icao] || []).filter(n => n.validity.status === 'ACTIVE').length, 0)
+  const notamCount = activeNotamCount(airports.map(a => a.icao)) + activeNotamCount(firsUsed.map(f => f.icao))
 
   return (
     <div
@@ -633,7 +664,7 @@ export default function BriefingView() {
               <BriefingTabBar
                 active={activeTab}
                 onSelect={setActiveTab}
-                counts={{ metar: airports.length, notam: firNotamCount, sigmet: sigmets.length }}
+                counts={{ metar: airports.length, notam: notamCount, sigmet: sigmets.length }}
               />
 
               {activeTab === 'metar' && (
@@ -642,7 +673,7 @@ export default function BriefingView() {
                   {depArr.length > 0 && (
                     <Section title="Departure & Arrival" color={SECTION_COLORS.depArr}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
-                        {depArr.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
+                        {depArr.map(a => <AirportCard key={a.icao} target={a} weather={a} />)}
                       </div>
                     </Section>
                   )}
@@ -651,7 +682,7 @@ export default function BriefingView() {
                   {destAltList.length > 0 && (
                     <Section title="Destination Alternates" color={SECTION_COLORS.destAlt}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
-                        {destAltList.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
+                        {destAltList.map(a => <AirportCard key={a.icao} target={a} weather={a} />)}
                       </div>
                     </Section>
                   )}
@@ -660,24 +691,34 @@ export default function BriefingView() {
                   {eraList.length > 0 && (
                     <Section title="Enroute Alternates" color={SECTION_COLORS.era}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-                        {eraList.map(a => <AirportCard key={a.icao} target={a} weather={a} notams={notamsByIcao[a.icao]} />)}
+                        {eraList.map(a => <AirportCard key={a.icao} target={a} weather={a} />)}
                       </div>
                     </Section>
                   )}
                 </>
               )}
 
-              {/* ── NOTAMs for route FIRs (airspace/oceanic notices) ── */}
+              {/* ── NOTAMs — per-airport, then per route FIR (airspace/oceanic notices) ── */}
               {activeTab === 'notam' && (
-                <Section title="Notams — Route Firs" color={SECTION_COLORS.notam}>
-                  {firsUsed.length === 0 ? (
-                    <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-                      {firsUsed.map(fir => <FirNotamCard key={fir.icao} fir={fir} notams={notamsByIcao[fir.icao]} />)}
-                    </div>
+                <>
+                  {airports.length > 0 && (
+                    <Section title="Notams — Airports" color={SECTION_COLORS.notam}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                        {airports.map(a => <AirportNotamCard key={a.icao} target={a} notams={notamsByIcao[a.icao]} />)}
+                      </div>
+                    </Section>
                   )}
-                </Section>
+
+                  <Section title="Notams — Route Firs" color={SECTION_COLORS.notam}>
+                    {firsUsed.length === 0 ? (
+                      <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                        {firsUsed.map(fir => <FirNotamCard key={fir.icao} fir={fir} notams={notamsByIcao[fir.icao]} />)}
+                      </div>
+                    )}
+                  </Section>
+                </>
               )}
 
               {/* ── SIGMETs ── */}
