@@ -289,6 +289,7 @@ export const CHANGELOG = [
       "NEW: Briefing: route map now has a Live Weather toggle showing Windy's real wind/temp/pressure overlay (rain/clouds greyed out — need Windy's paid plan) with the route line and role-coloured airport markers drawn on top; falls back to the existing route map when offline",
       "NEW: Briefing: METAR/TAF, NOTAMs and SIGMETs split into their own tabs (with live count badges) instead of one long stacked scroll, using the same tab-bar style as the calculator tabs",
       "NEW: Briefing: per-airport NOTAMs moved out of the METAR/TAF airport cards into their own \"Notams — Airports\" section on the NOTAMs tab, alongside the existing per-FIR NOTAMs",
+      "NEW: Briefing: Live Weather gets an altitude tape (Surface through FL450) next to the overlay picker, so Wind/Temp/Pressure can show conditions at cruise altitude instead of just the surface",
     ],
   },
 ]

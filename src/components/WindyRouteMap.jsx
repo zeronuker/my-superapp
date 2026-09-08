@@ -74,12 +74,28 @@ const LAYERS = [
   { id: 'clouds', label: 'Clouds', proOnly: true },
 ]
 
+// Windy's pressure-level tokens (confirmed via windyAPI.store.getAllowed('level')
+// — all allowed on the free key, unlike most overlays), mapped to the
+// altitude a pilot actually thinks in rather than hPa.
+const LEVELS = [
+  { id: 'surface', label: 'SFC' },
+  { id: '850h', label: '5K' },
+  { id: '700h', label: '10K' },
+  { id: '500h', label: 'FL180' },
+  { id: '400h', label: 'FL240' },
+  { id: '300h', label: 'FL300' },
+  { id: '250h', label: 'FL340' },
+  { id: '200h', label: 'FL390' },
+  { id: '150h', label: 'FL450' },
+]
+
 export default function WindyRouteMap({ markers }) {
   const placeholderRef = useRef(null)
   const windyApiRef = useRef(null)
   const drawnRef = useRef(null) // { polyline, circleMarkers[] } — cleared/redrawn on route/layer change
   const [status, setStatus] = useState('loading') // loading | ready | error
   const [layer, setLayer] = useState('wind')
+  const [level, setLevel] = useState('surface')
 
   // Init once. Deferred a tick so React StrictMode's dev-only
   // mount→cleanup→mount double-invoke cancels the first (unused) attempt
@@ -129,6 +145,7 @@ export default function WindyRouteMap({ markers }) {
     const { map, store } = windyAPI
     const L = window.L
     store.set('overlay', layer)
+    store.set('level', level)
 
     if (drawnRef.current) {
       drawnRef.current.polyline.remove()
@@ -163,7 +180,7 @@ export default function WindyRouteMap({ markers }) {
       const bounds = L.latLngBounds(markers.map(m => [m.lat, m.lng]))
       map.fitBounds(bounds, { padding: [36, 36], maxZoom: 9 })
     }
-  }, [status, layer, markers])
+  }, [status, layer, level, markers])
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -174,26 +191,49 @@ export default function WindyRouteMap({ markers }) {
           (see getWindyDiv), so a locally-scoped z-index here couldn't win
           against it; as a child it just naturally sits on top of the map. */}
       {status === 'ready' && createPortal(
-        <div style={{
-          position: 'absolute', top: 10, left: 10,
-          display: 'flex', gap: 4, background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
-          border: '1px solid var(--cp-border3)', borderRadius: 7, padding: 3,
-        }}>
-          {LAYERS.map(l => (
-            <button
-              key={l.id}
-              onClick={() => !l.proOnly && setLayer(l.id)}
-              disabled={l.proOnly}
-              title={l.proOnly ? 'Requires Windy Pro' : undefined}
-              style={{
-                fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
-                color: layer === l.id ? '#e8ecf5' : '#7c87a3', background: layer === l.id ? 'var(--cp-bg3)' : 'transparent',
-                border: 'none', borderRadius: 5, padding: '5px 9px',
-                cursor: l.proOnly ? 'not-allowed' : 'pointer', opacity: l.proOnly ? 0.4 : 1,
-              }}
-            >{l.label}</button>
-          ))}
-        </div>,
+        <>
+          <div style={{
+            position: 'absolute', top: 10, left: 10,
+            display: 'flex', gap: 4, background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+            border: '1px solid var(--cp-border3)', borderRadius: 7, padding: 3,
+          }}>
+            {LAYERS.map(l => (
+              <button
+                key={l.id}
+                onClick={() => !l.proOnly && setLayer(l.id)}
+                disabled={l.proOnly}
+                title={l.proOnly ? 'Requires Windy Pro' : undefined}
+                style={{
+                  fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
+                  color: layer === l.id ? '#e8ecf5' : '#7c87a3', background: layer === l.id ? 'var(--cp-bg3)' : 'transparent',
+                  border: 'none', borderRadius: 5, padding: '5px 9px',
+                  cursor: l.proOnly ? 'not-allowed' : 'pointer', opacity: l.proOnly ? 0.4 : 1,
+                }}
+              >{l.label}</button>
+            ))}
+          </div>
+
+          {/* Altitude tape — same rung order as LEVELS (SFC first), reversed
+              visually via column-reverse so SFC sits at the bottom. */}
+          <div style={{
+            position: 'absolute', top: 52, left: 10,
+            display: 'flex', flexDirection: 'column-reverse', gap: 2,
+            background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+            border: '1px solid var(--cp-border3)', borderRadius: 7, padding: 3,
+          }}>
+            {LEVELS.map(lv => (
+              <button
+                key={lv.id}
+                onClick={() => setLevel(lv.id)}
+                style={{
+                  height: 22, fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
+                  color: level === lv.id ? '#e8ecf5' : '#7c87a3', background: level === lv.id ? 'var(--cp-bg3)' : 'transparent',
+                  border: 'none', borderRadius: 5, cursor: 'pointer',
+                }}
+              >{lv.label}</button>
+            ))}
+          </div>
+        </>,
         getWindyDiv()
       )}
 
