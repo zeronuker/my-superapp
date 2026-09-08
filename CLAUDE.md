@@ -96,14 +96,18 @@ when asked. The service worker caches aggressively; users get an update prompt
   Requires `AUTOROUTER_EMAIL` / `AUTOROUTER_PASSWORD` in Vercel env vars — these
   are the account login email/password (autorouter uses them as the OAuth
   client_id/client_secret). Verified working against WMKK.
-- **Flight status/terminal/gate lookups (`api/aerodatabox.js`)** use AeroDataBox
-  (RapidAPI), not SkyLink — SkyLink's `flight_status` endpoint has no date
-  parameter and was observed returning a stale (weeks-old) schedule record for
-  a live flight. AeroDataBox's `/flights/number/{flight}/{date}` takes an
-  explicit local date and returns full ISO datetimes per leg. Requires
-  `AERODATABOX_API_KEY` in Vercel env vars (X-RapidAPI-Key from
-  rapidapi.com/aedbx-aedbx/api/aerodatabox). SkyLink is still used for
-  everything else (ADS-B, aircraft lookup, METAR/TAF, schedules boards, etc).
+- **AeroDataBox (`api/aerodatabox.js`)** only does one thing now — airport
+  runway data (`/airports/{icao}/runways`), used by METAR/TAF's wind-component
+  calc. Requires `AERODATABOX_API_KEY` in Vercel env vars (X-RapidAPI-Key from
+  rapidapi.com/aedbx-aedbx/api/aerodatabox). There is no flight-status/gate
+  lookup here or anywhere else in the app — Malaysia Airports' gate finder
+  (`api/gatefinder.js`) uses Malaysia Airports' own public API directly, not
+  AeroDataBox or SkyLink.
+- **SkyLink (`api/skylink.js`)** is fallback-only for METAR/TAF and NOTAM —
+  aviationweather.gov and autorouter.aero are always primary (see
+  `weatherAPI.js` / `notamAPI.js`), SkyLink only gets called if those fail.
+  Its `aircraft` / `aircraft-performance` resources exist in the proxy but
+  have no frontend caller currently.
 - **Dev-only `npm audit` findings** (esbuild/vite/vitest) — not shipped to
   production; do not `npm audit fix --force` (it pulls a breaking Vite major).
   See SECURITY.md.
