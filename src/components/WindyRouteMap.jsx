@@ -175,8 +175,12 @@ export default function WindyRouteMap({ markers }) {
     const { map, store } = windyAPI
     const L = window.L
     // Rain/Clouds aren't Windy overlay ids on this key — they're rendered by
-    // the separate Rainbow tile layer effect below instead.
-    if (!isRainbowLayer) store.set('overlay', layer)
+    // the separate Rainbow tile layer effect below instead. Without this,
+    // Windy's own overlay just stays whatever it was last set to (e.g. still
+    // showing Pressure's heatmap) since we'd never tell it to change, making
+    // Rain/Clouds look like they don't do anything if the tile happens to be
+    // transparent (no precipitation) at the current view.
+    store.set('overlay', isRainbowLayer ? 'wind' : layer)
     store.set('level', level)
 
     if (drawnRef.current) {
