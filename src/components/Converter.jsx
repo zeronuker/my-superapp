@@ -22,7 +22,7 @@ function UnitPicker({ value, options, open, onToggle, onPick }) {
         borderRadius: 6, color: open ? 'var(--cp-acc)' : 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)',
         fontSize: 14, fontWeight: 700, padding: '9px 12px', cursor: 'pointer',
       }}>
-        {value}
+        {UNIT_NAMES[value] ? `${UNIT_NAMES[value]} (${value})` : value}
         <span style={{ fontSize: 10, opacity: 0.6, transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
       </button>
       {open && (

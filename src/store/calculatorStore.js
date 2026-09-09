@@ -65,7 +65,8 @@ export const DEFAULT_SETTINGS = {
 
 export const DEFAULT_CURRENCY_BASE = 'MYR'
 export const DEFAULT_CURRENCY_LIST = ['AUD', 'JPY', 'IDR', 'SGD', 'CNY', 'AED', 'USD', 'INR', 'KRW']
-export const DEFAULT_QUICK_BASE_CURRENCIES = ['MYR', 'IDR', 'AUD', 'CNY', 'JPY', 'USD']
+export const DEFAULT_QUICK_BASE_CURRENCIES = ['MYR', 'IDR', 'AUD', 'CNY', 'JPY']
+export const QUICK_BASE_MAX = 5
 
 function loadCurrencyPrefs() {
   try {

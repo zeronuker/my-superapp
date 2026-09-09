@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as Flags from 'country-flag-icons/react/3x2'
 import { CURRENCIES, CURRENCY_BY_CODE } from '../data/currencies.js'
-import { useCalculatorStore } from '../store/calculatorStore'
+import { useCalculatorStore, QUICK_BASE_MAX } from '../store/calculatorStore'
 import ResetButton from './ResetButton'
 
 // Last-resort hardcoded rates (USD base, circa 2024) — used only when a base
@@ -167,8 +167,6 @@ export default function CurrencyCalculator() {
   const [baseSearch, setBaseSearch] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerSearch, setPickerSearch] = useState('')
-  const [quickPickerOpen, setQuickPickerOpen] = useState(false)
-  const [quickPickerSearch, setQuickPickerSearch] = useState('')
 
   const dragIndex = useRef(null)
 
@@ -231,7 +229,11 @@ export default function CurrencyCalculator() {
 
   const removeFromList = (code) => setCurrencyList(list.filter(c => c !== code))
   const toggleInList = (code) => setCurrencyList(list.includes(code) ? list.filter(c => c !== code) : [...list, code])
-  const toggleQuickBase = (code) => setQuickBaseCurrencies(quickBase.includes(code) ? quickBase.filter(c => c !== code) : [...quickBase, code])
+  const toggleQuickBase = (code) => {
+    if (quickBase.includes(code)) { setQuickBaseCurrencies(quickBase.filter(c => c !== code)); return }
+    if (quickBase.length >= QUICK_BASE_MAX) return
+    setQuickBaseCurrencies([...quickBase, code])
+  }
 
   const selectBase = (code) => {
     setCurrencyBase(code)
@@ -244,7 +246,6 @@ export default function CurrencyCalculator() {
 
   const baseResults = CURRENCIES.filter(c => c.code !== base && matches(c, baseSearch))
   const pickerResults = CURRENCIES.filter(c => c.code !== base && matches(c, pickerSearch))
-  const quickPickerResults = CURRENCIES.filter(c => matches(c, quickPickerSearch))
 
   return (
     <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -299,9 +300,6 @@ export default function CurrencyCalculator() {
               {code}
             </button>
           ))}
-          <button onClick={() => setQuickPickerOpen(true)} className="cp-btn" style={{ fontSize: 11, padding: '5px 10px' }} title="Edit quick-select currencies">
-            ✎ Edit
-          </button>
         </div>
       </div>
 
@@ -420,62 +418,68 @@ export default function CurrencyCalculator() {
             <div className="cp-label" style={{ margin: 0 }}>Currencies to show ({list.length})</div>
             <button onClick={() => { setPickerOpen(false); setPickerSearch('') }} className="cp-btn" style={{ padding: '4px 10px', fontSize: 11 }}>Done</button>
           </div>
+
+          <div style={{ padding: '10px 12px 0' }}>
+            <div className="cp-label" style={{ marginBottom: 6 }}>Quick-select base ({quickBase.length}/{QUICK_BASE_MAX})</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {quickBase.map(code => (
+                <button
+                  key={code}
+                  onClick={() => toggleQuickBase(code)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700,
+                    fontFamily: 'var(--cb-font-mono)', color: 'var(--cp-acc)', background: 'var(--cp-accdim)',
+                    border: '1px solid var(--cp-acc)', borderRadius: 20, padding: '4px 10px', cursor: 'pointer',
+                  }}
+                  title="Remove from quick-select"
+                >
+                  {code}
+                  <span style={{ opacity: 0.7 }}>✕</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <SearchInput value={pickerSearch} onChange={setPickerSearch} placeholder="Search code or name…" />
           <div style={{ overflowY: 'auto', flex: 1, padding: '0 6px 6px' }}>
             {pickerResults.map(c => {
               const checked = list.includes(c.code)
+              const isQuick = quickBase.includes(c.code)
+              const quickDisabled = !isQuick && quickBase.length >= QUICK_BASE_MAX
               return (
-                <label
+                <div
                   key={c.code}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    padding: '8px 8px', borderRadius: 4, cursor: 'pointer',
+                    padding: '8px 8px', borderRadius: 4,
                   }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--cp-bg3)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <input type="checkbox" checked={checked} onChange={() => toggleInList(c.code)} style={{ accentColor: 'var(--cp-acc)' }} />
-                  <FlagIcon code={c.code} />
-                  <span style={{ fontSize: 13, fontWeight: 700, width: 44, fontFamily: 'var(--cb-font-mono)' }}>{c.code}</span>
-                  <span style={{ fontSize: 12, color: 'var(--cp-dim)', width: 20 }}>{currencySymbol(c.code)}</span>
-                  <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>{c.name}</span>
-                </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={checked} onChange={() => toggleInList(c.code)} style={{ accentColor: 'var(--cp-acc)' }} />
+                    <FlagIcon code={c.code} />
+                    <span style={{ fontSize: 13, fontWeight: 700, width: 44, fontFamily: 'var(--cb-font-mono)' }}>{c.code}</span>
+                    <span style={{ fontSize: 12, color: 'var(--cp-dim)', width: 20 }}>{currencySymbol(c.code)}</span>
+                    <span style={{ fontSize: 12, color: 'var(--cp-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                  </label>
+                  <button
+                    onClick={() => toggleQuickBase(c.code)}
+                    disabled={quickDisabled}
+                    className="cp-btn"
+                    style={{
+                      border: 'none', padding: '2px 6px', fontSize: 15, lineHeight: 1,
+                      color: isQuick ? 'var(--cp-acc)' : 'var(--cp-dim)', opacity: quickDisabled ? 0.35 : 1,
+                      cursor: quickDisabled ? 'default' : 'pointer',
+                    }}
+                    title={isQuick ? 'Remove from quick-select' : quickDisabled ? `Quick-select full (max ${QUICK_BASE_MAX})` : 'Add to quick-select'}
+                  >
+                    {isQuick ? '★' : '☆'}
+                  </button>
+                </div>
               )
             })}
             {pickerResults.length === 0 && <div style={{ padding: 16, fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center' }}>No matches</div>}
-          </div>
-        </Overlay>
-      )}
-
-      {quickPickerOpen && (
-        <Overlay onClose={() => { setQuickPickerOpen(false); setQuickPickerSearch('') }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 0' }}>
-            <div className="cp-label" style={{ margin: 0 }}>Quick-select currencies ({quickBase.length})</div>
-            <button onClick={() => { setQuickPickerOpen(false); setQuickPickerSearch('') }} className="cp-btn" style={{ padding: '4px 10px', fontSize: 11 }}>Done</button>
-          </div>
-          <SearchInput value={quickPickerSearch} onChange={setQuickPickerSearch} placeholder="Search code or name…" />
-          <div style={{ overflowY: 'auto', flex: 1, padding: '0 6px 6px' }}>
-            {quickPickerResults.map(c => {
-              const checked = quickBase.includes(c.code)
-              return (
-                <label
-                  key={c.code}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    padding: '8px 8px', borderRadius: 4, cursor: 'pointer',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--cp-bg3)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <input type="checkbox" checked={checked} onChange={() => toggleQuickBase(c.code)} style={{ accentColor: 'var(--cp-acc)' }} />
-                  <FlagIcon code={c.code} />
-                  <span style={{ fontSize: 13, fontWeight: 700, width: 44, fontFamily: 'var(--cb-font-mono)' }}>{c.code}</span>
-                  <span style={{ fontSize: 12, color: 'var(--cp-dim)', width: 20 }}>{currencySymbol(c.code)}</span>
-                  <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>{c.name}</span>
-                </label>
-              )
-            })}
-            {quickPickerResults.length === 0 && <div style={{ padding: 16, fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center' }}>No matches</div>}
           </div>
         </Overlay>
       )}
