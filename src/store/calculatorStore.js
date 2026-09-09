@@ -65,20 +65,22 @@ export const DEFAULT_SETTINGS = {
 
 export const DEFAULT_CURRENCY_BASE = 'MYR'
 export const DEFAULT_CURRENCY_LIST = ['AUD', 'JPY', 'IDR', 'SGD', 'CNY', 'AED', 'USD', 'INR', 'KRW']
+export const DEFAULT_QUICK_BASE_CURRENCIES = ['MYR', 'IDR', 'AUD', 'CNY', 'JPY', 'USD']
 
 function loadCurrencyPrefs() {
   try {
     const raw = localStorage.getItem('cb-currency-prefs-v2')
-    if (!raw) return { base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST }
+    if (!raw) return { base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST, quickBase: DEFAULT_QUICK_BASE_CURRENCIES }
     const parsed = JSON.parse(raw)
     return {
       base: parsed.base || DEFAULT_CURRENCY_BASE,
       list: Array.isArray(parsed.list) && parsed.list.length ? parsed.list : DEFAULT_CURRENCY_LIST,
+      quickBase: Array.isArray(parsed.quickBase) && parsed.quickBase.length ? parsed.quickBase : DEFAULT_QUICK_BASE_CURRENCIES,
     }
-  } catch (_) { return { base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST } }
+  } catch (_) { return { base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST, quickBase: DEFAULT_QUICK_BASE_CURRENCIES } }
 }
-function saveCurrencyPrefs(base, list) {
-  try { localStorage.setItem('cb-currency-prefs-v2', JSON.stringify({ base, list })) } catch (_) {}
+function saveCurrencyPrefs(base, list, quickBase) {
+  try { localStorage.setItem('cb-currency-prefs-v2', JSON.stringify({ base, list, quickBase })) } catch (_) {}
 }
 
 function loadSettings() {
@@ -178,16 +180,20 @@ export const useCalculatorStore = create((set) => ({
   setCurrencyAmount: (amount)    => set(s => ({ currency: { ...s.currency, amount } })),
   setCurrencyBase:   (base)      => set(s => {
     const list = s.currency.list.filter(c => c !== base) // base can't also appear in the output list
-    saveCurrencyPrefs(base, list)
+    saveCurrencyPrefs(base, list, s.currency.quickBase)
     return { currency: { ...s.currency, base, list } }
   }),
   setCurrencyList:   (list)      => set(s => {
-    saveCurrencyPrefs(s.currency.base, list)
+    saveCurrencyPrefs(s.currency.base, list, s.currency.quickBase)
     return { currency: { ...s.currency, list } }
   }),
+  setQuickBaseCurrencies: (quickBase) => set(s => {
+    saveCurrencyPrefs(s.currency.base, s.currency.list, quickBase)
+    return { currency: { ...s.currency, quickBase } }
+  }),
   resetCurrency:     ()          => set(() => {
-    saveCurrencyPrefs(DEFAULT_CURRENCY_BASE, DEFAULT_CURRENCY_LIST)
-    return { currency: { amount: '', base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST } }
+    saveCurrencyPrefs(DEFAULT_CURRENCY_BASE, DEFAULT_CURRENCY_LIST, DEFAULT_QUICK_BASE_CURRENCIES)
+    return { currency: { amount: '', base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST, quickBase: DEFAULT_QUICK_BASE_CURRENCIES } }
   }),
   setInterpolation:  (partial)   => set(s => ({ interpolation: { ...s.interpolation, ...partial } })),
   toggleDarkMode:    ()          => set(s => ({ darkMode: !s.darkMode })),

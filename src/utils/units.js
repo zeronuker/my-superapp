@@ -42,6 +42,19 @@ export const UNIT_CATEGORIES = {
   },
 }
 
+// Full names for display in the unit picker dropdown.
+export const UNIT_NAMES = {
+  m: 'Metres', cm: 'Centimetres', mm: 'Millimetres', ft: 'Feet', in: 'Inches',
+  yd: 'Yards', km: 'Kilometres', nm: 'Nautical miles', mi: 'Miles',
+  kt: 'Knots', kmh: 'Kilometres per hour', mph: 'Miles per hour', 'm/s': 'Metres per second',
+  kg: 'Kilograms', g: 'Grams', lb: 'Pounds', oz: 'Ounces', stone: 'Stone', t: 'Tonnes',
+  '°C': 'Celsius', '°F': 'Fahrenheit', K: 'Kelvin',
+  L: 'Litres', mL: 'Millilitres', cup: 'Cups', floz: 'Fluid ounces', USG: 'US gallons', impgal: 'Imperial gallons',
+  'm²': 'Square metres', 'km²': 'Square kilometres', 'ft²': 'Square feet', 'yd²': 'Square yards',
+  acre: 'Acres', hectare: 'Hectares', 'mi²': 'Square miles',
+  hPa: 'Hectopascals', inHg: 'Inches of mercury', mmHg: 'Millimetres of mercury', psi: 'Pounds per square inch', atm: 'Atmospheres',
+}
+
 function toCelsius(v, from) {
   if (from === '°C') return v
   if (from === '°F') return (v - 32) * 5 / 9

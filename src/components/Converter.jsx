@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { convert, UNIT_CATEGORIES, convertFuel, FUEL_MASS_UNITS, FUEL_VOLUME_UNITS } from '../utils/units'
+import { convert, UNIT_CATEGORIES, convertFuel, FUEL_MASS_UNITS, FUEL_VOLUME_UNITS, UNIT_NAMES } from '../utils/units'
 
 const FUEL_UNITS = { ...FUEL_MASS_UNITS, ...FUEL_VOLUME_UNITS }
 
@@ -27,17 +27,21 @@ function UnitPicker({ value, options, open, onToggle, onPick }) {
       </button>
       {open && (
         <div style={{
-          display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, padding: 10,
-          background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6,
+          display: 'flex', flexDirection: 'column', marginTop: 8,
+          background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, overflow: 'hidden',
         }}>
-          {options.map(u => (
+          {options.map((u, i) => (
             <button key={u} type="button" onClick={() => onPick(u)} style={{
-              fontFamily: 'var(--cb-font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '0.04em',
-              padding: '7px 12px', borderRadius: 20, cursor: 'pointer',
-              border: `1px solid ${u === value ? 'var(--cp-acc)' : 'var(--cp-border)'}`,
-              background: u === value ? 'var(--cp-accdim)' : 'var(--cp-bginput)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%', fontFamily: 'var(--cb-font-mono)', fontSize: 13, fontWeight: 700,
+              padding: '10px 12px', cursor: 'pointer', textAlign: 'left',
+              border: 'none', borderTop: i === 0 ? 'none' : '1px solid var(--cp-border2)',
+              background: u === value ? 'var(--cp-accdim)' : 'transparent',
               color: u === value ? 'var(--cp-acc)' : 'var(--cp-dim)',
-            }}>{u}</button>
+            }}>
+              <span>{UNIT_NAMES[u] || u}</span>
+              <span style={{ opacity: 0.7 }}>{u}</span>
+            </button>
           ))}
         </div>
       )}
