@@ -386,38 +386,7 @@ export default function CurrencyCalculator() {
 
       {baseOpen && (
         <Overlay onClose={() => { setBaseOpen(false); setBaseSearch('') }}>
-          <div className="cp-label" style={{ padding: '12px 12px 0' }}>Select default currency</div>
-          <SearchInput value={baseSearch} onChange={setBaseSearch} placeholder="Search code or name…" />
-          <div style={{ overflowY: 'auto', flex: 1, padding: '0 6px 6px' }}>
-            {baseResults.map(c => (
-              <button
-                key={c.code}
-                onClick={() => selectBase(c.code)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-                  padding: '8px 8px', background: 'transparent', border: 'none', borderRadius: 4,
-                  cursor: 'pointer', color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--cp-bg3)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <FlagIcon code={c.code} />
-                <span style={{ fontSize: 13, fontWeight: 700, width: 44 }}>{c.code}</span>
-                <span style={{ fontSize: 12, color: 'var(--cp-dim)', width: 20 }}>{currencySymbol(c.code)}</span>
-                <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>{c.name}</span>
-              </button>
-            ))}
-            {baseResults.length === 0 && <div style={{ padding: 16, fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center' }}>No matches</div>}
-          </div>
-        </Overlay>
-      )}
-
-      {pickerOpen && (
-        <Overlay onClose={() => { setPickerOpen(false); setPickerSearch('') }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 0' }}>
-            <div className="cp-label" style={{ margin: 0 }}>Currencies to show ({list.length})</div>
-            <button onClick={() => { setPickerOpen(false); setPickerSearch('') }} className="cp-btn" style={{ padding: '4px 10px', fontSize: 11 }}>Done</button>
-          </div>
+          <div className="cp-label" style={{ padding: '12px 12px 0' }}>Select base currency</div>
 
           <div style={{ padding: '10px 12px 0' }}>
             <div className="cp-label" style={{ marginBottom: 6 }}>Quick-select base ({quickBase.length}/{QUICK_BASE_MAX})</div>
@@ -437,32 +406,35 @@ export default function CurrencyCalculator() {
                   <span style={{ opacity: 0.7 }}>✕</span>
                 </button>
               ))}
+              {quickBase.length === 0 && <span style={{ fontSize: 11, color: 'var(--cp-dim)' }}>None yet — tap ☆ below to add</span>}
             </div>
           </div>
 
-          <SearchInput value={pickerSearch} onChange={setPickerSearch} placeholder="Search code or name…" />
+          <SearchInput value={baseSearch} onChange={setBaseSearch} placeholder="Search code or name…" />
           <div style={{ overflowY: 'auto', flex: 1, padding: '0 6px 6px' }}>
-            {pickerResults.map(c => {
-              const checked = list.includes(c.code)
+            {baseResults.map(c => {
               const isQuick = quickBase.includes(c.code)
               const quickDisabled = !isQuick && quickBase.length >= QUICK_BASE_MAX
               return (
                 <div
                   key={c.code}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    padding: '8px 8px', borderRadius: 4,
-                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 8px', borderRadius: 4 }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--cp-bg3)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={checked} onChange={() => toggleInList(c.code)} style={{ accentColor: 'var(--cp-acc)' }} />
+                  <button
+                    onClick={() => selectBase(c.code)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, textAlign: 'left',
+                      background: 'transparent', border: 'none', padding: 0,
+                      cursor: 'pointer', color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)',
+                    }}
+                  >
                     <FlagIcon code={c.code} />
-                    <span style={{ fontSize: 13, fontWeight: 700, width: 44, fontFamily: 'var(--cb-font-mono)' }}>{c.code}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, width: 44 }}>{c.code}</span>
                     <span style={{ fontSize: 12, color: 'var(--cp-dim)', width: 20 }}>{currencySymbol(c.code)}</span>
                     <span style={{ fontSize: 12, color: 'var(--cp-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
-                  </label>
+                  </button>
                   <button
                     onClick={() => toggleQuickBase(c.code)}
                     disabled={quickDisabled}
@@ -477,6 +449,39 @@ export default function CurrencyCalculator() {
                     {isQuick ? '★' : '☆'}
                   </button>
                 </div>
+              )
+            })}
+            {baseResults.length === 0 && <div style={{ padding: 16, fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center' }}>No matches</div>}
+          </div>
+        </Overlay>
+      )}
+
+      {pickerOpen && (
+        <Overlay onClose={() => { setPickerOpen(false); setPickerSearch('') }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 0' }}>
+            <div className="cp-label" style={{ margin: 0 }}>Currencies to show ({list.length})</div>
+            <button onClick={() => { setPickerOpen(false); setPickerSearch('') }} className="cp-btn" style={{ padding: '4px 10px', fontSize: 11 }}>Done</button>
+          </div>
+          <SearchInput value={pickerSearch} onChange={setPickerSearch} placeholder="Search code or name…" />
+          <div style={{ overflowY: 'auto', flex: 1, padding: '0 6px 6px' }}>
+            {pickerResults.map(c => {
+              const checked = list.includes(c.code)
+              return (
+                <label
+                  key={c.code}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    padding: '8px 8px', borderRadius: 4, cursor: 'pointer',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--cp-bg3)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <input type="checkbox" checked={checked} onChange={() => toggleInList(c.code)} style={{ accentColor: 'var(--cp-acc)' }} />
+                  <FlagIcon code={c.code} />
+                  <span style={{ fontSize: 13, fontWeight: 700, width: 44, fontFamily: 'var(--cb-font-mono)' }}>{c.code}</span>
+                  <span style={{ fontSize: 12, color: 'var(--cp-dim)', width: 20 }}>{currencySymbol(c.code)}</span>
+                  <span style={{ fontSize: 12, color: 'var(--cp-dim)' }}>{c.name}</span>
+                </label>
               )
             })}
             {pickerResults.length === 0 && <div style={{ padding: 16, fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center' }}>No matches</div>}
