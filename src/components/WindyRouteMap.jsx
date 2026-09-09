@@ -242,7 +242,7 @@ export default function WindyRouteMap({ markers }) {
 
     if (rainbowLayerRef.current) rainbowLayerRef.current.remove()
     rainbowLayerRef.current = L.tileLayer(rainbowTileUrl(layer, meta.snapshot, forecastTime), {
-      minZoom: 0, maxZoom: RAINBOW_MAX_ZOOM[layer], tileSize: 256, opacity: 0.75,
+      minZoom: 0, maxZoom: RAINBOW_MAX_ZOOM[layer], tileSize: 256, opacity: 0.9,
       // Without an explicit zIndex this layer defaults to "auto", which CSS
       // stacks BELOW Windy's own basemap/particles/overlay layers (z-index
       // 20/15/10) regardless of DOM order — the tiles were rendering
