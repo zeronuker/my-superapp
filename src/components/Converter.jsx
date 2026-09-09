@@ -155,7 +155,7 @@ export default function Converter() {
       )}
 
       {/* bidirectional from/to */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>{twinCard('from')}</div>
         <button onClick={swap} style={{ flexShrink: 0, background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
           borderRadius: 6, color: 'var(--cp-acc)', fontSize: 16, cursor: 'pointer', padding: '10px 12px' }}>⇄</button>
