@@ -56,10 +56,22 @@ function getWindyAPI() {
     const timer = setTimeout(() => reject(new Error('Windy init timed out')), 15000)
     window.windyInit({ key: WINDY_KEY, verbose: false, lat: 20, lon: 0, zoom: 3 }, (windyAPI) => {
       clearTimeout(timer)
+      windyEverInitialized = true
       resolve(windyAPI)
     })
   }))
   return window.__cbWindyApiPromise
+}
+
+// Once Windy has successfully initialized, its map instance and whatever
+// tiles it already loaded stay alive in the permanent #windy div for the
+// rest of the page session (see getWindyDiv/getWindyAPI above) — so
+// switching back to Live Weather after going offline still shows that
+// same already-loaded view, and shouldn't be blocked just because we're
+// offline right now. Only genuinely first-time-offline attempts should be.
+let windyEverInitialized = false
+export function hasWindyLoadedBefore() {
+  return windyEverInitialized
 }
 
 // Windy's free/testing API key only unlocks the wind/temp/pressure overlays
@@ -114,7 +126,7 @@ const LEVELS = [
   { id: '150h', label: 'FL450' },
 ]
 
-export default function WindyRouteMap({ markers }) {
+export default function WindyRouteMap({ markers, isOffline }) {
   const placeholderRef = useRef(null)
   const windyApiRef = useRef(null)
   const drawnRef = useRef(null) // { polyline, circleMarkers[] } — cleared/redrawn on route/layer change
@@ -294,17 +306,32 @@ export default function WindyRouteMap({ markers }) {
             {LAYERS.map(l => (
               <button
                 key={l.id}
-                onClick={() => setLayer(l.id)}
+                onClick={() => !isOffline && setLayer(l.id)}
+                disabled={isOffline}
+                title={isOffline ? 'Offline — showing last loaded view' : undefined}
                 style={{
                   fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
                   color: layer === l.id ? '#e8ecf5' : '#7c87a3', background: layer === l.id ? 'var(--cp-bg3)' : 'transparent',
-                  border: 'none', borderRadius: 5, padding: '5px 9px', cursor: 'pointer',
+                  border: 'none', borderRadius: 5, padding: '5px 9px',
+                  cursor: isOffline ? 'not-allowed' : 'pointer', opacity: isOffline ? 0.5 : 1,
                 }}
               >{l.label}</button>
             ))}
           </div>
 
-          {isRainbowLayer && (
+          {isOffline && (
+            <div style={{
+              position: 'absolute', top: 10, right: 10,
+              background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+              border: '1px solid var(--cp-border3)', borderRadius: 7, padding: '5px 9px',
+              fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
+              color: 'var(--cp-yellow)',
+            }}>
+              Offline — showing last loaded view
+            </div>
+          )}
+
+          {!isOffline && isRainbowLayer && (
             <div style={{
               position: 'absolute', top: 10, right: 10,
               display: 'flex', alignItems: 'center', gap: 8,
@@ -342,11 +369,13 @@ export default function WindyRouteMap({ markers }) {
               {FORECAST_STEPS.map(f => (
                 <button
                   key={f.sec}
-                  onClick={() => setForecastTime(f.sec)}
+                  onClick={() => !isOffline && setForecastTime(f.sec)}
+                  disabled={isOffline}
                   style={{
                     fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
                     color: forecastTime === f.sec ? '#e8ecf5' : '#7c87a3', background: forecastTime === f.sec ? 'var(--cp-bg3)' : 'transparent',
-                    border: 'none', borderRadius: 5, padding: '5px 9px', cursor: 'pointer',
+                    border: 'none', borderRadius: 5, padding: '5px 9px',
+                    cursor: isOffline ? 'not-allowed' : 'pointer', opacity: isOffline ? 0.5 : 1,
                   }}
                 >{f.label}</button>
               ))}
@@ -366,11 +395,13 @@ export default function WindyRouteMap({ markers }) {
               {LEVELS.map(lv => (
                 <button
                   key={lv.id}
-                  onClick={() => setLevel(lv.id)}
+                  onClick={() => !isOffline && setLevel(lv.id)}
+                  disabled={isOffline}
                   style={{
                     height: 22, fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
                     color: level === lv.id ? '#e8ecf5' : '#7c87a3', background: level === lv.id ? 'var(--cp-bg3)' : 'transparent',
-                    border: 'none', borderRadius: 5, cursor: 'pointer',
+                    border: 'none', borderRadius: 5,
+                    cursor: isOffline ? 'not-allowed' : 'pointer', opacity: isOffline ? 0.5 : 1,
                   }}
                 >{lv.label}</button>
               ))}

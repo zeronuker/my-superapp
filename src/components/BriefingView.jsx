@@ -16,7 +16,7 @@ import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import { projectLatLng, WORLD_LAND_PATH, WORLD_MAP_WIDTH, WORLD_MAP_HEIGHT } from '../data/worldMap'
 import SigmetCard from './SigmetCard'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
-import WindyRouteMap from './WindyRouteMap'
+import WindyRouteMap, { hasWindyLoadedBefore } from './WindyRouteMap'
 
 // One fixed color per section (independent of the user's accent theme, same
 // precedent as ROLE_COLORS in metarSeverity.js) so each section of the
@@ -431,22 +431,29 @@ function RouteMap({ dep, arr, destAltList, eraList, isOffline }) {
           display: 'flex', gap: 2, background: 'var(--cp-bg)', border: '1px solid var(--cp-border3)',
           borderRadius: 7, padding: 2,
         }}>
-          {[{ id: false, label: 'Route' }, { id: true, label: 'Live Weather' }].map(opt => (
-            <button
-              key={String(opt.id)}
-              onClick={() => !(opt.id && isOffline) && setShowLive(opt.id)}
-              disabled={opt.id && isOffline}
-              title={opt.id && isOffline ? 'Unavailable offline' : undefined}
-              style={{
-                fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase',
-                color: showLive === opt.id ? 'var(--cp-txt)' : 'var(--cp-dim)',
-                background: showLive === opt.id ? 'var(--cp-bg3)' : 'transparent',
-                border: 'none', borderRadius: 5, padding: '6px 10px',
-                cursor: opt.id && isOffline ? 'not-allowed' : 'pointer',
-                opacity: opt.id && isOffline ? 0.4 : 1,
-              }}
-            >{opt.label}</button>
-          ))}
+          {[{ id: false, label: 'Route' }, { id: true, label: 'Live Weather' }].map(opt => {
+            // Blocked only for a genuinely first-time load while offline —
+            // once Windy's already loaded this session, its map (and
+            // whatever tiles were already fetched) stays alive in its own
+            // permanent div, so switching back to it offline still works.
+            const blocked = opt.id && isOffline && !hasWindyLoadedBefore()
+            return (
+              <button
+                key={String(opt.id)}
+                onClick={() => !blocked && setShowLive(opt.id)}
+                disabled={blocked}
+                title={blocked ? 'Unavailable offline — never loaded this session' : undefined}
+                style={{
+                  fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase',
+                  color: showLive === opt.id ? 'var(--cp-txt)' : 'var(--cp-dim)',
+                  background: showLive === opt.id ? 'var(--cp-bg3)' : 'transparent',
+                  border: 'none', borderRadius: 5, padding: '6px 10px',
+                  cursor: blocked ? 'not-allowed' : 'pointer',
+                  opacity: blocked ? 0.4 : 1,
+                }}
+              >{opt.label}</button>
+            )
+          })}
         </div>
       </div>
 
@@ -460,7 +467,7 @@ function RouteMap({ dep, arr, destAltList, eraList, isOffline }) {
         aspectRatio: `${bounds.w} / ${bounds.h}`, maxHeight: 900,
       }}>
         {showLive ? (
-          <WindyRouteMap markers={projected.map(m => ({ icao: m.icao, label: m.label, lat: m.ap.lat, lng: m.ap.lng, big: m.big }))} />
+          <WindyRouteMap markers={projected.map(m => ({ icao: m.icao, label: m.label, lat: m.ap.lat, lng: m.ap.lng, big: m.big }))} isOffline={isOffline} />
         ) : (
           <svg viewBox={`${bounds.minX} ${bounds.minY} ${bounds.w} ${bounds.h}`} style={{ display: 'block', width: '100%', height: '100%' }}>
             <rect x={bounds.minX} y={bounds.minY} width={bounds.w} height={bounds.h} fill="var(--cp-bg3)" />
@@ -673,7 +680,7 @@ export default function BriefingView() {
                   display: 'flex', alignItems: 'center', gap: 8,
                   fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.12em', color: 'var(--cp-yellow)',
                 }}>
-                  ⚠ OFFLINE <span style={{ color: 'var(--cp-dim)' }}>· SHOWING CACHED DATA · LIVE WEATHER UNAVAILABLE</span>
+                  ⚠ OFFLINE <span style={{ color: 'var(--cp-dim)' }}>· SHOWING CACHED DATA</span>
                 </div>
               )}
 
