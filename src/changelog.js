@@ -283,7 +283,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v2.10", date: "Sep 2026", current: true,
+    v: "v2.10", date: "Sep 2026",
     title: "Live weather overlay and Briefing tabs",
     notes: [
       "NEW: Briefing: route map now has a Live Weather toggle showing Windy's real wind/temp/pressure overlay (rain/clouds greyed out — need Windy's paid plan) with the route line and role-coloured airport markers drawn on top; falls back to the existing route map when offline",
@@ -292,6 +292,15 @@ export const CHANGELOG = [
       "NEW: Briefing: Live Weather gets an altitude tape (Surface through FL450) next to the overlay picker, so Wind/Temp/Pressure can show conditions at cruise altitude instead of just the surface",
       "FIX: METAR/TAF and NOTAM: aviationweather.gov / autorouter.aero (free, unlimited) are now always the primary source, with SkyLink only as a fallback — previously alternated primary by even/odd UTC day, which could burn through SkyLink's low free-tier quota on days it didn't need to be primary at all",
       "FIX: Briefing's tab bar restyled as folder tabs (matching eLogbook's) — the previous gradient-topbar style left a stray divider line under the active tab that a border-only fix couldn't clear, since it belonged to the row, not the tab",
+    ],
+  },
+  {
+    v: "v3.0", date: "Sep 2026", current: true,
+    title: "Rain and Clouds live weather overlay",
+    notes: [
+      "NEW: Briefing: Live Weather's Rain and Clouds overlays are now live (previously greyed out, pending Windy's paid plan) — powered by the Rainbow Weather API, layered on top of Windy's wind overlay",
+      "NEW: Briefing: Rain gets a Now / +1h / +2h / +3h / +4h forecast slider",
+      "NEW: Briefing: Rain/Clouds refresh manually via a Refresh button instead of polling — shows a \"Data as of\" timestamp and a stale indicator after 10 minutes, keeping API usage user-driven",
     ],
   },
 ]
