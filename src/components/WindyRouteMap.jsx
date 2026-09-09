@@ -63,16 +63,41 @@ function getWindyAPI() {
 }
 
 // Windy's free/testing API key only unlocks the wind/temp/pressure overlays
-// (confirmed via windyAPI.store.getAllowed('overlay')) — rain, clouds and
-// everything else need their paid Professional plan. Rain/Clouds stay in
-// the picker (disabled) so it's clear they exist, not just missing.
+// (confirmed via windyAPI.store.getAllowed('overlay')) — rain and clouds are
+// served separately via the Rainbow Weather API proxy (see the rainbow*
+// helpers and the tile-layer effect below) instead of Windy's own overlays.
 const LAYERS = [
   { id: 'wind', label: 'Wind' },
   { id: 'temp', label: 'Temp' },
   { id: 'pressure', label: 'Pressure' },
-  { id: 'rain', label: 'Rain', proOnly: true },
-  { id: 'clouds', label: 'Clouds', proOnly: true },
+  { id: 'rain', label: 'Rain' },
+  { id: 'clouds', label: 'Clouds' },
 ]
+
+// forecast_time offsets (seconds) the Rain layer's time row can request —
+// Rainbow's precip tile only, clouds has no forecast_time param.
+const FORECAST_STEPS = [
+  { sec: 0, label: 'Now' },
+  { sec: 3600, label: '+1h' },
+  { sec: 7200, label: '+2h' },
+  { sec: 10800, label: '+3h' },
+  { sec: 14400, label: '+4h' },
+]
+
+const RAINBOW_MAX_ZOOM = { rain: 12, clouds: 7 }
+
+async function fetchRainbowSnapshot(layer) {
+  const r = await fetch(`/api/rainbow?resource=snapshot&layer=${layer === 'rain' ? 'precip' : 'clouds'}`)
+  if (!r.ok) throw new Error(`Rainbow snapshot fetch failed (${r.status})`)
+  const data = await r.json()
+  return data.snapshot
+}
+
+function rainbowTileUrl(layer, snapshot, forecastTime) {
+  const resource = layer === 'rain' ? 'precip' : 'clouds'
+  const forecastParam = layer === 'rain' ? `&forecast_time=${forecastTime}` : ''
+  return `/api/rainbow?resource=${resource}&snapshot=${snapshot}${forecastParam}&z={z}&x={x}&y={y}`
+}
 
 // Windy's pressure-level tokens (confirmed via windyAPI.store.getAllowed('level')
 // — all allowed on the free key, unlike most overlays), mapped to the
@@ -93,9 +118,14 @@ export default function WindyRouteMap({ markers }) {
   const placeholderRef = useRef(null)
   const windyApiRef = useRef(null)
   const drawnRef = useRef(null) // { polyline, circleMarkers[] } — cleared/redrawn on route/layer change
+  const rainbowLayerRef = useRef(null) // Leaflet tile layer for the Rain/Clouds overlays (separate from Windy's own)
   const [status, setStatus] = useState('loading') // loading | ready | error
   const [layer, setLayer] = useState('wind')
   const [level, setLevel] = useState('surface')
+  const [forecastTime, setForecastTime] = useState(0) // Rain layer only — seconds ahead, see FORECAST_STEPS
+  const [rainbowMeta, setRainbowMeta] = useState({}) // { rain: {snapshot, fetchedAtMs}, clouds: {...} } — fetched once per layer, only advanced by Refresh
+  const [, bumpTick] = useState(0) // forces a re-render every 30s so the "stale" indicator updates without any network call
+  const isRainbowLayer = layer === 'rain' || layer === 'clouds'
 
   // Init once. Deferred a tick so React StrictMode's dev-only
   // mount→cleanup→mount double-invoke cancels the first (unused) attempt
@@ -144,7 +174,9 @@ export default function WindyRouteMap({ markers }) {
     const windyAPI = windyApiRef.current
     const { map, store } = windyAPI
     const L = window.L
-    store.set('overlay', layer)
+    // Rain/Clouds aren't Windy overlay ids on this key — they're rendered by
+    // the separate Rainbow tile layer effect below instead.
+    if (!isRainbowLayer) store.set('overlay', layer)
     store.set('level', level)
 
     if (drawnRef.current) {
@@ -182,6 +214,59 @@ export default function WindyRouteMap({ markers }) {
     }
   }, [status, layer, level, markers])
 
+  // Manage the Rain/Clouds tile layer — fetches a snapshot once per layer
+  // (cached in rainbowMeta) and only ever advances it when the user clicks
+  // Refresh. Pan/zoom still loads new tiles normally at that fixed snapshot.
+  useEffect(() => {
+    if (status !== 'ready') return
+    const { map } = windyApiRef.current
+    const L = window.L
+
+    if (!isRainbowLayer) {
+      if (rainbowLayerRef.current) { rainbowLayerRef.current.remove(); rainbowLayerRef.current = null }
+      return
+    }
+
+    const meta = rainbowMeta[layer]
+    if (!meta) {
+      let cancelled = false
+      fetchRainbowSnapshot(layer)
+        .then(snapshot => { if (!cancelled) setRainbowMeta(prev => ({ ...prev, [layer]: { snapshot, fetchedAtMs: Date.now() } })) })
+        .catch(() => {})
+      return () => { cancelled = true }
+    }
+
+    if (rainbowLayerRef.current) rainbowLayerRef.current.remove()
+    rainbowLayerRef.current = L.tileLayer(rainbowTileUrl(layer, meta.snapshot, forecastTime), {
+      minZoom: 0, maxZoom: RAINBOW_MAX_ZOOM[layer], tileSize: 256, opacity: 0.75,
+      attribution: 'Rainbow AI Precipitation Tiles',
+    }).addTo(map)
+
+    return () => { rainbowLayerRef.current?.remove(); rainbowLayerRef.current = null }
+  }, [status, layer, forecastTime, rainbowMeta])
+
+  // Local-only timer so the "stale" dot updates over time without ever
+  // polling the API itself — data only actually refreshes on user click.
+  useEffect(() => {
+    if (status !== 'ready' || !isRainbowLayer) return
+    const id = setInterval(() => bumpTick(t => t + 1), 30_000)
+    return () => clearInterval(id)
+  }, [status, isRainbowLayer])
+
+  async function handleRainbowRefresh() {
+    try {
+      const snapshot = await fetchRainbowSnapshot(layer)
+      setRainbowMeta(prev => ({ ...prev, [layer]: { snapshot, fetchedAtMs: Date.now() } }))
+    } catch (_) {}
+  }
+
+  const rainbowMetaActive = rainbowMeta[layer]
+  const rainbowStaleMin = rainbowMetaActive ? Math.floor((Date.now() - rainbowMetaActive.fetchedAtMs) / 60_000) : null
+  const rainbowIsStale = rainbowStaleMin !== null && rainbowStaleMin >= 10
+  const rainbowAsOf = rainbowMetaActive
+    ? (() => { const d = new Date(rainbowMetaActive.snapshot * 1000); return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}Z` })()
+    : null
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div ref={placeholderRef} style={{ position: 'absolute', inset: 0 }} />
@@ -200,39 +285,88 @@ export default function WindyRouteMap({ markers }) {
             {LAYERS.map(l => (
               <button
                 key={l.id}
-                onClick={() => !l.proOnly && setLayer(l.id)}
-                disabled={l.proOnly}
-                title={l.proOnly ? 'Requires Windy Pro' : undefined}
+                onClick={() => setLayer(l.id)}
                 style={{
                   fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
                   color: layer === l.id ? '#e8ecf5' : '#7c87a3', background: layer === l.id ? 'var(--cp-bg3)' : 'transparent',
-                  border: 'none', borderRadius: 5, padding: '5px 9px',
-                  cursor: l.proOnly ? 'not-allowed' : 'pointer', opacity: l.proOnly ? 0.4 : 1,
+                  border: 'none', borderRadius: 5, padding: '5px 9px', cursor: 'pointer',
                 }}
               >{l.label}</button>
             ))}
           </div>
 
-          {/* Altitude tape — same rung order as LEVELS (SFC first), reversed
-              visually via column-reverse so SFC sits at the bottom. */}
-          <div style={{
-            position: 'absolute', top: 52, left: 10,
-            display: 'flex', flexDirection: 'column-reverse', gap: 2,
-            background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
-            border: '1px solid var(--cp-border3)', borderRadius: 7, padding: 3,
-          }}>
-            {LEVELS.map(lv => (
+          {isRainbowLayer && (
+            <div style={{
+              position: 'absolute', top: 10, right: 10,
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+              border: '1px solid var(--cp-border3)', borderRadius: 7, padding: '5px 9px',
+            }}>
+              {rainbowAsOf && (
+                <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)' }}>
+                  Data as of {rainbowAsOf}
+                </span>
+              )}
               <button
-                key={lv.id}
-                onClick={() => setLevel(lv.id)}
+                onClick={handleRainbowRefresh}
+                title="Refresh"
                 style={{
-                  height: 22, fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
-                  color: level === lv.id ? '#e8ecf5' : '#7c87a3', background: level === lv.id ? 'var(--cp-bg3)' : 'transparent',
-                  border: 'none', borderRadius: 5, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
+                  color: '#e8ecf5', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
                 }}
-              >{lv.label}</button>
-            ))}
-          </div>
+              >
+                Refresh
+                {rainbowIsStale && (
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cp-red)' }} />
+                )}
+              </button>
+            </div>
+          )}
+
+          {layer === 'rain' && (
+            <div style={{
+              position: 'absolute', top: 52, left: 10,
+              display: 'flex', gap: 4, background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+              border: '1px solid var(--cp-border3)', borderRadius: 7, padding: 3,
+            }}>
+              {FORECAST_STEPS.map(f => (
+                <button
+                  key={f.sec}
+                  onClick={() => setForecastTime(f.sec)}
+                  style={{
+                    fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
+                    color: forecastTime === f.sec ? '#e8ecf5' : '#7c87a3', background: forecastTime === f.sec ? 'var(--cp-bg3)' : 'transparent',
+                    border: 'none', borderRadius: 5, padding: '5px 9px', cursor: 'pointer',
+                  }}
+                >{f.label}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Altitude tape — same rung order as LEVELS (SFC first), reversed
+              visually via column-reverse so SFC sits at the bottom. Only
+              meaningful for Windy's own pressure-level overlays. */}
+          {!isRainbowLayer && (
+            <div style={{
+              position: 'absolute', top: 52, left: 10,
+              display: 'flex', flexDirection: 'column-reverse', gap: 2,
+              background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+              border: '1px solid var(--cp-border3)', borderRadius: 7, padding: 3,
+            }}>
+              {LEVELS.map(lv => (
+                <button
+                  key={lv.id}
+                  onClick={() => setLevel(lv.id)}
+                  style={{
+                    height: 22, fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
+                    color: level === lv.id ? '#e8ecf5' : '#7c87a3', background: level === lv.id ? 'var(--cp-bg3)' : 'transparent',
+                    border: 'none', borderRadius: 5, cursor: 'pointer',
+                  }}
+                >{lv.label}</button>
+              ))}
+            </div>
+          )}
         </>,
         getWindyDiv()
       )}
