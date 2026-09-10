@@ -104,16 +104,21 @@ export default function Converter() {
             }}>LIVE</span>
           )}
         </div>
-        <input type="number" inputMode="decimal" placeholder="0" value={value}
-          onChange={e => {
-            setDriver(side)
-            if (side === 'from') setFromVal(e.target.value); else setToVal(e.target.value)
-          }}
-          style={{
-            width: '100%', background: 'transparent', border: 'none', outline: 'none', padding: 0,
-            fontFamily: 'var(--cb-font-mono)', fontWeight: 700, fontSize: 24,
-            color: isDriver ? 'var(--cp-txt)' : 'var(--cp-acc)',
-          }} />
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
+          <input type="number" inputMode="decimal" placeholder="0" value={value}
+            onChange={e => {
+              setDriver(side)
+              if (side === 'from') setFromVal(e.target.value); else setToVal(e.target.value)
+            }}
+            style={{
+              flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0,
+              fontFamily: 'var(--cb-font-mono)', fontWeight: 700, fontSize: 24,
+              color: isDriver ? 'var(--cp-txt)' : 'var(--cp-acc)',
+            }} />
+          <span style={{
+            flexShrink: 0, fontFamily: 'var(--cb-font-mono)', fontWeight: 600, fontSize: 14, color: 'var(--cp-dim)',
+          }}>{unit}</span>
+        </div>
         <div style={{ marginTop: 8 }}>
           <UnitPicker
             value={unit}
