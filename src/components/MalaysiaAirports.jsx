@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
-import { ROLE_TINT } from '../utils/roleStyle'
+import { getRoleStyle } from '../utils/metarSeverity'
 
 // Airline logos — same public, CORS-open, key-less endpoint Malaysia
 // Airports' own site calls client-side. Cached at module scope so the list
@@ -125,7 +125,7 @@ function FlightCard({ f, logo }) {
             style={{ height: 28, width: 'auto', maxWidth: 56, objectFit: 'contain', flexShrink: 0 }} />
         )}
         <span style={{ fontSize: 13, color: 'var(--cp-muted)' }}>{f.name} →</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: ROLE_TINT.dep.color }}>{place?.city}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: getRoleStyle('DEPARTURE').color }}>{place?.city}</span>
         {category && (
           <span style={{
             fontFamily: 'var(--cb-font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',

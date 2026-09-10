@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
 import {
-  CAT_COLORS, WIND_COLORS,
+  CAT_COLORS, WIND_COLORS, WX_COLOR,
   getMetarFlightCat, getWindSev,
   tokenizeRaw, parseTafSegments,
   getRoleStyle,
@@ -480,17 +480,17 @@ function SectionHeader({ title }) {
 // ── Severity colour legend ──────────────────────────────────────────────────
 function SeverityLegend() {
   const CATS = [
-    { color: '#22c55e', label: 'VFR',  sub: '>3000ft  ≥8000m'      },
-    { color: '#60a5fa', label: 'MVFR', sub: '1–3000ft  5000–7999m' },
-    { color: '#f87171', label: 'IFR',  sub: '500–999ft  1500–4999m' },
-    { color: '#e879f9', label: 'LIFR', sub: '<500ft  <1500m'        },
+    { color: CAT_COLORS.VFR,  label: 'VFR',  sub: '>3000ft  ≥8000m'      },
+    { color: CAT_COLORS.MVFR, label: 'MVFR', sub: '1–3000ft  5000–7999m' },
+    { color: CAT_COLORS.IFR,  label: 'IFR',  sub: '500–999ft  1500–4999m' },
+    { color: CAT_COLORS.LIFR, label: 'LIFR', sub: '<500ft  <1500m'        },
   ]
   const WINDS = [
-    { color: '#fbbf24', label: 'STRONG WIND', sub: '≥20kt / gust ≥25kt' },
-    { color: '#f87171', label: 'SEVERE WIND', sub: '≥35kt / gust ≥45kt' },
+    { color: WIND_COLORS.STRONG, label: 'STRONG WIND', sub: '≥20kt / gust ≥25kt' },
+    { color: WIND_COLORS.SEVERE, label: 'SEVERE WIND', sub: '≥35kt / gust ≥45kt' },
   ]
   const WX = [
-    { color: '#facc15', label: 'PRESENT WEATHER', sub: 'RA  SN  FG  TS  FZRA  GR  CB  TCU  etc.' },
+    { color: WX_COLOR, label: 'PRESENT WEATHER', sub: 'RA  SN  FG  TS  FZRA  GR  CB  TCU  etc.' },
   ]
 
   const dot = color => (

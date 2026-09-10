@@ -9,7 +9,7 @@ import CopyAirportsButton from './CopyAirportsButton'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import SourceChip from './SourceChip'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
-import { ROLE_TINT } from '../utils/roleStyle'
+import { getRoleStyle } from '../utils/metarSeverity'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
@@ -28,14 +28,16 @@ function saveCache(data) {
 const CATEGORY_ORDER = ['AERODROME', 'AIRSPACE', 'NAVAID', 'OBSTACLE', 'WARNING', 'LIGHTING', 'PROCEDURE', 'OTHER']
 const STATUS_RANK = { ACTIVE: 0, FUTURE: 1, EXPIRED: 2, UNKNOWN: 3 }
 
-// Role → colour (dep/arr cyan · dest-alt white · enroute purple · FIR amber · other gray)
+// Role → colour, sourced from the shared weather role-colour map (dep cyan ·
+// arr orange · dest-alt slate · enroute violet · other gray). FIR has no
+// weather-role equivalent, so it keeps its own amber here.
 const ROLE_STYLE = {
-  dep:     { ...ROLE_TINT.dep,     border: 'rgba(6,182,212,0.40)' },
-  arr:     { ...ROLE_TINT.arr,     border: 'rgba(6,182,212,0.40)' },
-  destalt: { ...ROLE_TINT.destalt, border: 'rgba(226,232,240,0.35)' },
-  era:     { ...ROLE_TINT.era,     border: 'rgba(167,139,250,0.40)' },
-  fir:     { ...ROLE_TINT.fir,     border: 'rgba(251,191,36,0.40)' },
-  other:   { ...ROLE_TINT.other,   border: 'rgba(148,163,184,0.35)' },
+  dep:     { color: getRoleStyle('DEPARTURE').color, soft: 'rgba(6,182,212,0.10)', border: 'rgba(6,182,212,0.40)' },
+  arr:     { color: getRoleStyle('ARRIVAL').color, soft: 'rgba(249,115,22,0.10)', border: 'rgba(249,115,22,0.40)' },
+  destalt: { color: getRoleStyle('DESTINATION ALTERNATE 1').color, soft: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.35)' },
+  era:     { color: getRoleStyle('ENROUTE ALTERNATE 1').color, soft: 'rgba(139,92,246,0.10)', border: 'rgba(139,92,246,0.40)' },
+  fir:     { color: '#fbbf24', soft: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.40)' },
+  other:   { color: getRoleStyle('OTHER').color, soft: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.35)' },
 }
 
 function getAirportCoords(icao) {

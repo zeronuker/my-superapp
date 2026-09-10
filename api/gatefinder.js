@@ -7,7 +7,7 @@ import { rateLimited } from './_rateLimit.js'
 // is proxied server-side anyway to avoid CORS and keep the key out of our
 // client bundle.
 const BASE = 'https://api.myairports.com.my/passenger-fids/api'
-const API_KEY = 'f02f252a781a4db584d1ae9fce22bed1'
+const API_KEY = process.env.GATEFINDER_API_KEY || 'f02f252a781a4db584d1ae9fce22bed1'
 
 const TERMINALS = new Set(['KLIA', 'KLIA2', 'BKI', 'KCH', 'LGK', 'PEN'])
 const CRITERIA = new Set(['all', 'flight', 'city', 'airline'])

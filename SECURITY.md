@@ -15,11 +15,12 @@ motivated the migration — `esbuild`/`vite`/`vitest` no longer appear in
 
 ## `npm audit` findings — accepted (dev-only / server-only)
 
-Last reviewed: 2026-08-16
+Last reviewed: 2026-09-10
 
 Remaining findings are unrelated to the Vite toolchain: transitive deps of
-`firebase-admin` (`uuid`, `gaxios`, `teeny-request`, `@google-cloud/storage` —
-used server-side only, in `api/dutylog-sync.js`, never in the client bundle)
+`firebase-admin` (`uuid`, `gaxios`, `teeny-request`, `@google-cloud/storage`,
+`fast-xml-parser`, `protobufjs`, `retry-request`, `brace-expansion` — used
+server-side only, in `api/dutylog-sync.js`, never in the client bundle)
 and `sharp` (used only by the brand-kit icon-generation scripts, dev-time).
 Run `npm audit` for the current list. None of these ship to the browser
 bundle — the shipped production client dependencies are still only:
