@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { calcGoAroundClimbGradient } from '../utils/goAroundClimbGradient'
 import lookupTables from '../data/lookupTables.json'
-import ResetButton from './ResetButton'
 
 // Variant labels are shared with EDTO's picker (lookupTables displayName),
 // except CFM56-7B26 — its Go-Around Climb Gradient table is identical under
@@ -28,7 +27,7 @@ function formatWeightDisplay(kg) {
   return num.toLocaleString('en-US') + ' kg'
 }
 
-export default function GoAroundClimbGradient() {
+const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, ref) {
   const {
     goAround, setGoAroundAircraft, setGoAroundVariant, setGoAroundField, setGoAroundResults,
   } = useCalculatorStore()
@@ -47,6 +46,8 @@ export default function GoAroundClimbGradient() {
     setGoAroundResults(null)
     setWeightDisplay('')
   }
+
+  useImperativeHandle(ref, () => ({ reset: handleReset }))
 
   const aircraft = lookupTables[goAround.aircraft]
   const variants = aircraft ? Object.entries(aircraft.variants) : []
@@ -126,8 +127,6 @@ export default function GoAroundClimbGradient() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-      <ResetButton onReset={handleReset} />
 
       <div style={{
         background: 'rgba(59,141,255,0.06)',
@@ -333,4 +332,6 @@ export default function GoAroundClimbGradient() {
       )}
     </div>
   )
-}
+})
+
+export default GoAroundClimbGradient

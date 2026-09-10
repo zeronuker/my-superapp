@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { interpolateAltitude2D } from '../utils/interpolation'
 import lookupTables from '../data/lookupTables.json'
-import ResetButton from './ResetButton'
 
-export default function EDTOCalculator() {
+const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
   const {
     edto, setEDTOAircraft, setEDTOVariant, setEDTOWeight,
     setEDTOIsaDeviation, setEDTOAntiIce, setEDTOResults
@@ -46,6 +45,8 @@ export default function EDTOCalculator() {
     setWeightWarning('')
     setCalcDetails(null)
   }
+
+  useImperativeHandle(ref, () => ({ reset: handleReset }))
 
   const aircraft = lookupTables[edto.aircraft]
   const variants = aircraft ? Object.entries(aircraft.variants) : []
@@ -184,9 +185,6 @@ export default function EDTOCalculator() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-      {/* ── Reset ── */}
-      <ResetButton onReset={handleReset} />
 
       {/* ── Disclaimer banner ──────────────────────────────────────────────── */}
       <div style={{
@@ -346,4 +344,6 @@ export default function EDTOCalculator() {
       )}
     </div>
   )
-}
+})
+
+export default EDTOCalculator

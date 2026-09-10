@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { calcQuickTurnaroundLimitWeight } from '../utils/quickTurnaroundLimitWeight'
 import lookupTables from '../data/lookupTables.json'
-import ResetButton from './ResetButton'
 
 // Accepts: 72500 · 72,500 · 72.500 · 72.5 · 72,5  (with or without "kg")
 function parseWeightInput(input) {
@@ -24,7 +23,7 @@ function fmtKg(kg) {
   return `${kg > 0 ? '+' : ''}${Math.round(kg).toLocaleString('en-US')} kg`
 }
 
-export default function QuickTurnaroundLimitWeight() {
+const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeight(props, ref) {
   const {
     quickTurnaround, setQuickTurnaroundAircraft, setQuickTurnaroundField, setQuickTurnaroundResults,
   } = useCalculatorStore()
@@ -42,6 +41,8 @@ export default function QuickTurnaroundLimitWeight() {
     setQuickTurnaroundResults(null)
     setWeightDisplay('')
   }
+
+  useImperativeHandle(ref, () => ({ reset: handleReset }))
 
   const isNG = quickTurnaround.aircraft === 'b737-800'
   const aircraft = lookupTables[quickTurnaround.aircraft]
@@ -101,8 +102,6 @@ export default function QuickTurnaroundLimitWeight() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-      <ResetButton onReset={handleReset} />
 
       <div style={{
         background: 'rgba(59,141,255,0.06)',
@@ -309,4 +308,6 @@ export default function QuickTurnaroundLimitWeight() {
       )}
     </div>
   )
-}
+})
+
+export default QuickTurnaroundLimitWeight

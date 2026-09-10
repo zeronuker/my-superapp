@@ -121,6 +121,13 @@ export const useCalculatorStore = create((set) => ({
     oat: '', pressureAltitude: '', slopePercent: '', windComponent: '', landingWeight: '',
     results: null,
   },
+  brakeCooling: {
+    aircraft: 'b737-8', brakeType: 'steel', mode: 'single',
+    weight: '', oat: '', pressureAltitude: '', speed: '', windComponent: '',
+    event: 'maxMan', reverseThrust: false,
+    residualEnergy: '', taxiDistance: '',
+    results: null,
+  },
   normal:     { display: '0', previousValue: 0, operation: null, expression: '', clearNext: false },
   scientific: { display: '0', expression: '' },
   time: {
@@ -174,6 +181,9 @@ export const useCalculatorStore = create((set) => ({
   setQuickTurnaroundAircraft: (aircraft) => set(s => ({ quickTurnaround: { ...s.quickTurnaround, aircraft } })),
   setQuickTurnaroundField:    (partial)  => set(s => ({ quickTurnaround: { ...s.quickTurnaround, ...partial } })),
   setQuickTurnaroundResults:  (results)  => set(s => ({ quickTurnaround: { ...s.quickTurnaround, results } })),
+  setBrakeCoolingAircraft: (aircraft) => set(s => ({ brakeCooling: { ...s.brakeCooling, aircraft } })),
+  setBrakeCoolingField:    (partial)  => set(s => ({ brakeCooling: { ...s.brakeCooling, ...partial } })),
+  setBrakeCoolingResults:  (results)  => set(s => ({ brakeCooling: { ...s.brakeCooling, results } })),
   setNormal:         (partial)   => set(s => ({ normal: { ...s.normal, ...partial } })),
   setScientificDisplay: (d)      => set(s => ({ scientific: { ...s.scientific, display: d } })),
   setScientific:     (partial)   => set(s => ({ scientific: { ...s.scientific, ...partial } })),
