@@ -295,12 +295,21 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.0", date: "Sep 2026", current: true,
+    v: "v3.0", date: "Sep 2026",
     title: "Rain and Clouds live weather overlay",
     notes: [
       "NEW: Briefing: Live Weather's Rain and Clouds overlays are now live (previously greyed out, pending Windy's paid plan) — powered by the Rainbow Weather API, layered on top of Windy's wind overlay",
       "NEW: Briefing: Rain gets a Now / +1h / +2h / +3h / +4h forecast slider",
       "NEW: Briefing: Rain/Clouds refresh manually via a Refresh button instead of polling — shows a \"Data as of\" timestamp and a stale indicator after 10 minutes, keeping API usage user-driven",
+    ],
+  },
+  {
+    v: "v3.1", date: "Sep 2026", current: true,
+    title: "Recommended Brake Cooling Schedule",
+    notes: [
+      "NEW: B737 Performance: Recommended Brake Cooling Schedule module for 737-8 (MAX) and 737-800 (NG, Category C steel / Category N carbon brakes) — digitized from the QRH's advisory brake-energy tables, with single-event and chained quick-turnaround (residual + taxi energy) modes",
+      "NEW: B737 Performance: one shared Reset button in the tab bar instead of a separate button on each sub-tab",
+      "FIX: B737 Performance: Quick Turnaround's tab icon (🛞) rendered blank on systems without Unicode 14 emoji support — replaced with 🔁, and Quick Turnaround / Brake Cooling both got new custom Mono/Color tab artwork",
     ],
   },
 ]
