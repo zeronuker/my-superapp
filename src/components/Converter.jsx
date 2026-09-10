@@ -28,7 +28,8 @@ function UnitPicker({ value, options, open, onToggle, onPick }) {
       {open && (
         <div style={{
           display: 'flex', flexDirection: 'column', marginTop: 8,
-          background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6, overflow: 'hidden',
+          background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6,
+          overflowX: 'hidden', overflowY: 'auto', maxHeight: 216,
         }}>
           {options.map((u, i) => (
             <button key={u} type="button" onClick={() => onPick(u)} style={{
