@@ -7,6 +7,8 @@ import {
   CAT_COLORS,
   WIND_COLORS,
   WX_COLOR,
+  ROLE_COLORS,
+  getRoleStyle,
 } from './metarSeverity'
 
 // Helper: build a structured METAR object like aviationweather.gov returns.
@@ -249,5 +251,30 @@ describe('parseTafSegments', () => {
     const segs = parseTafSegments(raw)
     const wxTok = segs[0].tokens.find(t => t.text === '-RA')
     expect(wxTok.color).toBe(WX_COLOR)
+  })
+})
+
+describe('getRoleStyle', () => {
+  it('returns the mapped color for a known role label', () => {
+    expect(getRoleStyle('DEPARTURE').color).toBe(ROLE_COLORS.DEPARTURE)
+    expect(getRoleStyle('ARRIVAL').color).toBe(ROLE_COLORS.ARRIVAL)
+    expect(getRoleStyle('ENROUTE ALTERNATE 3').color).toBe(ROLE_COLORS['ENROUTE ALTERNATE 3'])
+  })
+
+  it('falls back to grey for an unmapped label', () => {
+    expect(getRoleStyle('SOMETHING UNKNOWN').color).toBe('#94a3b8')
+    expect(getRoleStyle(undefined).color).toBe('#94a3b8')
+  })
+
+  it('derives all alpha variants from the same base color', () => {
+    const style = getRoleStyle('DEPARTURE')
+    expect(style).toEqual({
+      color: '#06b6d4',
+      bgLatest: 'rgba(6,182,212,0.1)',
+      bgDim: 'rgba(6,182,212,0.04)',
+      borderLatest: 'rgba(6,182,212,0.45)',
+      borderDim: 'rgba(6,182,212,0.18)',
+      textDim: 'rgba(6,182,212,0.5)',
+    })
   })
 })
