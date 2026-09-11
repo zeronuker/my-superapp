@@ -444,8 +444,7 @@ export default function App() {
           letterSpacing: '0.12em',
           lineHeight: 1.8,
         }}>
-          <div>CLAUDEBORNE PILOT UTILITY SUITE · PWA OFFLINE CAPABLE</div>
-          <div style={{ fontSize: 9, letterSpacing: '0.16em' }}>{APP_VERSION}</div>
+          <div>CLAUDEBORNE PILOT UTILITY SUITE · {APP_VERSION}</div>
         </footer>
 
         {/* Reserve scroll space so content clears the fixed bottom tab bar */}
