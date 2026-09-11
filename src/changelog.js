@@ -314,7 +314,7 @@ export const CHANGELOG = [
       "FIX: Converter: unit picker dropdown now scrolls after 6 units instead of growing the panel",
       "NEW: Converter: added Time, Data storage, Energy, and Power conversion categories",
       "NEW: Converter: Volume category now includes teaspoons, tablespoons, pints, and quarts for cooking conversions",
-      "FIX: Converter: category picker changed from a wrapping grid to a single scrollable row, so it no longer costs an extra row of height every time a category is added — was clipping the unit dropdown on short panels (e.g. iPad landscape)",
+      "FIX: Converter: category picker changed to a fixed 6-per-row layout (today's 12 categories fill 2 full rows, no scrolling) instead of a 4-column grid that wrapped to 3 rows — was clipping the unit dropdown on short panels (e.g. iPad landscape); a partial last row now centers instead of hugging the left",
       "FIX: Converter: opening a unit dropdown now auto-scrolls it fully into view instead of requiring a manual scroll to see options past the first couple",
     ],
   },

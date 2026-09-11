@@ -63,6 +63,7 @@ function UnitPicker({ value, options, open, onToggle, onPick }) {
 
 export default function Converter() {
   const cats = [...Object.keys(UNIT_CATEGORIES), 'fuel']
+  const catCols = Math.min(cats.length, 6)
   const [cat, setCat] = useState('length')
   const isFuel = cat === 'fuel'
   const units = isFuel ? Object.keys(FUEL_UNITS) : Object.keys(UNIT_CATEGORIES[cat].units)
@@ -145,18 +146,21 @@ export default function Converter() {
 
   return (
     <div style={{ flex: 1, minHeight: 0, maxWidth: 700, width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
-      {/* category — a single horizontally-scrolling row, so it always costs
-          one row of height no matter how many categories there are */}
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+      {/* category — up to 6 per row (today's 12 categories fill exactly 2
+          rows, no horizontal scroll needed). Flex-wrap + centering instead
+          of a plain grid, so if the category count ever isn't a multiple
+          of 6, the last partial row centers instead of hugging the left. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6 }}>
         {cats.map(c => (
           <button key={c} onClick={() => pickCat(c)} style={{
-            display: 'flex', flexShrink: 0, alignItems: 'center', gap: 6,
-            fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.06em', padding: '8px 12px',
-            borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            flex: `0 0 calc((100% - ${(catCols - 1) * 6}px) / ${catCols})`,
+            fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.06em', padding: '8px 2px',
+            borderRadius: 6, cursor: 'pointer',
             border: `1px solid ${cat === c ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
             background: cat === c ? 'var(--cp-accdim)' : 'transparent',
             color: cat === c ? 'var(--cp-acc)' : 'var(--cp-dim)' }}>
-            <span style={{ fontSize: 15, lineHeight: 1 }}>{CATEGORY_ICONS[c]}</span>
+            <span style={{ fontSize: 16, lineHeight: 1 }}>{CATEGORY_ICONS[c]}</span>
             {c === 'fuel' ? 'FUEL' : UNIT_CATEGORIES[c].label.toUpperCase()}
           </button>
         ))}
