@@ -28,7 +28,10 @@ export const UNIT_CATEGORIES = {
   volume: {
     label: 'Volume',
     base: 'L',
-    units: { L: 1, mL: 0.001, cup: 0.236588, floz: 0.0295735, USG: 3.785411784, impgal: 4.54609 },
+    units: {
+      L: 1, mL: 0.001, cup: 0.236588, floz: 0.0295735, USG: 3.785411784, impgal: 4.54609,
+      tsp: 0.00492892, tbsp: 0.0147868, pt: 0.473176, qt: 0.946353,
+    },
   },
   area: {
     label: 'Area',
@@ -40,6 +43,26 @@ export const UNIT_CATEGORIES = {
     base: 'hPa',
     units: { hPa: 1, inHg: 33.8639, mmHg: 1.33322, psi: 68.9476, atm: 1013.25 },
   },
+  time: {
+    label: 'Time',
+    base: 's',
+    units: { s: 1, min: 60, hr: 3600, day: 86400, week: 604800 },
+  },
+  data: {
+    label: 'Data',
+    base: 'B',
+    units: { bit: 0.125, B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 },
+  },
+  energy: {
+    label: 'Energy',
+    base: 'J',
+    units: { J: 1, kJ: 1000, cal: 4.184, kcal: 4184, Wh: 3600, kWh: 3600000, BTU: 1055.06 },
+  },
+  power: {
+    label: 'Power',
+    base: 'W',
+    units: { W: 1, kW: 1000, hp: 745.7 },
+  },
 }
 
 // Full names for display in the unit picker dropdown.
@@ -50,9 +73,14 @@ export const UNIT_NAMES = {
   kg: 'Kilograms', g: 'Grams', lb: 'Pounds', oz: 'Ounces', stone: 'Stone', t: 'Tonnes',
   '°C': 'Celsius', '°F': 'Fahrenheit', K: 'Kelvin',
   L: 'Litres', mL: 'Millilitres', cup: 'Cups', floz: 'Fluid ounces', USG: 'US gallons', impgal: 'Imperial gallons',
+  tsp: 'Teaspoons', tbsp: 'Tablespoons', pt: 'Pints', qt: 'Quarts',
   'm²': 'Square metres', 'km²': 'Square kilometres', 'ft²': 'Square feet', 'yd²': 'Square yards',
   acre: 'Acres', hectare: 'Hectares', 'mi²': 'Square miles',
   hPa: 'Hectopascals', inHg: 'Inches of mercury', mmHg: 'Millimetres of mercury', psi: 'Pounds per square inch', atm: 'Atmospheres',
+  s: 'Seconds', min: 'Minutes', hr: 'Hours', day: 'Days', week: 'Weeks',
+  bit: 'Bits', B: 'Bytes', KB: 'Kilobytes', MB: 'Megabytes', GB: 'Gigabytes', TB: 'Terabytes',
+  J: 'Joules', kJ: 'Kilojoules', cal: 'Calories', kcal: 'Kilocalories', Wh: 'Watt-hours', kWh: 'Kilowatt-hours', BTU: 'British thermal units',
+  W: 'Watts', kW: 'Kilowatts', hp: 'Horsepower',
 }
 
 function toCelsius(v, from) {

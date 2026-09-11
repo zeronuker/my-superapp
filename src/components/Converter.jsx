@@ -6,6 +6,7 @@ const FUEL_UNITS = { ...FUEL_MASS_UNITS, ...FUEL_VOLUME_UNITS }
 const CATEGORY_ICONS = {
   length: '📏', speed: '💨', mass: '⚖️', temp: '🌡️',
   volume: '🧪', area: '📐', pressure: '🌀', fuel: '⛽',
+  time: '⏱️', data: '💾', energy: '⚡', power: '🔋',
 }
 
 function fmtNum(n) {
@@ -104,7 +105,7 @@ export default function Converter() {
             }}>LIVE</span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
+        <div className="cp-value-box" style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
           <input type="number" inputMode="decimal" placeholder="0" value={value}
             onChange={e => {
               setDriver(side)

@@ -148,6 +148,15 @@ input[type="number"] { -moz-appearance: textfield; }
 .cp-input:focus { border-color: var(--cp-acc); }
 .cp-input::placeholder { color: var(--cp-dim); }
 
+.cp-value-box {
+  background: var(--cp-bginput);
+  border: 1px solid var(--cp-border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  transition: border-color 0.15s;
+}
+.cp-value-box:focus-within { border-color: var(--cp-acc); }
+
 .cp-btn {
   background: transparent;
   border: 1px solid var(--cp-border);

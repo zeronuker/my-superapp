@@ -40,6 +40,26 @@ describe('convert', () => {
     expect(convert('pressure', 1, 'atm', 'hPa')).toBeCloseTo(1013.25, 2)
     expect(convert('pressure', 29.92, 'inHg', 'hPa')).toBeCloseTo(1013.25, 0)
   })
+  it('volume cooking units', () => {
+    expect(convert('volume', 3, 'tsp', 'tbsp')).toBeCloseTo(1, 3)
+    expect(convert('volume', 1, 'cup', 'tbsp')).toBeCloseTo(16, 1)
+    expect(convert('volume', 2, 'pt', 'qt')).toBeCloseTo(1, 3)
+  })
+  it('time', () => {
+    expect(convert('time', 1, 'day', 'hr')).toBe(24)
+    expect(convert('time', 90, 'min', 'hr')).toBeCloseTo(1.5, 3)
+  })
+  it('data', () => {
+    expect(convert('data', 1, 'MB', 'KB')).toBe(1024)
+    expect(convert('data', 1, 'B', 'bit')).toBe(8)
+  })
+  it('energy', () => {
+    expect(convert('energy', 1, 'kcal', 'cal')).toBeCloseTo(1000, 3)
+    expect(convert('energy', 1, 'kWh', 'J')).toBeCloseTo(3600000, 0)
+  })
+  it('power', () => {
+    expect(convert('power', 1, 'hp', 'W')).toBeCloseTo(745.7, 1)
+  })
 })
 
 describe('convertFuel', () => {

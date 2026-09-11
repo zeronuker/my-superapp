@@ -310,6 +310,10 @@ export const CHANGELOG = [
       "NEW: B737 Performance: Recommended Brake Cooling Schedule module for 737-8 (MAX) and 737-800 (NG, Category C steel / Category N carbon brakes) — digitized from the QRH's advisory brake-energy tables, with single-event and chained quick-turnaround (residual + taxi energy) modes",
       "NEW: B737 Performance: one shared Reset button in the tab bar instead of a separate button on each sub-tab",
       "FIX: B737 Performance: Quick Turnaround's tab icon (🛞) rendered blank on systems without Unicode 14 emoji support — replaced with 🔁, and Quick Turnaround / Brake Cooling both got new custom Mono/Color tab artwork",
+      "NEW: Converter: value fields now show their unit inline next to the number, boxed in their own bordered field",
+      "FIX: Converter: unit picker dropdown now scrolls after 6 units instead of growing the panel",
+      "NEW: Converter: added Time, Data storage, Energy, and Power conversion categories",
+      "NEW: Converter: Volume category now includes teaspoons, tablespoons, pints, and quarts for cooking conversions",
     ],
   },
 ]
