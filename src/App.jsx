@@ -47,7 +47,7 @@ export const CALCULATORS = [
   { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
   { id: 'sigmet',        icon: '⛈️',  name: 'SIGMET',         component: SigmetViewer },
   { id: 'gatefinder',    icon: '🛬',  name: 'Malaysia Airports', component: MalaysiaAirports },
-  { id: 'ftl',           icon: '⏳',  name: 'FTL',            component: FTLCalculator },
+  { id: 'ftl',           icon: '⏳',  name: 'Flight Time Limitations', component: FTLCalculator },
   { id: 'dutylog',       icon: '🛫',  name: 'Duty Log',       component: DutyLogModule },
   { id: 'worldtime',     icon: '🌐',  name: 'World Time',     component: WorldTimeCalculator },
   { id: 'prayer',        icon: '🕌',  name: 'Qiblat & Solat', component: PrayerModule },
