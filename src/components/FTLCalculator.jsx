@@ -116,7 +116,7 @@ export function computeFTL({
   ifr, ifrType, ifrRestStr,
   splitDuty, splitRestStr,
   reducedPrecedingRest,
-  picDiscretion, picExtensionStr, picBeforeLastSector,
+  picDiscretion, picActualEndStr, picBeforeLastSector,
 }) {
   const notes        = []
   const errors       = []
@@ -341,28 +341,43 @@ export function computeFTL({
   // If the preceding rest was itself reduced (Ch. 2.16), discretion here is
   // restricted to immediately before the last sector and must be reported to
   // CAAM regardless of duration (Ch. 2.15.3, 2.15.4).
-  const fdpPrePIC = fdp   // save FDP before PIC extension (used for reference times)
+  //
+  // Discretion can't be planned — it's derived from what actually happened.
+  // The pilot enters the actual FDP end time (e.g. actual on-blocks) once
+  // known; the extension used is the difference from the FDP already
+  // calculated above, not a duration typed in ahead of time.
+  const fdpPrePIC = fdp   // FDP before PIC extension (also the pre-discretion expiry basis)
+  const originalExpiry = toHHMM(toMins(fdpStartTime) + fdpPrePIC)
   const picCap = (sectors <= 1 || picBeforeLastSector) ? 3 * 60 : 2 * 60
   let picExtension = 0
   if (picDiscretion) {
-    picExtension = parseDur(picExtensionStr) || 0
-    if (reducedPrecedingRest && sectors > 1 && !picBeforeLastSector && picExtension > 0) {
-      errors.push('PIC discretion after a reduced rest may only be exercised immediately before the last sector (Ch. 2.15.3)')
+    if (picActualEndStr) {
+      const actualEnd = normalizeTime(picActualEndStr)
+      if (!actualEnd) return { error: 'Invalid actual FDP end time — use HH:MM or HHMM (0000–2359)' }
+      picExtension = diffMins(originalExpiry, actualEnd)
+      if (reducedPrecedingRest && sectors > 1 && !picBeforeLastSector && picExtension > 0) {
+        errors.push('PIC discretion after a reduced rest may only be exercised immediately before the last sector (Ch. 2.15.3)')
+      }
+      if (picExtension > picCap) {
+        errors.push(`PIC extension exceeds ${fmtDur(picCap)} maximum for ${picCap === 3 * 60 ? 'single/last sector' : 'a non-final sector'} (Ch. 2.15.2)`)
+        picExtension = picCap   // cap at the applicable maximum
+      }
+      if (reducedPrecedingRest && picExtension > 0) {
+        caamNotes.push('Extension follows a reduced rest — must be exceptional, limited to unforeseen circumstances (Ch. 2.15.3); Discretion Report to CAAM required regardless of duration (Ch. 2.15.4)')
+      } else if (picExtension > 2 * 60) {
+        caamNotes.push('Extension >2h: operator must submit Discretion Report to CAAM within 14 days (Ch. 2.15.4)')
+      }
+      if (picExtension > 0) fdp += picExtension
+    } else {
+      pendingNotes.push('PIC discretion: enter the actual FDP end time once known to calculate the extension used (Ch. 2.15) — this cannot be planned in advance')
     }
-    if (picExtension > picCap) {
-      errors.push(`PIC extension exceeds ${fmtDur(picCap)} maximum for ${picCap === 3 * 60 ? 'single/last sector' : 'a non-final sector'} (Ch. 2.15.2)`)
-      picExtension = picCap   // cap at the applicable maximum
-    }
-    if (reducedPrecedingRest && picExtension > 0) {
-      caamNotes.push('Extension follows a reduced rest — must be exceptional, limited to unforeseen circumstances (Ch. 2.15.3); Discretion Report to CAAM required regardless of duration (Ch. 2.15.4)')
-    } else if (picExtension > 2 * 60) {
-      caamNotes.push('Extension >2h: operator must submit Discretion Report to CAAM within 14 days (Ch. 2.15.4)')
-    }
-    if (picExtension > 0) fdp += picExtension
   }
 
-  // PIC reference times: what FDP expiry would be at +1h / +2h / +3h
+  // PIC reference: the original (pre-discretion) expiry, plus what FDP expiry
+  // would be at +1h / +2h / +3h of discretion — useful while the actual end
+  // time isn't known yet.
   const picRef = picDiscretion ? {
+    orig: { label: 'ORIGINAL', end: originalExpiry, caam: false },
     h1: { label: '+1:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 60),  caam: false },
     h2: { label: '+2:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 120), caam: false },
     h3: { label: '+3:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 180), caam: true  },
@@ -469,7 +484,7 @@ export default function FTLCalculator() {
   const [splitDuty,      setSplitDuty]      = useState(false)
   const [splitRest,      setSplitRest]      = useState('')
   const [picDisc,        setPicDisc]        = useState(false)
-  const [picExtStr,      setPicExtStr]      = useState('')
+  const [picActualEnd,   setPicActualEnd]   = useState('')
   const [picLastSector,  setPicLastSector]  = useState(true)
 
   const handleReset = () => {
@@ -499,7 +514,7 @@ export default function FTLCalculator() {
     setSplitDuty(false)
     setSplitRest('')
     setPicDisc(false)
-    setPicExtStr('')
+    setPicActualEnd('')
     setPicLastSector(true)
   }
 
@@ -534,7 +549,7 @@ export default function FTLCalculator() {
       reducedPrecedingRest: reducedRest,
       splitDuty,        splitRestStr: splitRest,
       picDiscretion:    picDisc,
-      picExtensionStr:  picExtStr,
+      picActualEndStr:  picActualEnd,
       picBeforeLastSector: picLastSector,
     })
   }, [
@@ -547,7 +562,7 @@ export default function FTLCalculator() {
     ifr, ifrType, ifrRest,
     reducedRest,
     splitDuty, splitRest,
-    picDisc, picExtStr, picLastSector,
+    picDisc, picActualEnd, picLastSector,
   ])
 
   const inp = {
@@ -857,7 +872,7 @@ export default function FTLCalculator() {
           {/* PIC discretion */}
           <Section title="PIC DISCRETION" toggle={
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-              value={picDisc} onChange={v => { setPicDisc(v); if (!v) setPicExtStr('') }} />
+              value={picDisc} onChange={v => { setPicDisc(v); if (!v) setPicActualEnd('') }} />
           }>
             {picDisc && (
               <>
@@ -869,11 +884,11 @@ export default function FTLCalculator() {
                     />
                   </Row>
                 )}
-                <Row label="EXTENSION" note="Max 2h before sectors · Max 3h before last sector (Ch. 2.15)">
-                  <input type="text" placeholder="H:MM"
-                    value={picExtStr} onChange={e => setPicExtStr(e.target.value)}
-                    onBlur={e => { const m = parseDur(e.target.value); if (m != null) setPicExtStr(fmtDur(m)) }}
-                    style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
+                <Row label="ACTUAL FDP END TIME" note="Discretion can't be planned — enter once known (e.g. actual on-blocks). Extension used is calculated automatically (Ch. 2.15)">
+                  <input type="text" placeholder="HH:MM"
+                    value={picActualEnd} onChange={e => setPicActualEnd(e.target.value)}
+                    onBlur={e => { const n = normalizeTime(e.target.value); if (n) setPicActualEnd(n) }}
+                    style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
                   />
                 </Row>
                 <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-orange)', letterSpacing: '0.08em', paddingBottom: 4, lineHeight: 1.6 }}>

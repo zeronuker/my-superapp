@@ -8,7 +8,20 @@ const base = {
   standby: false, standbyStart: '',
   ifr: false, ifrType: 'bunk', ifrRestStr: '',
   splitDuty: false, splitRestStr: '',
-  picDiscretion: false, picExtensionStr: '', picBeforeLastSector: true,
+  picDiscretion: false, picActualEndStr: '', picBeforeLastSector: true,
+}
+
+// PIC discretion is keyed off an actual FDP end time, not a typed duration —
+// tests derive the actual end time from the scenario's own (pre-discretion)
+// expiry plus the extension being tested for, rather than hardcoding a clock time.
+function addMins(hhmm, mins) {
+  const [h, m] = hhmm.split(':').map(Number)
+  const total = ((h * 60 + m + mins) % 1440 + 1440) % 1440
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+function actualEndFor(overrides, extensionMins) {
+  const original = computeFTL({ ...base, ...overrides, picDiscretion: false }).endTime
+  return addMins(original, extensionMins)
 }
 
 describe('computeFTL — standby band selection (Ch. 2.9.1)', () => {
@@ -175,16 +188,17 @@ describe('computeFTL — reduced preceding rest (Ch. 2.13.4 / 2.15.3 / 2.15.4)',
   })
 
   it('requires a CAAM report regardless of extension size', () => {
+    const overrides = { reducedPrecedingRest: true }
     const r = computeFTL({
-      ...base, reducedPrecedingRest: true, picDiscretion: true, picExtensionStr: '0:30',
+      ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 30),
     })
     expect(r.caamNotes.some(n => n.includes('2.15.4'))).toBe(true)
   })
 
   it('restricts discretion to immediately before the last sector', () => {
+    const overrides = { sectors: 3, reducedPrecedingRest: true, picBeforeLastSector: false }
     const r = computeFTL({
-      ...base, sectors: 3, reducedPrecedingRest: true, picBeforeLastSector: false,
-      picDiscretion: true, picExtensionStr: '1:00',
+      ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 60),
     })
     expect(r.errors.some(e => e.includes('2.15.3'))).toBe(true)
   })
@@ -192,7 +206,10 @@ describe('computeFTL — reduced preceding rest (Ch. 2.13.4 / 2.15.3 / 2.15.4)',
 
 describe('computeFTL — PIC discretion sector-position cap (Ch. 2.15.2)', () => {
   it('allows full 3h on a single-sector flight', () => {
-    const r = computeFTL({ ...base, sectors: 1, picDiscretion: true, picExtensionStr: '3:00' })
+    const overrides = { sectors: 1 }
+    const r = computeFTL({
+      ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 3 * 60),
+    })
     expect(r.breakdown.picExtension).toBe(3 * 60)
     expect(r.errors).toHaveLength(0)
   })
@@ -200,9 +217,9 @@ describe('computeFTL — PIC discretion sector-position cap (Ch. 2.15.2)', () =>
   it('uses the real sector count, not the long-range-inflated effective count', () => {
     // 1 real sector, long range ON with a 10h sector → effSectors becomes 3 for table lookup,
     // but for PIC discretion purposes this is still a single-sector flight → full 3h allowed.
+    const overrides = { sectors: 1, longRange: true, longestSectorStr: '10:00' }
     const r = computeFTL({
-      ...base, sectors: 1, longRange: true, longestSectorStr: '10:00',
-      picDiscretion: true, picExtensionStr: '3:00',
+      ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 3 * 60),
     })
     expect(r.effSectors).toBe(3)
     expect(r.breakdown.picExtension).toBe(3 * 60)
@@ -210,16 +227,18 @@ describe('computeFTL — PIC discretion sector-position cap (Ch. 2.15.2)', () =>
   })
 
   it('allows full 3h before the last sector of a multi-sector flight', () => {
+    const overrides = { sectors: 3, picBeforeLastSector: true }
     const r = computeFTL({
-      ...base, sectors: 3, picDiscretion: true, picExtensionStr: '3:00', picBeforeLastSector: true,
+      ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 3 * 60),
     })
     expect(r.breakdown.picExtension).toBe(3 * 60)
     expect(r.errors).toHaveLength(0)
   })
 
   it('caps at 2h before an earlier sector of a multi-sector flight', () => {
+    const overrides = { sectors: 3, picBeforeLastSector: false }
     const r = computeFTL({
-      ...base, sectors: 3, picDiscretion: true, picExtensionStr: '3:00', picBeforeLastSector: false,
+      ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 3 * 60),
     })
     expect(r.breakdown.picExtension).toBe(2 * 60)
     expect(r.errors.length).toBeGreaterThan(0)
