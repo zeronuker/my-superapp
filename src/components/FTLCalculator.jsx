@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useLayoutEffect } from 'react'
 import { lookupFDP, getBandLabelForResult } from '../data/ftlTables'
 import ResetButton from './ResetButton'
 
@@ -404,6 +404,105 @@ export function computeFTL({
 }
 
 // ── Shared UI primitives ──────────────────────────────────────────────────────
+
+// The Original row's highlight box is a plain absolutely-positioned element,
+// measured against the row's actual rect and repositioned in an effect —
+// not a `position: relative` trick on the <tr> itself, which isn't a
+// reliable containing block for an overlay across browsers (it can escape
+// to a distant ancestor and cover far more than just the row).
+const PIC_ORIGINAL_ROW_OVERHANG = 9 // px, each side
+
+function PicDiscretionTable({ picRef, picEmployerNote, caamNotes }) {
+  const wrapEl = useRef(null)
+  const origRowEl = useRef(null)
+  const boxEl = useRef(null)
+
+  useLayoutEffect(() => {
+    function layout() {
+      const wrap = wrapEl.current, row = origRowEl.current, box = boxEl.current
+      if (!wrap || !row || !box) return
+      const wrapRect = wrap.getBoundingClientRect()
+      const rowRect = row.getBoundingClientRect()
+      box.style.top = `${rowRect.top - wrapRect.top}px`
+      box.style.height = `${rowRect.height}px`
+      box.style.left = `${-PIC_ORIGINAL_ROW_OVERHANG}px`
+      box.style.width = `${wrapRect.width + PIC_ORIGINAL_ROW_OVERHANG * 2}px`
+    }
+    layout()
+    window.addEventListener('resize', layout)
+    return () => window.removeEventListener('resize', layout)
+  })
+
+  const { orig, h1, h2, h3 } = picRef
+  const reducedRestCase = h1.caam   // any-duration CAAM only kicks in via reduced rest — >2h alone only flags h3
+
+  return (
+    <div className="cp-card" style={{ marginBottom: 14 }}>
+      <div className="cp-label" style={{ marginBottom: 10 }}>PIC DISCRETION REFERENCE</div>
+      <div ref={wrapEl} style={{ position: 'relative' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>
+          <thead>
+            <tr>
+              <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'left', paddingBottom: 6, fontWeight: 'normal' }}>EXTENSION</th>
+              <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal', whiteSpace: 'nowrap' }}>FDP EXPIRES</th>
+              <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal' }}>EMPLOYER</th>
+              <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal' }}>CAAM</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ref={origRowEl}>
+              <td style={{ color: 'var(--cp-muted)', padding: '9px 0' }}>{orig.label}</td>
+              <td style={{ textAlign: 'right', color: 'var(--cp-txt)', fontWeight: 600, padding: '9px 0', whiteSpace: 'nowrap' }}>{orig.end} LOCAL</td>
+              <td colSpan={2} style={{ padding: '9px 0' }}></td>
+            </tr>
+            {reducedRestCase ? (
+              <>
+                <tr>
+                  <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h1.label}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h1.end} LOCAL</td>
+                  <td colSpan={2} rowSpan={3} style={{ verticalAlign: 'middle', padding: '4px 0 4px 10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(248,113,113,0.12)', border: '1px solid var(--cp-red)', borderRadius: 14, padding: '6px 10px', fontSize: 9.5, color: 'var(--cp-red)', lineHeight: 1.35 }}>
+                      <span>⚠</span>
+                      <span>Preceding rest was reduced — any extension above must be reported to both the employer (Discretion Report Form) and CAAM, regardless of duration (Ch. 2.15.3 / 2.15.4)</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h2.label}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h2.end} LOCAL</td>
+                </tr>
+                <tr>
+                  <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h3.label}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h3.end} LOCAL</td>
+                </tr>
+              </>
+            ) : (
+              [h1, h2, h3].map(row => (
+                <tr key={row.label}>
+                  <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{row.label}</td>
+                  <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-txt)', fontWeight: 600, whiteSpace: 'nowrap' }}>{row.end} LOCAL</td>
+                  <td style={{ textAlign: 'right', color: 'var(--cp-orange)', fontSize: 10 }}>⚠ REQUIRED</td>
+                  <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-dim)', fontSize: 10 }}>{row.caam ? '⚠ REQUIRED' : '—'}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        <div ref={boxEl} style={{ position: 'absolute', background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 4, pointerEvents: 'none' }} />
+      </div>
+      {!reducedRestCase && (picEmployerNote || caamNotes?.length > 0) && (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {picEmployerNote && (
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-orange)', lineHeight: 1.5 }}>⚠ {picEmployerNote}</div>
+          )}
+          {caamNotes?.map((n, i) => (
+            <div key={i} style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-red)', lineHeight: 1.5 }}>⚠ {n}</div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function Seg({ options, value, onChange }) {
   return (
@@ -1018,73 +1117,13 @@ export default function FTLCalculator() {
               </div>
 
               {/* PIC discretion reference panel */}
-              {result.picRef && (() => {
-                const { orig, h1, h2, h3 } = result.picRef
-                const reducedRestCase = h1.caam   // any-duration CAAM only kicks in via reduced rest — >2h alone only flags h3
-                return (
-                  <div className="cp-card" style={{ marginBottom: 14 }}>
-                    <div className="cp-label" style={{ marginBottom: 10 }}>PIC DISCRETION REFERENCE</div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>
-                      <thead>
-                        <tr>
-                          <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'left', paddingBottom: 6, fontWeight: 'normal' }}>EXTENSION</th>
-                          <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal', whiteSpace: 'nowrap' }}>FDP EXPIRES</th>
-                          <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal' }}>EMPLOYER</th>
-                          <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal' }}>CAAM</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td style={{ color: 'var(--cp-muted)', padding: '9px 0 9px 8px', background: 'var(--cp-accdim)', borderTop: '1px solid var(--cp-acc)', borderBottom: '1px solid var(--cp-acc)', borderLeft: '1px solid var(--cp-acc)' }}>{orig.label}</td>
-                          <td style={{ textAlign: 'right', color: 'var(--cp-txt)', fontWeight: 600, padding: '9px 0', background: 'var(--cp-accdim)', borderTop: '1px solid var(--cp-acc)', borderBottom: '1px solid var(--cp-acc)', whiteSpace: 'nowrap' }}>{orig.end} LOCAL</td>
-                          <td colSpan={2} style={{ textAlign: 'right', color: 'var(--cp-dim)', fontSize: 10, padding: '9px 8px 9px 0', background: 'var(--cp-accdim)', borderTop: '1px solid var(--cp-acc)', borderBottom: '1px solid var(--cp-acc)', borderRight: '1px solid var(--cp-acc)' }}></td>
-                        </tr>
-                        {reducedRestCase ? (
-                          <>
-                            <tr>
-                              <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h1.label}</td>
-                              <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h1.end} LOCAL</td>
-                              <td colSpan={2} rowSpan={3} style={{ verticalAlign: 'middle', padding: '4px 0 4px 10px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(248,113,113,0.12)', border: '1px solid var(--cp-red)', borderRadius: 14, padding: '6px 10px', fontSize: 9.5, color: 'var(--cp-red)', lineHeight: 1.35 }}>
-                                  <span>⚠</span>
-                                  <span>Preceding rest was reduced — any extension above must be reported to both the employer (Discretion Report Form) and CAAM, regardless of duration (Ch. 2.15.3 / 2.15.4)</span>
-                                </div>
-                              </td>
-                            </tr>
-                            <tr>
-                              <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h2.label}</td>
-                              <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h2.end} LOCAL</td>
-                            </tr>
-                            <tr>
-                              <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h3.label}</td>
-                              <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h3.end} LOCAL</td>
-                            </tr>
-                          </>
-                        ) : (
-                          [h1, h2, h3].map(row => (
-                            <tr key={row.label}>
-                              <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{row.label}</td>
-                              <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-txt)', fontWeight: 600, whiteSpace: 'nowrap' }}>{row.end} LOCAL</td>
-                              <td style={{ textAlign: 'right', color: 'var(--cp-orange)', fontSize: 10 }}>⚠ REQUIRED</td>
-                              <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-dim)', fontSize: 10 }}>{row.caam ? '⚠ REQUIRED' : '—'}</td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                    {!reducedRestCase && (result.picEmployerNote || result.caamNotes?.length > 0) && (
-                      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {result.picEmployerNote && (
-                          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-orange)', lineHeight: 1.5 }}>⚠ {result.picEmployerNote}</div>
-                        )}
-                        {result.caamNotes?.map((n, i) => (
-                          <div key={i} style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-red)', lineHeight: 1.5 }}>⚠ {n}</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
+              {result.picRef && (
+                <PicDiscretionTable
+                  picRef={result.picRef}
+                  picEmployerNote={result.picEmployerNote}
+                  caamNotes={result.caamNotes}
+                />
+              )}
 
               {/* Warnings — restrictions / violations */}
               {result.errors?.length > 0 && (
