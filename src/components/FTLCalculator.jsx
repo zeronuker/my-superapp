@@ -443,8 +443,8 @@ function PicDiscretionTable({ picRef, picEmployerNote, caamNotes }) {
   return (
     <div className="cp-card" style={{ marginBottom: 14 }}>
       <div className="cp-label" style={{ marginBottom: 10 }}>PIC DISCRETION REFERENCE</div>
-      <div ref={wrapEl} style={{ position: 'relative' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>
+      <div ref={wrapEl} style={{ position: 'relative', zIndex: 0 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--cb-font-mono)', fontSize: 12, position: 'relative', zIndex: 1 }}>
           <thead>
             <tr>
               <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'left', paddingBottom: 6, fontWeight: 'normal' }}>EXTENSION</th>
@@ -492,7 +492,7 @@ function PicDiscretionTable({ picRef, picEmployerNote, caamNotes }) {
             )}
           </tbody>
         </table>
-        <div ref={boxEl} style={{ position: 'absolute', background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 4, pointerEvents: 'none' }} />
+        <div ref={boxEl} style={{ position: 'absolute', zIndex: 0, background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 4, pointerEvents: 'none' }} />
       </div>
       {!reducedRestCase && (picEmployerNote || caamNotes?.length > 0) && (
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
