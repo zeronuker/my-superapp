@@ -1037,7 +1037,7 @@ export default function FTLCalculator() {
                         <tr>
                           <td style={{ color: 'var(--cp-muted)', padding: '9px 0 9px 8px', background: 'var(--cp-accdim)', borderTop: '1px solid var(--cp-acc)', borderBottom: '1px solid var(--cp-acc)', borderLeft: '1px solid var(--cp-acc)' }}>{orig.label}</td>
                           <td style={{ textAlign: 'right', color: 'var(--cp-txt)', fontWeight: 600, padding: '9px 0', background: 'var(--cp-accdim)', borderTop: '1px solid var(--cp-acc)', borderBottom: '1px solid var(--cp-acc)', whiteSpace: 'nowrap' }}>{orig.end} LOCAL</td>
-                          <td colSpan={2} style={{ textAlign: 'right', color: 'var(--cp-dim)', fontSize: 10, padding: '9px 8px 9px 0', background: 'var(--cp-accdim)', borderTop: '1px solid var(--cp-acc)', borderBottom: '1px solid var(--cp-acc)', borderRight: '1px solid var(--cp-acc)' }}>—</td>
+                          <td colSpan={2} style={{ textAlign: 'right', color: 'var(--cp-dim)', fontSize: 10, padding: '9px 8px 9px 0', background: 'var(--cp-accdim)', borderTop: '1px solid var(--cp-acc)', borderBottom: '1px solid var(--cp-acc)', borderRight: '1px solid var(--cp-acc)' }}></td>
                         </tr>
                         {reducedRestCase ? (
                           <>
