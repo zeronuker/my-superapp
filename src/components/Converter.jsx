@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { convert, UNIT_CATEGORIES, convertFuel, FUEL_MASS_UNITS, FUEL_VOLUME_UNITS, UNIT_NAMES } from '../utils/units'
 
 const FUEL_UNITS = { ...FUEL_MASS_UNITS, ...FUEL_VOLUME_UNITS }
@@ -15,6 +15,16 @@ function fmtNum(n) {
 }
 
 function UnitPicker({ value, options, open, onToggle, onPick }) {
+  // Auto-scroll the newly opened dropdown into view — on a short panel
+  // (e.g. iPad landscape) it can otherwise open mostly below the fold,
+  // requiring a manual scroll just to see the first few options.
+  const dropdownRef = useRef(null)
+  useEffect(() => {
+    if (open && dropdownRef.current) {
+      dropdownRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [open])
+
   return (
     <div>
       <button type="button" onClick={onToggle} style={{
@@ -27,7 +37,7 @@ function UnitPicker({ value, options, open, onToggle, onPick }) {
         <span style={{ fontSize: 10, opacity: 0.6, transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
       </button>
       {open && (
-        <div style={{
+        <div ref={dropdownRef} style={{
           display: 'flex', flexDirection: 'column', marginTop: 8,
           background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6,
           overflowX: 'hidden', overflowY: 'auto', maxHeight: 216,
@@ -135,17 +145,18 @@ export default function Converter() {
 
   return (
     <div style={{ flex: 1, minHeight: 0, maxWidth: 700, width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
-      {/* category */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(cats.length, 4)}, 1fr)`, gap: 6 }}>
+      {/* category — a single horizontally-scrolling row, so it always costs
+          one row of height no matter how many categories there are */}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
         {cats.map(c => (
           <button key={c} onClick={() => pickCat(c)} style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.06em', padding: '8px 2px',
-            borderRadius: 6, cursor: 'pointer',
+            display: 'flex', flexShrink: 0, alignItems: 'center', gap: 6,
+            fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.06em', padding: '8px 12px',
+            borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
             border: `1px solid ${cat === c ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
             background: cat === c ? 'var(--cp-accdim)' : 'transparent',
             color: cat === c ? 'var(--cp-acc)' : 'var(--cp-dim)' }}>
-            <span style={{ fontSize: 16, lineHeight: 1 }}>{CATEGORY_ICONS[c]}</span>
+            <span style={{ fontSize: 15, lineHeight: 1 }}>{CATEGORY_ICONS[c]}</span>
             {c === 'fuel' ? 'FUEL' : UNIT_CATEGORIES[c].label.toUpperCase()}
           </button>
         ))}
