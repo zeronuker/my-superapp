@@ -204,6 +204,37 @@ describe('computeFTL — reduced preceding rest (Ch. 2.13.4 / 2.15.3 / 2.15.4)',
   })
 })
 
+describe('computeFTL — PIC discretion employer/CAAM reporting (Ch. 2.15.4)', () => {
+  it('any extension must be reported to the employer, even under 2h with no reduced rest', () => {
+    const overrides = { sectors: 1 }
+    const r = computeFTL({
+      ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 30),
+    })
+    expect(r.breakdown.picExtension).toBe(30)
+    expect(r.notes.some(n => n.includes('2.15.4'))).toBe(true)
+    expect(r.caamNotes).toHaveLength(0)
+  })
+
+  it('extension over 2h also requires a CAAM report, on top of the employer report', () => {
+    const overrides = { sectors: 1 }
+    const r = computeFTL({
+      ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 3 * 60),
+    })
+    expect(r.notes.some(n => n.includes('2.15.4'))).toBe(true)
+    expect(r.caamNotes.some(n => n.includes('2.15.4'))).toBe(true)
+  })
+
+  it('no extension used means no reporting requirement', () => {
+    const overrides = { sectors: 1 }
+    const r = computeFTL({
+      ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 0),
+    })
+    expect(r.breakdown.picExtension).toBe(0)
+    expect(r.notes.some(n => n.includes('2.15.4'))).toBe(false)
+    expect(r.caamNotes).toHaveLength(0)
+  })
+})
+
 describe('computeFTL — PIC discretion sector-position cap (Ch. 2.15.2)', () => {
   it('allows full 3h on a single-sector flight', () => {
     const overrides = { sectors: 1 }

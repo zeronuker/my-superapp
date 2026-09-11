@@ -362,6 +362,13 @@ export function computeFTL({
         errors.push(`PIC extension exceeds ${fmtDur(picCap)} maximum for ${picCap === 3 * 60 ? 'single/last sector' : 'a non-final sector'} (Ch. 2.15.2)`)
         picExtension = picCap   // cap at the applicable maximum
       }
+      // Any extension at all must be reported to the employer (Ch. 2.15.4,
+      // first sentence) — CAAM submission is a separate, higher bar that only
+      // applies on top of this when the extension is >2h or follows a
+      // reduced rest.
+      if (picExtension > 0) {
+        notes.push('Extension must be reported to the employer on a Discretion Report Form (Ch. 2.15.4)')
+      }
       if (reducedPrecedingRest && picExtension > 0) {
         caamNotes.push('Extension follows a reduced rest — must be exceptional, limited to unforeseen circumstances (Ch. 2.15.3); Discretion Report to CAAM required regardless of duration (Ch. 2.15.4)')
       } else if (picExtension > 2 * 60) {
