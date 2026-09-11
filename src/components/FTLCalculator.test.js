@@ -211,7 +211,7 @@ describe('computeFTL — PIC discretion employer/CAAM reporting (Ch. 2.15.4)', (
       ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 30),
     })
     expect(r.breakdown.picExtension).toBe(30)
-    expect(r.notes.some(n => n.includes('2.15.4'))).toBe(true)
+    expect(r.picEmployerNote).toMatch(/2\.15\.4/)
     expect(r.caamNotes).toHaveLength(0)
   })
 
@@ -220,7 +220,7 @@ describe('computeFTL — PIC discretion employer/CAAM reporting (Ch. 2.15.4)', (
     const r = computeFTL({
       ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 3 * 60),
     })
-    expect(r.notes.some(n => n.includes('2.15.4'))).toBe(true)
+    expect(r.picEmployerNote).toMatch(/2\.15\.4/)
     expect(r.caamNotes.some(n => n.includes('2.15.4'))).toBe(true)
   })
 
@@ -230,7 +230,7 @@ describe('computeFTL — PIC discretion employer/CAAM reporting (Ch. 2.15.4)', (
       ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 0),
     })
     expect(r.breakdown.picExtension).toBe(0)
-    expect(r.notes.some(n => n.includes('2.15.4'))).toBe(false)
+    expect(r.picEmployerNote).toBe(null)
     expect(r.caamNotes).toHaveLength(0)
   })
 })

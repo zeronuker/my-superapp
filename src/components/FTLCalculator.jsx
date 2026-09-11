@@ -350,6 +350,7 @@ export function computeFTL({
   const originalExpiry = toHHMM(toMins(fdpStartTime) + fdpPrePIC)
   const picCap = (sectors <= 1 || picBeforeLastSector) ? 3 * 60 : 2 * 60
   let picExtension = 0
+  let picEmployerNote = null
   if (picDiscretion) {
     if (picActualEndStr) {
       const actualEnd = normalizeTime(picActualEndStr)
@@ -365,9 +366,10 @@ export function computeFTL({
       // Any extension at all must be reported to the employer (Ch. 2.15.4,
       // first sentence) — CAAM submission is a separate, higher bar that only
       // applies on top of this when the extension is >2h or follows a
-      // reduced rest.
+      // reduced rest. Kept out of the shared `notes` list and surfaced
+      // directly on the PIC discretion reference panel instead.
       if (picExtension > 0) {
-        notes.push('Extension must be reported to the employer on a Discretion Report Form (Ch. 2.15.4)')
+        picEmployerNote = 'Extension must be reported to the employer on a Discretion Report Form (Ch. 2.15.4)'
       }
       if (reducedPrecedingRest && picExtension > 0) {
         caamNotes.push('Extension follows a reduced rest — must be exceptional, limited to unforeseen circumstances (Ch. 2.15.3); Discretion Report to CAAM required regardless of duration (Ch. 2.15.4)')
@@ -384,10 +386,10 @@ export function computeFTL({
   // would be at +1h / +2h / +3h of discretion — useful while the actual end
   // time isn't known yet.
   const picRef = picDiscretion ? {
-    orig: { label: 'ORIGINAL', end: originalExpiry, caam: false },
-    h1: { label: '+1:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 60),  caam: false },
-    h2: { label: '+2:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 120), caam: false },
-    h3: { label: '+3:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 180), caam: true  },
+    orig: { label: 'ORIGINAL', end: originalExpiry, employer: false, caam: false },
+    h1: { label: '+1:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 60),  employer: true, caam: reducedPrecedingRest },
+    h2: { label: '+2:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 120), employer: true, caam: reducedPrecedingRest },
+    h3: { label: '+3:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 180), employer: true, caam: true  },
   } : null
 
   return {
@@ -396,7 +398,7 @@ export function computeFTL({
     endTime: toHHMM(toMins(fdpStartTime) + fdp),
     tableLabel, bandLabel,
     breakdown: { cabinAllowance, standbyReduction, ifrExtension, splitExtension, picExtension },
-    picRef,
+    picRef, picEmployerNote,
     notes, errors, pendingNotes, caamNotes,
   }
 }
@@ -1016,32 +1018,73 @@ export default function FTLCalculator() {
               </div>
 
               {/* PIC discretion reference panel */}
-              {result.picRef && (
-                <div className="cp-card" style={{ marginBottom: 14 }}>
-                  <div className="cp-label" style={{ marginBottom: 10 }}>PIC DISCRETION REFERENCE</div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>
-                    <thead>
-                      <tr>
-                        <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'left', paddingBottom: 6, fontWeight: 'normal' }}>EXTENSION</th>
-                        <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal' }}>FDP EXPIRES</th>
-                        <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal' }}>CAAM REPORT</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.values(result.picRef).map(row => (
-                        <tr key={row.label}>
-                          <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{row.label}</td>
-                          <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-txt)', fontWeight: 600 }}>{row.end} LOCAL</td>
-                          <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-dim)', fontSize: 10 }}>{row.caam ? '⚠ REQUIRED' : '—'}</td>
+              {result.picRef && (() => {
+                const { orig, h1, h2, h3 } = result.picRef
+                const reducedRestCase = h1.caam   // any-duration CAAM only kicks in via reduced rest — >2h alone only flags h3
+                return (
+                  <div className="cp-card" style={{ marginBottom: 14 }}>
+                    <div className="cp-label" style={{ marginBottom: 10 }}>PIC DISCRETION REFERENCE</div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'left', paddingBottom: 6, fontWeight: 'normal' }}>EXTENSION</th>
+                          <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal', whiteSpace: 'nowrap' }}>FDP EXPIRES</th>
+                          <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal' }}>EMPLOYER</th>
+                          <th style={{ color: 'var(--cp-dim)', fontSize: 10, letterSpacing: '0.12em', textAlign: 'right', paddingBottom: 6, fontWeight: 'normal' }}>CAAM</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div style={{ marginTop: 8, fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.06em', lineHeight: 1.6 }}>
-                    Extension &gt;2h requires operator to submit report to CAAM within 14 days (Ch. 2.15.4)
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td style={{ color: 'var(--cp-muted)', padding: '9px 0 9px 8px', background: 'var(--cp-accdim)', borderTop: '1px solid var(--cp-acc)', borderBottom: '1px solid var(--cp-acc)', borderLeft: '1px solid var(--cp-acc)' }}>{orig.label}</td>
+                          <td style={{ textAlign: 'right', color: 'var(--cp-txt)', fontWeight: 600, padding: '9px 0', background: 'var(--cp-accdim)', borderTop: '1px solid var(--cp-acc)', borderBottom: '1px solid var(--cp-acc)', whiteSpace: 'nowrap' }}>{orig.end} LOCAL</td>
+                          <td colSpan={2} style={{ textAlign: 'right', color: 'var(--cp-dim)', fontSize: 10, padding: '9px 8px 9px 0', background: 'var(--cp-accdim)', borderTop: '1px solid var(--cp-acc)', borderBottom: '1px solid var(--cp-acc)', borderRight: '1px solid var(--cp-acc)' }}>—</td>
+                        </tr>
+                        {reducedRestCase ? (
+                          <>
+                            <tr>
+                              <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h1.label}</td>
+                              <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h1.end} LOCAL</td>
+                              <td colSpan={2} rowSpan={3} style={{ verticalAlign: 'middle', padding: '4px 0 4px 10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(248,113,113,0.12)', border: '1px solid var(--cp-red)', borderRadius: 14, padding: '6px 10px', fontSize: 9.5, color: 'var(--cp-red)', lineHeight: 1.35 }}>
+                                  <span>⚠</span>
+                                  <span>Preceding rest was reduced — any extension above must be reported to both the employer (Discretion Report Form) and CAAM, regardless of duration (Ch. 2.15.3 / 2.15.4)</span>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h2.label}</td>
+                              <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h2.end} LOCAL</td>
+                            </tr>
+                            <tr>
+                              <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h3.label}</td>
+                              <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h3.end} LOCAL</td>
+                            </tr>
+                          </>
+                        ) : (
+                          [h1, h2, h3].map(row => (
+                            <tr key={row.label}>
+                              <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{row.label}</td>
+                              <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-txt)', fontWeight: 600, whiteSpace: 'nowrap' }}>{row.end} LOCAL</td>
+                              <td style={{ textAlign: 'right', color: 'var(--cp-orange)', fontSize: 10 }}>⚠ REQUIRED</td>
+                              <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-dim)', fontSize: 10 }}>{row.caam ? '⚠ REQUIRED' : '—'}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                    {!reducedRestCase && (result.picEmployerNote || result.caamNotes?.length > 0) && (
+                      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {result.picEmployerNote && (
+                          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-orange)', lineHeight: 1.5 }}>⚠ {result.picEmployerNote}</div>
+                        )}
+                        {result.caamNotes?.map((n, i) => (
+                          <div key={i} style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-red)', lineHeight: 1.5 }}>⚠ {n}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
               {/* Warnings — restrictions / violations */}
               {result.errors?.length > 0 && (
@@ -1049,16 +1092,6 @@ export default function FTLCalculator() {
                   <div className="cp-label" style={{ marginBottom: 8, color: 'var(--cp-red)' }}>WARNINGS</div>
                   {result.errors.map((e, i) => (
                     <div key={i} style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-red)', marginBottom: 4 }}>⚠ {e}</div>
-                  ))}
-                </div>
-              )}
-
-              {/* CAAM reporting required — mandatory follow-up, not a restriction, still red */}
-              {result.caamNotes?.length > 0 && (
-                <div className="cp-card" style={{ marginBottom: 14, borderColor: 'var(--cp-red)', borderLeft: '3px solid var(--cp-red)' }}>
-                  <div className="cp-label" style={{ marginBottom: 8, color: 'var(--cp-red)' }}>CAAM REPORTING REQUIRED</div>
-                  {result.caamNotes.map((n, i) => (
-                    <div key={i} style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-red)', marginBottom: 4, lineHeight: 1.5 }}>⚠ {n}</div>
                   ))}
                 </div>
               )}
