@@ -136,8 +136,8 @@ export const useCalculatorStore = create((set) => ({
   },
   currency:      { amount: '', ...loadCurrencyPrefs() },
   interpolation: {
-    zValues: [''],
-    rows: [{ x: '', ys: [''] }, { x: '', ys: [''] }, { x: '', ys: [''] }],
+    zValues: ['', ''],
+    rows: [{ x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }],
     lookupX: '', lookupZ: '', result: '',
   },
 

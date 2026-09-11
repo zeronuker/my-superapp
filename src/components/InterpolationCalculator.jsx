@@ -118,8 +118,8 @@ export default function InterpolationCalculator() {
   const hasLookup = lookupX !== '' && lookupZ !== ''
 
   const handleReset = () => setInterpolation({
-    zValues: [''],
-    rows: [{ x: '', ys: [''] }, { x: '', ys: [''] }, { x: '', ys: [''] }],
+    zValues: ['', ''],
+    rows: [{ x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }],
     lookupX: '', lookupZ: '', result: '',
   })
 
