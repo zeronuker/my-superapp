@@ -421,12 +421,16 @@ function PicDiscretionTable({ picRef, picEmployerNote, caamNotes }) {
     function layout() {
       const wrap = wrapEl.current, row = origRowEl.current, box = boxEl.current
       if (!wrap || !row || !box) return
-      const wrapRect = wrap.getBoundingClientRect()
-      const rowRect = row.getBoundingClientRect()
-      box.style.top = `${rowRect.top - wrapRect.top}px`
-      box.style.height = `${rowRect.height}px`
+      // offsetTop/offsetHeight/clientWidth are local layout values in the
+      // element's own coordinate space, unlike getBoundingClientRect() —
+      // which returns screen pixels already scaled by the app's zoom/
+      // font-scale setting (App.jsx applies CSS `zoom` or a `transform:
+      // scale` fallback). Writing screen pixels back as plain style values
+      // inside that same scaled region would double-scale the box.
+      box.style.top = `${row.offsetTop}px`
+      box.style.height = `${row.offsetHeight}px`
       box.style.left = `${-PIC_ORIGINAL_ROW_OVERHANG}px`
-      box.style.width = `${wrapRect.width + PIC_ORIGINAL_ROW_OVERHANG * 2}px`
+      box.style.width = `${wrap.clientWidth + PIC_ORIGINAL_ROW_OVERHANG * 2}px`
     }
     layout()
     window.addEventListener('resize', layout)
