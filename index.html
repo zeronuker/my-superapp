@@ -29,6 +29,11 @@
     <!-- Restore saved theme before first paint — prevents flash -->
     <script>(function(){var s=localStorage.getItem('cb-theme');if(s)document.documentElement.setAttribute('data-theme',s);})()</script>
 
+    <!-- Temporary mobile debug console — append ?debug=1 to the URL to load
+         it (Eruda, from CDN). Never loads otherwise, so it costs nothing for
+         normal use. Remove once the CARTO map issue is diagnosed. -->
+    <script>(function(){if(location.search.indexOf('debug=1')===-1)return;var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/eruda/3.2.3/eruda.min.js';s.onload=function(){eruda.init();};document.head.appendChild(s);})()</script>
+
     <meta name="description" content="Multi-function calculator for pilots with EDTO calculator, scientific, time, currency, and interpolation tools." />
     <title>ClaudeBorne · Utility Suite</title>
   </head>
