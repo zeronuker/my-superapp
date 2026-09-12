@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef, useLayoutEffect } from 'react'
+import React, { useMemo, useRef, useLayoutEffect } from 'react'
+import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupFDP, getBandLabelForResult } from '../data/ftlTables'
 import ResetButton from './ResetButton'
 
@@ -570,64 +571,28 @@ function Section({ title, toggle, children }) {
 // ── Main calculator ───────────────────────────────────────────────────────────
 
 export default function FTLCalculator() {
-  const [aircraft,       setAircraft]       = useState('aeroplane')
-  const [crewCat,        setCrewCat]        = useState('flight')
-  const [crewType,       setCrewType]       = useState('2crew')
-  const [acclimatised,   setAcclimatised]   = useState(true)
-  const [reportTime,     setReportTime]     = useState('')
-  const [diffCabinTime,  setDiffCabinTime]  = useState(false)
-  const [cabinReportTime, setCabinReportTime] = useState('')
-  const [sectors,        setSectors]        = useState(1)
-  const [precedingRest,  setPrecedingRest]  = useState('')
-  const [longRange,      setLongRange]      = useState(false)
-  const [longestSector,  setLongestSector]  = useState('')
-  const [delayedReporting, setDelayedReporting] = useState(false)
-  const [actualReportTime, setActualReportTime] = useState('')
-  const [positioning,    setPositioning]    = useState(false)
-  const [positioningReportTime, setPositioningReportTime] = useState('')
-  const [standby,        setStandby]        = useState(false)
-  const [standbyStart,   setStandbyStart]   = useState('')
-  const [standbyLocation, setStandbyLocation] = useState('home')
-  const [homeShortNotice, setHomeShortNotice] = useState(false)
-  const [ifr,            setIfr]            = useState(false)
-  const [ifrType,        setIfrType]        = useState('bunk')
-  const [ifrRest,        setIfrRest]        = useState('')
-  const [reducedRest,    setReducedRest]    = useState(false)
-  const [splitDuty,      setSplitDuty]      = useState(false)
-  const [splitRest,      setSplitRest]      = useState('')
-  const [picDisc,        setPicDisc]        = useState(false)
-  const [picActualEnd,   setPicActualEnd]   = useState('')
-  const [picLastSector,  setPicLastSector]  = useState(true)
+  const { ftl, setFTLField } = useCalculatorStore()
+  const {
+    aircraft, crewCat, crewType, acclimatised, reportTime, diffCabinTime, cabinReportTime,
+    sectors, precedingRest, longRange, longestSector, delayedReporting, actualReportTime,
+    positioning, positioningReportTime, standby, standbyStart, standbyLocation, homeShortNotice,
+    ifr, ifrType, ifrRest, reducedRest, splitDuty, splitRest, picDisc, picActualEnd, picLastSector,
+  } = ftl
 
   const handleReset = () => {
-    setAircraft('aeroplane')
-    setCrewCat('flight')
-    setCrewType('2crew')
-    setAcclimatised(true)
-    setReportTime('')
-    setDiffCabinTime(false)
-    setCabinReportTime('')
-    setSectors(1)
-    setPrecedingRest('')
-    setLongRange(false)
-    setLongestSector('')
-    setDelayedReporting(false)
-    setActualReportTime('')
-    setPositioning(false)
-    setPositioningReportTime('')
-    setStandby(false)
-    setStandbyStart('')
-    setStandbyLocation('home')
-    setHomeShortNotice(false)
-    setIfr(false)
-    setIfrType('bunk')
-    setIfrRest('')
-    setReducedRest(false)
-    setSplitDuty(false)
-    setSplitRest('')
-    setPicDisc(false)
-    setPicActualEnd('')
-    setPicLastSector(true)
+    setFTLField({
+      aircraft: 'aeroplane', crewCat: 'flight', crewType: '2crew', acclimatised: true,
+      reportTime: '', diffCabinTime: false, cabinReportTime: '',
+      sectors: 1, precedingRest: '',
+      longRange: false, longestSector: '',
+      delayedReporting: false, actualReportTime: '',
+      positioning: false, positioningReportTime: '',
+      standby: false, standbyStart: '', standbyLocation: 'home', homeShortNotice: false,
+      ifr: false, ifrType: 'bunk', ifrRest: '',
+      reducedRest: false,
+      splitDuty: false, splitRest: '',
+      picDisc: false, picActualEnd: '', picLastSector: true,
+    })
   }
 
   const effectiveCrew  = crewCat === 'cabin' ? '2crew' : crewType
@@ -636,8 +601,7 @@ export default function FTLCalculator() {
 
   // Single-pilot ops have no defined "Not Acclimatised" table in CAD 1901 — force acclimatised.
   const handleCrewTypeChange = (v) => {
-    setCrewType(v)
-    if (v === 'single') setAcclimatised(true)
+    setFTLField(v === 'single' ? { crewType: v, acclimatised: true } : { crewType: v })
   }
 
   const airportStandbyPending = standby && standbyLocation === 'airport' && !!standbyStart && !reportTime
@@ -732,13 +696,13 @@ export default function FTLCalculator() {
                   { value: 'aeroplane', label: 'AEROPLANE' },
                   { value: 'helicopter', label: 'HELICOPTER', disabled: true, disabledTitle: 'Helicopter FTL not yet implemented — aeroplane tables only' },
                 ]}
-                value={aircraft} onChange={setAircraft}
+                value={aircraft} onChange={v => setFTLField({ aircraft: v })}
               />
             </Row>
             <Row label="POSITION">
               <Seg
                 options={[{ value: 'flight', label: 'FLIGHT CREW' }, { value: 'cabin', label: 'CABIN CREW' }]}
-                value={crewCat} onChange={setCrewCat}
+                value={crewCat} onChange={v => setFTLField({ crewCat: v })}
               />
             </Row>
             {crewCat === 'flight' && (
@@ -755,7 +719,7 @@ export default function FTLCalculator() {
                   { value: true, label: 'YES' },
                   { value: false, label: 'NO', disabled: effectiveCrew === 'single', disabledTitle: 'No Not-Acclimatised table exists for single-pilot ops in CAD 1901' },
                 ]}
-                value={acclimatised} onChange={setAcclimatised}
+                value={acclimatised} onChange={v => setFTLField({ acclimatised: v })}
               />
             </Row>
           </Section>
@@ -770,8 +734,8 @@ export default function FTLCalculator() {
               }>
               <input
                 type="text" value={reportTime} placeholder="HH:MM"
-                onChange={e => setReportTime(e.target.value)}
-                onBlur={e => { const n = normalizeTime(e.target.value); if (n) setReportTime(n) }}
+                onChange={e => setFTLField({ reportTime: e.target.value })}
+                onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ reportTime: n }) }}
                 style={{ ...inp, width: 100, textAlign: 'center' }}
                 maxLength={5}
               />
@@ -781,12 +745,12 @@ export default function FTLCalculator() {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Seg
                     options={[{ value: false, label: 'NO' }, { value: true, label: 'YES' }]}
-                    value={diffCabinTime} onChange={setDiffCabinTime}
+                    value={diffCabinTime} onChange={v => setFTLField({ diffCabinTime: v })}
                   />
                   {diffCabinTime && (
                     <input type="text" placeholder="HH:MM"
-                      value={cabinReportTime} onChange={e => setCabinReportTime(e.target.value)}
-                      onBlur={e => { const n = normalizeTime(e.target.value); if (n) setCabinReportTime(n) }}
+                      value={cabinReportTime} onChange={e => setFTLField({ cabinReportTime: e.target.value })}
+                      onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ cabinReportTime: n }) }}
                       style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
                     />
                   )}
@@ -796,12 +760,12 @@ export default function FTLCalculator() {
             <Row label="SECTORS">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <button className="cp-btn" style={{ padding: '4px 12px', fontSize: 16, lineHeight: 1 }}
-                  onClick={() => setSectors(s => Math.max(1, s - 1))}>−</button>
+                  onClick={() => setFTLField({ sectors: Math.max(1, sectors - 1) })}>−</button>
                 <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--cp-txt)', minWidth: 28, textAlign: 'center' }}>
                   {Math.min(sectors, maxSectors)}
                 </span>
                 <button className="cp-btn" style={{ padding: '4px 12px', fontSize: 16, lineHeight: 1 }}
-                  onClick={() => setSectors(s => Math.min(maxSectors, s + 1))}>+</button>
+                  onClick={() => setFTLField({ sectors: Math.min(maxSectors, sectors + 1) })}>+</button>
               </div>
             </Row>
             {crewCat === 'flight' && crewType === '2crew' && (
@@ -809,12 +773,12 @@ export default function FTLCalculator() {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Seg
                     options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-                    value={longRange} onChange={setLongRange}
+                    value={longRange} onChange={v => setFTLField({ longRange: v })}
                   />
                   {longRange && (
                     <input type="text" placeholder="H:MM"
-                      value={longestSector} onChange={e => setLongestSector(e.target.value)}
-                      onBlur={e => { const m = parseDur(e.target.value); if (m != null) setLongestSector(fmtDur(m)) }}
+                      value={longestSector} onChange={e => setFTLField({ longestSector: e.target.value })}
+                      onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ longestSector: fmtDur(m) }) }}
                       style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
                     />
                   )}
@@ -826,13 +790,13 @@ export default function FTLCalculator() {
           {/* Delayed reporting — Ch. 2.7. Mutually exclusive with Positioning. */}
           <Section title="DELAYED REPORTING" toggle={
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-              value={delayedReporting} onChange={v => { setDelayedReporting(v); if (v) setPositioning(false) }} />
+              value={delayedReporting} onChange={v => setFTLField(v ? { delayedReporting: v, positioning: false } : { delayedReporting: v })} />
           }>
             {delayedReporting && (
               <Row label="ACTUAL REPORT TIME" note="REPORT TIME above is treated as the original/planned time (Ch. 2.7.1)">
                 <input type="text" value={actualReportTime} placeholder="HH:MM"
-                  onChange={e => setActualReportTime(e.target.value)}
-                  onBlur={e => { const n = normalizeTime(e.target.value); if (n) setActualReportTime(n) }}
+                  onChange={e => setFTLField({ actualReportTime: e.target.value })}
+                  onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ actualReportTime: n }) }}
                   style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
                 />
               </Row>
@@ -842,13 +806,13 @@ export default function FTLCalculator() {
           {/* Positioning — Ch. 2.8. Mutually exclusive with Delayed Reporting. */}
           <Section title="POSITIONING" toggle={
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-              value={positioning} onChange={v => { setPositioning(v); if (v) setDelayedReporting(false) }} />
+              value={positioning} onChange={v => setFTLField(v ? { positioning: v, delayedReporting: false } : { positioning: v })} />
           }>
             {positioning && (
               <Row label="POSITIONING REPORT TIME" note="FDP commences here, not at the flight report time (Ch. 2.8.1)">
                 <input type="text" value={positioningReportTime} placeholder="HH:MM"
-                  onChange={e => setPositioningReportTime(e.target.value)}
-                  onBlur={e => { const n = normalizeTime(e.target.value); if (n) setPositioningReportTime(n) }}
+                  onChange={e => setFTLField({ positioningReportTime: e.target.value })}
+                  onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ positioningReportTime: n }) }}
                   style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
                 />
               </Row>
@@ -863,8 +827,8 @@ export default function FTLCalculator() {
                 note="Rest period before this duty — selects Table B row (Ch. 2.10)"
               >
                 <input type="text" placeholder="H:MM or HHMM"
-                  value={precedingRest} onChange={e => setPrecedingRest(e.target.value)}
-                  onBlur={e => { const m = parseDur(e.target.value); if (m != null) setPrecedingRest(fmtDur(m)) }}
+                  value={precedingRest} onChange={e => setFTLField({ precedingRest: e.target.value })}
+                  onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ precedingRest: fmtDur(m) }) }}
                   style={{ ...inp, width: 110, textAlign: 'center' }} maxLength={5}
                 />
               </Row>
@@ -881,14 +845,14 @@ export default function FTLCalculator() {
           {/* Standby */}
           <Section title="STANDBY" toggle={
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-              value={standby} onChange={setStandby} />
+              value={standby} onChange={v => setFTLField({ standby: v })} />
           }>
             {standby && (
               <>
                 <Row label="STANDBY START" note="Max 12h standby (Ch. 2.9)">
                   <input type="text" value={standbyStart} placeholder="HH:MM"
-                    onChange={e => setStandbyStart(e.target.value)}
-                    onBlur={e => { const n = normalizeTime(e.target.value); if (n) setStandbyStart(n) }}
+                    onChange={e => setFTLField({ standbyStart: e.target.value })}
+                    onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ standbyStart: n }) }}
                     style={{ ...inp, width: 100, textAlign: 'center' }}
                     maxLength={5}
                   />
@@ -896,7 +860,7 @@ export default function FTLCalculator() {
                 <Row label="LOCATION">
                   <Seg
                     options={[{ value: 'home', label: 'HOME' }, { value: 'airport', label: 'AIRPORT' }]}
-                    value={standbyLocation} onChange={setStandbyLocation}
+                    value={standbyLocation} onChange={v => setFTLField({ standbyLocation: v })}
                   />
                 </Row>
                 {standbyLocation === 'airport' && (
@@ -908,7 +872,7 @@ export default function FTLCalculator() {
                   <Row label="SHORT NOTICE" note="≤2h notice, standby during 2200–0800 — skips standby-start band (Ch. 2.9.1 exception)">
                     <Seg
                       options={[{ value: false, label: 'NO' }, { value: true, label: 'YES' }]}
-                      value={homeShortNotice} onChange={setHomeShortNotice}
+                      value={homeShortNotice} onChange={v => setFTLField({ homeShortNotice: v })}
                     />
                   </Row>
                 )}
@@ -920,7 +884,7 @@ export default function FTLCalculator() {
           {effectiveCrew === '2crew' && (
             <Section title="IN-FLIGHT RELIEF" toggle={
               <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-                value={ifr} onChange={setIfr} />
+                value={ifr} onChange={v => setFTLField({ ifr: v })} />
             }>
               {ifr && (
                 <>
@@ -930,13 +894,13 @@ export default function FTLCalculator() {
                         { value: 'bunk', label: `BUNK  ×½  max ${crewCat === 'cabin' ? '19h' : '18h'}` },
                         { value: 'seat', label: `SEAT  ×⅓  max ${crewCat === 'cabin' ? '16h' : '15h'}` },
                       ]}
-                      value={ifrType} onChange={setIfrType}
+                      value={ifrType} onChange={v => setFTLField({ ifrType: v })}
                     />
                   </Row>
                   <Row label="REST PERIOD" note="Minimum 3h required (Ch. 2.12)">
                     <input type="text" placeholder="H:MM"
-                      value={ifrRest} onChange={e => setIfrRest(e.target.value)}
-                      onBlur={e => { const m = parseDur(e.target.value); if (m != null) setIfrRest(fmtDur(m)) }}
+                      value={ifrRest} onChange={e => setFTLField({ ifrRest: e.target.value })}
+                      onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ ifrRest: fmtDur(m) }) }}
                       style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
                     />
                   </Row>
@@ -948,7 +912,7 @@ export default function FTLCalculator() {
           {/* Reduced preceding rest — gates split duty (2.13.4) and PIC discretion (2.15.3/2.15.4) below */}
           <Section title="REDUCED PRECEDING REST" toggle={
             <Seg options={[{ value: false, label: 'NO' }, { value: true, label: 'YES' }]}
-              value={reducedRest} onChange={setReducedRest} />
+              value={reducedRest} onChange={v => setFTLField({ reducedRest: v })} />
           }>
             {reducedRest && (
               <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-orange)', lineHeight: 1.6, paddingBottom: 4 }}>
@@ -963,7 +927,7 @@ export default function FTLCalculator() {
           {/* Split duty */}
           <Section title="SPLIT DUTY" toggle={
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-              value={splitDuty} onChange={setSplitDuty} />
+              value={splitDuty} onChange={v => setFTLField({ splitDuty: v })} />
           }>
             {splitDuty && reducedRest && (
               <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-red)', lineHeight: 1.6, paddingBottom: 4 }}>
@@ -973,8 +937,8 @@ export default function FTLCalculator() {
             {splitDuty && !reducedRest && (
               <Row label="REST PERIOD" note="3–10h rest → ½ extension (Ch. 2.13)">
                 <input type="text" placeholder="H:MM"
-                  value={splitRest} onChange={e => setSplitRest(e.target.value)}
-                  onBlur={e => { const m = parseDur(e.target.value); if (m != null) setSplitRest(fmtDur(m)) }}
+                  value={splitRest} onChange={e => setFTLField({ splitRest: e.target.value })}
+                  onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ splitRest: fmtDur(m) }) }}
                   style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
                 />
               </Row>
@@ -984,7 +948,7 @@ export default function FTLCalculator() {
           {/* PIC discretion */}
           <Section title="PIC DISCRETION" toggle={
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-              value={picDisc} onChange={v => { setPicDisc(v); if (!v) setPicActualEnd('') }} />
+              value={picDisc} onChange={v => setFTLField(v ? { picDisc: v } : { picDisc: v, picActualEnd: '' })} />
           }>
             {picDisc && (
               <>
@@ -992,14 +956,14 @@ export default function FTLCalculator() {
                   <Row label="BEFORE LAST SECTOR" note="Max 3h only before last sector · max 2h before any earlier sector (Ch. 2.15.2)">
                     <Seg
                       options={[{ value: true, label: 'YES (max 3h)' }, { value: false, label: 'NO (max 2h)' }]}
-                      value={picLastSector} onChange={setPicLastSector}
+                      value={picLastSector} onChange={v => setFTLField({ picLastSector: v })}
                     />
                   </Row>
                 )}
                 <Row label="ACTUAL FDP END TIME" note="Discretion can't be planned — enter once known (e.g. actual on-blocks). Extension used is calculated automatically (Ch. 2.15)">
                   <input type="text" placeholder="HH:MM"
-                    value={picActualEnd} onChange={e => setPicActualEnd(e.target.value)}
-                    onBlur={e => { const n = normalizeTime(e.target.value); if (n) setPicActualEnd(n) }}
+                    value={picActualEnd} onChange={e => setFTLField({ picActualEnd: e.target.value })}
+                    onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ picActualEnd: n }) }}
                     style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
                   />
                 </Row>
