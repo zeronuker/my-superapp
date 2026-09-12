@@ -12,11 +12,10 @@ import {
   getRoleStyle,
 } from '../utils/metarSeverity'
 import { filterSigmetsByFir } from '../utils/sigmet'
-import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
-import { projectLatLng, WORLD_LAND_PATH, WORLD_MAP_WIDTH, WORLD_MAP_HEIGHT } from '../data/worldMap'
 import SigmetCard from './SigmetCard'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import WindyRouteMap, { hasWindyLoadedBefore } from './WindyRouteMap'
+import CartoRouteMap, { hasCartoLoadedBefore } from './CartoRouteMap'
 
 // One fixed color per section (independent of the user's accent theme, same
 // precedent as ROLE_COLORS in metarSeverity.js) so each section of the
@@ -365,52 +364,30 @@ function AirportCard({ target, weather }) {
   )
 }
 
-// ── Route map: real coastlines (worldMap.js) + role-colored airport dots ──
-function computeMapBounds(points) {
-  const xs = points.map(p => p.x), ys = points.map(p => p.y)
-  let minX = Math.min(...xs), maxX = Math.max(...xs)
-  let minY = Math.min(...ys), maxY = Math.max(...ys)
-  const padX = Math.max((maxX - minX) * 0.15, 18)
-  const padY = Math.max((maxY - minY) * 0.15, 18)
-  minX = Math.max(minX - padX, 0)
-  maxX = Math.min(maxX + padX, WORLD_MAP_WIDTH)
-  minY = Math.max(minY - padY, 0)
-  maxY = Math.min(maxY + padY, WORLD_MAP_HEIGHT)
-  return { minX, minY, w: maxX - minX, h: maxY - minY }
-}
+// ── Route map: CARTO vector basemap + role-colored airport dots ──
+const BASEMAP_TABS = [
+  { id: 'dark', label: 'Dark' },
+  { id: 'voyager', label: 'Vector' },
+  { id: 'live', label: 'Live Weather' },
+]
 
 function RouteMap({ dep, arr, destAltList, eraList, isOffline }) {
-  const [showLive, setShowLive] = useState(false)
+  const [tab, setTab] = useState('voyager')
   const depAp = dep && lookupAirport(dep)
   const arrAp = arr && lookupAirport(arr)
 
   const markers = []
-  if (depAp) markers.push({ icao: dep, label: 'DEPARTURE', ap: depAp, big: true })
-  if (arrAp) markers.push({ icao: arr, label: 'ARRIVAL', ap: arrAp, big: true })
+  if (depAp) markers.push({ icao: dep, label: 'DEPARTURE', lat: depAp.lat, lng: depAp.lng, big: true })
+  if (arrAp) markers.push({ icao: arr, label: 'ARRIVAL', lat: arrAp.lat, lng: arrAp.lng, big: true })
   for (const a of destAltList) {
     const ap = lookupAirport(a.icao)
-    if (ap) markers.push({ icao: a.icao, label: a.label, ap })
+    if (ap) markers.push({ icao: a.icao, label: a.label, lat: ap.lat, lng: ap.lng })
   }
   for (const a of eraList) {
     const ap = lookupAirport(a.icao)
-    if (ap) markers.push({ icao: a.icao, label: a.label, ap })
+    if (ap) markers.push({ icao: a.icao, label: a.label, lat: ap.lat, lng: ap.lng })
   }
   if (markers.length === 0) return null
-
-  const projected = markers.map(m => ({ ...m, ...projectLatLng(m.ap.lat, m.ap.lng) }))
-  const bounds = computeMapBounds(projected)
-
-  // Route curve: a quadratic Bezier through the real great-circle midpoint
-  // (not just a straight line or a guessed bow) between dep and arr.
-  let routePath = null
-  if (depAp && arrAp) {
-    const p0 = projectLatLng(depAp.lat, depAp.lng)
-    const p2 = projectLatLng(arrAp.lat, arrAp.lng)
-    const mid = interpolateGreatCircle(depAp.lat, depAp.lng, arrAp.lat, arrAp.lng, 0.5)
-    const pMid = projectLatLng(mid.lat, mid.lng)
-    const p1 = { x: 2 * pMid.x - 0.5 * (p0.x + p2.x), y: 2 * pMid.y - 0.5 * (p0.y + p2.y) }
-    routePath = `M ${p0.x} ${p0.y} Q ${p1.x} ${p1.y} ${p2.x} ${p2.y}`
-  }
 
   return (
     <div style={{
@@ -431,22 +408,23 @@ function RouteMap({ dep, arr, destAltList, eraList, isOffline }) {
           display: 'flex', gap: 2, background: 'var(--cp-bg)', border: '1px solid var(--cp-border3)',
           borderRadius: 7, padding: 2,
         }}>
-          {[{ id: false, label: 'Route' }, { id: true, label: 'Live Weather' }].map(opt => {
+          {BASEMAP_TABS.map(opt => {
             // Blocked only for a genuinely first-time load while offline —
-            // once Windy's already loaded this session, its map (and
-            // whatever tiles were already fetched) stays alive in its own
-            // permanent div, so switching back to it offline still works.
-            const blocked = opt.id && isOffline && !hasWindyLoadedBefore()
+            // once a basemap has loaded this session, it (and whatever
+            // tiles were already fetched) stays cached, so switching back
+            // to it offline still works.
+            const hasLoadedBefore = opt.id === 'live' ? hasWindyLoadedBefore() : hasCartoLoadedBefore(opt.id)
+            const blocked = isOffline && !hasLoadedBefore
             return (
               <button
-                key={String(opt.id)}
-                onClick={() => !blocked && setShowLive(opt.id)}
+                key={opt.id}
+                onClick={() => !blocked && setTab(opt.id)}
                 disabled={blocked}
                 title={blocked ? 'Unavailable offline — never loaded this session' : undefined}
                 style={{
                   fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase',
-                  color: showLive === opt.id ? 'var(--cp-txt)' : 'var(--cp-dim)',
-                  background: showLive === opt.id ? 'var(--cp-bg3)' : 'transparent',
+                  color: tab === opt.id ? 'var(--cp-txt)' : 'var(--cp-dim)',
+                  background: tab === opt.id ? 'var(--cp-bg3)' : 'transparent',
                   border: 'none', borderRadius: 5, padding: '6px 10px',
                   cursor: blocked ? 'not-allowed' : 'pointer',
                   opacity: blocked ? 0.4 : 1,
@@ -457,48 +435,11 @@ function RouteMap({ dep, arr, destAltList, eraList, isOffline }) {
         </div>
       </div>
 
-      <div style={{
-        position: 'relative', width: '100%',
-        // Match the container to the route's own bounding-box shape — a
-        // fixed wide ratio here squeezes a mostly north-south route (small
-        // lng spread, big lat spread) into a thin sliver, shrinking the
-        // markers/labels along with it. maxHeight guards against a
-        // near-pole-to-pole route making the modal absurdly tall.
-        aspectRatio: `${bounds.w} / ${bounds.h}`, maxHeight: 900,
-      }}>
-        {showLive ? (
-          <WindyRouteMap markers={projected.map(m => ({ icao: m.icao, label: m.label, lat: m.ap.lat, lng: m.ap.lng, big: m.big }))} isOffline={isOffline} />
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', maxHeight: 900 }}>
+        {tab === 'live' ? (
+          <WindyRouteMap markers={markers} isOffline={isOffline} />
         ) : (
-          <svg viewBox={`${bounds.minX} ${bounds.minY} ${bounds.w} ${bounds.h}`} style={{ display: 'block', width: '100%', height: '100%' }}>
-            <rect x={bounds.minX} y={bounds.minY} width={bounds.w} height={bounds.h} fill="var(--cp-bg3)" />
-
-            <path d={WORLD_LAND_PATH} fill="var(--cp-dim)" fillOpacity={0.28} fillRule="evenodd" />
-
-            {routePath && (
-              <path d={routePath} fill="none" stroke="var(--cp-txt)" strokeWidth={bounds.w / 300}
-                strokeDasharray={`${bounds.w / 130} ${bounds.w / 180}`} opacity={0.85} />
-            )}
-
-            {projected.map(m => {
-              const role = getRoleStyle(m.label)
-              const r = (m.big ? bounds.w / 78 : bounds.w / 100)
-              const fontSize = bounds.w / (m.big ? 42 : 50)
-              return (
-                <g key={m.icao}>
-                  {m.big && <circle cx={m.x} cy={m.y} r={r * 1.7} fill="none" stroke={role.color} strokeWidth={bounds.w / 500} opacity={0.4} />}
-                  <circle cx={m.x} cy={m.y} r={r} fill={role.color} stroke="var(--cp-bg3)" strokeWidth={bounds.w / 450} />
-                  {/* Halo behind the code so the route line, coastline or another
-                      marker never reads as cutting through it, for any route. */}
-                  <text x={m.x} y={m.y + (m.y < bounds.minY + bounds.h / 2 ? r * 2.6 : -r * 1.8)}
-                    textAnchor="middle" fontFamily="var(--cb-font-mono)" fontSize={fontSize}
-                    fontWeight={m.big ? 700 : 500} fill={role.color}
-                    paintOrder="stroke" stroke="var(--cp-bg3)" strokeWidth={fontSize / 4} strokeLinejoin="round">
-                    {m.icao}
-                  </text>
-                </g>
-              )
-            })}
-          </svg>
+          <CartoRouteMap markers={markers} styleKey={tab} isOffline={isOffline} />
         )}
       </div>
     </div>

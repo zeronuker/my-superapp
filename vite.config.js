@@ -109,10 +109,29 @@ export default defineConfig({
               networkTimeoutSeconds: 8,
             },
           },
+          // CARTO basemap style/sprites/fonts/tiles — static-ish, so
+          // CacheFirst lets the Route map's Dark/Vector tabs work offline
+          // once a route has loaded them at least once this install.
+          {
+            urlPattern: /^https:\/\/basemaps\.cartocdn\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'carto-basemap-tiles',
+              expiration: { maxEntries: 2000, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
         ],
       },
     }),
   ],
+  // maplibre-gl loads its tile-parsing code as a separate worker file via
+  // `new Worker(new URL(...))` — Vite's dev dep pre-bundler flattens that
+  // into a broken reference (404s), so tiles never parse and the map never
+  // finishes loading. Excluding it from pre-bundling makes Vite serve it
+  // natively instead, where that worker reference resolves correctly.
+  optimizeDeps: {
+    exclude: ['maplibre-gl'],
+  },
   server: {
     port: 3000,
     fs: { allow: ['.'] },
