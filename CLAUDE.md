@@ -103,6 +103,12 @@ when asked. The service worker caches aggressively; users get an update prompt
   lookup here or anywhere else in the app — Malaysia Airports' gate finder
   (`api/gatefinder.js`) uses Malaysia Airports' own public API directly, not
   AeroDataBox or SkyLink.
+- **CARTO basemaps (`CartoRouteMap.jsx`)** — the briefing's Dark/Vector map
+  tabs load vector styles directly from `basemaps.cartocdn.com` (client-side,
+  no proxy). CARTO now requires an API key on every basemap request (this
+  used to be optional); get a free one at carto.com/basemaps/apikey and set
+  it as `VITE_CARTO_API_KEY` in Vercel env vars. Their query param is `key`,
+  not `api_key`. Without a key, the map tab shows "Map unavailable".
 - **SkyLink (`api/skylink.js`)** is fallback-only for METAR/TAF and NOTAM —
   aviationweather.gov and autorouter.aero are always primary (see
   `weatherAPI.js` / `notamAPI.js`), SkyLink only gets called if those fail.

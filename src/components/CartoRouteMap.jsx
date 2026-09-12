@@ -23,10 +23,9 @@ const STYLE_IDS = {
 
 function styleUrl(styleId) {
   const base = `https://basemaps.cartocdn.com/gl/${styleId}/style.json`
-  // CARTO's vector styles don't require the key yet (only their raster
-  // tiles do), but accept it already — sending it now means nothing breaks
-  // once the key requirement reaches vector too.
-  return CARTO_KEY ? `${base}?api_key=${CARTO_KEY}` : base
+  // CARTO now requires a key on every basemap request (this used to be
+  // optional for vector styles). Their query param is `key`, not `api_key`.
+  return CARTO_KEY ? `${base}?key=${CARTO_KEY}` : base
 }
 
 // Module-level (not component state) so switching basemap tabs remembers
