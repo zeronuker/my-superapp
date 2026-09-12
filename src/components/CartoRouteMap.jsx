@@ -1,8 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
-import { Map as MaplibreMap, Marker, LngLatBounds } from 'maplibre-gl'
+import { Map as MaplibreMap, Marker, LngLatBounds, setWorkerUrl } from 'maplibre-gl'
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getRoleStyle } from '../utils/metarSeverity'
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
+
+// MapLibre builds its worker's own URL from a dynamic template literal
+// (`./${t}`), which no bundler can statically resolve into a real emitted
+// asset — in dev it 404s, in production Vercel's SPA rewrite serves
+// index.html for that missing path instead, and the worker never loads
+// (tiles never parse, the map hangs on "Loading map…" forever with no
+// error). Importing the worker file via Vite's `?url` gives us its real,
+// bundler-resolved path, which setWorkerUrl feeds to MapLibre directly.
+setWorkerUrl(maplibreWorkerUrl)
 
 const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY
 
