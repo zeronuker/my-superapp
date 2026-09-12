@@ -28,6 +28,23 @@ export default defineConfig({
         { src: 'brand-kit/static/css/brand.css',  dest: 'brand', rename: { stripBase: true } },
         { src: 'brand-kit/static/logo/logo-mark.svg',       dest: 'brand', rename: { stripBase: true } },
         { src: 'brand-kit/static/logo/logo-mark-light.svg', dest: 'brand', rename: { stripBase: true } },
+        // maplibre-gl-worker.mjs has a plain `import ... from './maplibre-gl-shared.mjs'`
+        // — a real relative import, not the dynamic self-URL guess this app already
+        // works around elsewhere. Copying just the worker file (e.g. via a Vite `?url`
+        // import) drops that sibling, so the browser 404s on it — Vercel's SPA rewrite
+        // then serves index.html for the missing path, which fails as a non-JS module.
+        // Copying both files, unhashed, into the same folder keeps that relative import
+        // resolving exactly as it does inside the package itself.
+        {
+          src: 'node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs',
+          dest: 'maplibre-gl',
+          rename: { stripBase: true },
+        },
+        {
+          src: 'node_modules/maplibre-gl/dist/maplibre-gl-shared.mjs',
+          dest: 'maplibre-gl',
+          rename: { stripBase: true },
+        },
       ],
     }),
     VitePWA({
