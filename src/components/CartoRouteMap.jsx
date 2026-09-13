@@ -3,6 +3,7 @@ import { Map as MaplibreMap, Marker, LngLatBounds, setWorkerUrl } from 'maplibre
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getRoleStyle } from '../utils/metarSeverity'
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
+import OfflineCoastlineMap from './OfflineCoastlineMap'
 
 // MapLibre builds its worker's own URL from a dynamic template literal
 // (`./${t}`), which no bundler can statically resolve into a real emitted
@@ -21,7 +22,6 @@ const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY
 
 const STYLE_IDS = {
   dark: 'dark-matter-gl-style',
-  voyager: 'voyager-gl-style',
 }
 
 function styleUrl(styleId) {
@@ -70,13 +70,19 @@ export default function CartoRouteMap({ markers, styleKey, isOffline }) {
   const mapRef = useRef(null)
   const markersRef = useRef([])
   const [status, setStatus] = useState('loading') // loading | ready | error
+  // pending | accepted | declined — only relevant once status === 'error'.
+  // "accepted" swaps in the offline coastline fallback; "declined" just
+  // stops asking and leaves the plain "unavailable" message up.
+  const [fallbackChoice, setFallbackChoice] = useState('pending')
 
   // Re-create the map whenever the basemap style changes — MapLibre's own
   // setStyle() tears down every custom source/layer, so a full teardown +
   // rebuild here is simpler than re-adding everything after a style swap.
   useEffect(() => {
     let stale = false
+    let loaded = false
     setStatus('loading')
+    setFallbackChoice('pending')
     const map = new MaplibreMap({
       container: containerRef.current,
       style: styleUrl(STYLE_IDS[styleKey]),
@@ -92,10 +98,20 @@ export default function CartoRouteMap({ markers, styleKey, isOffline }) {
     // addSource on a style that isn't loaded yet, crashing the component.
     map.on('load', () => {
       if (stale) return
+      loaded = true
       loadedStyles.add(styleKey)
       setStatus('ready')
     })
-    map.on('error', () => { if (!stale) setStatus('error') })
+    // Only a failure BEFORE the map ever finished loading counts as fatal.
+    // MapLibre also fires 'error' for a single failed tile request (e.g.
+    // panning/zooming into an area never cached, while offline) — once the
+    // map has already shown a good view, that shouldn't hide everything
+    // behind the "unavailable" cover; the already-rendered tiles just stay
+    // as they are and the new one is left blank.
+    map.on('error', () => {
+      if (stale || loaded) return
+      setStatus('error')
+    })
 
     return () => {
       stale = true
@@ -105,6 +121,16 @@ export default function CartoRouteMap({ markers, styleKey, isOffline }) {
       mapRef.current = null
     }
   }, [styleKey])
+
+  // Freeze all gestures while offline so a pan/zoom/rotate can't ask for a
+  // tile that was never cached in the first place. Re-enabled the moment
+  // connectivity returns.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || status !== 'ready') return
+    const handlers = [map.dragPan, map.scrollZoom, map.dragRotate, map.touchZoomRotate, map.doubleClickZoom, map.keyboard, map.boxZoom, map.touchPitch]
+    handlers.forEach(h => (isOffline ? h.disable() : h.enable()))
+  }, [isOffline, status])
 
   // Draw the route line + airport markers, and fit bounds, once the map is ready.
   useEffect(() => {
@@ -144,18 +170,59 @@ export default function CartoRouteMap({ markers, styleKey, isOffline }) {
     map.fitBounds(bounds, { padding: 60, maxZoom: 9, duration: 0 })
   }, [status, markers])
 
+  const buttonStyle = {
+    fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase',
+    color: 'var(--cp-txt)', background: 'var(--cp-bg3)', border: '1px solid var(--cp-border3)',
+    borderRadius: 5, padding: '5px 10px', cursor: 'pointer',
+  }
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
-      {status !== 'ready' && (
+
+      {status === 'ready' && isOffline && (
+        <div style={{
+          position: 'absolute', top: 10, right: 10, pointerEvents: 'none',
+          background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+          border: '1px solid var(--cp-border3)', borderRadius: 7, padding: '5px 9px',
+          fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
+          color: 'var(--cp-yellow)',
+        }}>
+          Offline — map frozen
+        </div>
+      )}
+
+      {status === 'loading' && (
         <div style={{
           position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', textTransform: 'uppercase',
           letterSpacing: '0.08em', background: 'var(--cp-bg3)', pointerEvents: 'none',
         }}>
-          {status === 'error'
-            ? (isOffline ? 'Unavailable offline — never loaded this session' : 'Map unavailable')
-            : 'Loading map…'}
+          Loading map…
+        </div>
+      )}
+
+      {status === 'error' && fallbackChoice === 'accepted' && (
+        <div style={{ position: 'absolute', inset: 0 }}>
+          <OfflineCoastlineMap markers={markers} />
+        </div>
+      )}
+
+      {status === 'error' && fallbackChoice !== 'accepted' && (
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', gap: 10,
+          fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', textTransform: 'uppercase',
+          letterSpacing: '0.08em', background: 'var(--cp-bg3)',
+        }}>
+          <div>{isOffline ? 'Unavailable offline — never loaded this session' : 'Map unavailable'}</div>
+          {fallbackChoice === 'pending' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>Show offline map instead?</span>
+              <button onClick={() => setFallbackChoice('accepted')} style={buttonStyle}>Yes</button>
+              <button onClick={() => setFallbackChoice('declined')} style={buttonStyle}>No</button>
+            </div>
+          )}
         </div>
       )}
     </div>

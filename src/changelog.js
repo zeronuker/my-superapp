@@ -316,6 +316,11 @@ export const CHANGELOG = [
       "NEW: Converter: Volume category now includes teaspoons, tablespoons, pints, and quarts for cooking conversions",
       "FIX: Converter: category picker changed to a fixed 6-per-row layout (today's 12 categories fill 2 full rows, no scrolling) instead of a 4-column grid that wrapped to 3 rows — was clipping the unit dropdown on short panels (e.g. iPad landscape); a partial last row now centers instead of hugging the left",
       "FIX: Converter: opening a unit dropdown now auto-scrolls it fully into view instead of requiring a manual scroll to see options past the first couple",
+      "FIX: Briefing: Route map's offline cache only covered CARTO's style file, not the actual map tiles — now covers both, so the Dark basemap reliably works offline after being viewed once",
+      "FIX: Briefing: removed the Vector basemap — Route map's static basemap is now Dark only (Live Weather unchanged)",
+      "FIX: Briefing: a single tile failing to load while offline no longer hides the whole already-loaded map",
+      "NEW: Briefing: Route map freezes pan/zoom/rotate while offline (with an \"Offline — map frozen\" indicator) so it can't request tiles that were never cached",
+      "NEW: Briefing: Route map offers a no-network fallback coastline view (\"Show offline map instead?\") if the basemap genuinely fails to load",
     ],
   },
 ]

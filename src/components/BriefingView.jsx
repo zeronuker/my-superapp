@@ -367,12 +367,11 @@ function AirportCard({ target, weather }) {
 // ── Route map: CARTO vector basemap + role-colored airport dots ──
 const BASEMAP_TABS = [
   { id: 'dark', label: 'Dark' },
-  { id: 'voyager', label: 'Vector' },
   { id: 'live', label: 'Live Weather' },
 ]
 
 function RouteMap({ dep, arr, destAltList, eraList, isOffline }) {
-  const [tab, setTab] = useState('voyager')
+  const [tab, setTab] = useState('dark')
   const depAp = dep && lookupAirport(dep)
   const arrAp = arr && lookupAirport(arr)
 

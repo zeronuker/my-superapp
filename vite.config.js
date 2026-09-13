@@ -129,8 +129,13 @@ export default defineConfig({
           // CARTO basemap style/sprites/fonts/tiles — static-ish, so
           // CacheFirst lets the Route map's Dark/Vector tabs work offline
           // once a route has loaded them at least once this install.
+          // The style.json itself lives at basemaps.cartocdn.com, but the
+          // sprite/glyphs/actual vector tiles it references are served from
+          // tiles.basemaps.cartocdn.com — a different subdomain that the
+          // previous exact-host pattern missed, so only the style document
+          // (not the tiles it needs to draw) was ever getting cached.
           {
-            urlPattern: /^https:\/\/basemaps\.cartocdn\.com\/.*/i,
+            urlPattern: /^https:\/\/(?:[a-z0-9-]+\.)+cartocdn\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'carto-basemap-tiles',
