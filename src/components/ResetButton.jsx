@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 
 // Standardized reset button: visibly orange by default (no hover needed to
 // read as "careful"), escalates to red on hover/press as the action is about
@@ -35,7 +36,7 @@ export default function ResetButton({ onReset, scoped = false }) {
         }}
       >↺ RESET</button>
 
-      {open && (
+      {open && createPortal(
         <div
           onClick={() => setOpen(false)}
           style={{
@@ -96,7 +97,8 @@ export default function ResetButton({ onReset, scoped = false }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
