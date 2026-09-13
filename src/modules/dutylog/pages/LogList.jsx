@@ -3,6 +3,7 @@ import QrScanner from '../components/QrScanner'
 import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
 import { CODE_RE } from '../services/sync'
 import { sectorStripeColors, aircraftStripeColors, logSegmentColors } from '../utils/sectorColors'
+import { formatHHMM } from '../utils/formatHHMM'
 
 // Saved duty logs — newest first. Tap to open, trash to delete, NEW to create.
 const mono = 'var(--cb-font-mono)'
@@ -118,7 +119,9 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
             {log.date || 'UNDATED'}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--cp-acc)' }}>{log.aircraft?.[0]?.reg || '—'}</span>
+            <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--cp-acc)' }}>
+              {(log.aircraft || []).map((a, i) => a.reg || `ACFT ${i + 1}`).join(' / ') || '—'}
+            </span>
             <button
               onClick={(e) => { e.stopPropagation(); if (window.confirm('Delete this log? This cannot be undone.')) onDelete(log.id) }}
               aria-label="delete log"
@@ -176,15 +179,16 @@ const roSecLabel = {
   color: 'var(--cp-muted)', margin: '16px 0 8px',
 }
 
-function ReadOnlyField({ label, value, labelStyle, unit, unitPosition = 'suffix' }) {
+function ReadOnlyField({ label, value, labelStyle, unit, unitPosition = 'suffix', time }) {
+  const shown = time ? formatHHMM(value) : value
   return (
     <div>
       {label && <label style={labelStyle || roLblStyle}>{label}</label>}
       <div className="cp-input" style={{ fontSize: 11, padding: '6px 7px', color: 'var(--cp-txt)' }}>
-        {value
+        {shown
           ? (unitPosition === 'prefix'
-              ? <>{unit && <span style={{ color: 'var(--cp-acc)', marginRight: 4 }}>{unit}</span>}{value}</>
-              : <>{value}{unit && <span style={{ color: 'var(--cp-acc)', marginLeft: 4 }}>{unit}</span>}</>)
+              ? <>{unit && <span style={{ color: 'var(--cp-acc)', marginRight: 4 }}>{unit}</span>}{shown}</>
+              : <>{shown}{unit && <span style={{ color: 'var(--cp-acc)', marginLeft: 4 }}>{unit}</span>}</>)
           : '—'}
       </div>
     </div>
@@ -259,10 +263,10 @@ function ViewedSector({ sector, index, aircraftList }) {
         <ReadOnlyField label="Fuel On Block" value={sector.fuelOn} unit="KG" />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7 }}>
-        <ReadOnlyField label="Off Block" value={sector.offBlk} />
-        <ReadOnlyField label="T/O" value={sector.takeoff} />
-        <ReadOnlyField label="LDG" value={sector.ldg} />
-        <ReadOnlyField label="On Block" value={sector.onBlk} />
+        <ReadOnlyField label="Off Block" value={sector.offBlk} time />
+        <ReadOnlyField label="T/O" value={sector.takeoff} time />
+        <ReadOnlyField label="LDG" value={sector.ldg} time />
+        <ReadOnlyField label="On Block" value={sector.onBlk} time />
       </div>
       <div style={{ display: 'flex', gap: 9, alignItems: 'center', borderTop: '1px dashed var(--cp-border2)', paddingTop: 8, marginTop: 9 }}>
         <span style={{ fontFamily: mono, fontSize: 8.5, letterSpacing: '0.1em', color: 'var(--cp-dim)', whiteSpace: 'nowrap' }}>ENG OUT</span>

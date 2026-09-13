@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { sectorStripeColors, aircraftStripeColors } from '../utils/sectorColors'
+import { formatHHMM } from '../utils/formatHHMM'
 
 const mono = 'var(--cb-font-mono)'
 
@@ -10,11 +11,6 @@ const lblStyle = {
 const secLabel = {
   fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase',
   color: 'var(--cp-muted)', margin: '16px 0 8px',
-}
-
-function formatHHMM(raw) {
-  const digits = raw.replace(/\D/g, '').slice(0, 4)
-  return digits.length <= 2 ? digits : `${digits.slice(0, 2)}:${digits.slice(2)}`
 }
 
 const unitStyle = (position) => ({
@@ -34,7 +30,7 @@ function Field({ label, value, onChange, numeric, time, unit, unitPosition = 'su
   const input = (
     <input className="cp-input" style={inputStyle}
       inputMode={numeric || time ? 'numeric' : undefined} pattern={numeric || time ? '[0-9]*' : undefined}
-      value={value} onChange={handleChange} />
+      value={time ? formatHHMM(value) : value} onChange={handleChange} />
   )
   return (
     <div>
