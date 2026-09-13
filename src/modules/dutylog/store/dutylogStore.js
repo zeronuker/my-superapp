@@ -4,9 +4,10 @@ import { persist } from 'zustand/middleware'
 const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID()
   : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
-export function blankSector() {
+export function blankSector(aircraftId = null) {
   return {
     id: uid(),
+    aircraftId,
     fltNo: '', from: '', dest: '', pax: '',
     fuelOff: '', fuelOn: '',
     offBlk: '', takeoff: '', ldg: '', onBlk: '',
@@ -94,10 +95,11 @@ const useDutyLogStore = create(persist(
       })) })),
 
     removeAircraft: (id, aid) =>
-      set((s) => ({ logs: mapLog(s.logs, id, (l) => ({
+      set((s) => ({ logs: mapLog(s.logs, id, (l) => (l.aircraft.length > 1 ? {
         ...l,
-        aircraft: l.aircraft.length > 1 ? l.aircraft.filter(a => a.id !== aid) : l.aircraft,
-      })) })),
+        aircraft: l.aircraft.filter(a => a.id !== aid),
+        sectors: l.sectors.map(x => (x.aircraftId === aid ? { ...x, aircraftId: null } : x)),
+      } : l)) })),
 
     updateAircraft: (id, aid, patch) =>
       set((s) => ({ logs: mapLog(s.logs, id, (l) => ({
@@ -107,7 +109,10 @@ const useDutyLogStore = create(persist(
 
     // ── Sectors ───────────────────────────────────────────────────────────
     addSector: (id) =>
-      set((s) => ({ logs: mapLog(s.logs, id, (l) => ({ ...l, sectors: [...l.sectors, blankSector()] })) })),
+      set((s) => ({ logs: mapLog(s.logs, id, (l) => (l.sectors.length < 8 ? {
+        ...l,
+        sectors: [...l.sectors, blankSector(l.sectors[l.sectors.length - 1]?.aircraftId ?? l.aircraft[0]?.id ?? null)],
+      } : l)) })),
 
     removeSector: (id, sid) =>
       set((s) => ({ logs: mapLog(s.logs, id, (l) => ({

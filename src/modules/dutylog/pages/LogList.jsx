@@ -176,12 +176,16 @@ const roSecLabel = {
   color: 'var(--cp-muted)', margin: '16px 0 8px',
 }
 
-function ReadOnlyField({ label, value, labelStyle }) {
+function ReadOnlyField({ label, value, labelStyle, unit, unitPosition = 'suffix' }) {
   return (
     <div>
       {label && <label style={labelStyle || roLblStyle}>{label}</label>}
       <div className="cp-input" style={{ fontSize: 11, padding: '6px 7px', color: 'var(--cp-txt)' }}>
-        {value || '—'}
+        {value
+          ? (unitPosition === 'prefix'
+              ? <>{unit && <span style={{ color: 'var(--cp-acc)', marginRight: 4 }}>{unit}</span>}{value}</>
+              : <>{value}{unit && <span style={{ color: 'var(--cp-acc)', marginLeft: 4 }}>{unit}</span>}</>)
+          : '—'}
       </div>
     </div>
   )
@@ -200,31 +204,49 @@ function ViewedAircraft({ aircraft, index }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7, marginBottom: 7 }}>
         <ReadOnlyField label="Registration" value={aircraft.reg} />
         <ReadOnlyField label="Type" value={aircraft.type} />
-        <ReadOnlyField label="MTOW" value={aircraft.mtow} />
-        <ReadOnlyField label="MLW" value={aircraft.mlw} />
+        <ReadOnlyField label="MTOW" value={aircraft.mtow} unit="KG" />
+        <ReadOnlyField label="MLW" value={aircraft.mlw} unit="KG" />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 9, alignItems: 'start' }}>
         <ReadOnlyField label="Configuration" value={aircraft.config} />
         <div style={{ gridColumn: '2 / span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9,
           background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)', borderRadius: 6, padding: '9px 10px' }}>
-          <ReadOnlyField label="DOW" value={aircraft.dow} labelStyle={{ ...roLblStyle, color: 'var(--cp-acc)' }} />
-          <ReadOnlyField label="DOI" value={aircraft.doi} labelStyle={{ ...roLblStyle, color: 'var(--cp-acc)' }} />
+          <ReadOnlyField label="DOW" value={aircraft.dow} unit="KG" labelStyle={{ ...roLblStyle, color: 'var(--cp-acc)' }} />
+          <ReadOnlyField label="DOI" value={aircraft.doi} unit="I.U." labelStyle={{ ...roLblStyle, color: 'var(--cp-acc)' }} />
         </div>
       </div>
     </div>
   )
 }
 
-function ViewedSector({ sector, index }) {
+function ViewedSector({ sector, index, aircraftList }) {
   const hasRemark = (sector.remark || '').trim().length > 0
   const stripeColor = sectorStripeColors[index % sectorStripeColors.length]
+
+  const showAcftChip = aircraftList.length > 1
+  let selIndex = aircraftList.findIndex(a => a.id === sector.aircraftId)
+  if (selIndex === -1) selIndex = 0
+  const selAcft = aircraftList[selIndex]
+  const acftColor = aircraftStripeColors[selIndex % aircraftStripeColors.length]
+
   return (
     <div style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, marginBottom: 9, background: 'var(--cp-bg2)' }}>
-      <div style={{ marginBottom: 8 }}>
+      <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)',
           background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px' }}>
           SECTOR #{index + 1}
         </span>
+        {showAcftChip && (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontFamily: mono, fontSize: 9, letterSpacing: '0.06em', fontWeight: 500,
+            padding: '2px 7px', borderRadius: 4, border: `1px solid ${acftColor}`,
+            color: acftColor, background: `${acftColor}22`,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: acftColor }} />
+            {(selAcft.reg || `ACFT ${selIndex + 1}`).toUpperCase()}
+          </span>
+        )}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7, marginBottom: 7 }}>
         <ReadOnlyField label="FLT No" value={sector.fltNo} />
@@ -233,8 +255,8 @@ function ViewedSector({ sector, index }) {
         <ReadOnlyField label="PAX" value={sector.pax} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginBottom: 7 }}>
-        <ReadOnlyField label="Fuel Off Block" value={sector.fuelOff} />
-        <ReadOnlyField label="Fuel On Block" value={sector.fuelOn} />
+        <ReadOnlyField label="Fuel Off Block" value={sector.fuelOff} unit="KG" />
+        <ReadOnlyField label="Fuel On Block" value={sector.fuelOn} unit="KG" />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7 }}>
         <ReadOnlyField label="Off Block" value={sector.offBlk} />
@@ -244,9 +266,9 @@ function ViewedSector({ sector, index }) {
       </div>
       <div style={{ display: 'flex', gap: 9, alignItems: 'center', borderTop: '1px dashed var(--cp-border2)', paddingTop: 8, marginTop: 9 }}>
         <span style={{ fontFamily: mono, fontSize: 8.5, letterSpacing: '0.1em', color: 'var(--cp-dim)', whiteSpace: 'nowrap' }}>ENG OUT</span>
-        <div style={{ flex: 1 }}><ReadOnlyField label="N1" value={sector.engN1} /></div>
-        <div style={{ flex: 1 }}><ReadOnlyField label="ALT" value={sector.engAlt} /></div>
-        <div style={{ flex: 1 }}><ReadOnlyField label="IAS" value={sector.engIas} /></div>
+        <div style={{ flex: 1 }}><ReadOnlyField label="N1" value={sector.engN1} unit="%" /></div>
+        <div style={{ flex: 1 }}><ReadOnlyField label="ALT" value={sector.engAlt} unit="FL" unitPosition="prefix" /></div>
+        <div style={{ flex: 1 }}><ReadOnlyField label="IAS" value={sector.engIas} unit="KTS" /></div>
       </div>
       {hasRemark && (
         <div style={{ marginTop: 9, borderTop: '1px dashed var(--cp-border2)', paddingTop: 8 }}>
@@ -283,7 +305,7 @@ function ViewedLogDetail({ log, onBack }) {
       )}
 
       <div style={roSecLabel}>SECTORS</div>
-      {(log.sectors || []).map((s, i) => <ViewedSector key={s.id} sector={s} index={i} />)}
+      {(log.sectors || []).map((s, i) => <ViewedSector key={s.id} sector={s} index={i} aircraftList={log.aircraft || []} />)}
 
       {log.notes && (
         <>
