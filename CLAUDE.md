@@ -8,7 +8,7 @@ Guidance for working in this repository.
 plus a prayer-times module. Single-page app, tabbed calculators, deployed to
 Vercel (auto-deploys from `master`).
 
-Current version: **v3.0** — driven by `src/changelog.js`'s `current: true`
+Current version: **v3.2** — driven by `src/changelog.js`'s `current: true`
 entry (`currentVersion(CHANGELOG)` in `App.jsx`); also keep `package.json`'s
 `version` and `README.md`'s "Current version" line in sync with it.
 
@@ -44,7 +44,12 @@ src/
     METARTAFCalculator.jsx    #   METAR/TAF tab.  NotamViewer.jsx = own NOTAM tab
     EDTOCalculator.jsx, FTLCalculator.jsx, InterpolationCalculator.jsx,
     CurrencyCalculator.jsx, CombinedCalculator.jsx (basic+scientific),
-    NotamViewer.jsx, Navigation.jsx (launcher/tabs/grouped chrome),
+    NotamViewer.jsx, SigmetViewer.jsx  #   SIGMET tab (own SigmetCard.jsx,
+                              #   services/sigmetAPI.js, utils/sigmet.js, api/isigmet.js)
+    Navigation.jsx (launcher/tabs/grouped chrome)
+    BriefingView.jsx          #   ✈ Briefing overlay (METAR/TAF+NOTAM+SIGMET
+                              #   combined) — saved briefings live in
+                              #   store/calculatorStore.js's `briefing.saves`
     ErrorBoundary.jsx         #   per-tab crash isolation (wraps the active tab)
   utils/                      # PURE, TESTED logic (no React/DOM)
     metarSeverity.js          #   flight category, wind severity, raw/TAF tokenising

@@ -12,6 +12,8 @@ import {
   getRoleStyle,
 } from '../utils/metarSeverity'
 import { filterSigmetsByFir } from '../utils/sigmet'
+import { autoBriefingName, findOldest, isAtCap } from '../utils/savedBriefings'
+import { BRIEFING_SAVES_CAP } from '../store/calculatorStore'
 import SigmetCard from './SigmetCard'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import WindyRouteMap, { hasWindyLoadedBefore } from './WindyRouteMap'
@@ -445,17 +447,161 @@ function RouteMap({ dep, arr, destAltList, eraList, isOffline }) {
   )
 }
 
+// ── Saved briefings dropdown — read-only browse/open/delete list ──
+function SavedList({ saves, savedId, onOpen, onDelete }) {
+  return (
+    <div style={{
+      position: 'absolute', top: 66, right: 60, width: 280, maxHeight: 360, overflowY: 'auto',
+      background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 10,
+      boxShadow: '0 16px 40px rgba(0,0,0,0.5)', zIndex: 10,
+    }}>
+      <div style={{
+        padding: '9px 12px', fontFamily: 'var(--cb-font-mono)', fontSize: 9.5,
+        letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--cp-dim)',
+        borderBottom: '1px solid var(--cp-border3)',
+      }}>
+        Saved Briefings · {saves.length}/{BRIEFING_SAVES_CAP}
+      </div>
+      {saves.length === 0 ? (
+        <div style={{ padding: '14px 12px', fontSize: 11, color: 'var(--cp-dim)' }}>No saved briefings yet.</div>
+      ) : (
+        <div style={{ padding: 4 }}>
+          {saves.map((b, i) => {
+            const isOpen = b.id === savedId
+            return (
+              <div key={b.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '8px 8px', borderRadius: 6,
+                borderLeft: i === 0 ? '3px solid var(--cp-acc)' : isOpen ? '3px solid var(--cp-dim)' : '3px solid transparent',
+                background: isOpen ? 'var(--cp-bg3)' : 'transparent',
+              }}>
+                <button onClick={() => onOpen(b.id)} style={{
+                  flex: '1 1 auto', minWidth: 0, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{
+                      fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 600, color: 'var(--cp-txt)',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}>{b.name}</span>
+                    {i === 0 && (
+                      <span style={{
+                        fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--cp-acc)',
+                        background: 'var(--cp-bg)', padding: '1px 5px', borderRadius: 4, flexShrink: 0,
+                      }}>LATEST</span>
+                    )}
+                  </div>
+                  <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)', marginTop: 2 }}>
+                    {b.route?.dep} → {b.route?.arr}
+                  </div>
+                </button>
+                <button onClick={() => onDelete(b.id)} title="Delete" style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)',
+                  fontSize: 16, lineHeight: 1, padding: '0 4px', flexShrink: 0,
+                }}>×</button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Shared small confirm-modal shell for the two briefing prompts below ──
+function BriefingPromptModal({ onDismiss, children }) {
+  return (
+    <div onClick={onDismiss} style={{
+      position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.6)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 380, background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
+        borderRadius: 10, padding: 18,
+      }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// ── Shown when saving would exceed BRIEFING_SAVES_CAP ──
+function CapReachedPrompt({ oldest, cap, onConfirm, onCancel }) {
+  return (
+    <BriefingPromptModal onDismiss={onCancel}>
+      <div style={{
+        fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+        textTransform: 'uppercase', color: 'var(--cp-yellow)', marginBottom: 12,
+      }}>
+        Saved Briefings Full · {cap}/{cap}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--cp-txt)', lineHeight: 1.6, marginBottom: 14 }}>
+        You've reached the {cap}-briefing limit. Delete the oldest saved briefing to make room for this one?
+      </div>
+      {oldest && (
+        <div style={{
+          fontSize: 11, color: 'var(--cp-dim)', background: 'var(--cp-bg3)', borderRadius: 6,
+          padding: '8px 10px', marginBottom: 18,
+        }}>
+          {oldest.name} — oldest save
+        </div>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button onClick={onCancel} className="cp-btn" style={{ fontSize: 11 }}>Cancel</button>
+        <button onClick={onConfirm} style={{
+          fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+          padding: '8px 14px', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap',
+          border: '1px solid var(--cp-red)', background: 'rgba(239,68,68,0.12)', color: 'var(--cp-red)',
+        }}>Delete Oldest &amp; Save</button>
+      </div>
+    </BriefingPromptModal>
+  )
+}
+
+// ── Shown only when closing (✕/Escape/backdrop) a fresh, never-saved briefing ──
+function SaveBeforeClosePrompt({ onSave, onDiscard, onCancel }) {
+  return (
+    <BriefingPromptModal onDismiss={onCancel}>
+      <div style={{
+        fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+        textTransform: 'uppercase', color: 'var(--cp-txt)', marginBottom: 10,
+      }}>
+        Save Before Closing?
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--cp-dim)', lineHeight: 1.6, marginBottom: 18 }}>
+        This briefing hasn't been saved. Save it now, or discard it?
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <button onClick={onDiscard} style={{
+          fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.06em',
+          padding: '8px 14px', borderRadius: 6, cursor: 'pointer',
+          border: '1px solid rgba(239,68,68,0.4)', background: 'transparent', color: 'var(--cp-red)',
+        }}>Discard</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onCancel} className="cp-btn" style={{ fontSize: 11 }}>Cancel</button>
+          <button onClick={onSave} style={{
+            fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+            padding: '8px 14px', borderRadius: 6, cursor: 'pointer',
+            border: '1px solid var(--cp-acc)', background: 'var(--cp-accdim)', color: 'var(--cp-acc)',
+          }}>Save</button>
+        </div>
+      </div>
+    </BriefingPromptModal>
+  )
+}
+
 export default function BriefingView() {
   const briefing = useCalculatorStore(s => s.briefing)
   const setBriefingData = useCalculatorStore(s => s.setBriefingData)
-  // ✕/Escape/backdrop only hide the overlay — they don't discard the fetched
-  // data. A full closeBriefing() would defeat the whole point of caching it:
-  // nobody leaves this open indefinitely, so if closing wiped the cache,
-  // "survives an offline reopen" would never apply in the one moment it
-  // matters (right after actually looking at it). Real staleness is still
-  // handled by the 12h expiry (App.jsx) and by a fresh fetch overwriting it.
-  const pauseBriefing = useCalculatorStore(s => s.pauseBriefing)
-  const { route, data } = briefing
+  const closeBriefing = useCalculatorStore(s => s.closeBriefing)
+  const openSavedBriefing = useCalculatorStore(s => s.openSavedBriefing)
+  const saveBriefing = useCalculatorStore(s => s.saveBriefing)
+  const renameSavedBriefing = useCalculatorStore(s => s.renameSavedBriefing)
+  const deleteSavedBriefing = useCalculatorStore(s => s.deleteSavedBriefing)
+  const { route, data, savedId, saves } = briefing
+  const isSaved = !!savedId
+  const savedEntry = isSaved ? saves.find(b => b.id === savedId) : null
+  // A fresh fetch that's never been saved — closing it prompts to save first;
+  // an already-saved entry (or nothing fetched yet) just closes.
+  const hasUnsaved = !isSaved && !!data
 
   const [targets] = useState(() => buildAirportTargets(route.dep, route.arr, route.destAlts, route.enrouteCount, route.enrouteAlts))
   const [loading, setLoading] = useState(!data)
@@ -463,6 +609,18 @@ export default function BriefingView() {
   const [now, setNow] = useState(Date.now())
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
   const [activeTab, setActiveTab] = useState('metar')
+  const [savedListOpen, setSavedListOpen] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(null)
+  const [showSavePrompt, setShowSavePrompt] = useState(false)
+  const [showCapPrompt, setShowCapPrompt] = useState(false)
+
+  // Real close — ✕/Escape/backdrop. A fresh, unsaved fetch prompts to save
+  // first; a saved entry (or an empty/still-loading session) just closes.
+  const requestClose = () => {
+    if (hasUnsaved) { setShowSavePrompt(true); return }
+    closeBriefing()
+  }
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -478,10 +636,16 @@ export default function BriefingView() {
   }, [])
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') pauseBriefing() }
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      // Escape while editing the title cancels the edit, not the whole overlay.
+      if (editingTitle) { setEditingTitle(false); return }
+      requestClose()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pauseBriefing])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingTitle, hasUnsaved])
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60_000)
@@ -576,9 +740,43 @@ export default function BriefingView() {
     sum + (notamsByIcao[icao] || []).filter(n => n.validity.status === 'ACTIVE').length, 0)
   const notamCount = activeNotamCount(airports.map(a => a.icao)) + activeNotamCount(firsUsed.map(f => f.icao))
 
+  // Editable title: an explicit rename, else the current save's name, else a
+  // live preview of the auto-generated name once there's data to name.
+  const displayTitle = titleDraft ?? savedEntry?.name ?? (data ? autoBriefingName(route, fetchedAt || Date.now()) : '')
+
+  const commitTitle = (value) => {
+    const trimmed = (value || '').trim()
+    setEditingTitle(false)
+    if (!trimmed) return
+    setTitleDraft(trimmed)
+    // Already saved — renaming updates it immediately. Not yet saved — the
+    // draft just becomes the name Save uses when it's eventually clicked.
+    if (isSaved) renameSavedBriefing(savedId, trimmed)
+  }
+
+  const attemptSave = () => {
+    if (!data) return
+    if (isAtCap(saves, BRIEFING_SAVES_CAP)) { setShowCapPrompt(true); return }
+    saveBriefing(titleDraft ?? undefined)
+  }
+  const handleDeleteOldestAndSave = () => {
+    const oldest = findOldest(saves)
+    if (oldest) deleteSavedBriefing(oldest.id)
+    saveBriefing(titleDraft ?? undefined)
+    setShowCapPrompt(false)
+  }
+  const handleSaveThenClose = () => {
+    setShowSavePrompt(false)
+    if (isAtCap(saves, BRIEFING_SAVES_CAP)) { setShowCapPrompt(true); return }
+    saveBriefing(titleDraft ?? undefined)
+    closeBriefing()
+  }
+  const handleDiscardAndClose = () => { setShowSavePrompt(false); closeBriefing() }
+
   return (
+    <>
     <div
-      onClick={pauseBriefing}
+      onClick={requestClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
@@ -588,20 +786,79 @@ export default function BriefingView() {
       <div
         onClick={e => e.stopPropagation()}
         style={{
+          position: 'relative',
           width: '100%', maxWidth: 980, background: 'var(--cp-bg)', borderRadius: 12,
           border: '1px solid var(--cp-border)', boxShadow: '0 24px 60px rgba(0,0,0,0.4)', overflow: 'hidden',
         }}
       >
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '13px 18px', background: 'var(--cp-bg2)', borderBottom: '1px solid var(--cp-border3)',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+          padding: '12px 18px', background: 'var(--cp-bg2)', borderBottom: '1px solid var(--cp-border3)',
         }}>
-          <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700,
-            letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--cp-txt)' }}>
-            ✈ Flight Briefing
-          </span>
-          <button onClick={pauseBriefing} className="cp-btn" style={{ width: 28, height: 28, padding: 0 }}>✕</button>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9.5, fontWeight: 700,
+              letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--cp-dim)' }}>
+              ✈ Flight Briefing
+            </div>
+            {editingTitle ? (
+              <input
+                autoFocus
+                defaultValue={displayTitle}
+                onBlur={e => commitTitle(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
+                className="cp-input"
+                style={{
+                  marginTop: 4, fontSize: 15, fontWeight: 600, padding: '4px 8px',
+                  maxWidth: 420,
+                }}
+              />
+            ) : displayTitle && (
+              <button
+                onClick={() => setEditingTitle(true)}
+                title="Rename"
+                style={{
+                  marginTop: 4, display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: '100%',
+                }}
+              >
+                <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--cp-txt)',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayTitle}</span>
+                <span style={{ color: 'var(--cp-dim)', fontSize: 12, flexShrink: 0 }}>✎</span>
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: 2 }}>
+            {!isSaved && data && (
+              <button onClick={attemptSave} className="cp-btn" style={{ fontSize: 10, letterSpacing: '0.1em' }}>
+                SAVE
+              </button>
+            )}
+            <button
+              onClick={() => setSavedListOpen(v => !v)}
+              className="cp-btn"
+              style={{
+                fontSize: 10, letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 6,
+                color: savedListOpen ? 'var(--cp-acc)' : undefined, borderColor: savedListOpen ? 'var(--cp-acc)' : undefined,
+              }}
+            >
+              SAVED
+              <span style={{
+                fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 8,
+                background: 'var(--cp-bg3)', color: 'var(--cp-txt)',
+              }}>{saves.length}</span>
+            </button>
+            <button onClick={requestClose} className="cp-btn" style={{ width: 28, height: 28, padding: 0 }}>✕</button>
+          </div>
         </div>
+
+        {savedListOpen && (
+          <SavedList
+            saves={saves}
+            savedId={savedId}
+            onOpen={(id) => { openSavedBriefing(id); setSavedListOpen(false) }}
+            onDelete={(id) => deleteSavedBriefing(id)}
+          />
+        )}
 
         <div style={{ padding: '18px 20px 24px' }}>
           {loading ? (
@@ -713,5 +970,22 @@ export default function BriefingView() {
         </div>
       </div>
     </div>
+
+    {showCapPrompt && (
+      <CapReachedPrompt
+        oldest={findOldest(saves)}
+        cap={BRIEFING_SAVES_CAP}
+        onConfirm={handleDeleteOldestAndSave}
+        onCancel={() => setShowCapPrompt(false)}
+      />
+    )}
+    {showSavePrompt && (
+      <SaveBeforeClosePrompt
+        onSave={handleSaveThenClose}
+        onDiscard={handleDiscardAndClose}
+        onCancel={() => setShowSavePrompt(false)}
+      />
+    )}
+    </>
   )
 }

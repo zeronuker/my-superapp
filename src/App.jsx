@@ -1,6 +1,5 @@
 import React, { useState, lazy, Suspense } from 'react'
 import { useCalculatorStore } from './store/calculatorStore'
-import { useExpiry, EXPIRY_MS } from './utils/cacheExpiry'
 import usePrayerStore from './modules/prayer/store/prayerStore'
 import { loadLastPosition } from './modules/prayer/services/geolocation'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -141,27 +140,8 @@ export default function App() {
     activeCalculator, setActiveCalculator,
     darkMode, setDarkMode,
     settings, updateSettings,
-    briefing, resumeBriefing, closeBriefing,
+    briefing, resumeBriefing, openSavedBriefing,
   } = useCalculatorStore()
-
-  // Same 12h cache TTL as the other modules — expires a paused/cached
-  // briefing while the app stays open, not just at next reload.
-  useExpiry(briefing.data?.fetchedAt, closeBriefing)
-
-  // Belt-and-braces for the above: a setTimeout scheduled hours in advance
-  // can be delayed or dropped by iOS during a long background suspension,
-  // unlike the 3 standalone modules which re-check Date.now() fresh every
-  // time their tab is mounted. Re-validate on foreground too, so a long
-  // background stint can't leave a stale Resume Briefing pill behind.
-  React.useEffect(() => {
-    const fetchedAt = briefing.data?.fetchedAt
-    if (!fetchedAt) return
-    const onVisible = () => {
-      if (document.visibilityState === 'visible' && Date.now() - fetchedAt > EXPIRY_MS) closeBriefing()
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [briefing.data?.fetchedAt, closeBriefing])
 
   const isOnline = useOnlineStatus()
   useMETARBadge()
@@ -498,24 +478,29 @@ export default function App() {
            ErrorBoundary every tab gets — without it, a render error here
            (e.g. an unexpected shape in cached/fetched data) white-screens
            the whole app instead of failing gracefully. `key` on BriefingView
-           forces a real remount whenever the route changes — its fetch
+           forces a real remount whenever the session changes — its fetch
            effect only runs once per mount, so without this, two openBriefing
            calls close enough together to land in the same React batch (no
            observable unmount in between) leave it silently showing stale
-           loading/error state for the new route instead of refetching. ── */}
+           loading/error state for the new route instead of refetching. Keyed
+           on savedId too (not just route) — two saved entries for the same
+           route (e.g. a turnaround) must still force a remount when switching
+           between them, or the old one's title/tab state would linger. ── */}
       {briefing.open && (
-        <ErrorBoundary name="Briefing" resetKey={`${briefing.route?.dep}-${briefing.route?.arr}-${briefing.open}`}>
+        <ErrorBoundary name="Briefing" resetKey={`${briefing.route?.dep}-${briefing.route?.arr}-${briefing.savedId || ''}-${briefing.open}`}>
           <Suspense fallback={null}>
-            <BriefingView key={JSON.stringify(briefing.route)} />
+            <BriefingView key={`${JSON.stringify(briefing.route)}-${briefing.savedId || 'new'}`} />
           </Suspense>
         </ErrorBoundary>
       )}
 
-      {/* ── Resume Briefing pill — shown after the pilot jumps to a module
-           tab from inside the overlay, so the paused briefing isn't lost ── */}
-      {!briefing.open && briefing.data && (
+      {/* ── Resume Briefing pill — shown when the overlay is closed but
+           there's something to bring back: a briefing paused mid-fetch (the
+           NOTAM "view all" tab-jump) takes priority since it's still live
+           in-progress work; otherwise it opens the most recently saved one. ── */}
+      {!briefing.open && (briefing.data || briefing.saves.length > 0) && (
         <button
-          onClick={resumeBriefing}
+          onClick={() => (briefing.data ? resumeBriefing() : openSavedBriefing(briefing.saves[0].id))}
           style={{
             position: 'fixed', right: 16, zIndex: 95,
             bottom: navStyle === 'tabs' && tabPosition === 'bottom'
@@ -943,13 +928,6 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
                   <option key={h} value={h}>{h}H</option>
                 ))}
               </select>
-            </SettingsRow>
-            <SettingsRow label="AUTO-REFRESH">
-              <SegmentedToggle
-                options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
-                value={settings.autoRefresh}
-                onChange={v => onUpdate({ autoRefresh: v })}
-              />
             </SettingsRow>
           </SettingsSection>
 

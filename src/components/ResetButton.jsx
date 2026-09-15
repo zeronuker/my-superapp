@@ -9,7 +9,11 @@ import { createPortal } from 'react-dom'
 // Briefing, so their modal offers module-only vs all-3 and calls
 // onReset('module' | 'all'). Everything else gets a single-button confirm
 // and calls onReset() with no scope.
-export default function ResetButton({ onReset, scoped = false }) {
+// `hasUnsavedBriefing`/`onDiscardBriefing` (scoped only): when a freshly
+// fetched, never-saved briefing is open, both reset options also discard
+// it (never a saved one) — the modal warns about that specifically instead
+// of the old always-shown "also resets Flight Briefing" line.
+export default function ResetButton({ onReset, scoped = false, hasUnsavedBriefing = false, onDiscardBriefing }) {
   const [hover, setHover] = useState(false)
   const [pressed, setPressed] = useState(false)
   const [open, setOpen] = useState(false)
@@ -18,7 +22,7 @@ export default function ResetButton({ onReset, scoped = false }) {
     ? { borderColor: 'var(--cp-red)', color: 'var(--cp-red)', background: pressed ? 'rgba(239,68,68,0.20)' : 'rgba(239,68,68,0.10)' }
     : { borderColor: 'rgba(251,146,60,0.4)', color: 'var(--cp-orange)', background: 'rgba(251,146,60,0.08)' }
 
-  const choose = (scope) => { setOpen(false); onReset(scope) }
+  const choose = (scope) => { setOpen(false); onDiscardBriefing?.(); onReset(scope) }
 
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -56,11 +60,19 @@ export default function ResetButton({ onReset, scoped = false }) {
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--cp-txt)', marginBottom: 6 }}>
               CONFIRM RESET
             </div>
-            <div style={{ fontSize: 12, color: 'var(--cp-dim)', lineHeight: 1.5, marginBottom: 18 }}>
-              {scoped
-                ? 'Both options also reset Flight Briefing.'
-                : "Clears every entered field and fetched result on this tab. Can't be undone."}
-            </div>
+            {scoped && hasUnsavedBriefing ? (
+              <div style={{
+                fontSize: 12, color: 'var(--cp-red)', lineHeight: 1.5, marginBottom: 18,
+                padding: '8px 10px', background: 'rgba(248,113,113,0.08)',
+                borderLeft: '2px solid var(--cp-red)', borderRadius: 3,
+              }}>
+                Any unsaved Flight Briefing will be deleted.
+              </div>
+            ) : !scoped && (
+              <div style={{ fontSize: 12, color: 'var(--cp-dim)', lineHeight: 1.5, marginBottom: 18 }}>
+                Clears every entered field and fetched result on this tab. Can't be undone.
+              </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {scoped ? (
                 <>

@@ -53,11 +53,12 @@ function reviveSigmets(sigmets) {
 }
 
 export default function SigmetViewer() {
-  const { briefing, openBriefing, closeBriefing } = useCalculatorStore(s => ({
+  const { briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(s => ({
     briefing: s.briefing,
     openBriefing: s.openBriefing,
-    closeBriefing: s.closeBriefing,
+    discardUnsavedBriefing: s.discardUnsavedBriefing,
   }))
+  const hasUnsavedBriefing = !!briefing.data && !briefing.savedId
   const [cache] = useState(() => loadWithExpiry(CACHE_KEY))
 
   const [dep, setDep] = useState(cache?.dep || '')
@@ -127,7 +128,6 @@ export default function SigmetViewer() {
     setChips([]); setCustomInput('')
     setSigmets(null); setFetchedAt(null); setError('')
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
-    closeBriefing()
     if (scope === 'all') {
       try { localStorage.removeItem(METAR_CACHE_KEY); localStorage.removeItem(NOTAM_CACHE_KEY) } catch (_) {}
     }
@@ -183,7 +183,7 @@ export default function SigmetViewer() {
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
         <CopyAirportsButton sourceModule="metar" sourceLabel="METAR/TAF" onApply={applyCopiedAirports} />
-        <ResetButton onReset={handleReset} scoped />
+        <ResetButton onReset={handleReset} scoped hasUnsavedBriefing={hasUnsavedBriefing} onDiscardBriefing={discardUnsavedBriefing} />
       </div>
 
       {!isOnline && (

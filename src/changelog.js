@@ -304,7 +304,19 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.1", date: "Sep 2026", current: true,
+    v: "v3.2", date: "Sep 2026", current: true,
+    title: "Saved Briefings",
+    notes: [
+      "NEW: Briefing: save any briefing with a name (auto-generated from route + date/time, editable anytime by tapping the title) — up to 30 saved, browsed from a read-only list inside the Briefing window",
+      "NEW: Briefing: Resume Briefing now opens your most recently saved briefing directly",
+      "NEW: Briefing: closing (✕ / Escape / tap outside) an unsaved briefing now asks whether to save it first, instead of silently discarding it",
+      "REMOVED: METAR/TAF's 30-minute auto-refresh and NOTAM's back-online auto-refresh, along with the Settings \"Auto-refresh\" toggle — METAR/TAF, NOTAM and SIGMET are now fetch-on-demand only across the board",
+      "FIX: METAR/TAF, NOTAM and SIGMET's 12-hour stale-data cleanup could silently delete an unrelated saved Briefing — it now only ever clears that module's own data",
+      "NEW: Reset (all 3 modules) now discards an open, unsaved Briefing immediately, with a warning in the confirm dialog when one exists — saved briefings are never touched by Reset",
+    ],
+  },
+  {
+    v: "v3.1", date: "Sep 2026",
     title: "Recommended Brake Cooling Schedule",
     notes: [
       "NEW: B737 Performance: Recommended Brake Cooling Schedule module for 737-8 (MAX) and 737-800 (NG, Category C steel / Category N carbon brakes) — digitized from the QRH's advisory brake-energy tables, with single-event and chained quick-turnaround (residual + taxi energy) modes",

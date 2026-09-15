@@ -50,12 +50,13 @@ function saveCache(data) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function METARTAFCalculator() {
-  const { settings, briefing, openBriefing, closeBriefing } = useCalculatorStore(s => ({
+  const { settings, briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(s => ({
     settings: s.settings,
     briefing: s.briefing,
     openBriefing: s.openBriefing,
-    closeBriefing: s.closeBriefing,
+    discardUnsavedBriefing: s.discardUnsavedBriefing,
   }))
+  const hasUnsavedBriefing = !!briefing.data && !briefing.savedId
 
   // Initialise state from cache (synchronous read — no flash)
   const [cache]        = useState(() => loadWithExpiry(CACHE_KEY))
@@ -74,7 +75,6 @@ export default function METARTAFCalculator() {
 
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
 
-  const timerRef  = useRef(null)
   const stateRef  = useRef({})
 
   // Keep stateRef in sync so timer callbacks always see current values
@@ -138,9 +138,6 @@ export default function METARTAFCalculator() {
     setResults(null)
     setFetchedAt(null)
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
-    // Reset always discards the Briefing cache — stale route/data otherwise
-    // lingers there regardless of which scope was picked.
-    closeBriefing()
     if (scope === 'all') {
       try { localStorage.removeItem(NOTAM_CACHE_KEY); localStorage.removeItem(SIGMET_CACHE_KEY) } catch (_) {}
     }
@@ -175,11 +172,9 @@ export default function METARTAFCalculator() {
   }, [])
 
   // ── Fetch ─────────────────────────────────────────────────────────────
-  // `isManual` is true only when the user hits the fetch button themselves —
-  // it drives the radar-sweep loading animation. Auto-refresh and the
-  // back-online silent refetch call this without it, so they keep the
-  // existing behaviour of refreshing quietly behind the stale data.
-  const doFetch = useCallback(async (s, isManual = false) => {
+  // Only ever called from a button click now (auto-refresh and the
+  // back-online refetch are gone) — always drives the radar-sweep animation.
+  const doFetch = useCallback(async (s) => {
     const targets = buildTargets(s)
     if (!targets.length) return
 
@@ -192,10 +187,8 @@ export default function METARTAFCalculator() {
     setIsOffline(false)
     setLoading(true)
     const startedAt = Date.now()
-    if (isManual) {
-      setActiveTargets(targets.map(t => t.icao))
-      setManualFetch(true)
-    }
+    setActiveTargets(targets.map(t => t.icao))
+    setManualFetch(true)
 
     const out = {}
     await Promise.all(targets.map(async ({ key, icao, label }) => {
@@ -214,14 +207,14 @@ export default function METARTAFCalculator() {
       setFetchedAt(ts)
       setNow(ts)
       setLoading(false)
-      if (isManual) setManualFetch(false)
+      setManualFetch(false)
       haptic(hasError ? 'heavy' : 'medium')
     }
 
     // The animation always finishes before results are revealed — unless a
     // target errored, in which case surface it immediately rather than
     // sitting through the rest of the cosmetic scan.
-    if (isManual && !hasError) {
+    if (!hasError) {
       const remaining = computeAnimDuration(targets.length) - (Date.now() - startedAt)
       if (remaining > 0) { setTimeout(reveal, remaining); return }
     }
@@ -230,51 +223,8 @@ export default function METARTAFCalculator() {
 
   const handleFetch = () => {
     if (!navigator.onLine) { setIsOffline(true); return }
-    doFetch(stateRef.current, true)
+    doFetch(stateRef.current)
   }
-
-  // ── Back-online silent refetch ─────────────────────────────────────────
-  // When device transitions offline → online, immediately refresh if inputs exist.
-  // `stateRef.current` has live values so no stale-closure risk. Placed after
-  // doFetch is declared to avoid a temporal-dead-zone reference in the deps.
-  const wasOffline = useRef(null)
-  useEffect(() => {
-    if (wasOffline.current === null) { wasOffline.current = isOffline; return }
-    if (wasOffline.current && !isOffline) {
-      const s = stateRef.current
-      if (s.dep || s.arr) doFetch(s)
-    }
-    wasOffline.current = isOffline
-  }, [isOffline, doFetch])
-
-  // ── Auto-refresh at :00 and :30 ───────────────────────────────────────
-  useEffect(() => {
-    if (!settings.autoRefresh) return
-
-    const schedule = () => {
-      const d    = new Date()
-      const mins = d.getMinutes(), secs = d.getSeconds()
-      const ms   = mins < 30
-        ? (30 - mins) * 60_000 - secs * 1000
-        : (60 - mins) * 60_000 - secs * 1000
-      timerRef.current = setTimeout(() => {
-        const s = stateRef.current
-        if (navigator.onLine && (s.dep || s.arr || s.destAlts?.alt1 || s.destAlts?.alt2)) doFetch(s)
-        schedule()
-      }, ms)
-    }
-
-    schedule()
-    return () => clearTimeout(timerRef.current)
-  }, [settings.autoRefresh, doFetch])
-
-  // ── Stale-on-mount check (>30 min old → refetch immediately if online) ─
-  useEffect(() => {
-    if (fetchedAt && Date.now() - fetchedAt > 30 * 60_000 && navigator.onLine) {
-      doFetch(stateRef.current)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // ── Ordered result keys ───────────────────────────────────────────────
   const orderedKeys = results
@@ -298,7 +248,7 @@ export default function METARTAFCalculator() {
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
         <CopyAirportsButton sourceModule="notam" sourceLabel="NOTAM" onApply={applyCopiedAirports} />
-        <ResetButton onReset={handleReset} scoped />
+        <ResetButton onReset={handleReset} scoped hasUnsavedBriefing={hasUnsavedBriefing} onDiscardBriefing={discardUnsavedBriefing} />
       </div>
 
       {/* ── ROUTE ────────────────────────────────────────────────────────── */}
@@ -384,13 +334,6 @@ export default function METARTAFCalculator() {
         <select value={hours} onChange={e => setHours(Number(e.target.value))} style={sel}>
           {HOURS_OPTIONS.map(h => <option key={h} value={h}>{h}H</option>)}
         </select>
-
-        {settings.autoRefresh && (
-          <span style={{ fontSize: 10, color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)',
-            letterSpacing: '0.1em' }}>
-            AUTO :00 / :30
-          </span>
-        )}
 
         <button className="cp-btn" onClick={handleFetch}
           disabled={!hasInput || loading}

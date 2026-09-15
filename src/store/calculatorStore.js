@@ -1,28 +1,26 @@
 import { create } from 'zustand'
-import { loadWithExpiry } from '../utils/cacheExpiry'
+import { makeBriefingId, autoBriefingName, sortByNewest, pickNextAfterDelete } from '../utils/savedBriefings'
 
-// Same offline-persistence pattern every other module uses (cb-*-cache +
-// loadWithExpiry's 12h TTL) — a briefing survives a reload/offline reopen,
-// not just an in-session tab switch.
-const BRIEFING_CACHE_KEY = 'cb-briefing-cache'
+// Named, manually-managed saves (unlike every cb-*-cache key, which is a
+// single slot with a 12h auto-expiry) — never expires, capped, only changed
+// by an explicit save/rename/delete.
+const BRIEFING_SAVES_KEY = 'cb-briefing-saves'
+export const BRIEFING_SAVES_CAP = 30
+// Pre-Saved-Briefings single-slot cache (open:false pause/resume) — actively
+// discarded, not migrated, the first time this loads post-update.
+const LEGACY_BRIEFING_CACHE_KEY = 'cb-briefing-cache'
 
-// Rejects anything that isn't a well-formed cached briefing (a stale shape
-// from an older build, a partial write, etc.) rather than trusting it and
-// letting BriefingView try to render garbage.
-function isValidBriefingCache(cached) {
-  return !!cached
-    && cached.route && typeof cached.route === 'object'
-    && (typeof cached.route.dep === 'string' || typeof cached.route.arr === 'string')
-    && cached.data && typeof cached.data === 'object'
-    && Array.isArray(cached.data.airports)
+function loadSavedBriefings() {
+  try { localStorage.removeItem(LEGACY_BRIEFING_CACHE_KEY) } catch (_) {}
+  try {
+    const raw = localStorage.getItem(BRIEFING_SAVES_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch (_) { return [] }
 }
-function loadBriefingCache() {
-  const cached = loadWithExpiry(BRIEFING_CACHE_KEY)
-  if (!isValidBriefingCache(cached)) {
-    try { localStorage.removeItem(BRIEFING_CACHE_KEY) } catch (_) {}
-    return { open: false, route: null, data: null }
-  }
-  return { open: false, route: cached.route, data: cached.data }
+function persistSavedBriefings(saves) {
+  try { localStorage.setItem(BRIEFING_SAVES_KEY, JSON.stringify(saves)) } catch (_) {}
 }
 // Same route input (dep/arr/destAlts/enrouteAlts) — ignores derived fields
 // like firs, which differ by which module opened Briefing.
@@ -34,12 +32,6 @@ function routesMatch(a, b) {
     && (a.enrouteCount || 0) === (b.enrouteCount || 0)
     && JSON.stringify(a.enrouteAlts || []) === JSON.stringify(b.enrouteAlts || [])
 }
-function saveBriefingCache(route, data) {
-  try {
-    if (!data) { localStorage.removeItem(BRIEFING_CACHE_KEY); return }
-    localStorage.setItem(BRIEFING_CACHE_KEY, JSON.stringify({ route, data, fetchedAt: data.fetchedAt }))
-  } catch (_) {}
-}
 
 export const DEFAULT_SETTINGS = {
   fontScale:      'normal',   // 'compact' | 'normal' | 'large' | 'cockpit'
@@ -48,7 +40,6 @@ export const DEFAULT_SETTINGS = {
   hapticIntensity:'medium',   // 'light' | 'medium' | 'heavy' — global strength
   numberFormat:   'en',       // 'en' (1,000.00) | 'eu' (1.000,00)
   defaultHistory: 3,
-  autoRefresh:    true,
   tabOrder:       ['calculator', 'interpolation', 'b737perf', 'currency', 'metartaf', 'notam', 'ftl', 'dutylog', 'worldtime', 'prayer'],
   navStyle:       'launcher', // 'launcher' | 'tabs' | 'grouped'
   tabPosition:    'top',      // 'top' | 'bottom'  (only used when navStyle === 'tabs')
@@ -98,6 +89,12 @@ function loadSettings() {
         const t = localStorage.getItem('cb-theme')
         merged.themeMode = t === 'light' ? 'light' : 'dark'
       } catch (_) { merged.themeMode = 'dark' }
+    }
+    // Strip the removed auto-refresh setting rather than leaving it orphaned
+    // in storage forever.
+    if ('autoRefresh' in merged) {
+      delete merged.autoRefresh
+      try { localStorage.setItem('cb-settings', JSON.stringify(merged)) } catch (_) {}
     }
     return merged
   } catch (_) { return DEFAULT_SETTINGS }
@@ -175,10 +172,14 @@ export const useCalculatorStore = create((set) => ({
   // jumping from the overlay to the standalone NOTAM tab must not lose the
   // already-fetched briefing. `route` is the input the 3 modules hand in
   // (dep/arr/destAlts/enrouteCount/enrouteAlts/firs); `data` is the fetched
-  // result, filled in once by BriefingView and left alone after that.
-  // Seeded from cb-briefing-cache on load (open:false — never auto-pops the
-  // overlay open, but the Resume pill is there if a cached briefing exists).
-  briefing: loadBriefingCache(),
+  // result for the CURRENT session (unsaved unless `savedId` is set).
+  // `saves` is the persistent, capped, named list (seeded on load, sorted
+  // newest-first) — the only part of this that survives a reload; `open`/
+  // `route`/`data`/`savedId` always start closed/empty, same as before.
+  briefing: {
+    open: false, route: null, data: null, savedId: null,
+    saves: sortByNewest(loadSavedBriefings()),
+  },
 
   // ── Actions ─────────────────────────────────────────────────────────────
   setEDTOAircraft:   (aircraft)  => set(s => ({ edto: { ...s.edto, aircraft, variant: null } })),
@@ -226,31 +227,72 @@ export const useCalculatorStore = create((set) => ({
   setActiveCalculator: (id)      => set({ activeCalculator: id }),
 
   // route: { dep, arr, destAlts, enrouteCount, enrouteAlts, firs }. Starts a
-  // fresh fetch — data:null tells BriefingView to fetch rather than reuse —
-  // except offline with a cached briefing for this exact route already on
-  // hand, where refetching can only fail: show the cache immediately instead.
+  // fresh, unsaved session — data:null tells BriefingView to fetch — except
+  // offline with a SAVED entry for this exact route already on hand, where
+  // refetching can only fail: open that save immediately instead.
   openBriefing:     (route)      => set(s => {
     const offline = typeof navigator !== 'undefined' && navigator.onLine === false
-    if (offline && s.briefing.data && routesMatch(s.briefing.route, route)) {
-      return { briefing: { open: true, route, data: s.briefing.data } }
+    if (offline) {
+      const match = s.briefing.saves.find(b => routesMatch(b.route, route))
+      if (match) return { briefing: { ...s.briefing, open: true, route: match.route, data: match.data, savedId: match.id } }
     }
-    return { briefing: { open: true, route, data: null } }
+    return { briefing: { ...s.briefing, open: true, route, data: null, savedId: null } }
   }),
-  setBriefingData:  (data)       => set(s => {
-    saveBriefingCache(s.briefing.route, data)
-    return { briefing: { ...s.briefing, data } }
+  setBriefingData:  (data)       => set(s => ({ briefing: { ...s.briefing, data } })),
+  // Opens an existing save, read-only (Option A — never auto-refreshed).
+  openSavedBriefing: (id)        => set(s => {
+    const entry = s.briefing.saves.find(b => b.id === id)
+    if (!entry) return {}
+    return { briefing: { ...s.briefing, open: true, route: entry.route, data: entry.data, savedId: id } }
   }),
-  // Hide without discarding — used when the pilot jumps to the standalone
-  // NOTAM tab so the same fetched briefing is still there to come back to.
+  // Instant save, no dialog — `name` optional (defaults to route + date +
+  // time). Caller is responsible for the at-cap "delete oldest?" prompt
+  // (see deleteSavedBriefing) before calling this past BRIEFING_SAVES_CAP.
+  saveBriefing:     (name)       => set(s => {
+    const { route, data } = s.briefing
+    if (!data) return {}
+    const savedAt = Date.now()
+    const entry = { id: makeBriefingId(), name: (name || '').trim() || autoBriefingName(route, savedAt), route, data, savedAt }
+    const saves = sortByNewest([...s.briefing.saves, entry])
+    persistSavedBriefings(saves)
+    return { briefing: { ...s.briefing, saves, savedId: entry.id } }
+  }),
+  renameSavedBriefing: (id, name) => set(s => {
+    const trimmed = (name || '').trim()
+    if (!trimmed) return {}
+    const saves = s.briefing.saves.map(b => (b.id === id ? { ...b, name: trimmed } : b))
+    persistSavedBriefings(saves)
+    return { briefing: { ...s.briefing, saves } }
+  }),
+  // Manual delete only — saves never auto-expire. Deleting the entry
+  // currently open switches the view to the next one in the list, or
+  // closes the overlay if none are left.
+  deleteSavedBriefing: (id)      => set(s => {
+    const sorted = sortByNewest(s.briefing.saves)
+    const saves = sorted.filter(b => b.id !== id)
+    persistSavedBriefings(saves)
+    if (s.briefing.savedId !== id) return { briefing: { ...s.briefing, saves } }
+    const nextId = pickNextAfterDelete(sorted, id)
+    if (!nextId) return { briefing: { ...s.briefing, saves, open: false, route: null, data: null, savedId: null } }
+    const next = saves.find(b => b.id === nextId)
+    return { briefing: { ...s.briefing, saves, route: next.route, data: next.data, savedId: nextId } }
+  }),
+  // Hide without discarding anything — the NOTAM tab-jump link's only
+  // caller (useViewAllNotams in BriefingView.jsx). Distinct from
+  // closeBriefing: route/data/savedId are left exactly as they were, so
+  // resumeBriefing brings back the same in-progress session (saved or not).
   pauseBriefing:    ()           => set(s => ({ briefing: { ...s.briefing, open: false } })),
   resumeBriefing:   ()           => set(s => ({ briefing: { ...s.briefing, open: true } })),
-  // Full discard — only the 12h staleness expiry (App.jsx) calls this now.
-  // ✕/Escape/backdrop just pause (see pauseBriefing) — a full discard there
-  // would wipe the cache the moment anyone actually closes the overlay,
-  // defeating the point of persisting it for an offline reopen.
-  closeBriefing:    ()           => set(() => {
-    saveBriefingCache(null, null)
-    return { briefing: { open: false, route: null, data: null } }
+  // Real close — ✕/Escape/tap-outside. BriefingView shows a "save first?"
+  // prompt before calling this when the session is a fresh, unsaved fetch;
+  // a currently-open saved entry is simply closed, never altered.
+  closeBriefing:    ()           => set(s => ({ briefing: { ...s.briefing, open: false, route: null, data: null, savedId: null } })),
+  // Reset button path (all 3 modules) — discards an open, unsaved briefing
+  // immediately, no prompt. No-ops if the open briefing is already a saved
+  // entry, or if nothing has been fetched yet.
+  discardUnsavedBriefing: ()     => set(s => {
+    if (s.briefing.savedId || !s.briefing.data) return {}
+    return { briefing: { ...s.briefing, open: false, route: null, data: null, savedId: null } }
   }),
 
   updateSettings: (partial) => set(s => {

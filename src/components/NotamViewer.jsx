@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { fetchNotams, parseMixedNotams, detectRouteFirs } from '../services/notamAPI'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
@@ -144,12 +144,13 @@ function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function NotamViewer() {
-  const { sortMode, briefing, openBriefing, closeBriefing } = useCalculatorStore(s => ({
+  const { sortMode, briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(s => ({
     sortMode: s.settings.notamSort || 'relevance',
     briefing: s.briefing,
     openBriefing: s.openBriefing,
-    closeBriefing: s.closeBriefing,
+    discardUnsavedBriefing: s.discardUnsavedBriefing,
   }))
+  const hasUnsavedBriefing = !!briefing.data && !briefing.savedId
 
   const [cache]        = useState(() => loadWithExpiry(CACHE_KEY))
   // Inputs (mirror METAR/TAF)
@@ -178,17 +179,8 @@ export default function NotamViewer() {
   const [search, setSearch] = useState('')
   const [collapsedMap, setCollapsedMap] = useState({})
 
-  const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [savedRaw, setSavedRaw] = useState(cache?.rawPerIcao || null)
   const [fetchedAt, setFetchedAt] = useState(cache?.fetchedAt || null)
-
-  useEffect(() => {
-    const on  = () => setIsOnline(true)
-    const off = () => setIsOnline(false)
-    window.addEventListener('online',  on)
-    window.addEventListener('offline', off)
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
-  }, [])
 
   // Persist airport inputs as they're typed (not just after a fetch) so the
   // METAR/TAF module's copy-airports button always sees current values
@@ -234,7 +226,6 @@ export default function NotamViewer() {
     setError('')
     setCollapsedMap({})
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
-    closeBriefing()
     if (scope === 'all') {
       try { localStorage.removeItem(METAR_CACHE_KEY); localStorage.removeItem(SIGMET_CACHE_KEY) } catch (_) {}
     }
@@ -291,18 +282,15 @@ export default function NotamViewer() {
   }
   const removeChip = (icao) => setExtraChips(c => c.filter(x => x.icao !== icao))
 
-  // `isManual` is true only when the user hits the fetch button themselves —
-  // it drives the radar-sweep loading animation. The back-online silent
-  // refresh calls this without it, so it keeps refreshing quietly.
-  const handleFetch = async (isManual = false) => {
+  // Only ever called from a button click now (the back-online silent
+  // refresh is gone) — always drives the radar-sweep loading animation.
+  const handleFetch = async () => {
     const t = buildTargets()
     if (!t.length) { setError('Enter at least one airport or FIR.'); return }
     setError(''); setLoading(true); setNotams(null); setCollapsedMap({})
     const startedAt = Date.now()
-    if (isManual) {
-      setActiveTargets(t.map(x => x.icao))
-      setManualFetch(true)
-    }
+    setActiveTargets(t.map(x => x.icao))
+    setManualFetch(true)
     try {
       const { notams: result, rawPerIcao } = await fetchNotams(t.map(x => x.icao))
 
@@ -311,39 +299,22 @@ export default function NotamViewer() {
         setSavedRaw(rawPerIcao)
         setFetchedAt(Date.now())
         setLoading(false)
-        if (isManual) setManualFetch(false)
+        setManualFetch(false)
         haptic('medium')
       }
 
       // The animation always finishes before results are revealed.
-      if (isManual) {
-        const remaining = computeAnimDuration(t.length) - (Date.now() - startedAt)
-        if (remaining > 0) { setTimeout(reveal, remaining); return }
-      }
+      const remaining = computeAnimDuration(t.length) - (Date.now() - startedAt)
+      if (remaining > 0) { setTimeout(reveal, remaining); return }
       reveal()
     } catch (e) {
       // Errors interrupt the animation immediately rather than waiting it out.
       setError(`Failed to fetch NOTAMs: ${e.message}`)
       haptic('heavy')
       setLoading(false)
-      if (isManual) setManualFetch(false)
+      setManualFetch(false)
     }
   }
-
-  // Keep a stable ref to handleFetch so the back-online effect never captures a stale copy
-  const handleFetchRef = useRef(handleFetch)
-  useEffect(() => { handleFetchRef.current = handleFetch })
-
-  // ── Back-online silent refresh ─────────────────────────────────────────
-  // When device comes back online, re-fetch if there are existing results to refresh.
-  const wasOnline = useRef(null)
-  useEffect(() => {
-    if (wasOnline.current === null) { wasOnline.current = isOnline; return }
-    if (!wasOnline.current && isOnline && notams) {
-      handleFetchRef.current()
-    }
-    wasOnline.current = isOnline
-  }, [isOnline, notams])
 
   const bySource = useMemo(() => {
     const m = {}
@@ -380,7 +351,7 @@ export default function NotamViewer() {
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
         <CopyAirportsButton sourceModule="metar" sourceLabel="METAR/TAF" onApply={applyCopiedAirports} />
-        <ResetButton onReset={handleReset} scoped />
+        <ResetButton onReset={handleReset} scoped hasUnsavedBriefing={hasUnsavedBriefing} onDiscardBriefing={discardUnsavedBriefing} />
       </div>
 
       {/* ── ROUTE ── */}
@@ -390,7 +361,7 @@ export default function NotamViewer() {
           <div className="cp-label" style={{ marginBottom: 4 }}>DEPARTURE</div>
           <input className="cp-input" style={monoInput} placeholder="e.g. WMKK" value={dep} maxLength={4}
             onChange={e => setDep(upper(e.target.value))}
-            onKeyDown={e => e.key === 'Enter' && handleFetch(true)} />
+            onKeyDown={e => e.key === 'Enter' && handleFetch()} />
         </div>
         <button
           onClick={() => { setDep(arr); setArr(dep) }}
@@ -406,7 +377,7 @@ export default function NotamViewer() {
           <div className="cp-label" style={{ marginBottom: 4 }}>ARRIVAL</div>
           <input className="cp-input" style={monoInput} placeholder="e.g. RJBB" value={arr} maxLength={4}
             onChange={e => setArr(upper(e.target.value))}
-            onKeyDown={e => e.key === 'Enter' && handleFetch(true)} />
+            onKeyDown={e => e.key === 'Enter' && handleFetch()} />
         </div>
       </div>
 
@@ -418,7 +389,7 @@ export default function NotamViewer() {
             <div className="cp-label" style={{ marginBottom: 4 }}>{label}</div>
             <input className="cp-input" style={monoInput} placeholder="ICAO" value={destAlts[key]} maxLength={4}
               onChange={e => setDestAlts(p => ({ ...p, [key]: upper(e.target.value) }))}
-              onKeyDown={e => e.key === 'Enter' && handleFetch(true)} />
+              onKeyDown={e => e.key === 'Enter' && handleFetch()} />
           </div>
         ))}
       </div>
@@ -441,7 +412,7 @@ export default function NotamViewer() {
               <div className="cp-label" style={{ marginBottom: 4 }}>ERA {i + 1}</div>
               <input className="cp-input" style={monoInput} placeholder="ICAO" value={enrouteAlts[i] || ''} maxLength={4}
                 onChange={e => setEnrouteAlts(p => { const n = [...p]; n[i] = upper(e.target.value); return n })}
-                onKeyDown={e => e.key === 'Enter' && handleFetch(true)} />
+                onKeyDown={e => e.key === 'Enter' && handleFetch()} />
             </div>
           ))}
         </div>
@@ -496,7 +467,7 @@ export default function NotamViewer() {
 
       {/* ── Fetch ── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <button onClick={() => handleFetch(true)} disabled={loading || !targets.length} style={{
+        <button onClick={() => handleFetch()} disabled={loading || !targets.length} style={{
           flex: 1, padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
           border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)', borderRadius: 6,
           cursor: targets.length ? 'pointer' : 'default', fontFamily: T.mono, fontSize: 10,
