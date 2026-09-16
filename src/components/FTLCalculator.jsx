@@ -1143,7 +1143,7 @@ export default function FTLCalculator() {
                 )}
                 <Row label="ACTUAL FDP END TIME" stacked note={
                   !tzConvert
-                    ? "Discretion can't be planned — enter once known (e.g. actual on-blocks). Extension used is calculated automatically (Ch. 2.15). Landed in a different time zone? Turn on Timezone Conversion to input in your local time."
+                    ? "Enter actual end of duty and any extension will be calculated automatically. Different time zone? Turn on Timezone Conversion above."
                     : !tzOffsets
                     ? 'Enter both UTC offsets above to switch frames'
                     : picEndMode === 'station'
