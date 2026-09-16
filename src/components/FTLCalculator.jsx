@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useLayoutEffect } from 'react'
+import React, { useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupFDP, getBandLabelForResult } from '../data/ftlTables'
 import ResetButton from './ResetButton'
@@ -74,6 +74,37 @@ function fmtDur(mins) {
   const h = Math.floor(Math.abs(mins) / 60)
   const m = Math.abs(mins) % 60
   return `${h}:${String(m).padStart(2, '0')}`
+}
+
+/**
+ * Accepts "+5:30", "-3:00", "5:30" (sign optional, defaults +), "0800" →
+ * signed minutes off UTC, or null on invalid. Free-typed rather than a
+ * preset list so no offset — including the odd 30/45-min ones — is ever
+ * unreachable.
+ */
+function parseOffset(str) {
+  const s = (str || '').trim()
+  const m = /^([+-]?)(\d{1,2}):?(\d{2})$/.exec(s)
+  if (!m) return null
+  const sign = m[1] === '-' ? -1 : 1
+  const h = +m[2], mi = +m[3]
+  if (h > 14 || mi > 59) return null
+  return sign * (h * 60 + mi)
+}
+
+function fmtOffset(min) {
+  const abs = Math.abs(min)
+  const h = String(Math.floor(abs / 60)).padStart(2, '0')
+  const m = String(abs % 60).padStart(2, '0')
+  return `${min >= 0 ? '+' : '-'}${h}:${m}`
+}
+
+// Converts a station-local clock time into another UTC offset — display
+// only, same instant. `days` is the date shift relative to that clock time
+// (e.g. +1 if the conversion pushes it past midnight).
+function convertClock(hhmm, stationOffMin, hereOffMin) {
+  const total = toMins(hhmm) + (hereOffMin - stationOffMin)
+  return { time: toHHMM(total), days: Math.floor(total / 1440) }
 }
 
 // ── FTL computation ───────────────────────────────────────────────────────────
@@ -413,10 +444,20 @@ export function computeFTL({
 // to a distant ancestor and cover far more than just the row).
 const PIC_ORIGINAL_ROW_OVERHANG = 9 // px, each side
 
-function PicDiscretionTable({ picRef, picEmployerNote, caamNotes }) {
+function PicDiscretionTable({ picRef, picEmployerNote, caamNotes, tz }) {
   const wrapEl = useRef(null)
   const origRowEl = useRef(null)
   const boxEl = useRef(null)
+
+  function ConvertedLine({ end }) {
+    if (!tz) return null
+    const { time, days } = convertClock(end, tz.stOff, tz.hereOff)
+    return (
+      <div style={{ fontSize: 9.5, fontWeight: 400, color: 'var(--cp-acc2)', letterSpacing: '0.04em', marginTop: 2 }}>
+        {time} UTC{fmtOffset(tz.hereOff)}{days !== 0 ? ` · ${days > 0 ? '+' : ''}${days}D` : ''}
+      </div>
+    )
+  }
 
   useLayoutEffect(() => {
     function layout() {
@@ -457,14 +498,14 @@ function PicDiscretionTable({ picRef, picEmployerNote, caamNotes }) {
           <tbody>
             <tr ref={origRowEl}>
               <td style={{ color: 'var(--cp-muted)', padding: '9px 0' }}>{orig.label}</td>
-              <td style={{ textAlign: 'right', color: 'var(--cp-txt)', fontWeight: 600, padding: '9px 0', whiteSpace: 'nowrap' }}>{orig.end} LOCAL</td>
+              <td style={{ textAlign: 'right', color: 'var(--cp-txt)', fontWeight: 600, padding: '9px 0', whiteSpace: 'nowrap' }}>{orig.end} LOCAL<ConvertedLine end={orig.end} /></td>
               <td colSpan={2} style={{ padding: '9px 0' }}></td>
             </tr>
             {reducedRestCase ? (
               <>
                 <tr>
                   <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h1.label}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h1.end} LOCAL</td>
+                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h1.end} LOCAL<ConvertedLine end={h1.end} /></td>
                   <td colSpan={2} rowSpan={3} style={{ verticalAlign: 'middle', padding: '4px 0 4px 10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(248,113,113,0.12)', border: '1px solid var(--cp-red)', borderRadius: 14, padding: '6px 10px', fontSize: 9.5, color: 'var(--cp-red)', lineHeight: 1.35 }}>
                       <span>⚠</span>
@@ -474,18 +515,18 @@ function PicDiscretionTable({ picRef, picEmployerNote, caamNotes }) {
                 </tr>
                 <tr>
                   <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h2.label}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h2.end} LOCAL</td>
+                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h2.end} LOCAL<ConvertedLine end={h2.end} /></td>
                 </tr>
                 <tr>
                   <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h3.label}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h3.end} LOCAL</td>
+                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h3.end} LOCAL<ConvertedLine end={h3.end} /></td>
                 </tr>
               </>
             ) : (
               [h1, h2, h3].map(row => (
                 <tr key={row.label}>
                   <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{row.label}</td>
-                  <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-txt)', fontWeight: 600, whiteSpace: 'nowrap' }}>{row.end} LOCAL</td>
+                  <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-txt)', fontWeight: 600, whiteSpace: 'nowrap' }}>{row.end} LOCAL<ConvertedLine end={row.end} /></td>
                   <td style={{ textAlign: 'right', color: 'var(--cp-orange)', fontSize: 10 }}>⚠ REQUIRED</td>
                   <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-dim)', fontSize: 10 }}>{row.caam ? '⚠ REQUIRED' : '—'}</td>
                 </tr>
@@ -555,6 +596,77 @@ function Row({ label, note, children }) {
   )
 }
 
+// A fused "UTC" chip on the input itself — makes an offset field read as a
+// different kind of input from a bare clock-time box at a glance, instead of
+// relying on the user noticing a lone +/- sign.
+function UtcOffsetInput({ value, onChange, onBlur, maxLength = 6 }) {
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'stretch', width: 130,
+      border: '1px solid var(--cp-acc2)', borderRadius: 4, overflow: 'hidden',
+      background: 'color-mix(in srgb, var(--cp-acc2) 8%, var(--cp-bginput))',
+    }}>
+      <span style={{
+        display: 'flex', alignItems: 'center', padding: '0 8px',
+        fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.06em',
+        color: 'var(--cp-acc2)', background: 'color-mix(in srgb, var(--cp-acc2) 16%, transparent)',
+        borderRight: '1px solid var(--cp-acc2)',
+      }}>UTC</span>
+      <input type="text" placeholder="+HH:MM" value={value} onChange={onChange} onBlur={onBlur} maxLength={maxLength}
+        style={{
+          flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none',
+          color: 'var(--cp-acc2)', fontFamily: 'var(--cb-font-mono)', fontSize: 13,
+          textAlign: 'center', padding: '7px 6px 7px 2px',
+        }}
+      />
+    </div>
+  )
+}
+
+// Extension severity → tint, same idea as the wind/weather severity colours
+// in metarSeverity.js. Thresholds mirror PIC discretion's own regulatory
+// caps (Ch. 2.15.2): up to 1h yellow, up to 2h amber, up to 3h (the hard
+// cap) red.
+const EXTENSION_TONE = {
+  green:  'var(--cp-green)',
+  yellow: 'var(--cp-yellow)',
+  amber:  'var(--cp-orange)',
+  red:    'var(--cp-red)',
+}
+function extensionTier(mins) {
+  if (mins <= 60) return 'yellow'
+  if (mins <= 120) return 'amber'
+  return 'red'
+}
+
+// Before/after pair — allowable vs actual FDP, or due-to-expire vs
+// actual-finish. Only ever shown once PIC discretion has actually been
+// exercised (an extension > 0), so the "before" side reads as a real
+// comparison rather than a redundant echo of the number above it. Left
+// tile is always green (the regulatory baseline); right tile tints by
+// how large the extension is.
+function CompareTiles({ leftLabel, leftValue, rightLabel, rightValue, tone }) {
+  const tileStyle = (t) => ({
+    flex: 1, borderRadius: 6, padding: '10px 12px',
+    background: `color-mix(in srgb, ${EXTENSION_TONE[t]} 12%, transparent)`,
+    border: `1px solid ${EXTENSION_TONE[t]}`,
+  })
+  const tileLabel = { fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-dim)', marginBottom: 4 }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+      <div style={tileStyle('green')}>
+        <div style={tileLabel}>{leftLabel}</div>
+        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 20, fontWeight: 700, color: EXTENSION_TONE.green }}>{leftValue}</div>
+      </div>
+      <span style={{ fontSize: 15, color: 'var(--cp-dim)', flexShrink: 0 }}>→</span>
+      <div style={tileStyle(tone)}>
+        <div style={tileLabel}>{rightLabel}</div>
+        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 20, fontWeight: 700, color: EXTENSION_TONE[tone] }}>{rightValue}</div>
+      </div>
+    </div>
+  )
+}
+
 function Section({ title, toggle, children }) {
   return (
     <div style={{ marginBottom: 20 }}>
@@ -577,7 +689,17 @@ export default function FTLCalculator() {
     sectors, precedingRest, longRange, longestSector, delayedReporting, actualReportTime,
     positioning, positioningReportTime, standby, standbyStart, standbyLocation, homeShortNotice,
     ifr, ifrType, ifrRest, reducedRest, splitDuty, splitRest, picDisc, picActualEnd, picLastSector,
+    tzConvert, stationOffset, hereOffset,
   } = ftl
+
+  // ACTUAL FDP END TIME input mode — lets the pilot type the time off
+  // whichever clock they're actually looking at instead of doing the station
+  // conversion in their head. picActualEnd itself always stays station-local,
+  // since that's the frame computeFTL requires; 'local' mode just writes into
+  // it via a live conversion. hereEndInput holds the raw local-mode text
+  // (kept separate so switching modes doesn't clobber what's mid-typing).
+  const [picEndMode, setPicEndMode] = useState('station')
+  const [hereEndInput, setHereEndInput] = useState('')
 
   const handleReset = () => {
     setFTLField({
@@ -592,7 +714,10 @@ export default function FTLCalculator() {
       reducedRest: false,
       splitDuty: false, splitRest: '',
       picDisc: false, picActualEnd: '', picLastSector: true,
+      tzConvert: false, stationOffset: '', hereOffset: '',
     })
+    setPicEndMode('station')
+    setHereEndInput('')
   }
 
   const effectiveCrew  = crewCat === 'cabin' ? '2crew' : crewType
@@ -640,6 +765,16 @@ export default function FTLCalculator() {
     splitDuty, splitRest,
     picDisc, picActualEnd, picLastSector,
   ])
+
+  // Display-only conversion of station-local clock times to another UTC
+  // offset — feeds both the FDP EXPIRES line and the PIC discretion table.
+  // Null unless the toggle is on and both offsets parse.
+  const tzOffsets = useMemo(() => {
+    if (!tzConvert) return null
+    const stOff = parseOffset(stationOffset)
+    const hereOff = parseOffset(hereOffset)
+    return (stOff != null && hereOff != null) ? { stOff, hereOff } : null
+  }, [tzConvert, stationOffset, hereOffset])
 
   const inp = {
     background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)',
@@ -784,6 +919,33 @@ export default function FTLCalculator() {
                   )}
                 </div>
               </Row>
+            )}
+
+            {/* Timezone conversion — display only, does not affect the FDP
+                calculation. FDP stays anchored to local time at the
+                reporting station throughout the duty (that's the
+                regulatorily-binding number); this just converts the same
+                expiry instant into whatever clock you're reading it
+                against right now. */}
+            <Row label="TIMEZONE CONVERSION" note={tzConvert ? undefined : 'Show FDP expiry converted to another UTC offset'}>
+              <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
+                value={tzConvert} onChange={v => setFTLField({ tzConvert: v })} />
+            </Row>
+            {tzConvert && (
+              <>
+                <Row label="REPORTING STATION" note="e.g. +04:00">
+                  <UtcOffsetInput value={stationOffset}
+                    onChange={e => setFTLField({ stationOffset: e.target.value })}
+                    onBlur={e => { const m = parseOffset(e.target.value); if (m != null) setFTLField({ stationOffset: fmtOffset(m) }) }}
+                  />
+                </Row>
+                <Row label="WHERE YOU ARE NOW" note="Conversion only — read off your EFB or phone clock">
+                  <UtcOffsetInput value={hereOffset}
+                    onChange={e => setFTLField({ hereOffset: e.target.value })}
+                    onBlur={e => { const m = parseOffset(e.target.value); if (m != null) setFTLField({ hereOffset: fmtOffset(m) }) }}
+                  />
+                </Row>
+              </>
             )}
           </Section>
 
@@ -960,12 +1122,90 @@ export default function FTLCalculator() {
                     />
                   </Row>
                 )}
-                <Row label="ACTUAL FDP END TIME" note="Discretion can't be planned — enter once known (e.g. actual on-blocks). Extension used is calculated automatically (Ch. 2.15)">
-                  <input type="text" placeholder="HH:MM"
-                    value={picActualEnd} onChange={e => setFTLField({ picActualEnd: e.target.value })}
-                    onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ picActualEnd: n }) }}
-                    style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
-                  />
+                <Row label="ACTUAL FDP END TIME" note={
+                  !tzConvert
+                    ? "Discretion can't be planned — enter once known (e.g. actual on-blocks). Extension used is calculated automatically (Ch. 2.15)"
+                    : !tzOffsets
+                    ? 'Enter both UTC offsets above to switch frames'
+                    : picEndMode === 'station'
+                    ? `Station-local (UTC${fmtOffset(tzOffsets.stOff)}) — e.g. actual on-blocks`
+                    : `Your local time (UTC${fmtOffset(tzOffsets.hereOff)}) — converts automatically`
+                }>
+                  <div>
+                    {!tzConvert && (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8,
+                        background: 'color-mix(in srgb, var(--cp-acc2) 8%, transparent)',
+                        border: '1px solid var(--cp-acc2)', borderRadius: 4, padding: '7px 10px',
+                        fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, color: 'var(--cp-acc2)', lineHeight: 1.5,
+                      }}>
+                        🌐 Landed somewhere else? Turn on <b>Timezone Conversion</b> above to enter this in your own local time.
+                      </div>
+                    )}
+                    {tzConvert && tzOffsets && (
+                      <div style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 8,
+                        background: 'color-mix(in srgb, var(--cp-acc2) 10%, transparent)',
+                        border: '1px solid var(--cp-acc2)', borderRadius: 20, padding: '4px 11px',
+                        fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, fontWeight: 700, color: 'var(--cp-acc2)', letterSpacing: '0.03em',
+                      }}>
+                        🌐 UTC{fmtOffset(tzOffsets.stOff)} → UTC{fmtOffset(tzOffsets.hereOff)}
+                      </div>
+                    )}
+                    {tzConvert && (
+                      <div style={{ marginBottom: 8 }}>
+                        <Seg
+                          options={[{ value: 'station', label: 'STATION' }, { value: 'local', label: 'MY LOCAL', disabled: !tzOffsets, disabledTitle: 'Enter both UTC offsets above first' }]}
+                          value={picEndMode}
+                          onChange={v => {
+                            if (v === 'local' && tzOffsets && picActualEnd) {
+                              const n = normalizeTime(picActualEnd)
+                              if (n) { const { time } = convertClock(n, tzOffsets.stOff, tzOffsets.hereOff); setHereEndInput(time) }
+                            }
+                            setPicEndMode(v)
+                          }}
+                        />
+                      </div>
+                    )}
+                    <input type="text" placeholder="HH:MM"
+                      value={picEndMode === 'local' ? hereEndInput : picActualEnd}
+                      onChange={e => {
+                        const raw = e.target.value
+                        if (picEndMode === 'local') {
+                          setHereEndInput(raw)
+                          if (tzOffsets) {
+                            const n = normalizeTime(raw)
+                            if (n) { const { time } = convertClock(n, tzOffsets.hereOff, tzOffsets.stOff); setFTLField({ picActualEnd: time }) }
+                          }
+                        } else {
+                          setFTLField({ picActualEnd: raw })
+                        }
+                      }}
+                      onBlur={e => {
+                        const n = normalizeTime(e.target.value)
+                        if (!n) return
+                        if (picEndMode === 'local') setHereEndInput(n)
+                        else setFTLField({ picActualEnd: n })
+                      }}
+                      style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
+                    />
+                    {tzConvert && tzOffsets && (() => {
+                      const current = picEndMode === 'local' ? hereEndInput : picActualEnd
+                      const n = normalizeTime(current)
+                      if (!n) return null
+                      const { time } = picEndMode === 'local'
+                        ? convertClock(n, tzOffsets.hereOff, tzOffsets.stOff)
+                        : convertClock(n, tzOffsets.stOff, tzOffsets.hereOff)
+                      const otherLabel = picEndMode === 'local'
+                        ? `station-local (UTC${fmtOffset(tzOffsets.stOff)})`
+                        : `your local (UTC${fmtOffset(tzOffsets.hereOff)})`
+                      return (
+                        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-acc2)', marginTop: 6, letterSpacing: '0.03em' }}>
+                          = {time} {otherLabel}
+                        </div>
+                      )
+                    })()}
+                  </div>
                 </Row>
                 <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-orange)', letterSpacing: '0.08em', paddingBottom: 4, lineHeight: 1.6 }}>
                   Must be documented · Discretion Report Form required (Ch. 2.15.4)
@@ -1000,7 +1240,13 @@ export default function FTLCalculator() {
               </div>
             </div>
 
-          ) : result?.ok ? (
+          ) : result?.ok ? (() => {
+            // An extension is only real once PIC discretion has actually
+            // been exercised (picExtension > 0) — picDisc alone (toggle on,
+            // no actual end time yet) has nothing to compare against.
+            const hasExtension = !!result.picRef && result.breakdown.picExtension > 0
+            const extTone = hasExtension ? extensionTier(result.breakdown.picExtension) : null
+            return (
             <>
               {/* Main result card */}
               <div style={{
@@ -1010,10 +1256,13 @@ export default function FTLCalculator() {
                 borderRadius: 4, padding: '18px 20px', marginBottom: 14,
               }}>
                 <div style={{ marginBottom: 16 }}>
-                  <div className="cp-label" style={{ marginBottom: 6 }}>MAX FDP</div>
+                  <div className="cp-label" style={{ marginBottom: 6 }}>{hasExtension ? 'ACTUAL FDP' : 'MAX FDP'}</div>
                   <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 44, fontWeight: 700, color: 'var(--cp-acc)', lineHeight: 1 }}>
                     {fmtDur(result.fdp)}
                   </div>
+                  {hasExtension && (
+                    <CompareTiles leftLabel="ALLOWABLE FDP" leftValue={fmtDur(result.fdpPrePIC)} rightLabel="ACTUAL FDP" rightValue={fmtDur(result.fdp)} tone={extTone} />
+                  )}
                 </div>
                 <div>
                   <div className="cp-label" style={{ marginBottom: 6 }}>FDP EXPIRES</div>
@@ -1021,11 +1270,36 @@ export default function FTLCalculator() {
                     <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 16, fontWeight: 600, color: 'var(--cp-orange)', lineHeight: 1.4 }}>
                       PENDING — enter report time once called out
                     </div>
+                  ) : hasExtension ? (
+                    <CompareTiles leftLabel="DUE TO EXPIRE" leftValue={result.picRef.orig.end} rightLabel="ACTUAL FINISH" rightValue={result.endTime} tone={extTone} />
                   ) : (
                     <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 30, fontWeight: 700, color: 'var(--cp-txt)', lineHeight: 1 }}>
                       {result.endTime}
                       <span style={{ fontSize: 12, color: 'var(--cp-dim)', marginLeft: 8, letterSpacing: '0.1em' }}>LOCAL TIME AT REPORTING</span>
                     </div>
+                  )}
+                  {hasExtension && !result.pending && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 12, fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-orange)', letterSpacing: '0.03em' }}>
+                      <span style={{ fontSize: 13 }}>⏱</span>
+                      {fmtDur(result.breakdown.picExtension)} extension under PIC discretion
+                    </div>
+                  )}
+                  {tzConvert && !result.pending && (
+                    tzOffsets ? (() => {
+                      const { time, days } = convertClock(result.endTime, tzOffsets.stOff, tzOffsets.hereOff)
+                      return (
+                        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--cp-acc2)', lineHeight: 1, marginTop: 10 }}>
+                          {time}
+                          <span style={{ fontSize: 11, color: 'var(--cp-dim)', marginLeft: 8, letterSpacing: '0.08em', fontWeight: 400 }}>
+                            AT UTC{fmtOffset(tzOffsets.hereOff)}{days !== 0 ? ` · ${days > 0 ? '+' : ''}${days} DAY` : ''}
+                          </span>
+                        </div>
+                      )
+                    })() : (
+                      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 8 }}>
+                        Enter both UTC offsets above to convert
+                      </div>
+                    )
                   )}
                 </div>
               </div>
@@ -1090,6 +1364,7 @@ export default function FTLCalculator() {
                   picRef={result.picRef}
                   picEmployerNote={result.picEmployerNote}
                   caamNotes={result.caamNotes}
+                  tz={tzOffsets}
                 />
               )}
 
@@ -1123,7 +1398,8 @@ export default function FTLCalculator() {
                 </div>
               )}
             </>
-          ) : null}
+            )
+          })() : null}
 
         </div>
       </div>

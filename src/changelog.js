@@ -313,6 +313,11 @@ export const CHANGELOG = [
       "REMOVED: METAR/TAF's 30-minute auto-refresh and NOTAM's back-online auto-refresh, along with the Settings \"Auto-refresh\" toggle — METAR/TAF, NOTAM and SIGMET are now fetch-on-demand only across the board",
       "FIX: METAR/TAF, NOTAM and SIGMET's 12-hour stale-data cleanup could silently delete an unrelated saved Briefing — it now only ever clears that module's own data",
       "NEW: Reset (all 3 modules) now discards an open, unsaved Briefing immediately, with a warning in the confirm dialog when one exists — saved briefings are never touched by Reset",
+      "FIX: Malaysia Airports: search inputs and results now persist when leaving and returning to the tab — previously reset every time, unlike every other tab",
+      "NEW: FTL: Timezone Conversion — enter a UTC offset for your reporting station and for where you are now, and FDP EXPIRES shows both the station-local time (the regulatorily-binding number) and its converted equivalent, so a duty that starts in one timezone and ends in another no longer requires doing the conversion in your head",
+      "NEW: FTL: PIC discretion's ACTUAL FDP END TIME field now accepts either station-local or your own local time (auto-converting between them), fixing a real bug where entering an actual finish time read off a different timezone's clock silently corrupted the discretion-extension calculation",
+      "NEW: FTL: PIC Discretion Reference table's ORIGINAL/+1:00/+2:00/+3:00 rows also show each time converted to your local offset when Timezone Conversion is on",
+      "NEW: FTL: when PIC discretion has actually been exercised, the result panel shows ALLOWABLE vs ACTUAL FDP and DUE TO EXPIRE vs ACTUAL FINISH as before/after tiles, colour-coded yellow/amber/red by how large the extension is (up to 1h / 2h / 3h), plus a one-line extension caption",
     ],
   },
   {

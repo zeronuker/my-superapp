@@ -137,6 +137,10 @@ export const useCalculatorStore = create((set) => ({
     rows: [{ x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }],
     lookupX: '', lookupZ: '', result: '',
   },
+  gatefinder: {
+    direction: 'D', terminal: 'KLIA', dayKey: 0, criteria: 'flight', query: '',
+    results: null,
+  },
   ftl: {
     aircraft: 'aeroplane', crewCat: 'flight', crewType: '2crew', acclimatised: true,
     reportTime: '', diffCabinTime: false, cabinReportTime: '',
@@ -149,6 +153,7 @@ export const useCalculatorStore = create((set) => ({
     reducedRest: false,
     splitDuty: false, splitRest: '',
     picDisc: false, picActualEnd: '', picLastSector: true,
+    tzConvert: false, stationOffset: '', hereOffset: '',
   },
 
   // ── UI state ────────────────────────────────────────────────────────────
@@ -221,6 +226,7 @@ export const useCalculatorStore = create((set) => ({
     return { currency: { amount: '', base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST, quickBase: DEFAULT_QUICK_BASE_CURRENCIES } }
   }),
   setInterpolation:  (partial)   => set(s => ({ interpolation: { ...s.interpolation, ...partial } })),
+  setGatefinderField: (partial)  => set(s => ({ gatefinder: { ...s.gatefinder, ...partial } })),
   setFTLField:       (partial)   => set(s => ({ ftl: { ...s.ftl, ...partial } })),
   toggleDarkMode:    ()          => set(s => ({ darkMode: !s.darkMode })),
   setDarkMode:       (v)         => set({ darkMode: v }),

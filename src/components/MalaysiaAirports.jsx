@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import { getRoleStyle } from '../utils/metarSeverity'
+import { useCalculatorStore } from '../store/calculatorStore'
 
 // Airline logos — same public, CORS-open, key-less endpoint Malaysia
 // Airports' own site calls client-side. Cached at module scope so the list
@@ -188,13 +189,9 @@ function FlightCard({ f, logo }) {
 }
 
 export default function MalaysiaAirports() {
-  const [direction, setDirection] = useState('D')
-  const [terminal, setTerminal]   = useState('KLIA')
-  const [dayKey, setDayKey]       = useState(0)
-  const [criteria, setCriteria]   = useState('flight')
-  const [query, setQuery]         = useState('')
+  const { direction, terminal, dayKey, criteria, query, results } = useCalculatorStore(s => s.gatefinder)
+  const setField = useCalculatorStore(s => s.setGatefinderField)
 
-  const [results, setResults]         = useState(null)
   const [loading, setLoading]         = useState(false)
   const [manualFetch, setManualFetch] = useState(false)
   const [scanTarget, setScanTarget]   = useState('')
@@ -229,7 +226,7 @@ export default function MalaysiaAirports() {
     }
 
     const reveal = () => {
-      if (err) { setError(err); setResults(null) } else { setResults(out) }
+      if (err) { setError(err); setField({ results: null }) } else { setField({ results: out }) }
       setLoading(false)
       setManualFetch(false)
     }
@@ -254,18 +251,18 @@ export default function MalaysiaAirports() {
         <button
           className={`cp-btn${direction === 'D' ? ' active' : ''}`}
           style={{ flex: 1 }}
-          onClick={() => setDirection('D')}
+          onClick={() => setField({ direction: 'D' })}
         >Departure</button>
         <button
           className={`cp-btn${direction === 'A' ? ' active' : ''}`}
           style={{ flex: 1 }}
-          onClick={() => setDirection('A')}
+          onClick={() => setField({ direction: 'A' })}
         >Arrival</button>
       </div>
 
       <div style={{ marginBottom: 10 }}>
         <div style={label}>Airport</div>
-        <select style={sel} value={terminal} onChange={e => setTerminal(e.target.value)}>
+        <select style={sel} value={terminal} onChange={e => setField({ terminal: e.target.value })}>
           {AIRPORTS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
         </select>
       </div>
@@ -273,13 +270,13 @@ export default function MalaysiaAirports() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
         <div style={{ flex: 1 }}>
           <div style={label}>Date</div>
-          <select style={sel} value={dayKey} onChange={e => setDayKey(Number(e.target.value))}>
+          <select style={sel} value={dayKey} onChange={e => setField({ dayKey: Number(e.target.value) })}>
             {DAYS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
           </select>
         </div>
         <div style={{ flex: 1 }}>
           <div style={label}>Search by</div>
-          <select style={sel} value={criteria} onChange={e => setCriteria(e.target.value)}>
+          <select style={sel} value={criteria} onChange={e => setField({ criteria: e.target.value })}>
             {CRITERIA.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         </div>
@@ -290,7 +287,7 @@ export default function MalaysiaAirports() {
           className="cp-input"
           placeholder="Flight no / city / airline"
           value={query}
-          onChange={e => { setQuery(e.target.value); if (error) setError(null) }}
+          onChange={e => { setField({ query: e.target.value }); if (error) setError(null) }}
           onKeyDown={e => { if (e.key === 'Enter') search() }}
         />
         <button className="cp-btn" onClick={search} disabled={loading} style={{ whiteSpace: 'nowrap' }}>
