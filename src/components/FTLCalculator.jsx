@@ -552,7 +552,7 @@ function PicDiscretionTable({ picRef, picEmployerNote, caamNotes, tz }) {
 
 function Seg({ options, value, onChange }) {
   return (
-    <div style={{ display: 'flex', border: '1px solid var(--cp-border)', borderRadius: 4, overflow: 'hidden', flexShrink: 0 }}>
+    <div style={{ display: 'inline-flex', border: '1px solid var(--cp-border)', borderRadius: 4, overflow: 'hidden', flexShrink: 0 }}>
       {options.map((opt, i) => {
         const active   = value === opt.value
         const disabled = !!opt.disabled
@@ -1143,7 +1143,7 @@ export default function FTLCalculator() {
                   <div>
                     {!tzConvert && (
                       <div style={{
-                        display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8,
+                        marginBottom: 8,
                         background: 'color-mix(in srgb, var(--cp-acc2) 8%, transparent)',
                         border: '1px solid var(--cp-acc2)', borderRadius: 4, padding: '7px 10px',
                         fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, color: 'var(--cp-acc2)', lineHeight: 1.5,

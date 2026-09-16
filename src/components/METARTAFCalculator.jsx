@@ -330,10 +330,12 @@ export default function METARTAFCalculator() {
       {/* ── CONTROLS ────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8,
         paddingTop: 14, borderTop: '1px solid var(--cp-border3)' }}>
-        <span className="cp-label">METAR HISTORY</span>
-        <select value={hours} onChange={e => setHours(Number(e.target.value))} style={sel}>
-          {HOURS_OPTIONS.map(h => <option key={h} value={h}>{h}H</option>)}
-        </select>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span className="cp-label">METAR HISTORY</span>
+          <select value={hours} onChange={e => setHours(Number(e.target.value))} style={sel}>
+            {HOURS_OPTIONS.map(h => <option key={h} value={h}>{h}H</option>)}
+          </select>
+        </div>
 
         <button className="cp-btn" onClick={handleFetch}
           disabled={!hasInput || loading}
@@ -342,14 +344,14 @@ export default function METARTAFCalculator() {
             borderColor: hasInput && !loading ? 'var(--cp-acc)' : undefined,
             color:       hasInput && !loading ? 'var(--cp-acc)' : undefined,
             opacity: loading ? 0.6 : 1,
-            padding: '12px 16px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em', minWidth: 152,
+            padding: '12px 10px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em',
           }}>
           {loading ? 'FETCHING…' : '⟳  FETCH WEATHER'}
         </button>
         <button className="cp-btn" onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts })} disabled={!hasInput}
           style={{
             opacity: hasInput ? 1 : 0.4,
-            padding: '12px 16px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em',
+            padding: '12px 10px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em',
             border: '2px solid var(--cp-green)', color: 'var(--cp-green)',
             background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
           }}>
