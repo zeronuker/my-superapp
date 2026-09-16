@@ -580,13 +580,20 @@ function Seg({ options, value, onChange }) {
   )
 }
 
-function Row({ label, note, children, stacked }) {
+function Row({ label, note, children, stacked, header }) {
   return (
     <div style={{ marginBottom: 12 }}>
       <div style={stacked
         ? { display: 'flex', flexDirection: 'column', gap: 8 }
         : { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <span className="cp-label">{label}</span>
+        {stacked && header ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <span className="cp-label">{label}</span>
+            {header}
+          </div>
+        ) : (
+          <span className="cp-label">{label}</span>
+        )}
         {children}
       </div>
       {note && (
@@ -1149,18 +1156,17 @@ export default function FTLCalculator() {
                     : picEndMode === 'station'
                     ? `Station-local (UTC${fmtOffset(tzOffsets.stOff)}) — e.g. actual on-blocks`
                     : `Your local time (UTC${fmtOffset(tzOffsets.hereOff)}) — converts automatically`
-                }>
+                } header={tzConvert && tzOffsets && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
+                    background: 'color-mix(in srgb, var(--cp-acc2) 10%, transparent)',
+                    border: '1px solid var(--cp-acc2)', borderRadius: 20, padding: '4px 11px',
+                    fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, fontWeight: 700, color: 'var(--cp-acc2)', letterSpacing: '0.03em',
+                  }}>
+                    🌐 UTC{fmtOffset(tzOffsets.stOff)} → UTC{fmtOffset(tzOffsets.hereOff)}
+                  </div>
+                )}>
                   <div>
-                    {tzConvert && tzOffsets && (
-                      <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 8,
-                        background: 'color-mix(in srgb, var(--cp-acc2) 10%, transparent)',
-                        border: '1px solid var(--cp-acc2)', borderRadius: 20, padding: '4px 11px',
-                        fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, fontWeight: 700, color: 'var(--cp-acc2)', letterSpacing: '0.03em',
-                      }}>
-                        🌐 UTC{fmtOffset(tzOffsets.stOff)} → UTC{fmtOffset(tzOffsets.hereOff)}
-                      </div>
-                    )}
                     {tzConvert && (
                       <div style={{ marginBottom: 8 }}>
                         <Seg
