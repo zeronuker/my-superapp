@@ -580,10 +580,12 @@ function Seg({ options, value, onChange }) {
   )
 }
 
-function Row({ label, note, children }) {
+function Row({ label, note, children, stacked }) {
   return (
     <div style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <div style={stacked
+        ? { display: 'flex', flexDirection: 'column', gap: 8 }
+        : { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <span className="cp-label">{label}</span>
         {children}
       </div>
@@ -1131,7 +1133,7 @@ export default function FTLCalculator() {
                     />
                   </Row>
                 )}
-                <Row label="ACTUAL FDP END TIME" note={
+                <Row label="ACTUAL FDP END TIME" stacked note={
                   !tzConvert
                     ? "Discretion can't be planned — enter once known (e.g. actual on-blocks). Extension used is calculated automatically (Ch. 2.15)"
                     : !tzOffsets
@@ -1148,7 +1150,7 @@ export default function FTLCalculator() {
                         border: '1px solid var(--cp-acc2)', borderRadius: 4, padding: '7px 10px',
                         fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, color: 'var(--cp-acc2)', lineHeight: 1.5,
                       }}>
-                        🌐 Landed somewhere else? Turn on <b>Timezone Conversion</b> above to enter this in your own local time.
+                        🌐 Landed in a different timezone? Turn on <b>Timezone Conversion</b> and input your current local time.
                       </div>
                     )}
                     {tzConvert && tzOffsets && (
