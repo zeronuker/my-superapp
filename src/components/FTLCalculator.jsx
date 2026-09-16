@@ -1125,6 +1125,14 @@ export default function FTLCalculator() {
           }>
             {picDisc && (
               <>
+                <div style={{
+                  borderLeft: '2px solid var(--cp-orange)',
+                  background: 'color-mix(in srgb, var(--cp-orange) 8%, transparent)',
+                  padding: '6px 10px', marginBottom: 14,
+                  fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-orange)', letterSpacing: '0.08em', lineHeight: 1.6,
+                }}>
+                  ⚠ Must be documented · Discretion Report Form required (Ch. 2.15.4)
+                </div>
                 {Math.min(sectors, maxSectors) > 1 && (
                   <Row label="BEFORE LAST SECTOR" note="Max 3h only before last sector · max 2h before any earlier sector (Ch. 2.15.2)">
                     <Seg
@@ -1135,7 +1143,7 @@ export default function FTLCalculator() {
                 )}
                 <Row label="ACTUAL FDP END TIME" stacked note={
                   !tzConvert
-                    ? "Discretion can't be planned — enter once known (e.g. actual on-blocks). Extension used is calculated automatically (Ch. 2.15)"
+                    ? "Discretion can't be planned — enter once known (e.g. actual on-blocks). Extension used is calculated automatically (Ch. 2.15). Landed in a different time zone? Turn on Timezone Conversion to input in your local time."
                     : !tzOffsets
                     ? 'Enter both UTC offsets above to switch frames'
                     : picEndMode === 'station'
@@ -1143,16 +1151,6 @@ export default function FTLCalculator() {
                     : `Your local time (UTC${fmtOffset(tzOffsets.hereOff)}) — converts automatically`
                 }>
                   <div>
-                    {!tzConvert && (
-                      <div style={{
-                        marginBottom: 8,
-                        background: 'color-mix(in srgb, var(--cp-acc2) 8%, transparent)',
-                        border: '1px solid var(--cp-acc2)', borderRadius: 4, padding: '7px 10px',
-                        fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, color: 'var(--cp-acc2)', lineHeight: 1.5,
-                      }}>
-                        🌐 Landed in a different timezone? Turn on <b>Timezone Conversion</b> and input your current local time.
-                      </div>
-                    )}
                     {tzConvert && tzOffsets && (
                       <div style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 8,
@@ -1219,9 +1217,6 @@ export default function FTLCalculator() {
                     })()}
                   </div>
                 </Row>
-                <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-orange)', letterSpacing: '0.08em', paddingBottom: 4, lineHeight: 1.6 }}>
-                  Must be documented · Discretion Report Form required (Ch. 2.15.4)
-                </div>
               </>
             )}
           </Section>
