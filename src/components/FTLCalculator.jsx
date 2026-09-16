@@ -869,6 +869,7 @@ export default function FTLCalculator() {
               }>
               <input
                 type="text" value={reportTime} placeholder="HH:MM"
+                inputMode="numeric" pattern="[0-9]*"
                 onChange={e => setFTLField({ reportTime: e.target.value })}
                 onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ reportTime: n }) }}
                 style={{ ...inp, width: 100, textAlign: 'center' }}
@@ -884,6 +885,7 @@ export default function FTLCalculator() {
                   />
                   {diffCabinTime && (
                     <input type="text" placeholder="HH:MM"
+                      inputMode="numeric" pattern="[0-9]*"
                       value={cabinReportTime} onChange={e => setFTLField({ cabinReportTime: e.target.value })}
                       onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ cabinReportTime: n }) }}
                       style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
@@ -912,6 +914,7 @@ export default function FTLCalculator() {
                   />
                   {longRange && (
                     <input type="text" placeholder="H:MM"
+                      inputMode="numeric" pattern="[0-9]*"
                       value={longestSector} onChange={e => setFTLField({ longestSector: e.target.value })}
                       onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ longestSector: fmtDur(m) }) }}
                       style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
@@ -957,6 +960,7 @@ export default function FTLCalculator() {
             {delayedReporting && (
               <Row label="ACTUAL REPORT TIME" note="REPORT TIME above is treated as the original/planned time (Ch. 2.7.1)">
                 <input type="text" value={actualReportTime} placeholder="HH:MM"
+                  inputMode="numeric" pattern="[0-9]*"
                   onChange={e => setFTLField({ actualReportTime: e.target.value })}
                   onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ actualReportTime: n }) }}
                   style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
@@ -973,6 +977,7 @@ export default function FTLCalculator() {
             {positioning && (
               <Row label="POSITIONING REPORT TIME" note="FDP commences here, not at the flight report time (Ch. 2.8.1)">
                 <input type="text" value={positioningReportTime} placeholder="HH:MM"
+                  inputMode="numeric" pattern="[0-9]*"
                   onChange={e => setFTLField({ positioningReportTime: e.target.value })}
                   onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ positioningReportTime: n }) }}
                   style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
@@ -989,6 +994,7 @@ export default function FTLCalculator() {
                 note="Rest period before this duty — selects Table B row (Ch. 2.10)"
               >
                 <input type="text" placeholder="H:MM or HHMM"
+                  inputMode="numeric" pattern="[0-9]*"
                   value={precedingRest} onChange={e => setFTLField({ precedingRest: e.target.value })}
                   onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ precedingRest: fmtDur(m) }) }}
                   style={{ ...inp, width: 110, textAlign: 'center' }} maxLength={5}
@@ -1013,6 +1019,7 @@ export default function FTLCalculator() {
               <>
                 <Row label="STANDBY START" note="Max 12h standby (Ch. 2.9)">
                   <input type="text" value={standbyStart} placeholder="HH:MM"
+                    inputMode="numeric" pattern="[0-9]*"
                     onChange={e => setFTLField({ standbyStart: e.target.value })}
                     onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ standbyStart: n }) }}
                     style={{ ...inp, width: 100, textAlign: 'center' }}
@@ -1061,6 +1068,7 @@ export default function FTLCalculator() {
                   </Row>
                   <Row label="REST PERIOD" note="Minimum 3h required (Ch. 2.12)">
                     <input type="text" placeholder="H:MM"
+                      inputMode="numeric" pattern="[0-9]*"
                       value={ifrRest} onChange={e => setFTLField({ ifrRest: e.target.value })}
                       onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ ifrRest: fmtDur(m) }) }}
                       style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
@@ -1099,6 +1107,7 @@ export default function FTLCalculator() {
             {splitDuty && !reducedRest && (
               <Row label="REST PERIOD" note="3–10h rest → ½ extension (Ch. 2.13)">
                 <input type="text" placeholder="H:MM"
+                  inputMode="numeric" pattern="[0-9]*"
                   value={splitRest} onChange={e => setFTLField({ splitRest: e.target.value })}
                   onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ splitRest: fmtDur(m) }) }}
                   style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
@@ -1168,6 +1177,7 @@ export default function FTLCalculator() {
                       </div>
                     )}
                     <input type="text" placeholder="HH:MM"
+                      inputMode="numeric" pattern="[0-9]*"
                       value={picEndMode === 'local' ? hereEndInput : picActualEnd}
                       onChange={e => {
                         const raw = e.target.value
