@@ -71,6 +71,7 @@ function Aircraft({ logId, aircraft, index, total, actions }) {
         <div>
           <label style={{ ...lblStyle, color: 'var(--cp-dim)' }}>Configuration</label>
           <input className="cp-input" style={{ fontSize: 11, padding: '6px 7px' }}
+            inputMode="tel"
             value={aircraft.config} onChange={(e) => f('config')(e.target.value.toUpperCase())} />
         </div>
         <div style={{ gridColumn: '2 / span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9,
