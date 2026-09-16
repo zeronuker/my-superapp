@@ -614,7 +614,7 @@ function UtcOffsetInput({ value, onChange, onBlur, maxLength = 6 }) {
         color: 'var(--cp-acc2)', background: 'color-mix(in srgb, var(--cp-acc2) 16%, transparent)',
         borderRight: '1px solid var(--cp-acc2)',
       }}>UTC</span>
-      <input type="text" placeholder="+HH:MM" value={value} onChange={onChange} onBlur={onBlur} maxLength={maxLength}
+      <input type="text" inputMode="tel" placeholder="+HH:MM" value={value} onChange={onChange} onBlur={onBlur} maxLength={maxLength}
         style={{
           flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none',
           color: 'var(--cp-acc2)', fontFamily: 'var(--cb-font-mono)', fontSize: 13,
