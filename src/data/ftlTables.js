@@ -27,7 +27,7 @@ export const TABLE_A = [
 // Row selected by LENGTH OF PRECEDING REST (not local time of start).
 // Columns: sectors 1, 2, 3, 4, 5, 6, 7+
 export const TABLE_B = [
-  { id: 'r0', label: 'Preceding rest ≤18h or ≥30h', v: [h(13), h(12.25), h(11.5), h(10.75), h(10), h(9.25), h(9)] },
+  { id: 'r0', label: 'Preceding rest ≤18h or >30h', v: [h(13), h(12.25), h(11.5), h(10.75), h(10), h(9.25), h(9)] },
   { id: 'r1', label: 'Preceding rest 18–30h',        v: [h(11.5), h(11), h(10.5), h(9.75),  h(9),  h(9),    h(9)] },
 ]
 
@@ -53,9 +53,12 @@ export function getTimeBandAC(hhmm) {
   return 'b4'                             // 2200–0559  (hr >= 22 or hr < 6)
 }
 
-/** Map preceding rest in hours → Table B row ID */
+/**
+ * Map preceding rest in hours → Table B row ID. Rows are "Up to 18 or over 30"
+ * and "Between 18 and 30" — exactly 30h isn't "over 30", so it's in r1.
+ */
 export function tableBRowId(precedingRestH) {
-  return (precedingRestH > 18 && precedingRestH < 30) ? 'r1' : 'r0'
+  return (precedingRestH > 18 && precedingRestH <= 30) ? 'r1' : 'r0'
 }
 
 // ── Column index helpers ──────────────────────────────────────────────────────

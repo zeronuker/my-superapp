@@ -34,13 +34,14 @@ describe('getTimeBandAC — local report time → band', () => {
 })
 
 describe('tableBRowId — preceding rest → Table B row', () => {
-  it('rest strictly between 18h and 30h → r1', () => {
+  it('rest over 18h up to and including 30h → r1', () => {
     expect(tableBRowId(19)).toBe('r1')
     expect(tableBRowId(29)).toBe('r1')
+    expect(tableBRowId(30)).toBe('r1') // exactly 30h isn't "over 30"
   })
-  it('rest ≤18h or ≥30h → r0', () => {
+  it('rest ≤18h or >30h → r0', () => {
     expect(tableBRowId(18)).toBe('r0')
-    expect(tableBRowId(30)).toBe('r0')
+    expect(tableBRowId(30 + 1 / 60)).toBe('r0')
     expect(tableBRowId(10)).toBe('r0')
   })
 })

@@ -109,10 +109,17 @@ function convertClock(hhmm, stationOffMin, hereOffMin) {
 
 // ── FTL computation ───────────────────────────────────────────────────────────
 
-/** Effective sector count for table lookup — long range Ch. 2.11 */
-function resolveEffSectors({ sectors, crewType, acclimatised, longRange, longestSectorStr }, notes, errors, pendingNotes) {
+/**
+ * Effective sector count for table lookup — long range Ch. 2.11. Applies only
+ * to a flight crew of exactly two pilots: never to cabin crew (Ch. 2.11.1,
+ * 2.21.2f), and not when in-flight relief is carried, since relieving a pilot
+ * needs an additional pilot (Ch. 2.12.1 → 2.11.2).
+ */
+function resolveEffSectors({ sectors, crewType, acclimatised, isCabinCrew, ifr, longRange, longestSectorStr }, notes, errors, pendingNotes) {
   let effSectors = sectors
-  if (longRange && crewType === '2crew') {
+  if (longRange && crewType === '2crew' && !isCabinCrew && ifr) {
+    notes.push('Long range limits not applied — in-flight relief means an additional pilot is carried (Ch. 2.11.2)')
+  } else if (longRange && crewType === '2crew' && !isCabinCrew) {
     const lsMins = parseDur(longestSectorStr)
     if (lsMins == null) {
       pendingNotes.push('Long range: enter longest sector duration')
@@ -142,11 +149,11 @@ export function computeFTL({
   isCabinCrew, cabinReportTime,
   precedingRestStr,
   longRange, longestSectorStr,
-  delayedReporting, actualReportTimeStr,
+  delayedReporting, actualReportTimeStr, delayUndisturbed,
   positioning, positioningReportTimeStr,
   standby, standbyStart, standbyLocation, homeShortNotice,
   ifr, ifrType, ifrRestStr,
-  splitDuty, splitRestStr,
+  splitDuty, splitRestStr, positioningAsSector = true,
   reducedPrecedingRest,
   picDiscretion, picActualEndStr, picBeforeLastSector,
 }) {
@@ -171,13 +178,33 @@ export function computeFTL({
     return { error: 'Enter preceding rest period — required for Table B (non-acclimatised)' }
   }
 
+  // Split duty (Ch. 2.13) — hard blocks: no FDP is shown at all when the duty
+  // doesn't qualify. It needs two or more sectors, one of which can be a
+  // positioning journey counted as a sector (Ch. 2.13.1, 2.8.2), a rest of
+  // 3–10h (anything outside that is not a split duty), and must not follow a
+  // reduced rest (Ch. 2.13.4).
+  const positioningCountsAsSector = positioning && splitDuty && positioningAsSector
+  const splitRestMins = splitDuty ? parseDur(splitRestStr) : null
+  if (splitDuty) {
+    if (reducedPrecedingRest) {
+      return { error: 'Split duty not permitted following a reduced rest period (Ch. 2.13.4)' }
+    }
+    if (sectors + (positioningCountsAsSector ? 1 : 0) < 2) {
+      return { error: 'Split duty requires two or more sectors (Ch. 2.13.1)' }
+    }
+    if (splitRestMins != null && (splitRestMins < 3 * 60 || splitRestMins > 10 * 60)) {
+      return { error: 'Split duty requires a rest of 3–10h (Ch. 2.13.1)' }
+    }
+  }
+
   // Airport standby (Ch. 2.9.2): the allowable FDP duration is a pure lookup
   // from the standby-start band and doesn't depend on a report time at all —
   // it's a separate, later event (Ch. 2.9.3, 2.9.4 Note 2). Show MAX FDP now;
   // FDP EXPIRES and the Case A/B duration math need the actual call-out time.
-  if (!reportTime && standby && standbyLocation === 'airport' && standbyStart) {
-    let effSectors = resolveEffSectors({ sectors, crewType, acclimatised, longRange, longestSectorStr }, notes, errors, pendingNotes)
-    if (positioning && splitDuty) {
+  // A positioning report time is a call-out too (Ch. 2.8.1).
+  if (!reportTime && !(positioning && positioningReportTimeStr) && standby && standbyLocation === 'airport' && standbyStart) {
+    let effSectors = resolveEffSectors({ sectors, crewType, acclimatised, isCabinCrew, ifr, longRange, longestSectorStr }, notes, errors, pendingNotes)
+    if (positioningCountsAsSector) {
       effSectors += 1
       notes.push('Positioning leg counted as a sector — required when claiming split duty after positioning (Ch. 2.8.2)')
     }
@@ -204,11 +231,10 @@ export function computeFTL({
   }
 
   // 1. Effective sector count — long range Ch. 2.11, plus Ch. 2.8.2: the
-  // positioning leg must be counted as a sector when split duty is claimed
-  // after it (split duty, by definition, is a sub-minimum rest gap, which is
-  // exactly 2.8.2's trigger condition).
-  let effSectors = resolveEffSectors({ sectors, crewType, acclimatised, longRange, longestSectorStr }, notes, errors, pendingNotes)
-  if (positioning && splitDuty) {
+  // positioning leg counts as a sector when split duty is claimed and the
+  // user confirms it's counted (POSITIONING COUNTED AS SECTOR, default YES).
+  let effSectors = resolveEffSectors({ sectors, crewType, acclimatised, isCabinCrew, ifr, longRange, longestSectorStr }, notes, errors, pendingNotes)
+  if (positioningCountsAsSector) {
     effSectors += 1
     notes.push('Positioning leg counted as a sector — required when claiming split duty after positioning (Ch. 2.8.2)')
   }
@@ -243,7 +269,19 @@ export function computeFTL({
       const actualReportTime = normalizeTime(actualReportTimeStr)
       if (!actualReportTime) return { error: 'Invalid actual report time — use HH:MM or HHMM (0000–2359)' }
       const delayMins = diffMins(reportTime, actualReportTime)
-      if (delayMins < 4 * 60) {
+      // Times carry no date, so an actual report earlier than planned wraps
+      // to a "delay" of nearly 24h. Ch. 2.7 has no provision for a report
+      // time moving earlier — anything over 12h is rejected outright.
+      if (delayMins > 12 * 60) {
+        return { error: 'Actual report time is earlier than planned, or delayed more than 12h — Ch. 2.7 only covers delays. Turn off Delayed Reporting and enter the new time as REPORT TIME.' }
+      }
+      if (delayMins >= 10 * 60 && delayUndisturbed) {
+        // Delay ≥10h, crew not disturbed until the agreed hour: the elapsed
+        // time is a rest period, so the FDP is simply the new report time's.
+        bandTime   = actualReportTime
+        clockStart = actualReportTime
+        notes.push(`Delay ≥10h, undisturbed: elapsed time counts as rest — FDP calculated from the new report time ${actualReportTime} (Ch. 2.7.2)`)
+      } else if (delayMins < 4 * 60) {
         // Delay <4h: band stays on the original report time; clock starts at the actual report time.
         clockStart = actualReportTime
         notes.push(`Delay <4h: FDP based on original report time band, clock starts at actual report ${actualReportTime} (Ch. 2.7.1)`)
@@ -278,27 +316,25 @@ export function computeFTL({
   const tableLabel = crewType === 'single' ? 'C' : acclimatised ? 'A' : 'B'
 
   // 2a. Standby — which band governs the table lookup depends on location/notice:
-  //  - Airport standby (Ch. 2.9.2): always use the standby-start band.
   //  - Home standby, ≤2h notice during 2200–0800 (Ch. 2.9.1 exception): the
   //    standby-start band is not applied at all — band stays as resolved above.
-  //  - Otherwise (general case, Ch. 2.9.1): compare both bands, take the more limiting.
+  //  - Otherwise, home or airport (Ch. 2.9.1, 2.9.2): the standby start time
+  //    determines the allowable FDP, except that when the actual FDP starts
+  //    in a more limiting time band, that FDP limit applies.
   // Only applies to Tables A/C (time-band based); Table B is keyed by preceding
   // rest, not local time, so there's no second band to compare against.
   const usesTimeBand = crewType === 'single' || acclimatised
   if (standby && standbyStart && usesTimeBand) {
-    if (standbyLocation === 'airport') {
-      const fdpFromStandbyBand = lookupFDP(standbyStart, effSectors, crewType, acclimatised, precedingRestH)
-      if (fdpFromStandbyBand != null) {
-        baseFDP   = fdpFromStandbyBand
-        bandLabel = getBandLabelForResult(standbyStart, crewType, acclimatised, precedingRestH)
-        notes.push('Airport standby — FDP based on standby start time (Ch. 2.9.2)')
-      }
-    } else if (homeShortNotice) {
+    if (standbyLocation !== 'airport' && homeShortNotice) {
       notes.push('Home standby, ≤2h notice (2200–0800) — standby-start band not applied (Ch. 2.9.1 exception)')
     } else {
       const fdpFromStandbyBand = lookupFDP(standbyStart, effSectors, crewType, acclimatised, precedingRestH)
-      if (fdpFromStandbyBand != null && fdpFromStandbyBand < baseFDP) {
-        notes.push('Standby-start time band is more limiting than report-time band — FDP based on standby start (Ch. 2.9.1)')
+      if (fdpFromStandbyBand != null && fdpFromStandbyBand > baseFDP) {
+        notes.push('Actual FDP start is in a more limiting time band than standby start — that FDP limit applies (Ch. 2.9.1)')
+      } else if (fdpFromStandbyBand != null) {
+        if (fdpFromStandbyBand < baseFDP) {
+          notes.push('Standby-start time band is more limiting than report-time band — FDP based on standby start (Ch. 2.9.1)')
+        }
         baseFDP   = fdpFromStandbyBand
         bandLabel = getBandLabelForResult(standbyStart, crewType, acclimatised, precedingRestH)
       }
@@ -323,45 +359,41 @@ export function computeFTL({
     }
   }
 
-  // 4. In-flight relief Ch. 2.12
-  // Caps differ by crew type: bunk 18h (flight) / 19h (cabin); seat 15h (flight) / 16h (cabin)
+  // 4. In-flight relief Ch. 2.12 — 2+ crew only (the section is hidden for
+  // single pilot, so a stale toggle must not still extend the FDP).
+  // Caps differ by crew type: bunk 18h (flight) / 19h (cabin); seat 15h (flight) / 16h (cabin).
+  // The cap is applied after split duty below — it's the maximum FDP permissible.
   let ifrExtension = 0
-  if (ifr) {
+  let ifrCap = null
+  if (ifr && crewType === '2crew') {
     const restMins = parseDur(ifrRestStr)
     if (!restMins) {
       pendingNotes.push('IFR: enter rest period duration')
     } else if (restMins < 3 * 60) {
       notes.push('IFR rest <3h: no extension applies (Ch. 2.12.3)')
     } else {
-      const cap = ifrType === 'bunk'
+      ifrCap = ifrType === 'bunk'
         ? (isCabinCrew ? 19 * 60 : 18 * 60)
         : (isCabinCrew ? 16 * 60 : 15 * 60)
       ifrExtension = ifrType === 'bunk' ? Math.floor(restMins / 2) : Math.floor(restMins / 3)
-      const before = fdp
-      fdp = Math.min(fdp + ifrExtension, cap)
-      if (fdp < before + ifrExtension)
-        notes.push(`FDP capped at ${fmtDur(cap)} (${ifrType} rest, ${isCabinCrew ? 'cabin crew' : 'flight crew'} limit Ch. 2.12.3)`)
+      fdp += ifrExtension
     }
   }
 
-  // 5. Split duty Ch. 2.13 — not permitted following a reduced rest (Ch. 2.13.4)
+  // 5. Split duty Ch. 2.13 — qualifying conditions already hard-blocked above
   let splitExtension = 0
   if (splitDuty) {
-    if (reducedPrecedingRest) {
-      errors.push('Split duty not permitted following a reduced rest period (Ch. 2.13.4)')
+    if (splitRestMins == null) {
+      pendingNotes.push('Split duty: enter rest period duration')
     } else {
-      const restMins = parseDur(splitRestStr)
-      if (!restMins) {
-        pendingNotes.push('Split duty: enter rest period duration')
-      } else if (restMins < 3 * 60) {
-        notes.push('Split duty rest <3h: no extension applies (Ch. 2.13)')
-      } else if (restMins > 10 * 60) {
-        notes.push('Split duty rest >10h: extension not applicable (Ch. 2.13)')
-      } else {
-        splitExtension = Math.floor(restMins / 2)
-        fdp += splitExtension
-      }
+      splitExtension = Math.floor(splitRestMins / 2)
+      fdp += splitExtension
     }
+  }
+
+  if (ifrCap != null && fdp > ifrCap) {
+    fdp = ifrCap
+    notes.push(`FDP capped at ${fmtDur(ifrCap)} (${ifrType} rest, ${isCabinCrew ? 'cabin crew' : 'flight crew'} limit Ch. 2.12.3)`)
   }
 
   // 6. PIC discretion — Ch. 2.15
@@ -388,6 +420,13 @@ export function computeFTL({
       const actualEnd = normalizeTime(picActualEndStr)
       if (!actualEnd) return { error: 'Invalid actual FDP end time — use HH:MM or HHMM (0000–2359)' }
       picExtension = diffMins(originalExpiry, actualEnd)
+      // Times carry no date, so an actual end before the original expiry
+      // wraps to a near-24h "extension". Over 12h means the FDP finished
+      // early — no discretion used (Ch. 2.15.1: what actually happens).
+      if (picExtension > 12 * 60) {
+        picExtension = 0
+        notes.push('Finished within allowable FDP — no discretion used (Ch. 2.15.1)')
+      }
       if (reducedPrecedingRest && sectors > 1 && !picBeforeLastSector && picExtension > 0) {
         errors.push('PIC discretion after a reduced rest may only be exercised immediately before the last sector (Ch. 2.15.3)')
       }
@@ -695,9 +734,9 @@ export default function FTLCalculator() {
   const { ftl, setFTLField } = useCalculatorStore()
   const {
     aircraft, crewCat, crewType, acclimatised, reportTime, diffCabinTime, cabinReportTime,
-    sectors, precedingRest, longRange, longestSector, delayedReporting, actualReportTime,
+    sectors, precedingRest, longRange, longestSector, delayedReporting, actualReportTime, delayUndisturbed,
     positioning, positioningReportTime, standby, standbyStart, standbyLocation, homeShortNotice,
-    ifr, ifrType, ifrRest, reducedRest, splitDuty, splitRest, picDisc, picActualEnd, picLastSector,
+    ifr, ifrType, ifrRest, reducedRest, splitDuty, splitRest, splitPosSector, picDisc, picActualEnd, picLastSector,
     tzConvert, stationOffset, hereOffset,
   } = ftl
 
@@ -716,12 +755,12 @@ export default function FTLCalculator() {
       reportTime: '', diffCabinTime: false, cabinReportTime: '',
       sectors: 1, precedingRest: '',
       longRange: false, longestSector: '',
-      delayedReporting: false, actualReportTime: '',
+      delayedReporting: false, actualReportTime: '', delayUndisturbed: false,
       positioning: false, positioningReportTime: '',
       standby: false, standbyStart: '', standbyLocation: 'home', homeShortNotice: false,
       ifr: false, ifrType: 'bunk', ifrRest: '',
       reducedRest: false,
-      splitDuty: false, splitRest: '',
+      splitDuty: false, splitRest: '', splitPosSector: true,
       picDisc: false, picActualEnd: '', picLastSector: true,
       tzConvert: false, stationOffset: '', hereOffset: '',
     })
@@ -738,8 +777,15 @@ export default function FTLCalculator() {
     setFTLField(v === 'single' ? { crewType: v, acclimatised: true } : { crewType: v })
   }
 
-  const airportStandbyPending = standby && standbyLocation === 'airport' && !!standbyStart && !reportTime
   const positioningReady      = positioning && !!positioningReportTime
+  const airportStandbyPending = standby && standbyLocation === 'airport' && !!standbyStart && !reportTime && !positioningReady
+
+  // Delay length drives the Ch. 2.7.2 "undisturbed" row (shown for 10–12h;
+  // over 12h is rejected by computeFTL as an earlier report).
+  const delayMins = (() => {
+    const planned = normalizeTime(reportTime), actual = normalizeTime(actualReportTime)
+    return delayedReporting && planned && actual ? diffMins(planned, actual) : null
+  })()
 
   const result = useMemo(() => {
     if (!reportTime && !airportStandbyPending && !positioningReady) return null
@@ -752,12 +798,12 @@ export default function FTLCalculator() {
       cabinReportTime:  diffCabinTime ? cabinReportTime : '',
       precedingRestStr: precedingRest,
       longRange,        longestSectorStr: longestSector,
-      delayedReporting, actualReportTimeStr: actualReportTime,
+      delayedReporting, actualReportTimeStr: actualReportTime, delayUndisturbed,
       positioning,      positioningReportTimeStr: positioningReportTime,
       standby,          standbyStart, standbyLocation, homeShortNotice,
       ifr,              ifrType, ifrRestStr: ifrRest,
       reducedPrecedingRest: reducedRest,
-      splitDuty,        splitRestStr: splitRest,
+      splitDuty,        splitRestStr: splitRest, positioningAsSector: splitPosSector,
       picDiscretion:    picDisc,
       picActualEndStr:  picActualEnd,
       picBeforeLastSector: picLastSector,
@@ -766,12 +812,12 @@ export default function FTLCalculator() {
     reportTime, sectors, crewCat, effectiveCrew, acclimatised, precedingRest,
     diffCabinTime, cabinReportTime,
     longRange, longestSector,
-    delayedReporting, actualReportTime,
+    delayedReporting, actualReportTime, delayUndisturbed,
     positioning, positioningReportTime,
     standby, standbyStart, standbyLocation, homeShortNotice,
     ifr, ifrType, ifrRest,
     reducedRest,
-    splitDuty, splitRest,
+    splitDuty, splitRest, splitPosSector,
     picDisc, picActualEnd, picLastSector,
   ])
 
@@ -976,6 +1022,12 @@ export default function FTLCalculator() {
                 />
               </Row>
             )}
+            {delayMins != null && delayMins >= 10 * 60 && delayMins <= 12 * 60 && (
+              <Row label="UNDISTURBED UNTIL NEW REPORT" note="Not contacted again by the operator until the new report time — the delay counts as rest (Ch. 2.7.2)">
+                <Seg options={[{ value: false, label: 'NO' }, { value: true, label: 'YES' }]}
+                  value={!!delayUndisturbed} onChange={v => setFTLField({ delayUndisturbed: v })} />
+              </Row>
+            )}
           </Section>
 
           {/* Positioning — Ch. 2.8. Mutually exclusive with Delayed Reporting. */}
@@ -1013,8 +1065,8 @@ export default function FTLCalculator() {
                 fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)',
                 lineHeight: 1.7, letterSpacing: '0.06em', padding: '0 0 4px',
               }}>
-                ≤18h or ≥30h → more restrictive FDP limit<br />
-                18–30h → less restrictive FDP limit
+                Up to 18h or over 30h → less restrictive FDP limit<br />
+                Over 18h, up to and including 30h → more restrictive FDP limit
               </div>
             </Section>
           )}
@@ -1113,8 +1165,14 @@ export default function FTLCalculator() {
                 ⚠ Not permitted following a reduced rest period (Ch. 2.13.4)
               </div>
             )}
+            {splitDuty && !reducedRest && positioning && (
+              <Row label="POSITIONING COUNTED AS SECTOR" note="Split duty needs 2+ sectors — positioning can be one of them (Ch. 2.8.2, 2.13.1)">
+                <Seg options={[{ value: true, label: 'YES' }, { value: false, label: 'NO' }]}
+                  value={splitPosSector !== false} onChange={v => setFTLField({ splitPosSector: v })} />
+              </Row>
+            )}
             {splitDuty && !reducedRest && (
-              <Row label="REST PERIOD" note="3–10h rest → ½ extension (Ch. 2.13)">
+              <Row label="REST PERIOD" note="Must be 3–10h · extension = ½ rest (Ch. 2.13.1)">
                 <input type="text" placeholder="H:MM"
                   inputMode="numeric" pattern="[0-9]*"
                   value={splitRest} onChange={e => setFTLField({ splitRest: e.target.value })}

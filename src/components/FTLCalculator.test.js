@@ -145,12 +145,24 @@ describe('computeFTL — positioning (Ch. 2.8.1)', () => {
 })
 
 describe('computeFTL — standby location (Ch. 2.9.2 airport / 2.9.1 home exception)', () => {
-  it('airport standby always uses the standby-start band, even when less limiting than report time', () => {
+  it('airport standby uses the standby-start band when it is the more limiting one', () => {
+    // Standby 0500 (2200–0559 → 11:00), called out for 0900 (0800–1259 → 14:00).
     const r = computeFTL({
-      ...base, standby: true, standbyStart: '0900', standbyLocation: 'airport', reportTime: '1800',
+      ...base, standby: true, standbyStart: '0500', standbyLocation: 'airport', reportTime: '0900',
     })
-    expect(r.baseFDP).toBe(14 * 60)
-    expect(r.bandLabel).toBe('0800–1259')
+    expect(r.baseFDP).toBe(11 * 60)
+    expect(r.bandLabel).toBe('2200–0559')
+  })
+
+  it('airport standby switches to the actual FDP start band when that is more limiting (Ch. 2.9.1 exception)', () => {
+    // Standby 1100 (0800–1259 → 14:00), called out for 1900 (1800–2159 → 12:00), 8h standby → Case B −2:00.
+    const r = computeFTL({
+      ...base, standby: true, standbyStart: '1100', standbyLocation: 'airport', reportTime: '1900',
+    })
+    expect(r.baseFDP).toBe(12 * 60)
+    expect(r.bandLabel).toBe('1800–2159')
+    expect(r.fdp).toBe(10 * 60)
+    expect(r.endTime).toBe('05:00')
   })
 
   it('home standby (general case) compares bands and takes the more limiting, same as before', () => {
@@ -181,10 +193,10 @@ describe('computeFTL — standby location (Ch. 2.9.2 airport / 2.9.1 home except
 })
 
 describe('computeFTL — reduced preceding rest (Ch. 2.13.4 / 2.15.3 / 2.15.4)', () => {
-  it('blocks split duty entirely', () => {
-    const r = computeFTL({ ...base, reducedPrecedingRest: true, splitDuty: true, splitRestStr: '5:00' })
-    expect(r.breakdown.splitExtension).toBe(0)
-    expect(r.errors.some(e => e.includes('2.13.4'))).toBe(true)
+  it('blocks split duty entirely — no FDP shown', () => {
+    const r = computeFTL({ ...base, sectors: 2, reducedPrecedingRest: true, splitDuty: true, splitRestStr: '5:00' })
+    expect(r.ok).toBeUndefined()
+    expect(r.error).toMatch(/2\.13\.4/)
   })
 
   it('requires a CAAM report regardless of extension size', () => {
@@ -232,6 +244,129 @@ describe('computeFTL — PIC discretion employer/CAAM reporting (Ch. 2.15.4)', (
     expect(r.breakdown.picExtension).toBe(0)
     expect(r.picEmployerNote).toBe(null)
     expect(r.caamNotes).toHaveLength(0)
+  })
+})
+
+describe('computeFTL — delayed reporting limits (Ch. 2.7.1 / 2.7.2)', () => {
+  it('rejects an actual report earlier than planned — Ch. 2.7 only covers delays', () => {
+    const r = computeFTL({ ...base, reportTime: '1000', delayedReporting: true, actualReportTimeStr: '0900' })
+    expect(r.ok).toBeUndefined()
+    expect(r.error).toMatch(/earlier than planned/)
+  })
+
+  it('still accepts a delay of exactly 12h', () => {
+    // Planned 0600 (13:00) → actual 1800 (12:00, more limiting); clock starts 1000.
+    const r = computeFTL({ ...base, reportTime: '0600', delayedReporting: true, actualReportTimeStr: '1800' })
+    expect(r.ok).toBe(true)
+    expect(r.endTime).toBe('22:00')
+  })
+
+  it('delay ≥10h undisturbed: FDP calculated fresh from the new report time', () => {
+    const delayed = { ...base, reportTime: '0600', delayedReporting: true, actualReportTimeStr: '1700' }
+    const undisturbed = computeFTL({ ...delayed, delayUndisturbed: true })
+    expect(undisturbed.bandLabel).toBe('1300–1759')
+    expect(undisturbed.endTime).toBe('06:00') // 17:00 + 13:00
+    const disturbed = computeFTL(delayed)
+    expect(disturbed.endTime).toBe('23:00')   // 2.7.1: clock starts 10:00
+  })
+})
+
+describe('computeFTL — PIC discretion finished early (Ch. 2.15.1)', () => {
+  it('actual end before the original expiry means no discretion used', () => {
+    // Original expiry 23:00; actually finished 22:30.
+    const r = computeFTL({ ...base, picDiscretion: true, picActualEndStr: '2230' })
+    expect(r.breakdown.picExtension).toBe(0)
+    expect(r.fdp).toBe(14 * 60)
+    expect(r.errors).toHaveLength(0)
+    expect(r.caamNotes).toHaveLength(0)
+    expect(r.picEmployerNote).toBe(null)
+  })
+})
+
+describe('computeFTL — split duty qualifying conditions (Ch. 2.13.1 / 2.8.2)', () => {
+  const split = { ...base, sectors: 2, splitDuty: true }
+
+  it('blocks a rest under 3h', () => {
+    expect(computeFTL({ ...split, splitRestStr: '2:59' }).error).toMatch(/3–10h/)
+  })
+
+  it('blocks a rest over 10h', () => {
+    expect(computeFTL({ ...split, splitRestStr: '10:01' }).error).toMatch(/3–10h/)
+  })
+
+  it('allows exactly 3h and exactly 10h', () => {
+    expect(computeFTL({ ...split, splitRestStr: '3:00' }).breakdown.splitExtension).toBe(90)
+    expect(computeFTL({ ...split, splitRestStr: '10:00' }).breakdown.splitExtension).toBe(5 * 60)
+  })
+
+  it('blocks a single sector with no positioning', () => {
+    const r = computeFTL({ ...split, sectors: 1, splitRestStr: '4:00' })
+    expect(r.error).toMatch(/two or more sectors/)
+  })
+
+  it('positioning NOT counted as a sector + 1 flight sector → blocked', () => {
+    const r = computeFTL({
+      ...split, sectors: 1, reportTime: '', positioning: true, positioningReportTimeStr: '0700',
+      positioningAsSector: false, splitRestStr: '5:00',
+    })
+    expect(r.error).toMatch(/two or more sectors/)
+  })
+
+  it('positioning NOT counted as a sector + 2 flight sectors → still split duty, positioning not added', () => {
+    const r = computeFTL({
+      ...split, reportTime: '', positioning: true, positioningReportTimeStr: '0700',
+      positioningAsSector: false, splitRestStr: '5:00',
+    })
+    expect(r.effSectors).toBe(2)
+    expect(r.fdp).toBe(12 * 60 + 15 + 150) // 0600–0759 2 sectors 12:15 + 2:30
+  })
+})
+
+describe('computeFTL — in-flight relief and long range crew rules', () => {
+  it('ignores in-flight relief for a single pilot', () => {
+    const r = computeFTL({ ...base, crewType: 'single', ifr: true, ifrRestStr: '6:00' })
+    expect(r.breakdown.ifrExtension).toBe(0)
+    expect(r.fdp).toBe(11 * 60) // Table C 0800–1259, ≤4 sectors
+  })
+
+  it('never applies long range to cabin crew (Ch. 2.11.1 / 2.21.2f)', () => {
+    const r = computeFTL({ ...base, isCabinCrew: true, longRange: true, longestSectorStr: '10:00' })
+    expect(r.effSectors).toBe(1)
+    expect(r.fdp).toBe(15 * 60)
+  })
+
+  it('skips long range when in-flight relief is carried (Ch. 2.11.2)', () => {
+    const r = computeFTL({ ...base, longRange: true, longestSectorStr: '12:00', ifr: true, ifrRestStr: '6:00' })
+    expect(r.effSectors).toBe(1)
+    expect(r.fdp).toBe(17 * 60) // 14:00 + 3:00 bunk
+    expect(r.notes.some(n => n.includes('2.11.2'))).toBe(true)
+  })
+
+  it('applies the in-flight relief cap after split duty is added', () => {
+    // 2 sectors 13:15 + bunk 12h (+6:00) + split 6h (+3:00) = 22:15 → capped.
+    const flight = computeFTL({ ...base, sectors: 2, ifr: true, ifrRestStr: '12:00', splitDuty: true, splitRestStr: '6:00' })
+    expect(flight.fdp).toBe(18 * 60)
+    const cabin = computeFTL({ ...base, sectors: 2, isCabinCrew: true, ifr: true, ifrRestStr: '12:00', splitDuty: true, splitRestStr: '6:00' })
+    expect(cabin.fdp).toBe(19 * 60)
+  })
+})
+
+describe('computeFTL — Table B at exactly 30h preceding rest', () => {
+  it('uses the "between 18 and 30" row', () => {
+    const r = computeFTL({ ...base, acclimatised: false, precedingRestStr: '30:00' })
+    expect(r.baseFDP).toBe(11 * 60 + 30)
+  })
+})
+
+describe('computeFTL — airport standby called out to position (Ch. 2.8.1 / 2.9.2)', () => {
+  it('a positioning report time counts as call-out — expiry is calculated, not pending', () => {
+    const r = computeFTL({
+      ...base, reportTime: '', standby: true, standbyStart: '0500', standbyLocation: 'airport',
+      positioning: true, positioningReportTimeStr: '0800',
+    })
+    expect(r.pending).toBeUndefined()
+    expect(r.fdp).toBe(11 * 60)     // standby-start band 2200–0559, 3h standby (Case A)
+    expect(r.endTime).toBe('19:00') // 08:00 + 11:00
   })
 })
 

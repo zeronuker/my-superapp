@@ -304,7 +304,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.2", date: "Sep 2026", current: true,
+    v: "v3.2", date: "Sep 2026",
     title: "Saved Briefings",
     notes: [
       "NEW: Briefing: save any briefing with a name (auto-generated from route + date/time, editable anytime by tapping the title) — up to 30 saved, browsed from a read-only list inside the Briefing window",
@@ -338,6 +338,24 @@ export const CHANGELOG = [
       "FIX: Briefing: a single tile failing to load while offline no longer hides the whole already-loaded map",
       "NEW: Briefing: Route map freezes pan/zoom/rotate while offline (with an \"Offline — map frozen\" indicator) so it can't request tiles that were never cached",
       "NEW: Briefing: Route map offers a no-network fallback coastline view (\"Show offline map instead?\") if the basemap genuinely fails to load",
+    ],
+  },
+  {
+    v: "v3.3", date: "Sep 2026", current: true,
+    title: "FTL CAD 1901 compliance fixes",
+    notes: [
+      "FIX: FTL: Delayed Reporting with an actual report time earlier than planned was read as a ~23h delay and pushed FDP expiry hours too late — now blocked with a message, since CAD 1901 Ch. 2.7 only covers delays (delays over 12h are blocked too)",
+      "NEW: FTL: delays of 10–12h get an UNDISTURBED UNTIL NEW REPORT option — YES treats the delay as rest and calculates the FDP from the new report time (Ch. 2.7.2)",
+      "FIX: FTL: PIC discretion with an actual FDP end time before the original expiry no longer adds a 3:00 extension, error and CAAM flag — it now shows no discretion used",
+      "FIX: FTL: Split duty is now blocked outright (no FDP shown) unless it has two or more sectors and a rest of 3–10h, and after a reduced rest — previously it could extend a single-sector FDP",
+      "NEW: FTL: Split duty with Positioning on asks POSITIONING COUNTED AS SECTOR (default YES) — NO leaves positioning out of the sector count (Ch. 2.8.2, 2.13.1)",
+      "FIX: FTL: In-Flight Relief left on while switching to single pilot still extended the FDP — now ignored for single pilot",
+      "FIX: FTL: Long Range left on while switching to cabin crew still shortened the FDP — long range never applies to cabin crew (Ch. 2.11.1, 2.21.2f)",
+      "FIX: FTL: Long Range and In-Flight Relief together no longer double-penalise — relief means an additional pilot, so long range limits are skipped (Ch. 2.11.2)",
+      "FIX: FTL: the in-flight relief maximum FDP (18h/19h bunk, 15h/16h seat) now also caps split duty added on top",
+      "FIX: FTL: Table B at exactly 30:00 preceding rest now uses the 'between 18 and 30' row (11:30 for 1 sector), and its hint text had 'more' and 'less restrictive' the wrong way round",
+      "FIX: FTL: airport standby called out to position never showed an FDP expiry — a positioning report time now counts as the call-out",
+      "FIX: FTL: airport standby now applies the more limiting time band when the actual FDP starts in a more limiting band than standby start (Ch. 2.9.1), same as home standby",
     ],
   },
 ]
