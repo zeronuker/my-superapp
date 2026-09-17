@@ -1108,7 +1108,7 @@ export default function FTLCalculator() {
                 </Row>
                 {standbyLocation === 'airport' && (
                   <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', lineHeight: 1.6, paddingBottom: 4 }}>
-                    Immediate readiness — FDP always based on standby start time (Ch. 2.9.2)
+                    Immediate readiness — FDP based on standby start time, unless the actual FDP starts in a more limiting time band (Ch. 2.9.1, 2.9.2)
                   </div>
                 )}
                 {standbyLocation === 'home' && (
