@@ -113,9 +113,10 @@ function convertClock(hhmm, stationOffMin, hereOffMin) {
  * Effective sector count for table lookup — long range Ch. 2.11. Applies only
  * to a flight crew of exactly two pilots: never to cabin crew (Ch. 2.11.1,
  * 2.21.2f), and not when in-flight relief is carried, since relieving a pilot
- * needs an additional pilot (Ch. 2.12.1 → 2.11.2).
+ * needs an additional pilot (Ch. 2.12.1 → 2.11.2). Returns null when the
+ * sector isn't permitted at all (not acclimatised, over 11h) — no FDP exists.
  */
-function resolveEffSectors({ sectors, crewType, acclimatised, isCabinCrew, ifr, longRange, longestSectorStr }, notes, errors, pendingNotes) {
+function resolveEffSectors({ sectors, crewType, acclimatised, isCabinCrew, ifr, longRange, longestSectorStr }, notes, pendingNotes) {
   let effSectors = sectors
   if (longRange && crewType === '2crew' && !isCabinCrew && ifr) {
     notes.push('Long range limits not applied — in-flight relief means an additional pilot is carried (Ch. 2.11.2)')
@@ -124,21 +125,10 @@ function resolveEffSectors({ sectors, crewType, acclimatised, isCabinCrew, ifr, 
     if (lsMins == null) {
       pendingNotes.push('Long range: enter longest sector duration')
     } else if (lsMins > 7 * 60) {
-      let add
-      if (acclimatised) {
-        add = lsMins > 11 * 60 ? 4 : lsMins > 9 * 60 ? 3 : 2
-      } else {
-        if (lsMins > 11 * 60) {
-          errors.push('Long range sector >11h: not permitted for non-acclimatised crew (Ch. 2.11)')
-          add = null
-        } else {
-          add = 4
-        }
-      }
-      if (add != null) {
-        effSectors = (sectors - 1) + add
-        if (add > 1) notes.push(`Long range Ch. 2.11: longest sector counts as ${add} → effective ${effSectors} sector(s)`)
-      }
+      if (!acclimatised && lsMins > 11 * 60) return null
+      const add = acclimatised ? (lsMins > 11 * 60 ? 4 : lsMins > 9 * 60 ? 3 : 2) : 4
+      effSectors = (sectors - 1) + add
+      notes.push(`Long range Ch. 2.11: longest sector counts as ${add} → effective ${effSectors} sector(s)`)
     }
   }
   return effSectors
@@ -174,6 +164,10 @@ export function computeFTL({
   const precedingRestMins = parseDur(precedingRestStr)
   const precedingRestH    = precedingRestMins != null ? precedingRestMins / 60 : 0
 
+  if (!acclimatised && crewType === '2crew' && /^\d{3}$/.test((precedingRestStr || '').trim())) {
+    // "240" could mean 2:40 or 24:00 — preceding rest is usually 10h+, so don't guess.
+    return { error: 'Enter rest as HH:MM or HHMM (e.g. 24:00 or 2400)' }
+  }
   if (!acclimatised && crewType === '2crew' && !precedingRestMins) {
     return { error: 'Enter preceding rest period — required for Table B (non-acclimatised)' }
   }
@@ -197,17 +191,24 @@ export function computeFTL({
     }
   }
 
+  // 1. Effective sector count — long range Ch. 2.11, plus Ch. 2.8.2: the
+  // positioning leg counts as a sector when split duty is claimed and the
+  // user confirms it's counted (POSITIONING COUNTED AS SECTOR, default YES).
+  let effSectors = resolveEffSectors({ sectors, crewType, acclimatised, isCabinCrew, ifr, longRange, longestSectorStr }, notes, pendingNotes)
+  if (effSectors == null) {
+    return { error: 'Two non-acclimatised pilots: a sector over 11h is not permitted (Ch. 2.11.1) — an additional pilot is required (Ch. 2.11.2)' }
+  }
+  if (positioningCountsAsSector) {
+    effSectors += 1
+    notes.push('Positioning leg counted as a sector — required when claiming split duty after positioning (Ch. 2.8.2)')
+  }
+
   // Airport standby (Ch. 2.9.2): the allowable FDP duration is a pure lookup
   // from the standby-start band and doesn't depend on a report time at all —
   // it's a separate, later event (Ch. 2.9.3, 2.9.4 Note 2). Show MAX FDP now;
   // FDP EXPIRES and the Case A/B duration math need the actual call-out time.
   // A positioning report time is a call-out too (Ch. 2.8.1).
   if (!reportTime && !(positioning && positioningReportTimeStr) && standby && standbyLocation === 'airport' && standbyStart) {
-    let effSectors = resolveEffSectors({ sectors, crewType, acclimatised, isCabinCrew, ifr, longRange, longestSectorStr }, notes, errors, pendingNotes)
-    if (positioningCountsAsSector) {
-      effSectors += 1
-      notes.push('Positioning leg counted as a sector — required when claiming split duty after positioning (Ch. 2.8.2)')
-    }
     const baseFDP = lookupFDP(standbyStart, effSectors, crewType, acclimatised, precedingRestH)
     if (baseFDP == null) return { error: 'Table lookup failed — check inputs' }
 
@@ -228,15 +229,6 @@ export function computeFTL({
       picRef: null,
       notes, errors, pendingNotes, caamNotes,
     }
-  }
-
-  // 1. Effective sector count — long range Ch. 2.11, plus Ch. 2.8.2: the
-  // positioning leg counts as a sector when split duty is claimed and the
-  // user confirms it's counted (POSITIONING COUNTED AS SECTOR, default YES).
-  let effSectors = resolveEffSectors({ sectors, crewType, acclimatised, isCabinCrew, ifr, longRange, longestSectorStr }, notes, errors, pendingNotes)
-  if (positioningCountsAsSector) {
-    effSectors += 1
-    notes.push('Positioning leg counted as a sector — required when claiming split duty after positioning (Ch. 2.8.2)')
   }
 
   // 1b. Resolve the band time (for table lookup) and the baseline FDP clock
@@ -265,7 +257,11 @@ export function computeFTL({
     bandTime   = reportTime
     clockStart = reportTime
 
-    if (delayedReporting && actualReportTimeStr) {
+    // A delay after call-out from standby isn't a Ch. 2.7 delay — standby is
+    // duty, not rest, and runs until the crew member actually reports
+    // (Ch. 2.9.3), so REPORT TIME is the actual report and Case A/B applies.
+    // The section is hidden while Standby is on; this guards stale state.
+    if (delayedReporting && actualReportTimeStr && !(standby && standbyStart)) {
       const actualReportTime = normalizeTime(actualReportTimeStr)
       if (!actualReportTime) return { error: 'Invalid actual report time — use HH:MM or HHMM (0000–2359)' }
       const delayMins = diffMins(reportTime, actualReportTime)
@@ -391,18 +387,22 @@ export function computeFTL({
     }
   }
 
+  let reliefCapReduction = 0
   if (ifrCap != null && fdp > ifrCap) {
+    reliefCapReduction = fdp - ifrCap
     fdp = ifrCap
     notes.push(`FDP capped at ${fmtDur(ifrCap)} (${ifrType} rest, ${isCabinCrew ? 'cabin crew' : 'flight crew'} limit Ch. 2.12.3)`)
   }
 
   // 6. PIC discretion — Ch. 2.15
   // Full 3h is only permitted on a single-sector flight, or immediately before
-  // the last sector of a multi-sector FDP. Before any earlier sector, the cap
+  // the last sector of a multi-sector FDP. Before any earlier sector, the limit
   // is 2h (Ch. 2.15.2). Uses the real sector count, not effSectors — the
   // long-range table-lookup substitution (Ch. 2.11) is only for entering the
-  // table and must not be mistaken for an actual multi-sector duty.
-  // If the preceding rest was itself reduced (Ch. 2.16), discretion here is
+  // table and must not be mistaken for an actual multi-sector duty. Going over
+  // the limit is warned about but never capped: the extension, finish time and
+  // CAAM check all reflect what actually happened (Ch. 2.15.1).
+  // If the preceding rest was itself reduced (Ch. 2.14.3, 2.14.4, 2.16), discretion here is
   // restricted to immediately before the last sector and must be reported to
   // CAAM regardless of duration (Ch. 2.15.3, 2.15.4).
   //
@@ -431,8 +431,9 @@ export function computeFTL({
         errors.push('PIC discretion after a reduced rest may only be exercised immediately before the last sector (Ch. 2.15.3)')
       }
       if (picExtension > picCap) {
-        errors.push(`PIC extension exceeds ${fmtDur(picCap)} maximum for ${picCap === 3 * 60 ? 'single/last sector' : 'a non-final sector'} (Ch. 2.15.2)`)
-        picExtension = picCap   // cap at the applicable maximum
+        errors.push(picCap === 3 * 60
+          ? 'Extension over 3:00 — only permitted in an emergency (Ch. 2.15.1 Note 1)'
+          : 'Extension over 2:00 before a non-final sector — exceeds the Ch. 2.15.2 limit')
       }
       // Any extension at all must be reported to the employer (Ch. 2.15.4,
       // first sentence) — CAAM submission is a separate, higher bar that only
@@ -456,25 +457,33 @@ export function computeFTL({
   // PIC reference: the original (pre-discretion) expiry, plus what FDP expiry
   // would be at +1h / +2h / +3h of discretion — useful while the actual end
   // time isn't known yet.
+  // `days` on each time: how many midnights it falls after the FDP start day.
+  const at = mins => ({ end: toHHMM(toMins(fdpStartTime) + mins), days: Math.floor((toMins(fdpStartTime) + mins) / 1440) })
   const picRef = picDiscretion ? {
-    orig: { label: 'ORIGINAL', end: originalExpiry, employer: false, caam: false },
-    h1: { label: '+1:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 60),  employer: true, caam: reducedPrecedingRest },
-    h2: { label: '+2:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 120), employer: true, caam: reducedPrecedingRest },
-    h3: { label: '+3:00', end: toHHMM(toMins(fdpStartTime) + fdpPrePIC + 180), employer: true, caam: true  },
+    orig: { label: 'ORIGINAL', ...at(fdpPrePIC), employer: false, caam: false },
+    h1: { label: '+1:00', ...at(fdpPrePIC + 60),  employer: true, caam: reducedPrecedingRest },
+    h2: { label: '+2:00', ...at(fdpPrePIC + 120), employer: true, caam: reducedPrecedingRest },
+    h3: { label: '+3:00', ...at(fdpPrePIC + 180), employer: true, caam: true  },
   } : null
 
   return {
     ok: true,
     baseFDP, effSectors, fdp, fdpPrePIC,
-    endTime: toHHMM(toMins(fdpStartTime) + fdp),
+    endTime: at(fdp).end, endDays: at(fdp).days,
     tableLabel, bandLabel,
-    breakdown: { cabinAllowance, standbyReduction, ifrExtension, splitExtension, picExtension },
+    breakdown: { cabinAllowance, standbyReduction, ifrExtension, splitExtension, reliefCapReduction, picExtension },
     picRef, picEmployerNote,
     notes, errors, pendingNotes, caamNotes,
   }
 }
 
 // ── Shared UI primitives ──────────────────────────────────────────────────────
+
+// "+1 DAY" after a clock time that falls past midnight of the FDP start day.
+function DayMark({ days }) {
+  if (!days) return null
+  return <span style={{ fontSize: '0.6em', fontWeight: 600, marginLeft: 5, letterSpacing: '0.06em' }}>+{days} DAY</span>
+}
 
 // The Original row's highlight box is a plain absolutely-positioned element,
 // measured against the row's actual rect and repositioned in an effect —
@@ -537,14 +546,14 @@ function PicDiscretionTable({ picRef, picEmployerNote, caamNotes, tz }) {
           <tbody>
             <tr ref={origRowEl}>
               <td style={{ color: 'var(--cp-muted)', padding: '9px 0' }}>{orig.label}</td>
-              <td style={{ textAlign: 'right', color: 'var(--cp-txt)', fontWeight: 600, padding: '9px 0', whiteSpace: 'nowrap' }}>{orig.end} LOCAL<ConvertedLine end={orig.end} /></td>
+              <td style={{ textAlign: 'right', color: 'var(--cp-txt)', fontWeight: 600, padding: '9px 0', whiteSpace: 'nowrap' }}>{orig.end}<DayMark days={orig.days} /> LOCAL<ConvertedLine end={orig.end} /></td>
               <td colSpan={2} style={{ padding: '9px 0' }}></td>
             </tr>
             {reducedRestCase ? (
               <>
                 <tr>
                   <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h1.label}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h1.end} LOCAL<ConvertedLine end={h1.end} /></td>
+                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h1.end}<DayMark days={h1.days} /> LOCAL<ConvertedLine end={h1.end} /></td>
                   <td colSpan={2} rowSpan={3} style={{ verticalAlign: 'middle', padding: '4px 0 4px 10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(248,113,113,0.12)', border: '1px solid var(--cp-red)', borderRadius: 14, padding: '6px 10px', fontSize: 9.5, color: 'var(--cp-red)', lineHeight: 1.35 }}>
                       <span>⚠</span>
@@ -554,18 +563,18 @@ function PicDiscretionTable({ picRef, picEmployerNote, caamNotes, tz }) {
                 </tr>
                 <tr>
                   <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h2.label}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h2.end} LOCAL<ConvertedLine end={h2.end} /></td>
+                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h2.end}<DayMark days={h2.days} /> LOCAL<ConvertedLine end={h2.end} /></td>
                 </tr>
                 <tr>
                   <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{h3.label}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h3.end} LOCAL<ConvertedLine end={h3.end} /></td>
+                  <td style={{ textAlign: 'right', color: 'var(--cp-red)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h3.end}<DayMark days={h3.days} /> LOCAL<ConvertedLine end={h3.end} /></td>
                 </tr>
               </>
             ) : (
               [h1, h2, h3].map(row => (
                 <tr key={row.label}>
                   <td style={{ color: 'var(--cp-muted)', padding: '4px 0' }}>{row.label}</td>
-                  <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-txt)', fontWeight: 600, whiteSpace: 'nowrap' }}>{row.end} LOCAL<ConvertedLine end={row.end} /></td>
+                  <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-txt)', fontWeight: 600, whiteSpace: 'nowrap' }}>{row.end}<DayMark days={row.days} /> LOCAL<ConvertedLine end={row.end} /></td>
                   <td style={{ textAlign: 'right', color: 'var(--cp-orange)', fontSize: 10 }}>⚠ REQUIRED</td>
                   <td style={{ textAlign: 'right', color: row.caam ? 'var(--cp-red)' : 'var(--cp-dim)', fontSize: 10 }}>{row.caam ? '⚠ REQUIRED' : '—'}</td>
                 </tr>
@@ -916,7 +925,7 @@ export default function FTLCalculator() {
 
           {/* Flight details */}
           <Section title="FLIGHT DETAILS">
-            <Row label={crewCat === 'cabin' ? 'FLIGHT CREW REPORT TIME' : 'REPORT TIME'}
+            <Row label="REPORT TIME"
               note={
                 airportStandbyPending ? 'Optional while on airport standby — MAX FDP is based on standby start until you\'re called out (Ch. 2.9.2)' :
                 positioning ? 'Not required while positioning — FDP commences at the positioning report time instead (Ch. 2.8.1)' :
@@ -932,7 +941,7 @@ export default function FTLCalculator() {
               />
             </Row>
             {crewCat === 'cabin' && (
-              <Row label="CABIN REPORTS SEPARATELY" note={diffCabinTime ? 'Determines FDP start/end clock — table band still uses flight crew time (Ch. 2.21.2a)' : undefined}>
+              <Row label="CABIN REPORTS SEPARATELY" note={diffCabinTime ? 'Enter the flight crew\'s report time in REPORT TIME above (sets the FDP limit) and your own report time here (starts your FDP clock) — Ch. 2.21.2a' : undefined}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <Seg
                     options={[{ value: false, label: 'NO' }, { value: true, label: 'YES' }]}
@@ -1007,8 +1016,9 @@ export default function FTLCalculator() {
             )}
           </Section>
 
-          {/* Delayed reporting — Ch. 2.7. Mutually exclusive with Positioning. */}
-          <Section title="DELAYED REPORTING" toggle={
+          {/* Delayed reporting — Ch. 2.7. Mutually exclusive with Positioning.
+              Not offered while on standby: a delay after call-out is standby Case A/B. */}
+          {!standby && <Section title="DELAYED REPORTING" toggle={
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
               value={delayedReporting} onChange={v => setFTLField(v ? { delayedReporting: v, positioning: false } : { delayedReporting: v })} />
           }>
@@ -1028,7 +1038,7 @@ export default function FTLCalculator() {
                   value={!!delayUndisturbed} onChange={v => setFTLField({ delayUndisturbed: v })} />
               </Row>
             )}
-          </Section>
+          </Section>}
 
           {/* Positioning — Ch. 2.8. Mutually exclusive with Delayed Reporting. */}
           <Section title="POSITIONING" toggle={
@@ -1057,7 +1067,7 @@ export default function FTLCalculator() {
                 <input type="text" placeholder="H:MM or HHMM"
                   inputMode="numeric" pattern="[0-9]*"
                   value={precedingRest} onChange={e => setFTLField({ precedingRest: e.target.value })}
-                  onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ precedingRest: fmtDur(m) }) }}
+                  onBlur={e => { if (/^\d{3}$/.test(e.target.value.trim())) return; const m = parseDur(e.target.value); if (m != null) setFTLField({ precedingRest: fmtDur(m) }) }}
                   style={{ ...inp, width: 110, textAlign: 'center' }} maxLength={5}
                 />
               </Row>
@@ -1087,6 +1097,9 @@ export default function FTLCalculator() {
                     maxLength={5}
                   />
                 </Row>
+                <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', lineHeight: 1.6, paddingBottom: 4 }}>
+                  Called out and then delayed? Enter the actual report time as REPORT TIME — standby Case A/B applies (Ch. 2.9.3)
+                </div>
                 <Row label="LOCATION">
                   <Seg
                     options={[{ value: 'home', label: 'HOME' }, { value: 'airport', label: 'AIRPORT' }]}
@@ -1147,7 +1160,8 @@ export default function FTLCalculator() {
           }>
             {reducedRest && (
               <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-orange)', lineHeight: 1.6, paddingBottom: 4 }}>
-                Was the rest before this duty itself reduced via PIC discretion (Ch. 2.16)? If so: split duty
+                Was the rest before this duty reduced in any way — away from base (Ch. 2.14.3), by crew
+                discretion at home base (Ch. 2.14.4) or by PIC discretion (Ch. 2.16)? If so: split duty
                 is not permitted (Ch. 2.13.4), and PIC discretion below is restricted to immediately before
                 the last sector, exceptional circumstances only (Ch. 2.15.3) — reportable to CAAM regardless
                 of duration (Ch. 2.15.4).
@@ -1342,10 +1356,13 @@ export default function FTLCalculator() {
                       PENDING — enter report time once called out
                     </div>
                   ) : hasExtension ? (
-                    <CompareTiles leftLabel="DUE TO EXPIRE" leftValue={result.picRef.orig.end} rightLabel="ACTUAL FINISH" rightValue={result.endTime} tone={extTone} />
+                    <CompareTiles
+                      leftLabel="DUE TO EXPIRE" leftValue={<>{result.picRef.orig.end}<DayMark days={result.picRef.orig.days} /></>}
+                      rightLabel="ACTUAL FINISH" rightValue={<>{result.endTime}<DayMark days={result.endDays} /></>}
+                      tone={extTone} />
                   ) : (
                     <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 30, fontWeight: 700, color: 'var(--cp-txt)', lineHeight: 1 }}>
-                      {result.endTime}
+                      {result.endTime}<DayMark days={result.endDays} />
                       <span style={{ fontSize: 12, color: 'var(--cp-dim)', marginLeft: 8, letterSpacing: '0.1em' }}>LOCAL TIME AT REPORTING</span>
                     </div>
                   )}
@@ -1410,6 +1427,12 @@ export default function FTLCalculator() {
                       <tr>
                         <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>Split duty Ch. 2.13</td>
                         <td style={{ textAlign: 'right', color: 'var(--cp-green)' }}>+{fmtDur(result.breakdown.splitExtension)}</td>
+                      </tr>
+                    )}
+                    {result.breakdown.reliefCapReduction > 0 && (
+                      <tr>
+                        <td style={{ color: 'var(--cp-dim)', padding: '3px 0', fontSize: 11 }}>Relief cap Ch. 2.12.3</td>
+                        <td style={{ textAlign: 'right', color: 'var(--cp-red)' }}>−{fmtDur(result.breakdown.reliefCapReduction)}</td>
                       </tr>
                     )}
                     {result.breakdown.picExtension > 0 && (

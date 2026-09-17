@@ -401,12 +401,75 @@ describe('computeFTL — PIC discretion sector-position cap (Ch. 2.15.2)', () =>
     expect(r.errors).toHaveLength(0)
   })
 
-  it('caps at 2h before an earlier sector of a multi-sector flight', () => {
+  it('warns past 2h before an earlier sector, but shows what actually happened (no cap)', () => {
     const overrides = { sectors: 3, picBeforeLastSector: false }
     const r = computeFTL({
       ...base, ...overrides, picDiscretion: true, picActualEndStr: actualEndFor(overrides, 3 * 60),
     })
-    expect(r.breakdown.picExtension).toBe(2 * 60)
-    expect(r.errors.length).toBeGreaterThan(0)
+    expect(r.breakdown.picExtension).toBe(3 * 60)
+    expect(r.errors.some(e => /non-final sector/.test(e))).toBe(true)
+  })
+})
+
+describe('computeFTL — PIC discretion over the limit shows what actually happened (Ch. 2.15.1 / 2.15.4)', () => {
+  it('non-final sector 3:15: real extension and finish, CAAM report flagged', () => {
+    // 2 sectors, report 09:00 → 13:15, original expiry 22:15; actually finished 01:30.
+    const r = computeFTL({ ...base, sectors: 2, picDiscretion: true, picBeforeLastSector: false, picActualEndStr: '0130' })
+    expect(r.breakdown.picExtension).toBe(3 * 60 + 15)
+    expect(r.endTime).toBe('01:30')
+    expect(r.caamNotes.some(n => n.includes('2.15.4'))).toBe(true)
+  })
+
+  it('single sector beyond 3h: emergency-only warning, not capped', () => {
+    const r = computeFTL({ ...base, picDiscretion: true, picActualEndStr: '0230' }) // expiry 23:00 → +3:30
+    expect(r.breakdown.picExtension).toBe(3 * 60 + 30)
+    expect(r.endTime).toBe('02:30')
+    expect(r.errors.some(e => /only permitted in an emergency/.test(e))).toBe(true)
+  })
+})
+
+describe('computeFTL — delay after call-out from standby (D9, Ch. 2.9.3)', () => {
+  it('ignores delayed reporting while on standby — report time is the actual report, Case A/B applies', () => {
+    // Standby 04:00, actual report 12:00 (8h → −2:00); band: standby 2200–0559 (11:00) vs 12:00 (14:00) → 11:00.
+    const r = computeFTL({
+      ...base, reportTime: '1200', standby: true, standbyStart: '0400',
+      delayedReporting: true, actualReportTimeStr: '1500',
+    })
+    expect(r.fdp).toBe(9 * 60)
+    expect(r.endTime).toBe('21:00')
+    expect(r.notes.some(n => n.includes('2.7.1'))).toBe(false)
+  })
+})
+
+describe('computeFTL — long range over 11h, not acclimatised (Ch. 2.11.1 / 2.11.2)', () => {
+  it('is a hard block — no FDP', () => {
+    const r = computeFTL({ ...base, acclimatised: false, precedingRestStr: '40:00', longRange: true, longestSectorStr: '11:01' })
+    expect(r.ok).toBeUndefined()
+    expect(r.error).toMatch(/additional pilot/)
+  })
+
+  it('11:00 exactly still converts to 4 sectors', () => {
+    const r = computeFTL({ ...base, acclimatised: false, precedingRestStr: '40:00', longRange: true, longestSectorStr: '11:00' })
+    expect(r.effSectors).toBe(4)
+  })
+})
+
+describe('computeFTL — display helpers', () => {
+  it('breakdown shows how much the relief cap removed', () => {
+    const r = computeFTL({ ...base, ifr: true, ifrRestStr: '10:00' }) // 14:00 + 5:00 → capped 18:00
+    expect(r.breakdown.reliefCapReduction).toBe(60)
+    expect(r.fdp).toBe(18 * 60)
+  })
+
+  it('rejects a 3-digit Table B rest instead of guessing', () => {
+    expect(computeFTL({ ...base, acclimatised: false, precedingRestStr: '240' }).error).toMatch(/HH:MM or HHMM/)
+    expect(computeFTL({ ...base, acclimatised: false, precedingRestStr: '2400' }).fdp).toBe(11 * 60 + 30)
+  })
+
+  it('marks times that fall past midnight of the FDP start day', () => {
+    expect(computeFTL({ ...base, reportTime: '0900' }).endDays).toBe(0)
+    expect(computeFTL({ ...base, reportTime: '2200' }).endDays).toBe(1) // 22:00 + 11:00 → 09:00 next day
+    const pic = computeFTL({ ...base, reportTime: '1200', picDiscretion: true }) // expiry 02:00 next day
+    expect(pic.picRef.orig.days).toBe(1)
   })
 })
