@@ -34,10 +34,17 @@
   --cb-update-accent: var(--cp-acc);
 }
 
-/* Light-mode overrides for values that don't auto-shift through the bridge */
+/* Light-mode overrides for values that don't auto-shift through the bridge.
+   --cp-acc/--cp-acc2/--cp-dim are darkened enough to clear 4.5:1 contrast
+   against the light surface — the dark-mode values read fine on near-black
+   but wash out on a light background (used as text: section titles, active
+   states, result numbers). Same hue, just darker/more saturated. */
 :root[data-theme="light"] {
+  --cp-acc:     #0c7f6c;
+  --cp-acc2:    #0463ff;
   --cp-accdim:  #d4eaf8;
   --cp-bginput: #ffffff;
+  --cp-dim:     #677187;
   --cp-green:   #14522a;
   --cp-yellow:  #6b3d00;
   --cp-orange:  #7c2a00;
@@ -46,8 +53,11 @@
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
+    --cp-acc:     #0c7f6c;
+    --cp-acc2:    #0463ff;
     --cp-accdim:  #d4eaf8;
     --cp-bginput: #ffffff;
+    --cp-dim:     #677187;
     --cp-green:   #14522a;
     --cp-yellow:  #6b3d00;
     --cp-orange:  #7c2a00;
@@ -344,24 +354,24 @@ html[data-reduce-motion="true"] * { transition: none !important; }
 :root[data-accent="gold"]    { --cp-acc: #eab308; --cp-acc2: #ca8a04; --cp-accdim: #2a2000; }
 :root[data-accent="coral"]   { --cp-acc: #f97316; --cp-acc2: #ea580c; --cp-accdim: #2a1200; }
 
-:root[data-theme="light"][data-accent="blue"]    { --cp-accdim: #d4eaf8; }
-:root[data-theme="light"][data-accent="violet"]  { --cp-accdim: #ede9fe; }
-:root[data-theme="light"][data-accent="amber"]   { --cp-accdim: #fef3c7; }
-:root[data-theme="light"][data-accent="emerald"] { --cp-accdim: #d1fae5; }
-:root[data-theme="light"][data-accent="rose"]    { --cp-accdim: #ffe4e6; }
-:root[data-theme="light"][data-accent="cyan"]    { --cp-accdim: #cffafe; }
-:root[data-theme="light"][data-accent="gold"]    { --cp-accdim: #fef9c3; }
-:root[data-theme="light"][data-accent="coral"]   { --cp-accdim: #ffedd5; }
+:root[data-theme="light"][data-accent="blue"]    { --cp-acc: #0065f3; --cp-acc2: #086aeb; --cp-accdim: #d4eaf8; }
+:root[data-theme="light"][data-accent="violet"]  { --cp-acc: #4759ff; --cp-acc2: #3a4be5; --cp-accdim: #ede9fe; }
+:root[data-theme="light"][data-accent="amber"]   { --cp-acc: #b94e00; --cp-acc2: #9f6400; --cp-accdim: #fef3c7; }
+:root[data-theme="light"][data-accent="emerald"] { --cp-acc: #007d48; --cp-acc2: #007f57; --cp-accdim: #d1fae5; }
+:root[data-theme="light"][data-accent="rose"]    { --cp-acc: #e10027; --cp-acc2: #dc0d3b; --cp-accdim: #ffe4e6; }
+:root[data-theme="light"][data-accent="cyan"]    { --cp-acc: #00798d; --cp-acc2: #007996; --cp-accdim: #cffafe; }
+:root[data-theme="light"][data-accent="gold"]    { --cp-acc: #8c6a00; --cp-acc2: #966500; --cp-accdim: #fef9c3; }
+:root[data-theme="light"][data-accent="coral"]   { --cp-acc: #bd4e00; --cp-acc2: #c84500; --cp-accdim: #ffedd5; }
 
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme])[data-accent="blue"]    { --cp-accdim: #d4eaf8; }
-  :root:not([data-theme])[data-accent="violet"]  { --cp-accdim: #ede9fe; }
-  :root:not([data-theme])[data-accent="amber"]   { --cp-accdim: #fef3c7; }
-  :root:not([data-theme])[data-accent="emerald"] { --cp-accdim: #d1fae5; }
-  :root:not([data-theme])[data-accent="rose"]    { --cp-accdim: #ffe4e6; }
-  :root:not([data-theme])[data-accent="cyan"]    { --cp-accdim: #cffafe; }
-  :root:not([data-theme])[data-accent="gold"]    { --cp-accdim: #fef9c3; }
-  :root:not([data-theme])[data-accent="coral"]   { --cp-accdim: #ffedd5; }
+  :root:not([data-theme])[data-accent="blue"]    { --cp-acc: #0065f3; --cp-acc2: #086aeb; --cp-accdim: #d4eaf8; }
+  :root:not([data-theme])[data-accent="violet"]  { --cp-acc: #4759ff; --cp-acc2: #3a4be5; --cp-accdim: #ede9fe; }
+  :root:not([data-theme])[data-accent="amber"]   { --cp-acc: #b94e00; --cp-acc2: #9f6400; --cp-accdim: #fef3c7; }
+  :root:not([data-theme])[data-accent="emerald"] { --cp-acc: #007d48; --cp-acc2: #007f57; --cp-accdim: #d1fae5; }
+  :root:not([data-theme])[data-accent="rose"]    { --cp-acc: #e10027; --cp-acc2: #dc0d3b; --cp-accdim: #ffe4e6; }
+  :root:not([data-theme])[data-accent="cyan"]    { --cp-acc: #00798d; --cp-acc2: #007996; --cp-accdim: #cffafe; }
+  :root:not([data-theme])[data-accent="gold"]    { --cp-acc: #8c6a00; --cp-acc2: #966500; --cp-accdim: #fef9c3; }
+  :root:not([data-theme])[data-accent="coral"]   { --cp-acc: #bd4e00; --cp-acc2: #c84500; --cp-accdim: #ffedd5; }
 }
 
 /* ── Card style (flat / elevated / glass) ── */
