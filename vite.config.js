@@ -54,7 +54,7 @@ export default defineConfig({
       workbox: {
         clientsClaim: true,
         // Include brand assets in the precache
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest,mjs}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.exchangerate-api\.com\/.*/i,
