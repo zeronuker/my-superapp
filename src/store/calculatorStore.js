@@ -254,11 +254,14 @@ export const useCalculatorStore = create((set) => ({
   // Instant save, no dialog — `name` optional (defaults to route + date +
   // time). Caller is responsible for the at-cap "delete oldest?" prompt
   // (see deleteSavedBriefing) before calling this past BRIEFING_SAVES_CAP.
-  saveBriefing:     (name)       => set(s => {
+  // `mapSnapshot` is a data URL of the Dark map at save time (null if the
+  // Dark tab was never opened this session) — the saved offline fallback
+  // when the live map can't reload later (see CartoRouteMap.jsx).
+  saveBriefing:     (name, mapSnapshot = null) => set(s => {
     const { route, data } = s.briefing
     if (!data) return {}
     const savedAt = Date.now()
-    const entry = { id: makeBriefingId(), name: (name || '').trim() || autoBriefingName(route, savedAt), route, data, savedAt }
+    const entry = { id: makeBriefingId(), name: (name || '').trim() || autoBriefingName(route, savedAt), route, data, savedAt, mapSnapshot }
     const saves = sortByNewest([...s.briefing.saves, entry])
     persistSavedBriefings(saves)
     return { briefing: { ...s.briefing, saves, savedId: entry.id } }

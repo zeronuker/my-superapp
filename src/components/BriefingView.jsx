@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { fetchWeather } from '../services/weatherAPI'
 import { fetchNotams, detectRouteFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
@@ -372,8 +372,17 @@ const BASEMAP_TABS = [
   { id: 'live', label: 'Live Weather' },
 ]
 
-function RouteMap({ dep, arr, destAltList, eraList, isOffline }) {
+const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot }, ref) {
   const [tab, setTab] = useState('dark')
+  const cartoRef = useRef(null)
+
+  // Save Briefing only ever wants a still of the Dark map — Live Weather
+  // isn't cached/saved at all (see WindyRouteMap.jsx), so there's nothing
+  // useful to grab while that tab is active.
+  useImperativeHandle(ref, () => ({
+    getDarkMapSnapshot: () => (tab === 'dark' ? cartoRef.current?.getSnapshot() ?? null : null),
+  }), [tab])
+
   const depAp = dep && lookupAirport(dep)
   const arrAp = arr && lookupAirport(arr)
 
@@ -440,12 +449,12 @@ function RouteMap({ dep, arr, destAltList, eraList, isOffline }) {
         {tab === 'live' ? (
           <WindyRouteMap markers={markers} isOffline={isOffline} />
         ) : (
-          <CartoRouteMap markers={markers} styleKey={tab} isOffline={isOffline} />
+          <CartoRouteMap ref={cartoRef} markers={markers} styleKey={tab} isOffline={isOffline} mapSnapshot={mapSnapshot} />
         )}
       </div>
     </div>
   )
-}
+})
 
 // ── Saved briefings dropdown — read-only browse/open/delete list ──
 function SavedList({ saves, savedId, onOpen, onDelete }) {
@@ -620,6 +629,7 @@ export default function BriefingView() {
   const [titleDraft, setTitleDraft] = useState(null)
   const [showSavePrompt, setShowSavePrompt] = useState(false)
   const [showCapPrompt, setShowCapPrompt] = useState(false)
+  const routeMapRef = useRef(null)
 
   // Real close — ✕/Escape/backdrop. A fresh, unsaved fetch prompts to save
   // first; a saved entry (or an empty/still-loading session) just closes.
@@ -763,18 +773,18 @@ export default function BriefingView() {
   const attemptSave = () => {
     if (!data) return
     if (isAtCap(saves, BRIEFING_SAVES_CAP)) { setShowCapPrompt(true); return }
-    saveBriefing(titleDraft ?? undefined)
+    saveBriefing(titleDraft ?? undefined, routeMapRef.current?.getDarkMapSnapshot())
   }
   const handleDeleteOldestAndSave = () => {
     const oldest = findOldest(saves)
     if (oldest) deleteSavedBriefing(oldest.id)
-    saveBriefing(titleDraft ?? undefined)
+    saveBriefing(titleDraft ?? undefined, routeMapRef.current?.getDarkMapSnapshot())
     setShowCapPrompt(false)
   }
   const handleSaveThenClose = () => {
     setShowSavePrompt(false)
     if (isAtCap(saves, BRIEFING_SAVES_CAP)) { setShowCapPrompt(true); return }
-    saveBriefing(titleDraft ?? undefined)
+    saveBriefing(titleDraft ?? undefined, routeMapRef.current?.getDarkMapSnapshot())
     closeBriefing()
   }
   const handleDiscardAndClose = () => { setShowSavePrompt(false); closeBriefing() }
@@ -893,7 +903,7 @@ export default function BriefingView() {
                 {fetchedAt && ` · FETCHED ${new Date(fetchedAt).toUTCString().toUpperCase()}`}
               </div>
 
-              <RouteMap dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} />
+              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} />
 
               <BriefingTabBar
                 active={activeTab}

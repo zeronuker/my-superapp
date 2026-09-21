@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Map as MaplibreMap, Marker, LngLatBounds, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getRoleStyle } from '../utils/metarSeverity'
@@ -82,15 +82,24 @@ function makeMarkerEl(m) {
   return el
 }
 
-export default function CartoRouteMap({ markers, styleKey, isOffline }) {
+const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isOffline, mapSnapshot }, ref) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
   const [status, setStatus] = useState('loading') // loading | ready | error
-  // pending | accepted | declined — only relevant once status === 'error'.
-  // "accepted" swaps in the offline coastline fallback; "declined" just
-  // stops asking and leaves the plain "unavailable" message up.
+  // pending | accepted | declined — only relevant once status === 'error'
+  // AND there's no saved snapshot to show instead. "accepted" swaps in the
+  // offline coastline fallback; "declined" just stops asking and leaves the
+  // plain "unavailable" message up.
   const [fallbackChoice, setFallbackChoice] = useState('pending')
+
+  // Exposed to BriefingView so Save Briefing can grab a still of whatever
+  // this route currently looks like — the saved offline fallback for next
+  // time (see saveBriefing in calculatorStore.js). Only meaningful once the
+  // map has actually finished loading a view.
+  useImperativeHandle(ref, () => ({
+    getSnapshot: () => (status === 'ready' ? mapRef.current?.getCanvas().toDataURL('image/jpeg', 0.72) ?? null : null),
+  }), [status])
 
   // Re-create the map whenever the basemap style changes — MapLibre's own
   // setStyle() tears down every custom source/layer, so a full teardown +
@@ -238,13 +247,28 @@ export default function CartoRouteMap({ markers, styleKey, isOffline }) {
         </div>
       )}
 
-      {status === 'error' && fallbackChoice === 'accepted' && (
+      {status === 'error' && mapSnapshot && (
+        <div style={{ position: 'absolute', inset: 0 }}>
+          <img src={mapSnapshot} alt="Saved route map" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div style={{
+            position: 'absolute', top: 10, right: 10, pointerEvents: 'none',
+            background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+            border: '1px solid var(--cp-border3)', borderRadius: 7, padding: '5px 9px',
+            fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
+            color: 'var(--cp-yellow)',
+          }}>
+            Offline — saved snapshot
+          </div>
+        </div>
+      )}
+
+      {status === 'error' && !mapSnapshot && fallbackChoice === 'accepted' && (
         <div style={{ position: 'absolute', inset: 0 }}>
           <OfflineCoastlineMap markers={markers} />
         </div>
       )}
 
-      {status === 'error' && fallbackChoice !== 'accepted' && (
+      {status === 'error' && !mapSnapshot && fallbackChoice !== 'accepted' && (
         <div style={{
           position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
           justifyContent: 'center', gap: 10,
@@ -263,4 +287,6 @@ export default function CartoRouteMap({ markers, styleKey, isOffline }) {
       )}
     </div>
   )
-}
+})
+
+export default CartoRouteMap
