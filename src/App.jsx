@@ -9,6 +9,7 @@ import SplashScreen from '@brand/SplashScreen'
 import UpdatePrompt from '@brand/UpdatePrompt'
 import { useUpdate } from '@brand/useUpdate'
 import { TabIcon, ICON_SETS } from './components/TabIcon'
+import { METAR_CACHE_KEY } from './utils/moduleCacheKeys'
 import { CHANGELOG } from './changelog'
 import Changelog, { currentVersion } from '@brand/Changelog'
 
@@ -122,7 +123,7 @@ function useMETARBadge() {
     if (!('setAppBadge' in navigator)) return
     const update = () => {
       try {
-        const c = JSON.parse(localStorage.getItem('cb-metar-cache'))
+        const c = JSON.parse(localStorage.getItem(METAR_CACHE_KEY))
         if (!c?.fetchedAt || !c?.results) { navigator.clearAppBadge?.(); return }
         const ageMin = (Date.now() - c.fetchedAt) / 60000
         if (ageMin > 30) navigator.setAppBadge(1)
@@ -538,7 +539,7 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
   // METAR status — read last fetch age from cache
   const metarAge = React.useMemo(() => {
     try {
-      const c = JSON.parse(localStorage.getItem('cb-metar-cache'))
+      const c = JSON.parse(localStorage.getItem(METAR_CACHE_KEY))
       if (!c?.fetchedAt) return null
       const min = Math.floor((now - c.fetchedAt) / 60000)
       if (min < 1)  return 'LIVE'
@@ -550,7 +551,7 @@ function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: t
 
   const metarRoute = React.useMemo(() => {
     try {
-      const c = JSON.parse(localStorage.getItem('cb-metar-cache'))
+      const c = JSON.parse(localStorage.getItem(METAR_CACHE_KEY))
       const parts = [c?.dep, c?.arr].filter(Boolean)
       return parts.length ? parts.join('→') : null
     } catch { return null }

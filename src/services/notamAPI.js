@@ -390,29 +390,3 @@ export function detectRouteFirs(depPos, destPos) {
   return chips
 }
 
-/**
- * Build initial chips from DEP + ARR ICAO codes (airports + their home FIRs).
- */
-export function buildInitialChips(depIcao, arrIcao) {
-  const chips = []
-  const seen  = new Set()
-
-  const add = (icao, name, type) => {
-    if (!icao || seen.has(icao)) return
-    seen.add(icao)
-    chips.push({ icao, name, type })
-  }
-
-  if (depIcao) {
-    add(depIcao.toUpperCase(), `${depIcao.toUpperCase()} (departure)`, 'airport')
-    const fir = icaoToFir(depIcao)
-    if (fir) add(fir.icao, fir.name, 'fir')
-  }
-  if (arrIcao) {
-    add(arrIcao.toUpperCase(), `${arrIcao.toUpperCase()} (arrival)`, 'airport')
-    const fir = icaoToFir(arrIcao)
-    if (fir) add(fir.icao, fir.name, 'fir')
-  }
-
-  return chips
-}

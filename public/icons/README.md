@@ -29,5 +29,4 @@ Grouped/launcher headers reuse a member's icon (calculator, edto, metartaf,
 ftl, prayer), so no extra group files are needed.
 
 Set ids/labels are defined in `src/components/TabIcon.jsx` (`ICON_SETS`) —
-currently `set-a` / `set-b`, labelled SET A / SET B. Rename there.
-```
+currently `set-a` / `set-b`, labelled MONO / COLOR.

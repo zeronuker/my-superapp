@@ -14,7 +14,7 @@ entry (`currentVersion(CHANGELOG)` in `App.jsx`); also keep `package.json`'s
 
 ## Tech stack
 
-- **React 18** + **Vite 5** (do not assume Vite 6+ APIs)
+- **React 18** + **Vite 8** (do not assume Vite 9+ APIs)
 - **Zustand** for state (`src/store/calculatorStore.js`, plus a self-contained
   store inside the prayer module)
 - **adhan** for prayer-time / Qibla astronomy
@@ -42,7 +42,7 @@ src/
                               #   CALCULATORS array = the tab registry — add new tabs here.
   components/                 # one file per calculator tab (+ shared UI)
     METARTAFCalculator.jsx    #   METAR/TAF tab.  NotamViewer.jsx = own NOTAM tab
-    EDTOCalculator.jsx, FTLCalculator.jsx, InterpolationCalculator.jsx,
+    B737Performance.jsx, FTLCalculator.jsx, InterpolationCalculator.jsx,
     CurrencyCalculator.jsx, CombinedCalculator.jsx (basic+scientific),
     NotamViewer.jsx, SigmetViewer.jsx  #   SIGMET tab (own SigmetCard.jsx,
                               #   services/sigmetAPI.js, utils/sigmet.js, api/isigmet.js)
@@ -51,6 +51,9 @@ src/
                               #   combined) — saved briefings live in
                               #   store/calculatorStore.js's `briefing.saves`
     ErrorBoundary.jsx         #   per-tab crash isolation (wraps the active tab)
+                              #   EDTOCalculator.jsx is now a mode nested inside
+                              #   B737Performance.jsx, not its own tab (old
+                              #   `edto` tab id remaps via App.jsx's LEGACY_ID_MAP)
   utils/                      # PURE, TESTED logic (no React/DOM)
     metarSeverity.js          #   flight category, wind severity, raw/TAF tokenising
     metarDecode.js            #   plain-English METAR/TAF decoder
@@ -58,8 +61,9 @@ src/
   data/ftlTables.js           # CAAM FTL lookup tables + helpers (pure, tested)
   data/airports.js + .json    # worldwide ICAO airport DB (shared: Flight tab +
                               #   NOTAM). Regenerate: node scripts/generate-airports.mjs
-  store/calculatorStore.js    # global UI state, settings, resetCount
+  store/calculatorStore.js    # global UI state, settings
   modules/prayer/             # self-contained module (own store/hooks/services/pages)
+  modules/dutylog/            # self-contained module (own store/components/pages)
 api/
   weather.js                  # Vercel serverless proxy → aviationweather.gov
   notam.js                    # Vercel serverless proxy → autorouter.aero (OAuth)
@@ -82,7 +86,8 @@ api/
   `cp-label`, `cp-section-header`, `cp-divider`). Don't hard-code theme colours.
 - **Adding a calculator tab**: create the component, then add an entry to the
   `CALCULATORS` array in `App.jsx`. New tabs auto-append to the saved tab order.
-  React to global "Reset All" via `resetCount` from the store (see
+  React to global "Reset All" via a per-module `resetXxx()` store action wired
+  to the shared `<ResetButton onReset={...}>` component (see
   `CurrencyCalculator.jsx` for the pattern). Also add the new id to a group in
   `NAV_GROUPS` (Navigation.jsx) so it appears in grouped navigation.
 - **Offline**: this is a PWA. Anything that fetches must degrade gracefully when

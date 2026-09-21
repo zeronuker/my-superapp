@@ -5,7 +5,6 @@ import { useCalculatorStore } from '../store/calculatorStore'
  * Selectable icon sets.
  *   'classic' → built-in emoji (no assets, always available).
  *   image sets → files under public/icons/<set>/<tab-id>.{svg,png}, one per tab.
- * Rename the image-set labels once the real artwork is in (placeholders for now).
  */
 export const ICON_SETS = [
   { id: 'classic', label: 'EMOJI' },

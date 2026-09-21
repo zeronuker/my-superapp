@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
+import { METAR_CACHE_KEY, NOTAM_CACHE_KEY } from '../utils/moduleCacheKeys'
 
-const CACHE_KEYS = { metar: 'cb-metar-cache', notam: 'cb-notam-cache' }
+const CACHE_KEYS = { metar: METAR_CACHE_KEY, notam: NOTAM_CACHE_KEY }
 const ARM_TIMEOUT = 4000
 
 function readOtherAirports(sourceModule) {

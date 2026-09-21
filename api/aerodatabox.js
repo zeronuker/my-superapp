@@ -3,7 +3,6 @@
  * which SkyLink has none of.
  *
  * GET /api/aerodatabox?icao=<ICAO>   (runways)
- * GET /api/aerodatabox?iata=<IATA>   (runways)
  *
  * Required Vercel environment variable:
  *   AERODATABOX_API_KEY — the X-RapidAPI-Key from
@@ -18,17 +17,15 @@ const HOST = 'aerodatabox.p.rapidapi.com'
 export default async function handler(req, res) {
   if (rateLimited(req, res)) return
 
-  const { icao, iata } = req.query
+  const { icao } = req.query
   const apiKey = process.env.AERODATABOX_API_KEY
   if (!apiKey) return res.status(500).json({ error: 'AERODATABOX_API_KEY is not configured' })
 
-  if (!icao && !iata) return res.status(400).json({ error: 'icao or iata query parameter is required' })
-  const codeType = icao ? 'icao' : 'iata'
-  const code = String(icao || iata).trim().toUpperCase()
-  if (!code) return res.status(400).json({ error: 'icao/iata query parameter is required' })
+  const code = String(icao || '').trim().toUpperCase()
+  if (!code) return res.status(400).json({ error: 'icao query parameter is required' })
 
   try {
-    const upstream = await fetch(`${BASE}/airports/${codeType}/${encodeURIComponent(code)}/runways`, {
+    const upstream = await fetch(`${BASE}/airports/icao/${encodeURIComponent(code)}/runways`, {
       headers: { 'x-rapidapi-key': apiKey, 'x-rapidapi-host': HOST },
       signal: AbortSignal.timeout(8000),
     })
