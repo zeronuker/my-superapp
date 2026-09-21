@@ -185,6 +185,14 @@ export default function App() {
   const tabPosition = settings.tabPosition || 'top'
   const isLauncherHome = navStyle === 'launcher' && !activeCalculator
 
+  // Same bottom offset the Resume Briefing pill uses below — shared so the
+  // page can reserve equivalent space at the end of scrollable content,
+  // otherwise the pill ends up sitting on top of the last tile or button
+  // once you've scrolled all the way down (only matters on narrow viewports
+  // where content spans edge-to-edge instead of leaving margin beside it).
+  const showResumePill = !briefing.open && (briefing.data || briefing.saves.length > 0)
+  const resumePillBottomOffset = navStyle === 'tabs' && tabPosition === 'bottom' ? 74 : 16
+
   const currentCalc      = activeCalculator ? CALCULATORS.find(c => c.id === activeCalculator) : undefined
   const CurrentComponent = currentCalc?.component
   // The calculator tab fills the exact remaining screen space (see
@@ -380,7 +388,12 @@ export default function App() {
             maxWidth: 960, margin: '0 auto', width: '100%',
             ...(isCalcFullScreen
               ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '8px 12px 12px' }
-              : { padding: landscapeCompact ? '12px 24px 24px' : '24px 24px 48px' }),
+              : {
+                  padding: landscapeCompact ? '12px 24px 24px' : '24px 24px 48px',
+                  ...(showResumePill ? {
+                    paddingBottom: `max(${landscapeCompact ? 24 : 48}px, calc(${resumePillBottomOffset + 56}px + env(safe-area-inset-bottom)))`,
+                  } : {}),
+                }),
           }}
         >
           {isLauncherHome ? (
@@ -499,14 +512,12 @@ export default function App() {
            there's something to bring back: a briefing paused mid-fetch (the
            NOTAM "view all" tab-jump) takes priority since it's still live
            in-progress work; otherwise it opens the most recently saved one. ── */}
-      {!briefing.open && (briefing.data || briefing.saves.length > 0) && (
+      {showResumePill && (
         <button
           onClick={() => (briefing.data ? resumeBriefing() : openSavedBriefing(briefing.saves[0].id))}
           style={{
             position: 'fixed', right: 16, zIndex: 95,
-            bottom: navStyle === 'tabs' && tabPosition === 'bottom'
-              ? 'calc(74px + env(safe-area-inset-bottom))'
-              : 'calc(16px + env(safe-area-inset-bottom))',
+            bottom: `calc(${resumePillBottomOffset}px + env(safe-area-inset-bottom))`,
             display: 'flex', alignItems: 'center', gap: 7,
             padding: '10px 16px', borderRadius: 999, cursor: 'pointer',
             background: 'var(--cp-bg2)', border: '1px solid var(--cp-acc)',
