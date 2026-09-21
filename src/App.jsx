@@ -344,7 +344,11 @@ export default function App() {
           <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex',
             alignItems: 'center', justifyContent: 'space-between', paddingRight: 24 }}>
 
-            <BrandBanner subtitle="PILOT UTILITY SUITE" />
+            {/* minWidth:0 lets this shrink instead of pushing the settings
+                button off-screen at large font-scale on a narrow phone. */}
+            <div style={{ minWidth: 0, overflow: 'hidden' }}>
+              <BrandBanner subtitle="PILOT UTILITY SUITE" />
+            </div>
 
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
               <button
