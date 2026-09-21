@@ -27,6 +27,11 @@
   --cp-orange:  #fdba74;
   --cp-red:     #f87171;
   --cp-purple:  var(--cb-violet);
+  /* FIR chip amber (NotamViewer) — no weather-role equivalent, its own
+     fixed color. Tokenized like the other status colors above so it gets
+     a light-mode-safe value too, not for cross-file reuse (nothing else
+     currently uses this exact shade). */
+  --cp-fir:     #fbbf24;
 
   /* Update-modal contract (see brand-kit/component/UpdatePrompt.jsx) — point
      it at our own runtime-customizable accent instead of the static brand
@@ -49,6 +54,7 @@
   --cp-yellow:  #6b3d00;
   --cp-orange:  #7c2a00;
   --cp-red:     #8b1212;
+  --cp-fir:     #906800;
 }
 
 @media (prefers-color-scheme: light) {
@@ -58,6 +64,7 @@
     --cp-accdim:  #d4eaf8;
     --cp-bginput: #ffffff;
     --cp-dim:     #677187;
+    --cp-fir:     #906800;
     --cp-green:   #14522a;
     --cp-yellow:  #6b3d00;
     --cp-orange:  #7c2a00;

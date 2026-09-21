@@ -35,7 +35,7 @@ const ROLE_STYLE = {
   arr:     { color: getRoleStyle('ARRIVAL').color, soft: 'rgba(249,115,22,0.10)', border: 'rgba(249,115,22,0.40)' },
   destalt: { color: getRoleStyle('DESTINATION ALTERNATE 1').color, soft: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.35)' },
   era:     { color: getRoleStyle('ENROUTE ALTERNATE 1').color, soft: 'rgba(139,92,246,0.10)', border: 'rgba(139,92,246,0.40)' },
-  fir:     { color: '#fbbf24', soft: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.40)' },
+  fir:     { color: 'var(--cp-fir)', soft: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.40)' },
   other:   { color: getRoleStyle('OTHER').color, soft: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.35)' },
 }
 
