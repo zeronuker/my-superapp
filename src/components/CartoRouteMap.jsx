@@ -97,8 +97,22 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isO
   // this route currently looks like — the saved offline fallback for next
   // time (see saveBriefing in calculatorStore.js). Only meaningful once the
   // map has actually finished loading a view.
+  //
+  // Without preserveDrawingBuffer, WebGL clears the canvas right after each
+  // frame paints, so a snapshot taken at an arbitrary later moment reads
+  // blank. Forcing preserveDrawingBuffer on the live map fixes that but
+  // roughly doubles its GPU memory use — fine on desktop, but silently
+  // hangs the map forever on iPad (no error event, just never finishes
+  // loading). Reading the canvas synchronously inside the 'render' event
+  // instead — before the browser gets a chance to clear it — gets the same
+  // still without that cost.
   useImperativeHandle(ref, () => ({
-    getSnapshot: () => (status === 'ready' ? mapRef.current?.getCanvas().toDataURL('image/jpeg', 0.72) ?? null : null),
+    getSnapshot: () => new Promise((resolve) => {
+      const map = mapRef.current
+      if (status !== 'ready' || !map) { resolve(null); return }
+      map.once('render', () => resolve(map.getCanvas().toDataURL('image/jpeg', 0.72)))
+      map.triggerRepaint()
+    }),
   }), [status])
 
   // Re-create the map whenever the basemap style changes — MapLibre's own
@@ -119,12 +133,6 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isO
       style: styleUrl(STYLE_IDS[styleKey]),
       center: [0, 20],
       zoom: 2,
-      // Without this, WebGL clears the canvas's drawing buffer right after
-      // each frame paints — getCanvas().toDataURL() (see getSnapshot below)
-      // would then read a blank/black frame instead of the actual map. This
-      // MapLibre version nests it under canvasContextAttributes, not as a
-      // top-level Map option (which is silently ignored).
-      canvasContextAttributes: { preserveDrawingBuffer: true },
     })
     mapRef.current = map
 

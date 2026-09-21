@@ -770,21 +770,21 @@ export default function BriefingView() {
     if (isSaved) renameSavedBriefing(savedId, trimmed)
   }
 
-  const attemptSave = () => {
+  const attemptSave = async () => {
     if (!data) return
     if (isAtCap(saves, BRIEFING_SAVES_CAP)) { setShowCapPrompt(true); return }
-    saveBriefing(titleDraft ?? undefined, routeMapRef.current?.getDarkMapSnapshot())
+    saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getDarkMapSnapshot())
   }
-  const handleDeleteOldestAndSave = () => {
+  const handleDeleteOldestAndSave = async () => {
     const oldest = findOldest(saves)
     if (oldest) deleteSavedBriefing(oldest.id)
-    saveBriefing(titleDraft ?? undefined, routeMapRef.current?.getDarkMapSnapshot())
+    saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getDarkMapSnapshot())
     setShowCapPrompt(false)
   }
-  const handleSaveThenClose = () => {
+  const handleSaveThenClose = async () => {
     setShowSavePrompt(false)
     if (isAtCap(saves, BRIEFING_SAVES_CAP)) { setShowCapPrompt(true); return }
-    saveBriefing(titleDraft ?? undefined, routeMapRef.current?.getDarkMapSnapshot())
+    saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getDarkMapSnapshot())
     closeBriefing()
   }
   const handleDiscardAndClose = () => { setShowSavePrompt(false); closeBriefing() }
