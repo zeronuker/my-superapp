@@ -1058,7 +1058,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
             padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto' }}>
             {SETTINGS_TABS.map(t => <TabButton key={t.id} tab={t} variant="rail" />)}
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px' }}>
             {tabContent}
           </div>
         </div>
@@ -1081,7 +1081,7 @@ function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalc
       <div style={{ display: 'flex', borderBottom: '1px solid var(--cp-border)', flexShrink: 0 }}>
         {SETTINGS_TABS.map(t => <TabButton key={t.id} tab={t} variant="strip" />)}
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px',
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px',
         paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
         {tabContent}
       </div>
@@ -1203,19 +1203,31 @@ function SegmentedToggle({ options, value, onChange }) {
 
 function AccentSwatches({ value, onChange }) {
   return (
-    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+    // Scrolls internally instead of forcing the settings row (and at large
+    // font-scale, the whole sheet) wider than the viewport — 10 swatches
+    // don't reliably fit one row on a phone, especially at 'cockpit' scale.
+    <div className="cp-accent-scroll" style={{ display: 'flex', overflowX: 'auto', minWidth: 0, paddingRight: 12 }}>
       {ACCENT_SWATCHES.map(s => {
         const active = value === s.value
         return (
+          // 44px tappable button (WCAG-comfortable touch target) around a
+          // visually unchanged 24px dot, so the hit area is bigger without
+          // making the swatch row look different.
           <button key={s.value} onClick={() => onChange(s.value)}
             aria-label={s.value} title={s.value.toUpperCase()}
             style={{
-              width: 24, height: 24, borderRadius: '50%', cursor: 'pointer',
-              background: s.colors ? `linear-gradient(135deg, ${s.colors.join(', ')})` : s.color, padding: 0,
+              width: 44, height: 44, flexShrink: 0, padding: 0, border: 'none',
+              background: 'transparent', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+            <span style={{
+              width: 24, height: 24, borderRadius: '50%', display: 'block',
+              background: s.colors ? `linear-gradient(135deg, ${s.colors.join(', ')})` : s.color,
               border: active ? '2px solid var(--cp-txt)' : '2px solid transparent',
               boxShadow: active ? `0 0 0 2px ${s.color}` : 'none',
               transition: 'box-shadow 0.12s',
             }} />
+          </button>
         )
       })}
     </div>
