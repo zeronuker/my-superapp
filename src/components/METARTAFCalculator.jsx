@@ -248,7 +248,16 @@ export default function METARTAFCalculator() {
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
         <CopyAirportsButton sourceModule="notam" sourceLabel="NOTAM" onApply={applyCopiedAirports} />
-        <ResetButton onReset={handleReset} scoped hasUnsavedBriefing={hasUnsavedBriefing} onDiscardBriefing={discardUnsavedBriefing} />
+        <ResetButton
+          onReset={handleReset}
+          scoped
+          hasUnsavedBriefing={hasUnsavedBriefing}
+          onDiscardBriefing={discardUnsavedBriefing}
+          options={[
+            { value: 'module', label: 'Reset this module only', desc: 'Clears route, fetched data & cache for this tab only.' },
+            { value: 'all', label: 'Reset all 3 modules', desc: 'Also clears cached METAR/TAF, NOTAM & SIGMET data on the other two tabs.', danger: true },
+          ]}
+        />
       </div>
 
       {/* ── ROUTE ────────────────────────────────────────────────────────── */}
