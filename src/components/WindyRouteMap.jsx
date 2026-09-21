@@ -146,6 +146,12 @@ export default function WindyRouteMap({ markers, isOffline }) {
   // catch in time.
   useEffect(() => {
     if (!WINDY_KEY) { setStatus('error'); return }
+    // Mounting while already offline can only fail — the Leaflet/Windy
+    // scripts sit on third-party CDNs that aren't precached. On iOS a doomed
+    // request also pops the system "Turn Off Airplane Mode" alert, so don't
+    // make one. Going offline with the map already up is unaffected: this
+    // effect runs on mount only, so that view stays as-is.
+    if (!navigator.onLine) { setStatus('error'); return }
     let active = true
     const timer = setTimeout(() => {
       getWindyAPI()

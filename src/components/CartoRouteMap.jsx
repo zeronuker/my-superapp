@@ -79,6 +79,11 @@ export default function CartoRouteMap({ markers, styleKey, isOffline }) {
   // setStyle() tears down every custom source/layer, so a full teardown +
   // rebuild here is simpler than re-adding everything after a style swap.
   useEffect(() => {
+    // Offline with this style never loaded this session, nothing it needs is
+    // cached, so building the map can only fire doomed requests — which on
+    // iOS pop the system "Turn Off Airplane Mode" alert. Go straight to the
+    // error state, which already offers the offline coastline map instead.
+    if (!navigator.onLine && !loadedStyles.has(styleKey)) { setStatus('error'); return }
     let stale = false
     let loaded = false
     setStatus('loading')

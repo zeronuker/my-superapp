@@ -61,6 +61,10 @@ export function getCurrentPosition() {
 }
 
 export async function reverseGeocode(lat, lng) {
+  // Offline: the lookup can only fail, and on iOS the attempt pops the system
+  // "Turn Off Airplane Mode" alert. Skip to the same fallback the catch below
+  // already returns, so callers see no difference.
+  if (!navigator.onLine) return { city: 'Current Location', country: '' }
   try {
     const res = await fetch(
       `/api/geocode?type=reverse&lat=${lat}&lng=${lng}`,

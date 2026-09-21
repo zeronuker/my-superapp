@@ -9,6 +9,11 @@ import { useCalculatorStore } from '../store/calculatorStore'
 let airlineLogosCache = null
 async function loadAirlineLogos() {
   if (airlineLogosCache) return airlineLogosCache
+  // Offline: this endpoint is third-party and uncached, so the request can
+  // only fail — and on iOS it pops the system "Turn Off Airplane Mode"
+  // alert. Return empty without caching it, so the next online visit still
+  // fetches for real; logos are decoration, the board works without them.
+  if (!navigator.onLine) return {}
   try {
     const r = await fetch('https://apss-prod-cms.myairports.com.my/api/get-all-airline-images', {
       signal: AbortSignal.timeout(8000),

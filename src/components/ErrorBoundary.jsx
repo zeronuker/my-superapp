@@ -35,7 +35,12 @@ export default class ErrorBoundary extends React.Component {
 
     // Best-effort crash beacon so real users' crashes are visible in Vercel's
     // logs. Must never throw or block — offline/network failure is silently
-    // swallowed (PWA has to degrade gracefully with no network).
+    // swallowed (PWA has to degrade gracefully with no network). Skipped
+    // outright when offline: the POST can't land anyway, and on iOS the
+    // attempt pops the system "Turn Off Airplane Mode" alert on top of a
+    // crash screen.
+    if (!navigator.onLine) return
+
     fetch('/api/client-error', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
