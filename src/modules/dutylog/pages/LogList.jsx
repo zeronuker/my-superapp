@@ -4,6 +4,7 @@ import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
 import { CODE_RE } from '../services/sync'
 import { sectorStripeColors, aircraftStripeColors, logSegmentColors } from '../utils/sectorColors'
 import { formatHHMM } from '../utils/formatHHMM'
+import { matchField } from '../utils/searchLogs'
 
 // Saved duty logs — newest first. Tap to open, trash to delete, NEW to create.
 const mono = 'var(--cb-font-mono)'
@@ -28,6 +29,34 @@ function parseLogYM(log) {
   const [y, m] = log.date.split('-').map(Number)
   if (!y || !m) return null
   return { year: y, month: m }
+}
+
+// Wraps the first case-insensitive occurrence of `query` in `text` with <mark>.
+function Highlight({ text, query }) {
+  const t = text == null ? '' : String(text)
+  if (!query || !t) return t || null
+  const idx = t.toLowerCase().indexOf(query.toLowerCase())
+  if (idx === -1) return t
+  return (
+    <>
+      {t.slice(0, idx)}
+      <mark style={{ background: 'var(--cp-accdim)', color: 'var(--cp-acc)', borderRadius: 2, padding: '0 1px' }}>
+        {t.slice(idx, idx + query.length)}
+      </mark>
+      {t.slice(idx + query.length)}
+    </>
+  )
+}
+
+function MatchChip({ field }) {
+  if (!field) return null
+  return (
+    <span style={{
+      fontFamily: mono, fontSize: 8, letterSpacing: '0.06em', color: 'var(--cp-dim)',
+      background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 4,
+      padding: '2px 6px', flexShrink: 0,
+    }}>matched · {field}</span>
+  )
 }
 
 // Splits logs (already newest-first) into: undated, the current/future flat
@@ -101,7 +130,7 @@ function SyncBadge({ log, syncCode, lastSyncedAt, onSyncNow, syncBusy }) {
   )
 }
 
-function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syncBusy }) {
+function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syncBusy, query, matchField }) {
   const n = log.sectors.length
   return (
     <div onClick={() => onOpen(log.id)} style={{
@@ -116,11 +145,11 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
       <div style={{ flex: 1, minWidth: 0, padding: 11 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
           <span style={{ fontFamily: mono, fontSize: 12, color: 'var(--cp-txt)', letterSpacing: '0.06em' }}>
-            {log.date || 'UNDATED'}
+            <Highlight text={log.date || 'UNDATED'} query={query} />
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--cp-acc)' }}>
-              {(log.aircraft || []).map((a, i) => a.reg || `ACFT ${i + 1}`).join(' / ') || '—'}
+              <Highlight text={(log.aircraft || []).map((a, i) => a.reg || `ACFT ${i + 1}`).join(' / ') || '—'} query={query} />
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); if (window.confirm('Delete this log? This cannot be undone.')) onDelete(log.id) }}
@@ -131,13 +160,16 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
           </span>
         </div>
         <div style={{ fontFamily: mono, fontSize: 11, color: 'var(--cp-muted)', letterSpacing: '0.08em' }}>
-          {routeOf(log)}
+          <Highlight text={routeOf(log)} query={query} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
           <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em' }}>
             {n} SECTOR{n === 1 ? '' : 'S'} · {log.aircraft?.[0]?.type || '—'}
           </span>
-          <SyncBadge log={log} syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy} />
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <MatchChip field={matchField} />
+            <SyncBadge log={log} syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy} />
+          </span>
         </div>
       </div>
     </div>
@@ -146,7 +178,7 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
 
 // Read-only summary row for a viewed (not-yet-imported) snapshot's logs.
 // Tappable — opens the full read-only detail sub-screen for that log.
-function ViewedLogRow({ log, onOpen }) {
+function ViewedLogRow({ log, onOpen, query, matchField }) {
   const n = log.sectors?.length || 0
   return (
     <div onClick={() => onOpen(log)} style={{
@@ -159,11 +191,14 @@ function ViewedLogRow({ log, onOpen }) {
         ))}
       </div>
       <div style={{ flex: 1, minWidth: 0, padding: '8px 10px' }}>
-        <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 500, color: 'var(--cp-txt)', letterSpacing: '0.06em' }}>
-          {log.date || 'UNDATED'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 500, color: 'var(--cp-txt)', letterSpacing: '0.06em' }}>
+            <Highlight text={log.date || 'UNDATED'} query={query} />
+          </div>
+          <MatchChip field={matchField} />
         </div>
         <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', marginTop: 2, letterSpacing: '0.06em' }}>
-          {routeOf(log)} · {n} SECTOR{n === 1 ? '' : 'S'}
+          <Highlight text={routeOf(log)} query={query} /> · {n} SECTOR{n === 1 ? '' : 'S'}
         </div>
       </div>
     </div>
@@ -342,7 +377,7 @@ function ViewedLogDetail({ log, onBack }) {
 // followed by collapsible past-months and past-years banners — shared between
 // the main duty log list and the viewed-code panel so both get the same
 // current-month/year collapse behaviour.
-function GroupedLogs({ undated, flat, pastMonthsArr, pastYearsArr, expanded, onToggle, renderLog }) {
+function GroupedLogs({ undated, flat, pastMonthsArr, pastYearsArr, expanded, onToggle, renderLog, forceOpen = false }) {
   return (
     <>
       {undated.map(renderLog)}
@@ -355,7 +390,7 @@ function GroupedLogs({ undated, flat, pastMonthsArr, pastYearsArr, expanded, onT
             key={key}
             label={`${MONTH_NAMES[month - 1]} ${year}`}
             count={monthLogs.length}
-            expanded={expanded.has(key)}
+            expanded={forceOpen || expanded.has(key)}
             onToggle={() => onToggle(key)}
           >
             {monthLogs.map(renderLog)}
@@ -371,7 +406,7 @@ function GroupedLogs({ undated, flat, pastMonthsArr, pastYearsArr, expanded, onT
             key={yearKey}
             label={String(year)}
             count={yearCount}
-            expanded={expanded.has(yearKey)}
+            expanded={forceOpen || expanded.has(yearKey)}
             onToggle={() => onToggle(yearKey)}
           >
             {months.map(({ month, logs: monthLogs }) => {
@@ -381,7 +416,7 @@ function GroupedLogs({ undated, flat, pastMonthsArr, pastYearsArr, expanded, onT
                   key={key}
                   label={`${MONTH_NAMES[month - 1]} ${year}`}
                   count={monthLogs.length}
-                  expanded={expanded.has(key)}
+                  expanded={forceOpen || expanded.has(key)}
                   onToggle={() => onToggle(key)}
                 >
                   {monthLogs.map(renderLog)}
@@ -449,6 +484,10 @@ export default function LogList({
     next.has(key) ? next.delete(key) : next.add(key)
     return next
   })
+
+  const [query, setQuery] = useState('')
+  const [monthMode, setMonthMode] = useState(true)
+  const q = query.trim()
 
   const [viewInput, setViewInput] = useState(() => viewCodeHistory[0] ?? '')
   const [viewBusy, setViewBusy] = useState(false)
@@ -525,11 +564,27 @@ export default function LogList({
 
   const promptLog = syncPromptId ? logs.find(l => l.id === syncPromptId) : null
 
-  const { undated, flat, pastMonthsArr, pastYearsArr } = useMemo(() => groupLogs(logs), [logs])
+  const mineMatches = useMemo(() => {
+    if (!q) return null
+    const map = new Map()
+    logs.forEach(l => { const f = matchField(l, q, monthMode); if (f) map.set(l.id, f) })
+    return map
+  }, [logs, q, monthMode])
+  const filteredLogs = mineMatches ? logs.filter(l => mineMatches.has(l.id)) : logs
+
+  const viewedMatches = useMemo(() => {
+    if (!q) return null
+    const map = new Map()
+    viewedLogs.forEach(l => { const f = matchField(l, q, monthMode); if (f) map.set(l.id, f) })
+    return map
+  }, [viewedLogs, q, monthMode])
+  const filteredViewedLogs = viewedMatches ? viewedLogs.filter(l => viewedMatches.has(l.id)) : viewedLogs
+
+  const { undated, flat, pastMonthsArr, pastYearsArr } = useMemo(() => groupLogs(filteredLogs), [filteredLogs])
   const {
     undated: viewedUndated, flat: viewedFlat,
     pastMonthsArr: viewedPastMonthsArr, pastYearsArr: viewedPastYearsArr,
-  } = useMemo(() => groupLogs(viewedLogs), [viewedLogs])
+  } = useMemo(() => groupLogs(filteredViewedLogs), [filteredViewedLogs])
 
   return (
     <div>
@@ -598,7 +653,42 @@ export default function LogList({
         </div>
       )}
 
-      <div className="cp-label" style={{ marginBottom: 10 }}>Saved · offline</div>
+      {logs.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ position: 'relative' }}>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search date, route, flight no, reg, crew, notes…"
+              className="cp-input"
+              style={{ width: '100%', paddingRight: query ? 30 : 10 }}
+            />
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                aria-label="clear search"
+                style={{
+                  position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                  background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', color: 'var(--cp-dim)',
+                  width: 18, height: 18, borderRadius: '50%', fontSize: 10, lineHeight: 1, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                }}
+              >×</button>
+            )}
+          </div>
+          <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.6, marginTop: 6 }}>
+            Search a date as YYYY-MM-DD for one day, YYYY-MM for a month, or YYYY for a year.
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 7, fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em', cursor: 'pointer' }}>
+            <input type="checkbox" checked={monthMode} onChange={(e) => setMonthMode(e.target.checked)} />
+            Also match month names &amp; day/month text (e.g. "SEP", "18 SEP")
+          </label>
+        </div>
+      )}
+
+      <div className="cp-label" style={{ marginBottom: 10 }}>
+        Saved · offline{q ? ` · ${filteredLogs.length} of ${logs.length} match${filteredLogs.length === 1 ? '' : 'es'}` : ''}
+      </div>
 
       {logs.length === 0 && (
         <div style={{
@@ -609,12 +699,22 @@ export default function LogList({
         </div>
       )}
 
+      {logs.length > 0 && q && filteredLogs.length === 0 && (
+        <div style={{
+          fontFamily: mono, fontSize: 11, color: 'var(--cp-dim)', letterSpacing: '0.08em',
+          textAlign: 'center', padding: '32px 0',
+        }}>
+          NO LOGS MATCH "{q}"
+        </div>
+      )}
+
       <GroupedLogs
         undated={undated} flat={flat} pastMonthsArr={pastMonthsArr} pastYearsArr={pastYearsArr}
-        expanded={expanded} onToggle={toggle}
+        expanded={expanded} onToggle={toggle} forceOpen={!!q}
         renderLog={(log) => (
           <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete}
-            syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy} />
+            syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy}
+            query={q} matchField={mineMatches?.get(log.id)} />
         )}
       />
 
@@ -692,20 +792,30 @@ export default function LogList({
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-acc)', letterSpacing: '0.08em' }}>VIEWING · {viewedCode} · READ-ONLY</span>
+                <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-acc)', letterSpacing: '0.08em' }}>
+                  VIEWING · {viewedCode} · READ-ONLY
+                  {q ? ` · ${filteredViewedLogs.length} of ${viewedLogs.length} match${filteredViewedLogs.length === 1 ? '' : 'es'}` : ''}
+                </span>
                 <button onClick={closeView} className="cp-btn" style={{ fontSize: 8, padding: '3px 7px' }}>CLOSE</button>
               </div>
               {viewedLogs.length === 0 ? (
                 <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.06em', padding: '8px 0' }}>
                   NO LOGS FOUND FOR THIS CODE
                 </div>
+              ) : q && filteredViewedLogs.length === 0 ? (
+                <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.06em', padding: '8px 0' }}>
+                  NO LOGS MATCH "{q}"
+                </div>
               ) : (
                 <div style={{ marginBottom: 10 }}>
                   <GroupedLogs
                     undated={viewedUndated} flat={viewedFlat}
                     pastMonthsArr={viewedPastMonthsArr} pastYearsArr={viewedPastYearsArr}
-                    expanded={viewedExpanded} onToggle={toggleViewed}
-                    renderLog={(log) => <ViewedLogRow key={log.id} log={log} onOpen={setOpenViewedLog} />}
+                    expanded={viewedExpanded} onToggle={toggleViewed} forceOpen={!!q}
+                    renderLog={(log) => (
+                      <ViewedLogRow key={log.id} log={log} onOpen={setOpenViewedLog}
+                        query={q} matchField={viewedMatches?.get(log.id)} />
+                    )}
                   />
                 </div>
               )}

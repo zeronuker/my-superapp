@@ -471,13 +471,13 @@ function SavedList({ saves, savedId, onOpen, onDelete }) {
             return (
               <div key={b.id} style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '8px 8px', borderRadius: 6,
-                borderLeft: i === 0 ? '3px solid var(--cp-acc)' : isOpen ? '3px solid var(--cp-dim)' : '3px solid transparent',
+                borderLeft: isOpen ? '3px solid var(--cp-acc2)' : '3px solid transparent',
                 background: isOpen ? 'var(--cp-bg3)' : 'transparent',
               }}>
                 <button onClick={() => onOpen(b.id)} style={{
                   flex: '1 1 auto', minWidth: 0, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <span style={{
                       fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 600, color: 'var(--cp-txt)',
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -487,6 +487,12 @@ function SavedList({ saves, savedId, onOpen, onDelete }) {
                         fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--cp-acc)',
                         background: 'var(--cp-bg)', padding: '1px 5px', borderRadius: 4, flexShrink: 0,
                       }}>LATEST</span>
+                    )}
+                    {isOpen && (
+                      <span style={{
+                        fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--cp-acc2)',
+                        background: 'var(--cp-bg)', padding: '1px 5px', borderRadius: 4, flexShrink: 0,
+                      }}>ACTIVE</span>
                     )}
                   </div>
                   <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)', marginTop: 2 }}>
