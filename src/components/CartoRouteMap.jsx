@@ -82,6 +82,44 @@ function makeMarkerEl(m) {
   return el
 }
 
+// The airport dots + ICAO labels are MapLibre `Marker`s — plain DOM elements
+// CSS-positioned on top of the canvas, not drawn into it — so a canvas
+// snapshot (see getSnapshot below) never captures them. Redraws the same
+// markers onto a copy of that snapshot using Canvas 2D, mirroring
+// makeMarkerEl's look closely enough for a static fallback image.
+function drawMarkersOnSnapshot(map, baseCanvas, markers) {
+  const out = document.createElement('canvas')
+  out.width = baseCanvas.width
+  out.height = baseCanvas.height
+  const ctx = out.getContext('2d')
+  ctx.drawImage(baseCanvas, 0, 0)
+
+  const dpr = out.width / map.getContainer().clientWidth
+  for (const m of markers) {
+    const role = getRoleStyle(m.label)
+    const { x, y } = map.project([m.lng, m.lat])
+    const px = x * dpr, py = y * dpr
+    const r = (m.big ? 7 : 5) * dpr
+
+    ctx.beginPath()
+    ctx.arc(px, py, r, 0, Math.PI * 2)
+    ctx.fillStyle = role.color
+    ctx.fill()
+    ctx.lineWidth = 2 * dpr
+    ctx.strokeStyle = '#0a1020'
+    ctx.stroke()
+
+    ctx.font = `${m.big ? 700 : 500} ${10 * dpr}px monospace`
+    ctx.textAlign = 'center'
+    ctx.lineWidth = 3 * dpr
+    ctx.strokeStyle = 'rgba(10,16,32,0.9)'
+    ctx.strokeText(m.icao, px, py - r - 4 * dpr)
+    ctx.fillStyle = role.color
+    ctx.fillText(m.icao, px, py - r - 4 * dpr)
+  }
+  return out
+}
+
 const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isOffline, mapSnapshot }, ref) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -110,10 +148,13 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isO
     getSnapshot: () => new Promise((resolve) => {
       const map = mapRef.current
       if (status !== 'ready' || !map) { resolve(null); return }
-      map.once('render', () => resolve(map.getCanvas().toDataURL('image/jpeg', 0.72)))
+      map.once('render', () => {
+        const withMarkers = drawMarkersOnSnapshot(map, map.getCanvas(), markers)
+        resolve(withMarkers.toDataURL('image/jpeg', 0.72))
+      })
       map.triggerRepaint()
     }),
-  }), [status])
+  }), [status, markers])
 
   // Re-create the map whenever the basemap style changes — MapLibre's own
   // setStyle() tears down every custom source/layer, so a full teardown +
