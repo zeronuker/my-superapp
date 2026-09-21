@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import { getRoleStyle } from '../utils/metarSeverity'
 import { useCalculatorStore } from '../store/calculatorStore'
+import ResetButton from './ResetButton'
 
 // Airline logos — same public, CORS-open, key-less endpoint Malaysia
 // Airports' own site calls client-side. Cached at module scope so the list
@@ -196,6 +197,7 @@ function FlightCard({ f, logo }) {
 export default function MalaysiaAirports() {
   const { direction, terminal, dayKey, criteria, query, results } = useCalculatorStore(s => s.gatefinder)
   const setField = useCalculatorStore(s => s.setGatefinderField)
+  const resetGatefinder = useCalculatorStore(s => s.resetGatefinder)
 
   const [loading, setLoading]         = useState(false)
   const [manualFetch, setManualFetch] = useState(false)
@@ -243,6 +245,11 @@ export default function MalaysiaAirports() {
       if (remaining > 0) { setTimeout(reveal, remaining); return }
     }
     reveal()
+  }
+
+  const handleReset = (scope) => {
+    resetGatefinder(scope)
+    setError(null)
   }
 
   return (
@@ -319,6 +326,18 @@ export default function MalaysiaAirports() {
           )}
         </div>
       )}
+
+      <div style={{ marginTop: 16 }}>
+        <ResetButton
+          onReset={handleReset}
+          scoped
+          copy="Choose what to clear. Can't be undone."
+          options={[
+            { value: 'fields', label: 'Clear fields only', desc: 'Resets airport, date, criteria & search box back to default. Keeps the results on screen.' },
+            { value: 'all', label: 'Clear fields and results', desc: 'Also removes the flight results shown above.', danger: true },
+          ]}
+        />
+      </div>
     </div>
   )
 }

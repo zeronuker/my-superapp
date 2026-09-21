@@ -75,6 +75,22 @@ function saveCurrencyPrefs(base, list, quickBase) {
   try { localStorage.setItem('cb-currency-prefs-v2', JSON.stringify({ base, list, quickBase })) } catch (_) {}
 }
 
+const GATEFINDER_KEY = 'cb-gatefinder-state'
+export const DEFAULT_GATEFINDER = {
+  direction: 'D', terminal: 'KLIA', dayKey: 0, criteria: 'flight', query: '',
+  results: null,
+}
+function loadGatefinderState() {
+  try {
+    const raw = localStorage.getItem(GATEFINDER_KEY)
+    if (!raw) return DEFAULT_GATEFINDER
+    return { ...DEFAULT_GATEFINDER, ...JSON.parse(raw) }
+  } catch (_) { return DEFAULT_GATEFINDER }
+}
+function saveGatefinderState(state) {
+  try { localStorage.setItem(GATEFINDER_KEY, JSON.stringify(state)) } catch (_) {}
+}
+
 function loadSettings() {
   try {
     const s = localStorage.getItem('cb-settings')
@@ -137,10 +153,7 @@ export const useCalculatorStore = create((set) => ({
     rows: [{ x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }],
     lookupX: '', lookupZ: '', result: '',
   },
-  gatefinder: {
-    direction: 'D', terminal: 'KLIA', dayKey: 0, criteria: 'flight', query: '',
-    results: null,
-  },
+  gatefinder: loadGatefinderState(),
   ftl: {
     aircraft: 'aeroplane', crewCat: 'flight', crewType: '2crew', acclimatised: true,
     reportTime: '', diffCabinTime: false, cabinReportTime: '',
@@ -226,7 +239,20 @@ export const useCalculatorStore = create((set) => ({
     return { currency: { amount: '', base: DEFAULT_CURRENCY_BASE, list: DEFAULT_CURRENCY_LIST, quickBase: DEFAULT_QUICK_BASE_CURRENCIES } }
   }),
   setInterpolation:  (partial)   => set(s => ({ interpolation: { ...s.interpolation, ...partial } })),
-  setGatefinderField: (partial)  => set(s => ({ gatefinder: { ...s.gatefinder, ...partial } })),
+  setGatefinderField: (partial)  => set(s => {
+    const next = { ...s.gatefinder, ...partial }
+    saveGatefinderState(next)
+    return { gatefinder: next }
+  }),
+  // scope: 'fields' clears search inputs but keeps the last results on
+  // screen; 'all' also clears the results.
+  resetGatefinder: (scope) => set(s => {
+    const next = scope === 'fields'
+      ? { ...DEFAULT_GATEFINDER, results: s.gatefinder.results }
+      : { ...DEFAULT_GATEFINDER }
+    saveGatefinderState(next)
+    return { gatefinder: next }
+  }),
   setFTLField:       (partial)   => set(s => ({ ftl: { ...s.ftl, ...partial } })),
   toggleDarkMode:    ()          => set(s => ({ darkMode: !s.darkMode })),
   setDarkMode:       (v)         => set({ darkMode: v }),

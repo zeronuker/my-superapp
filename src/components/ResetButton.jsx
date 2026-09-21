@@ -13,7 +13,12 @@ import { createPortal } from 'react-dom'
 // fetched, never-saved briefing is open, both reset options also discard
 // it (never a saved one) — the modal warns about that specifically instead
 // of the old always-shown "also resets Flight Briefing" line.
-export default function ResetButton({ onReset, scoped = false, hasUnsavedBriefing = false, onDiscardBriefing }) {
+// `options`/`copy` (scoped only): override the two choices and the intro
+// line for modules whose reset isn't the module/all-3-modules briefing
+// choice (e.g. Gatefinder's fields-only vs fields-and-results). Each option
+// is { value, label, desc, danger }. Omit both to get the default
+// module/all-3 wording.
+export default function ResetButton({ onReset, scoped = false, hasUnsavedBriefing = false, onDiscardBriefing, options, copy }) {
   const [hover, setHover] = useState(false)
   const [pressed, setPressed] = useState(false)
   const [open, setOpen] = useState(false)
@@ -68,6 +73,10 @@ export default function ResetButton({ onReset, scoped = false, hasUnsavedBriefin
               }}>
                 Any unsaved Flight Briefing will be deleted.
               </div>
+            ) : scoped && copy ? (
+              <div style={{ fontSize: 12, color: 'var(--cp-dim)', lineHeight: 1.5, marginBottom: 18 }}>
+                {copy}
+              </div>
             ) : !scoped && (
               <div style={{ fontSize: 12, color: 'var(--cp-dim)', lineHeight: 1.5, marginBottom: 18 }}>
                 Clears every entered field and fetched result on this tab. Can't be undone.
@@ -75,22 +84,45 @@ export default function ResetButton({ onReset, scoped = false, hasUnsavedBriefin
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {scoped ? (
-                <>
-                  <button onClick={() => choose('module')} style={{
-                    padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
-                    border: '1px solid var(--cp-border2)', background: 'var(--cp-bg3)', color: 'var(--cp-txt)',
-                    fontFamily: 'var(--cb-font-mono)', fontSize: 12, letterSpacing: '0.03em',
-                  }}>
-                    Reset this module only
-                  </button>
-                  <button onClick={() => choose('all')} style={{
-                    padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
-                    border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.10)', color: 'var(--cp-red)',
-                    fontFamily: 'var(--cb-font-mono)', fontSize: 12, letterSpacing: '0.03em',
-                  }}>
-                    Reset all 3 modules
-                  </button>
-                </>
+                options ? (
+                  options.map(opt => (
+                    <button key={opt.value} onClick={() => choose(opt.value)} style={{
+                      padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
+                      border: `1px solid ${opt.danger ? 'rgba(239,68,68,0.4)' : 'var(--cp-border2)'}`,
+                      background: opt.danger ? 'rgba(239,68,68,0.10)' : 'var(--cp-bg3)',
+                      color: opt.danger ? 'var(--cp-red)' : 'var(--cp-txt)',
+                      fontFamily: 'var(--cb-font-mono)', fontSize: 12, letterSpacing: '0.03em',
+                    }}>
+                      {opt.label}
+                      {opt.desc && (
+                        <span style={{
+                          display: 'block', fontFamily: 'var(--cb-font-body)', letterSpacing: 0,
+                          fontSize: 11, color: opt.danger ? 'var(--cp-red)' : 'var(--cp-dim)',
+                          opacity: opt.danger ? 0.75 : 1, marginTop: 3, fontWeight: 400,
+                        }}>
+                          {opt.desc}
+                        </span>
+                      )}
+                    </button>
+                  ))
+                ) : (
+                  <>
+                    <button onClick={() => choose('module')} style={{
+                      padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
+                      border: '1px solid var(--cp-border2)', background: 'var(--cp-bg3)', color: 'var(--cp-txt)',
+                      fontFamily: 'var(--cb-font-mono)', fontSize: 12, letterSpacing: '0.03em',
+                    }}>
+                      Reset this module only
+                    </button>
+                    <button onClick={() => choose('all')} style={{
+                      padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
+                      border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.10)', color: 'var(--cp-red)',
+                      fontFamily: 'var(--cb-font-mono)', fontSize: 12, letterSpacing: '0.03em',
+                    }}>
+                      Reset all 3 modules
+                    </button>
+                  </>
+                )
               ) : (
                 <button onClick={() => choose()} style={{
                   padding: '10px 14px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
