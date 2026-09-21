@@ -254,6 +254,18 @@ export default function MalaysiaAirports() {
 
   return (
     <div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <ResetButton
+          onReset={handleReset}
+          scoped
+          copy="Choose what to clear. Can't be undone."
+          options={[
+            { value: 'fields', label: 'Clear fields only', desc: 'Resets airport, date, criteria & search box back to default. Keeps the results on screen.' },
+            { value: 'all', label: 'Clear fields and results', desc: 'Also removes the flight results shown above.', danger: true },
+          ]}
+        />
+      </div>
+
       <div className="cp-section-header">
         <span className="cp-section-title">Malaysia Airports</span>
         <div className="cp-divider" />
@@ -326,18 +338,6 @@ export default function MalaysiaAirports() {
           )}
         </div>
       )}
-
-      <div style={{ marginTop: 16 }}>
-        <ResetButton
-          onReset={handleReset}
-          scoped
-          copy="Choose what to clear. Can't be undone."
-          options={[
-            { value: 'fields', label: 'Clear fields only', desc: 'Resets airport, date, criteria & search box back to default. Keeps the results on screen.' },
-            { value: 'all', label: 'Clear fields and results', desc: 'Also removes the flight results shown above.', danger: true },
-          ]}
-        />
-      </div>
     </div>
   )
 }
