@@ -113,6 +113,17 @@ export default function CartoRouteMap({ markers, styleKey, isOffline }) {
     })
     mapRef.current = map
 
+    // The style itself loading before (loadedStyles) doesn't mean THIS
+    // route's tiles are cached — a different route covers different ground.
+    // Offline + never-cached tile requests don't fail fast, they hang (the
+    // same "doomed request" behavior called out above), so 'load' can just
+    // never fire. Bound the wait so that still reaches the offline fallback
+    // instead of leaving "Loading map…" up forever.
+    const timeoutId = navigator.onLine ? null : setTimeout(() => {
+      if (stale || loaded) return
+      setStatus('error')
+    }, 8000)
+
     // Guard against this map's own 'load' still firing after a fast tab
     // switch already started tearing it down — without it, the stale
     // callback flips status to 'ready' while mapRef now points at the NEXT
@@ -121,6 +132,7 @@ export default function CartoRouteMap({ markers, styleKey, isOffline }) {
     map.on('load', () => {
       if (stale) return
       loaded = true
+      clearTimeout(timeoutId)
       markStyleLoaded(styleKey)
       setStatus('ready')
     })
@@ -132,11 +144,13 @@ export default function CartoRouteMap({ markers, styleKey, isOffline }) {
     // as they are and the new one is left blank.
     map.on('error', () => {
       if (stale || loaded) return
+      clearTimeout(timeoutId)
       setStatus('error')
     })
 
     return () => {
       stale = true
+      clearTimeout(timeoutId)
       markersRef.current.forEach(mk => mk.remove())
       markersRef.current = []
       map.remove()
