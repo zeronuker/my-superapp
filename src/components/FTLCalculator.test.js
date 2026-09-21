@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeFTL } from './FTLCalculator'
+import { computeFTL } from '../utils/ftlCalculator'
 
 const base = {
   reportTime: '0900', sectors: 1, crewType: '2crew', acclimatised: true,
