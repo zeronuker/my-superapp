@@ -32,11 +32,28 @@ function styleUrl(styleId) {
 }
 
 // Module-level (not component state) so switching basemap tabs remembers
-// which ones already loaded successfully this session — same reasoning as
-// hasWindyLoadedBefore in WindyRouteMap.jsx.
-const loadedStyles = new Set()
+// which ones already loaded successfully — persisted to localStorage (not
+// just this session) because the tiles themselves outlive the session too
+// (Workbox CacheFirst, see vite.config.js). Without persisting this flag,
+// reopening the app offline would block a style whose tiles are still
+// sitting in the cache, just because nothing loaded it yet THIS session.
+const LOADED_STYLES_KEY = 'cb-carto-loaded-styles'
+function readLoadedStyles() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(LOADED_STYLES_KEY)) || [])
+  } catch {
+    return new Set()
+  }
+}
+const loadedStyles = readLoadedStyles()
 export function hasCartoLoadedBefore(styleKey) {
   return loadedStyles.has(styleKey)
+}
+function markStyleLoaded(styleKey) {
+  loadedStyles.add(styleKey)
+  try {
+    localStorage.setItem(LOADED_STYLES_KEY, JSON.stringify([...loadedStyles]))
+  } catch {}
 }
 
 function routeGeoJSON(markers) {
@@ -104,7 +121,7 @@ export default function CartoRouteMap({ markers, styleKey, isOffline }) {
     map.on('load', () => {
       if (stale) return
       loaded = true
-      loadedStyles.add(styleKey)
+      markStyleLoaded(styleKey)
       setStatus('ready')
     })
     // Only a failure BEFORE the map ever finished loading counts as fatal.
