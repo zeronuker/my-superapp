@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
-import { lookupAirport } from '../data/airports'
 import { icaoToFir } from '../data/firLookup'
-import { detectRouteFirs } from '../services/notamAPI'
+import { autoDetectFirs } from '../services/notamAPI'
 import { filterSigmetsByFir } from '../utils/sigmet'
 import { fetchAllSigmets } from '../services/sigmetAPI'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
@@ -37,10 +36,6 @@ function SectionHeader({ title }) {
 }
 
 const upper = s => s.toUpperCase()
-function getAirportCoords(icao) {
-  const a = lookupAirport(icao)
-  return a ? { lat: a.lat, lng: a.lng } : null
-}
 
 // JSON round-tripping through localStorage turns validFrom/validTo Date
 // objects into strings — revive them so expiry checks keep working.
@@ -137,14 +132,7 @@ export default function SigmetViewer() {
 
   const handleDetect = () => {
     setDetecting(true)
-    const airports = [dep, arr, destAlts.alt1, destAlts.alt2, ...enrouteAlts.slice(0, enrouteCount)]
-      .map(x => (x || '').trim().toUpperCase()).filter(x => x.length >= 3)
-    const seen = new Set(chips.map(c => c.icao))
-    const found = []
-    const pushFir = (fir) => { if (fir && !seen.has(fir.icao)) { seen.add(fir.icao); found.push({ icao: fir.icao, name: fir.name }) } }
-    for (const ap of airports) pushFir(icaoToFir(ap))
-    const depC = getAirportCoords(dep), arrC = getAirportCoords(arr)
-    if (depC && arrC) for (const fir of detectRouteFirs(depC, arrC)) pushFir(fir)
+    const found = autoDetectFirs(dep, arr, destAlts, enrouteCount, enrouteAlts, chips.map(c => c.icao))
     setChips(prev => [...prev, ...found])
     setDetecting(false)
   }

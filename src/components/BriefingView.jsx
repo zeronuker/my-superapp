@@ -1,10 +1,9 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { fetchWeather } from '../services/weatherAPI'
-import { fetchNotams, detectRouteFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
+import { fetchNotams, autoDetectFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
 import { fetchAllSigmets } from '../services/sigmetAPI'
 import { syncModuleCaches } from '../services/briefingSync'
-import { icaoToFir } from '../data/firLookup'
 import { lookupAirport } from '../data/airports'
 import {
   CAT_COLORS, WIND_COLORS,
@@ -129,26 +128,6 @@ function buildAirportTargets(dep, arr, destAlts, enrouteCount, enrouteAlts) {
   for (let i = 0; i < enrouteCount; i++) add(`era${i + 1}`, enrouteAlts?.[i], `ENROUTE ALTERNATE ${i + 1}`)
   const seen = new Set()
   return list.filter(t => { if (seen.has(t.icao)) return false; seen.add(t.icao); return true })
-}
-
-function getAirportCoords(icao) {
-  const a = lookupAirport(icao)
-  return a ? { lat: a.lat, lng: a.lng } : null
-}
-
-// Same auto-detect NOTAM/SIGMET already do (route great-circle + each
-// airport's home FIR) — used only when the calling module has no FIR
-// chips of its own (METAR/TAF has no FIR concept at all).
-function autoDetectFirs(dep, arr, destAlts, enrouteCount, enrouteAlts) {
-  const airports = [dep, arr, destAlts?.alt1, destAlts?.alt2, ...(enrouteAlts || []).slice(0, enrouteCount)]
-    .map(x => (x || '').trim().toUpperCase()).filter(x => x.length >= 3)
-  const found = []
-  const seen = new Set()
-  const push = (fir) => { if (fir && !seen.has(fir.icao)) { seen.add(fir.icao); found.push({ icao: fir.icao, name: fir.name }) } }
-  for (const ap of airports) push(icaoToFir(ap))
-  const depC = getAirportCoords(dep), arrC = getAirportCoords(arr)
-  if (depC && arrC) for (const fir of detectRouteFirs(depC, arrC)) push(fir)
-  return found
 }
 
 // Pausing (not discarding — see BriefingView) and jumping to the NOTAM tab

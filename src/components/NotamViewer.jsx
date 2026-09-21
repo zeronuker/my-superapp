@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { fetchNotams, parseMixedNotams, detectRouteFirs } from '../services/notamAPI'
+import { fetchNotams, parseMixedNotams, autoDetectFirs } from '../services/notamAPI'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
-import { icaoToFir } from '../data/firLookup'
 import { haptic } from '../utils/haptic'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
@@ -38,11 +37,6 @@ const ROLE_STYLE = {
   era:     { color: getRoleStyle('ENROUTE ALTERNATE 1').color, soft: 'rgba(139,92,246,0.10)', border: 'rgba(139,92,246,0.40)' },
   fir:     { color: '#fbbf24', soft: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.40)' },
   other:   { color: getRoleStyle('OTHER').color, soft: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.35)' },
-}
-
-function getAirportCoords(icao) {
-  const a = lookupAirport(icao)
-  return a ? { lat: a.lat, lng: a.lng } : null
 }
 
 // ── Sort helpers ──────────────────────────────────────────────────────────────
@@ -258,19 +252,8 @@ export default function NotamViewer() {
   // ── Auto-detect FIRs: route great-circle + each airport's home FIR ──
   const handleDetect = () => {
     setDetecting(true)
-    const airports = [dep, arr, destAlts.alt1, destAlts.alt2, ...enrouteAlts.slice(0, enrouteCount)]
-      .map(x => (x || '').trim().toUpperCase()).filter(x => x.length >= 3)
-
-    const found = []
-    const seen = new Set(extraChips.map(c => c.icao))
-    const pushFir = (fir) => {
-      if (fir && !seen.has(fir.icao)) { seen.add(fir.icao); found.push({ icao: fir.icao, name: fir.name, type: 'fir' }) }
-    }
-    for (const ap of airports) pushFir(icaoToFir(ap))         // home FIRs
-    const depC = getAirportCoords(dep), arrC = getAirportCoords(arr)
-    if (depC && arrC) for (const fir of detectRouteFirs(depC, arrC)) pushFir(fir)  // route FIRs
-
-    setExtraChips(prev => [...prev, ...found])
+    const found = autoDetectFirs(dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips.map(c => c.icao))
+    setExtraChips(prev => [...prev, ...found.map(f => ({ ...f, type: 'fir' }))])
     setDetecting(false)
   }
 

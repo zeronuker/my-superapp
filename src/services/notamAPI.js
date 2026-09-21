@@ -6,6 +6,7 @@
 
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import { icaoToFir, latlngToFir } from '../data/firLookup'
+import { lookupAirport } from '../data/airports'
 
 // ── Q-code subject → plain English ───────────────────────────────────────────
 const Q_SUBJECT = {
@@ -388,5 +389,27 @@ export function detectRouteFirs(depPos, destPos) {
   }
 
   return chips
+}
+
+/**
+ * Auto-detect FIRs for a route: each airport's home FIR (by ICAO prefix)
+ * plus FIRs sampled along the dep→arr great circle. `excludeIcaos` skips
+ * chips the caller already has (e.g. already-added FIR/airport chips).
+ */
+export function autoDetectFirs(dep, arr, destAlts, enrouteCount, enrouteAlts, excludeIcaos = []) {
+  const airports = [dep, arr, destAlts?.alt1, destAlts?.alt2, ...(enrouteAlts || []).slice(0, enrouteCount)]
+    .map(x => (x || '').trim().toUpperCase()).filter(x => x.length >= 3)
+
+  const found = []
+  const seen = new Set(excludeIcaos)
+  const push = (fir) => { if (fir && !seen.has(fir.icao)) { seen.add(fir.icao); found.push({ icao: fir.icao, name: fir.name }) } }
+
+  for (const ap of airports) push(icaoToFir(ap))
+  const depAp = lookupAirport(dep), arrAp = lookupAirport(arr)
+  if (depAp && arrAp) {
+    for (const fir of detectRouteFirs({ lat: depAp.lat, lng: depAp.lng }, { lat: arrAp.lat, lng: arrAp.lng })) push(fir)
+  }
+
+  return found
 }
 
