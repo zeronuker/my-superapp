@@ -119,6 +119,12 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isO
       style: styleUrl(STYLE_IDS[styleKey]),
       center: [0, 20],
       zoom: 2,
+      // Without this, WebGL clears the canvas's drawing buffer right after
+      // each frame paints — getCanvas().toDataURL() (see getSnapshot below)
+      // would then read a blank/black frame instead of the actual map. This
+      // MapLibre version nests it under canvasContextAttributes, not as a
+      // top-level Map option (which is silently ignored).
+      canvasContextAttributes: { preserveDrawingBuffer: true },
     })
     mapRef.current = map
 
