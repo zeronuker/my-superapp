@@ -1,4 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { interpolateAltitude2D } from '../utils/interpolation'
 import lookupTables from '../data/lookupTables.json'
@@ -7,7 +8,15 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
   const {
     edto, setEDTOAircraft, setEDTOVariant, setEDTOWeight,
     setEDTOIsaDeviation, setEDTOAntiIce, setEDTOResults
-  } = useCalculatorStore()
+  } = useCalculatorStore(useShallow(s => ({
+    edto: s.edto,
+    setEDTOAircraft: s.setEDTOAircraft,
+    setEDTOVariant: s.setEDTOVariant,
+    setEDTOWeight: s.setEDTOWeight,
+    setEDTOIsaDeviation: s.setEDTOIsaDeviation,
+    setEDTOAntiIce: s.setEDTOAntiIce,
+    setEDTOResults: s.setEDTOResults,
+  })))
 
   // Accepts: 72500 · 72,500 · 72.500 · 72.5 · 72,5  (with or without "kg")
   // Values ≤ 200 → treated as 1000 kg units (tonnes); values > 200 → treated as raw kg

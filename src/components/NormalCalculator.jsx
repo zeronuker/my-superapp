@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { MAX_CALC_VAL, formatDisplayNum } from '../utils/formatDisplay'
 import CalcButton from './CalcButton'
@@ -11,10 +12,10 @@ function Btn({ style, ...props }) {
 export default function NormalCalculator() {
   // All state — including expression and clearNext — lives in Zustand so it
   // survives tab switches. setNormal is a partial updater (single store write).
-  const { normal, setNormal } = useCalculatorStore(s => ({
+  const { normal, setNormal } = useCalculatorStore(useShallow(s => ({
     normal: s.normal,
     setNormal: s.setNormal,
-  }))
+  })))
   const { display, previousValue, operation, expression, clearNext } = normal
 
   const handleNumber = (num) => {

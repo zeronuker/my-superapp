@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
 import {
@@ -50,12 +51,12 @@ function saveCache(data) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function METARTAFCalculator() {
-  const { settings, briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(s => ({
+  const { settings, briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(useShallow(s => ({
     settings: s.settings,
     briefing: s.briefing,
     openBriefing: s.openBriefing,
     discardUnsavedBriefing: s.discardUnsavedBriefing,
-  }))
+  })))
   const hasUnsavedBriefing = !!briefing.data && !briefing.savedId
 
   // Initialise state from cache (synchronous read — no flash)

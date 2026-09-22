@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { icaoToFir } from '../data/firLookup'
 import { autoDetectFirs } from '../services/notamAPI'
@@ -48,11 +49,11 @@ function reviveSigmets(sigmets) {
 }
 
 export default function SigmetViewer() {
-  const { briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(s => ({
+  const { briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(useShallow(s => ({
     briefing: s.briefing,
     openBriefing: s.openBriefing,
     discardUnsavedBriefing: s.discardUnsavedBriefing,
-  }))
+  })))
   const hasUnsavedBriefing = !!briefing.data && !briefing.savedId
   const [cache] = useState(() => loadWithExpiry(CACHE_KEY))
 

@@ -375,6 +375,7 @@ export const CHANGELOG = [
       "FIX: settings panel overflow and accent-swatch touch targets on mobile",
       "FIX: NOTAM FIR chip amber tokenized, fixing a severe light-mode contrast failure",
       "FIX: settings button no longer pushed off-screen at XL font size",
+      "FIX: Briefing: Live Weather map's base map library no longer loads from a live third-party CDN on open — now bundled with the app, so a slow or unreachable CDN can't block the map from loading",
     ],
   },
 ]

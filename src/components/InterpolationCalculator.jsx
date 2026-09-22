@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import ResetButton from './ResetButton'
 
@@ -71,7 +72,10 @@ function fmt(val) {
 }
 
 export default function InterpolationCalculator() {
-  const { interpolation, setInterpolation } = useCalculatorStore()
+  const { interpolation, setInterpolation } = useCalculatorStore(useShallow(s => ({
+    interpolation: s.interpolation,
+    setInterpolation: s.setInterpolation,
+  })))
   const { zValues, rows, lookupX, lookupZ, result } = interpolation
   const [guideOpen, setGuideOpen] = useState(false)
 

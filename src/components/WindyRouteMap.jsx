@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import L from 'leaflet'
 import { getRoleStyle } from '../utils/metarSeverity'
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 
@@ -30,21 +31,19 @@ function getWindyDiv() {
   return el
 }
 
+// Leaflet itself is bundled (see the top-level import) rather than fetched
+// from a CDN at runtime — only Windy's own forecast-map script has to load
+// live, since it's a proprietary hosted lib with no npm package.
 function loadWindyScripts() {
   if (window.__cbWindyScriptsPromise) return window.__cbWindyScriptsPromise
   window.__cbWindyScriptsPromise = new Promise((resolve, reject) => {
-    if (window.L && window.windyInit) { resolve(); return }
-    const leaflet = document.createElement('script')
-    leaflet.src = 'https://unpkg.com/leaflet@1.4.0/dist/leaflet.js'
-    leaflet.onerror = reject
-    leaflet.onload = () => {
-      const windy = document.createElement('script')
-      windy.src = 'https://api.windy.com/assets/map-forecast/libBoot.js'
-      windy.onerror = reject
-      windy.onload = resolve
-      document.head.appendChild(windy)
-    }
-    document.head.appendChild(leaflet)
+    if (window.windyInit) { resolve(); return }
+    window.L = L
+    const windy = document.createElement('script')
+    windy.src = 'https://api.windy.com/assets/map-forecast/libBoot.js'
+    windy.onerror = reject
+    windy.onload = resolve
+    document.head.appendChild(windy)
   })
   return window.__cbWindyScriptsPromise
 }

@@ -16,7 +16,9 @@ const MODES = [
 
 export default function CombinedCalculator() {
   const [mode, setMode] = useState('basic')
-  const { setNormal, setScientificDisplay, setTime } = useCalculatorStore()
+  const setNormal = useCalculatorStore(s => s.setNormal)
+  const setScientificDisplay = useCalculatorStore(s => s.setScientificDisplay)
+  const setTime = useCalculatorStore(s => s.setTime)
 
   const handleReset = () => {
     setNormal({ display: '0', previousValue: 0, operation: null, expression: '', clearNext: false })

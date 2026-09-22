@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as Flags from 'country-flag-icons/react/3x2'
 import { CURRENCIES, CURRENCY_BY_CODE } from '../data/currencies.js'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore, QUICK_BASE_MAX } from '../store/calculatorStore'
 import ResetButton from './ResetButton'
 
@@ -153,7 +154,15 @@ function matches(c, q) {
 }
 
 export default function CurrencyCalculator() {
-  const { currency, setCurrencyAmount, setCurrencyBase, setCurrencyList, setQuickBaseCurrencies, resetCurrency, settings } = useCalculatorStore()
+  const { currency, setCurrencyAmount, setCurrencyBase, setCurrencyList, setQuickBaseCurrencies, resetCurrency, settings } = useCalculatorStore(useShallow(s => ({
+    currency: s.currency,
+    setCurrencyAmount: s.setCurrencyAmount,
+    setCurrencyBase: s.setCurrencyBase,
+    setCurrencyList: s.setCurrencyList,
+    setQuickBaseCurrencies: s.setQuickBaseCurrencies,
+    resetCurrency: s.resetCurrency,
+    settings: s.settings,
+  })))
   const { amount, base, list, quickBase } = currency
 
   const [rates, setRates] = useState({})

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { fetchNotams, parseMixedNotams, autoDetectFirs } from '../services/notamAPI'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
 import { haptic } from '../utils/haptic'
@@ -138,12 +139,12 @@ function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function NotamViewer() {
-  const { sortMode, briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(s => ({
+  const { sortMode, briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(useShallow(s => ({
     sortMode: s.settings.notamSort || 'relevance',
     briefing: s.briefing,
     openBriefing: s.openBriefing,
     discardUnsavedBriefing: s.discardUnsavedBriefing,
-  }))
+  })))
   const hasUnsavedBriefing = !!briefing.data && !briefing.savedId
 
   const [cache]        = useState(() => loadWithExpiry(CACHE_KEY))

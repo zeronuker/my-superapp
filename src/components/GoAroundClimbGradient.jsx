@@ -1,4 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { calcGoAroundClimbGradient } from '../utils/goAroundClimbGradient'
 import lookupTables from '../data/lookupTables.json'
@@ -30,7 +31,13 @@ function formatWeightDisplay(kg) {
 const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, ref) {
   const {
     goAround, setGoAroundAircraft, setGoAroundVariant, setGoAroundField, setGoAroundResults,
-  } = useCalculatorStore()
+  } = useCalculatorStore(useShallow(s => ({
+    goAround: s.goAround,
+    setGoAroundAircraft: s.setGoAroundAircraft,
+    setGoAroundVariant: s.setGoAroundVariant,
+    setGoAroundField: s.setGoAroundField,
+    setGoAroundResults: s.setGoAroundResults,
+  })))
 
   const [weightDisplay, setWeightDisplay] = useState(() =>
     goAround.weight ? formatWeightDisplay(goAround.weight) : ''

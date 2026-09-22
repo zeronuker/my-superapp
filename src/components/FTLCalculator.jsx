@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState, useLayoutEffect } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import ResetButton from './ResetButton'
 import {
@@ -268,7 +269,10 @@ function Section({ title, toggle, children }) {
 // ── Main calculator ───────────────────────────────────────────────────────────
 
 export default function FTLCalculator() {
-  const { ftl, setFTLField } = useCalculatorStore()
+  const { ftl, setFTLField } = useCalculatorStore(useShallow(s => ({
+    ftl: s.ftl,
+    setFTLField: s.setFTLField,
+  })))
   const {
     aircraft, crewCat, crewType, acclimatised, reportTime, diffCabinTime, cabinReportTime,
     sectors, precedingRest, longRange, longestSector, delayedReporting, actualReportTime, delayUndisturbed,

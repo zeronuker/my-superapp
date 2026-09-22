@@ -8,12 +8,12 @@ An offline-capable PWA of aviation tools for pilots, plus a prayer times module.
 
 ## Tools
 
-### ✈️ EDTO Calculator
-Engine inoperative drift-down performance for B737 operators.
-- Supports B737-8 (LEAP-1B25, LEAP-1B27) and B737-800 (CFM56-7B24, CFM56-7B26)
-- Outputs: Long Range Cruise Altitude and 310 KIAS Altitude
-- Anti-ice penalty options (engine only / engine + wing)
-- Real-time interpolation from embedded Boeing performance tables
+### ✈️ B737 Performance
+Digitized Boeing QRH performance references for the 737-8 (MAX) and 737-800 (NG).
+- **EDTO** — engine-inoperative drift-down (Long Range Cruise Altitude, 310 KIAS Altitude); anti-ice penalty options; CFM56-7B24/26 and LEAP-1B25/27
+- **Go-Around (Engine Inoperative)** — climb gradient calculator
+- **Quick Turnaround** — limit weight for rapid successive sectors
+- **Brake Cooling Schedule** — advisory brake-energy tables, single-event and chained quick-turnaround modes
 
 ### 🌤️ METAR/TAF
 Live weather for multiple airports via aviationweather.gov.
@@ -21,6 +21,7 @@ Live weather for multiple airports via aviationweather.gov.
 - Wind severity, present weather, CB/TCU highlighting
 - Plain-English decode toggle
 - Role tagging: dep/arr/dest-alt/enroute with distinct colours
+- Runway wind-component calculation (via AeroDataBox runway data)
 - Auto-refresh with staleness badge on PWA icon
 
 ### 📋 NOTAM Viewer
@@ -29,18 +30,26 @@ Live NOTAMs via autorouter.aero OAuth proxy.
 - Relevance or category sort
 - Inputs and results persist offline in localStorage
 
+### ⛈️ SIGMET Viewer
+International SIGMETs by FIR, auto-detected from a route or entered manually.
+
 ### ⏳ FTL Calculator
-CAAM flight and duty time limitations.
+CAAM CAD 1901 flight and duty time limitations.
 - Lookup tables for max FDP, rest requirements
 - Real-time calculation against current roster
+- Covers single-pilot, commercial (incl. cabin crew), and helicopter operations
 
 ### 🛫 Duty Log
 Flight sector logger with offline persistence.
 - Per-sector: dep/arr airports, times, fuel, ENG OUT data, crew, remarks
 - Add/delete crew rows, edit inline
+- Optional cloud sync via a pairing code (Firebase-backed) to carry logs across devices
+
+### 🛬 Malaysia Airports
+Live flight/gate status board, via Malaysia Airports' own public API.
 
 ### 🧮 Calculator
-Combined basic + scientific calculator.
+Basic, scientific, time, and unit-conversion modes in one tab.
 - Arithmetic, trig (sin/cos/tan), log, √, x², π, e
 - 10 significant figure precision
 
@@ -66,6 +75,11 @@ Prayer times and Qibla direction.
 
 ---
 
+## ✈ Flight Briefing
+An overlay (not its own tab) that combines METAR/TAF + NOTAM + SIGMET for a route into one briefing, with a route map — CARTO dark basemap, plus a Windy live-weather overlay (wind/temp/pressure/rain/clouds, by altitude). Briefings can be saved and resumed from any tab, and work offline once loaded.
+
+---
+
 ## Dashboard
 Launcher home screen shows live widgets:
 - UTC/Zulu clock (links to World Time)
@@ -79,9 +93,10 @@ Launcher home screen shows live widgets:
 | | |
 |---|---|
 | Frontend | React 18, plain JS/JSX |
-| Build | Vite 5 |
+| Build | Vite 8 |
 | State | Zustand |
 | Prayer astronomy | adhan |
+| Maps | MapLibre GL (route basemap), Leaflet + Windy (live weather overlay) |
 | Offline/PWA | vite-plugin-pwa (Workbox) |
 | Tests | Vitest |
 | Deploy | Vercel (auto-deploy from `master`) |
@@ -93,7 +108,7 @@ Launcher home screen shows live widgets:
 
 ```bash
 npm install
-npm run dev        # dev server at http://localhost:5173
+npm run dev        # dev server at http://localhost:3000
 npm test           # run unit tests once
 npm run test:watch # watch mode
 npm run build      # production build → dist/
@@ -107,17 +122,18 @@ Push to `master` → Vercel builds and deploys automatically.
 
 The service worker caches aggressively. Users receive an in-app update prompt when a new build is available.
 
-**Required Vercel environment variables for NOTAM:**
-```
-AUTOROUTER_EMAIL=<your autorouter.aero login>
-AUTOROUTER_PASSWORD=<your autorouter.aero password>
-```
+**Vercel environment variables:**
 
-**Required Vercel environment variable for Briefing's live weather map:**
-```
-VITE_WINDY_API_KEY=<your api.windy.com Map Forecast API key>
-```
-Domain-restricted at api.windy.com/keys, not a secret in the traditional sense — it's bundled into the client build.
+| Variable | Required for |
+|---|---|
+| `AUTOROUTER_EMAIL`, `AUTOROUTER_PASSWORD` | NOTAM (autorouter.aero login, used as OAuth client_id/secret) |
+| `VITE_WINDY_API_KEY` | Briefing's live weather map. Domain-restricted at api.windy.com/keys, not a secret in the traditional sense — bundled into the client build |
+| `VITE_CARTO_API_KEY` | Briefing's route map basemap. From carto.com/basemaps/apikey — also bundled client-side |
+| `AERODATABOX_API_KEY` | METAR/TAF's runway wind-component calc (RapidAPI AeroDataBox) |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Duty Log's optional cloud sync |
+| `RAINBOW_API_KEY` | Rain/Clouds layers on Briefing's live weather map |
+| `GATEFINDER_API_KEY` | Malaysia Airports gate lookup — optional, has a working default |
+| `SKYLINK_API_KEY` | Fallback only for METAR/TAF and NOTAM if the primary sources fail — optional |
 
 ---
 
@@ -125,35 +141,22 @@ Domain-restricted at api.windy.com/keys, not a secret in the traditional sense �
 
 ```
 src/
-  App.jsx                   # shell, tab registry, settings, theme
-  components/               # one file per calculator tab
-    METARTAFCalculator.jsx
-    NotamViewer.jsx
-    EDTOCalculator.jsx
-    FTLCalculator.jsx
-    InterpolationCalculator.jsx
-    CurrencyCalculator.jsx
-    CombinedCalculator.jsx
-    WorldTimeCalculator.jsx
-    Navigation.jsx
-    ErrorBoundary.jsx
-    UpdatePrompt.jsx
-  utils/                    # pure, tested logic
-    metarSeverity.js
-    metarDecode.js
-    interpolation.js
-  data/
-    ftlTables.js
-    airports.js / .json
-  store/
-    calculatorStore.js
-  modules/
-    prayer/                 # self-contained prayer module
-    dutylog/                # self-contained duty log module
+  App.jsx              # app shell — layout, tab switching, top-level effects
+  appConstants.js       # shared constants (app version, accent colours)
+  components/          # one file per calculator tab, plus shared UI
+  components/settings/  # Settings panel
+  modules/prayer/       # self-contained prayer module (own store/services/pages)
+  modules/dutylog/      # self-contained duty log module (own store/services/pages)
+  utils/                # pure, tested logic — see *.test.js next to each file
+  data/                 # airport DB, FTL tables, FIR lookup, currencies, timezones
+  store/calculatorStore.js  # global UI state, settings
 api/
-  weather.js                # Vercel proxy → aviationweather.gov
-  notam.js                  # Vercel proxy → autorouter.aero (OAuth)
+  weather.js, notam.js, aerodatabox.js, gatefinder.js,  # Vercel serverless
+  skylink.js, rainbow.js, isigmet.js, dutylog-sync.js,   # proxies for the
+  geocode.js, client-error.js                            # services above
 ```
+
+See [CLAUDE.md](CLAUDE.md) for the full annotated file-by-file layout and dev conventions.
 
 ---
 

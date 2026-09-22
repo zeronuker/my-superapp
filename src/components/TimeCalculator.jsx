@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import CalcButton from './CalcButton'
 import { CALC_BTN as BTN, CALC_GRID_GAP } from './calcButtonStyle'
@@ -47,7 +48,7 @@ function Btn({ style, ...props }) {
 }
 
 export default function TimeCalculator() {
-  const { time, setTime } = useCalculatorStore(s => ({ time: s.time, setTime: s.setTime }))
+  const { time, setTime } = useCalculatorStore(useShallow(s => ({ time: s.time, setTime: s.setTime })))
   const { digits, multiplier, prevMinutes, operation, isMultiplierMode, expression, result, justCalculated } = time
 
   const currentDisplay = justCalculated && result !== null

@@ -1,4 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { calcQuickTurnaroundLimitWeight } from '../utils/quickTurnaroundLimitWeight'
 import lookupTables from '../data/lookupTables.json'
@@ -26,7 +27,12 @@ function fmtKg(kg) {
 const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeight(props, ref) {
   const {
     quickTurnaround, setQuickTurnaroundAircraft, setQuickTurnaroundField, setQuickTurnaroundResults,
-  } = useCalculatorStore()
+  } = useCalculatorStore(useShallow(s => ({
+    quickTurnaround: s.quickTurnaround,
+    setQuickTurnaroundAircraft: s.setQuickTurnaroundAircraft,
+    setQuickTurnaroundField: s.setQuickTurnaroundField,
+    setQuickTurnaroundResults: s.setQuickTurnaroundResults,
+  })))
 
   const [weightDisplay, setWeightDisplay] = useState(() =>
     quickTurnaround.landingWeight ? formatWeightDisplay(quickTurnaround.landingWeight) : ''

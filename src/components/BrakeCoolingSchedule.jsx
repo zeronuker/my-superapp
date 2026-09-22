@@ -1,4 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { calcBrakeCoolingSchedule } from '../utils/brakeCoolingSchedule'
 import lookupTables from '../data/lookupTables.json'
@@ -45,7 +46,12 @@ function fmt(n, digits = 1) {
 }
 
 const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref) {
-  const { brakeCooling: bc, setBrakeCoolingAircraft, setBrakeCoolingField, setBrakeCoolingResults } = useCalculatorStore()
+  const { brakeCooling: bc, setBrakeCoolingAircraft, setBrakeCoolingField, setBrakeCoolingResults } = useCalculatorStore(useShallow(s => ({
+    brakeCooling: s.brakeCooling,
+    setBrakeCoolingAircraft: s.setBrakeCoolingAircraft,
+    setBrakeCoolingField: s.setBrakeCoolingField,
+    setBrakeCoolingResults: s.setBrakeCoolingResults,
+  })))
 
   const [weightDisplay, setWeightDisplay] = useState(() =>
     bc.weight ? formatWeightDisplay(bc.weight) : ''

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { evaluate } from '../utils/mathEval'
 import CalcButton from './CalcButton'
@@ -11,7 +12,11 @@ function Btn({ style, ...props }) {
 const fmt = v => (!isFinite(v) || isNaN(v)) ? 'Error' : parseFloat(v.toPrecision(10)).toString()
 
 export default function ScientificCalculator() {
-  const { scientific, setScientificDisplay, setScientific } = useCalculatorStore()
+  const { scientific, setScientificDisplay, setScientific } = useCalculatorStore(useShallow(s => ({
+    scientific: s.scientific,
+    setScientificDisplay: s.setScientificDisplay,
+    setScientific: s.setScientific,
+  })))
   const d = scientific.display
   const expression = scientific.expression
 
