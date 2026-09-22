@@ -341,7 +341,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.3", date: "Sep 2026", current: true,
+    v: "v3.3", date: "Sep 2026",
     title: "FTL CAD 1901 compliance fixes",
     notes: [
       "FIX: FTL: Delayed Reporting with an actual report time earlier than planned was read as a ~23h delay and pushed FDP expiry hours too late — now blocked with a message, since CAD 1901 Ch. 2.7 only covers delays (delays over 12h are blocked too)",
@@ -364,6 +364,17 @@ export const CHANGELOG = [
       "FIX: FTL: cabin crew mode's report box is labelled REPORT TIME, and CABIN REPORTS SEPARATELY explains which time goes where (Ch. 2.21.2a)",
       "FIX: FTL: a 3-digit Table B rest (e.g. \"240\") is no longer guessed as 2:40 — enter HH:MM or HHMM",
       "NEW: FTL: breakdown shows the in-flight relief cap as its own line, and finish times past midnight show \"+1 DAY\"",
+    ],
+  },
+  {
+    v: "v3.4", date: "Sep 2026", current: true,
+    title: "Light-mode contrast and layout fixes",
+    notes: [
+      "FIX: darkened accent colors for light theme to meet contrast minimums",
+      "FIX: Resume Briefing pill no longer permanently blocks end-of-page content",
+      "FIX: settings panel overflow and accent-swatch touch targets on mobile",
+      "FIX: NOTAM FIR chip amber tokenized, fixing a severe light-mode contrast failure",
+      "FIX: settings button no longer pushed off-screen at XL font size",
     ],
   },
 ]
