@@ -1,5 +1,11 @@
 # ClaudeBorne SuperApp
 
+![version](https://img.shields.io/badge/version-3.4-blue)
+![PWA](https://img.shields.io/badge/PWA-offline--capable-brightgreen)
+![License](https://img.shields.io/badge/license-internal-lightgrey)
+
+Everything a line pilot needs in one tab bar — weather, NOTAMs, performance tables, duty limits, and a prayer clock — all working offline, on your phone or your iPad.
+
 An offline-capable PWA of aviation tools for pilots, plus a prayer times module. Runs as a single-page app with tabbed tools, installable on mobile and desktop.
 
 **Current version: v3.4**
