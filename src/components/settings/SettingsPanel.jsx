@@ -439,7 +439,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
 
 // ── Update checker ──────────────────────────────────────────────────────────
 function UpdateChecker({ update }) {
-  const { current, needRefresh, updateServiceWorker, checkForUpdate, checkingUpdate, updateChecked } = update
+  const { current, needRefresh, updateServiceWorker, checkForUpdate, checkingUpdate, updateChecked, autoUpdateDisabled, setAutoUpdateDisabled } = update
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -491,6 +491,17 @@ function UpdateChecker({ update }) {
           ✓ YOU'RE ON THE LATEST VERSION
         </div>
       )}
+
+      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.12em',
+        color: 'var(--cp-dim)', cursor: 'pointer' }}>
+        DISABLE AUTO-UPDATE
+        <input
+          type="checkbox"
+          checked={autoUpdateDisabled}
+          onChange={(e) => setAutoUpdateDisabled(e.target.checked)}
+        />
+      </label>
     </div>
   )
 }
