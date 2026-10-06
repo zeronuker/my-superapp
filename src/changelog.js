@@ -367,7 +367,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.4", date: "Sep 2026", current: true,
+    v: "v3.4", date: "Sep 2026",
     title: "Light-mode contrast and layout fixes",
     notes: [
       "FIX: darkened accent colors for light theme to meet contrast minimums",
@@ -376,6 +376,13 @@ export const CHANGELOG = [
       "FIX: NOTAM FIR chip amber tokenized, fixing a severe light-mode contrast failure",
       "FIX: settings button no longer pushed off-screen at XL font size",
       "FIX: Briefing: Live Weather map's base map library no longer loads from a live third-party CDN on open — now bundled with the app, so a slow or unreachable CDN can't block the map from loading",
+    ],
+  },
+  {
+    v: "v3.5", date: "Oct 2026", current: true,
+    title: "Disable auto-update setting",
+    notes: [
+      "NEW: Settings → About → App Update has a 'Disable auto-update' switch. When on, the app stops checking for new versions in the background and never shows the 15s auto-update toast; 'Check for updates' still works manually.",
     ],
   },
 ]
