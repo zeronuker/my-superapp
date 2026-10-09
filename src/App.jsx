@@ -296,7 +296,7 @@ export default function App() {
 
         {/* ── Header ──────────────────────────────────────────────────── */}
         <header style={{
-          background: 'var(--cb-surface-0)',
+          background: 'linear-gradient(135deg, var(--cb-surface-0) 0%, var(--cb-surface-1) 60%, var(--cb-surface-0) 100%)',
           borderBottom: '1px solid var(--cp-border)',
           paddingTop: 'env(safe-area-inset-top)',
         }}>
