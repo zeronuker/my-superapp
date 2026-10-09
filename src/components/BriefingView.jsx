@@ -1,5 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
+import { usePresence, animDurationMs } from '../useTransitionAnim'
 import { fetchWeather } from '../services/weatherAPI'
 import { fetchNotams, autoDetectFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
 import { fetchAllSigmets } from '../services/sigmetAPI'
@@ -501,13 +502,13 @@ function SavedList({ saves, savedId, onOpen, onDelete }) {
 }
 
 // ── Shared small confirm-modal shell for the two briefing prompts below ──
-function BriefingPromptModal({ onDismiss, children }) {
+function BriefingPromptModal({ onDismiss, closing, children }) {
   return (
-    <div onClick={onDismiss} style={{
+    <div onClick={onDismiss} className={`cp-backdrop-in${closing ? ' is-closing' : ''}`} style={{
       position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.6)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
     }}>
-      <div onClick={e => e.stopPropagation()} style={{
+      <div onClick={e => e.stopPropagation()} className={`cp-pop-in${closing ? ' is-closing' : ''}`} style={{
         width: '100%', maxWidth: 380, background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
         borderRadius: 10, padding: 18,
       }}>
@@ -518,9 +519,9 @@ function BriefingPromptModal({ onDismiss, children }) {
 }
 
 // ── Shown when saving would exceed BRIEFING_SAVES_CAP ──
-function CapReachedPrompt({ oldest, cap, onConfirm, onCancel }) {
+function CapReachedPrompt({ oldest, cap, onConfirm, onCancel, closing }) {
   return (
-    <BriefingPromptModal onDismiss={onCancel}>
+    <BriefingPromptModal onDismiss={onCancel} closing={closing}>
       <div style={{
         fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
         textTransform: 'uppercase', color: 'var(--cp-yellow)', marginBottom: 12,
@@ -551,9 +552,9 @@ function CapReachedPrompt({ oldest, cap, onConfirm, onCancel }) {
 }
 
 // ── Shown only when closing (✕/Escape/backdrop) a fresh, never-saved briefing ──
-function SaveBeforeClosePrompt({ onSave, onDiscard, onCancel }) {
+function SaveBeforeClosePrompt({ onSave, onDiscard, onCancel, closing }) {
   return (
-    <BriefingPromptModal onDismiss={onCancel}>
+    <BriefingPromptModal onDismiss={onCancel} closing={closing}>
       <div style={{
         fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
         textTransform: 'uppercase', color: 'var(--cp-txt)', marginBottom: 10,
@@ -614,8 +615,25 @@ export default function BriefingView() {
   // first; a saved entry (or an empty/still-loading session) just closes.
   const requestClose = () => {
     if (hasUnsaved) { setShowSavePrompt(true); return }
-    closeBriefing()
+    closeAnimated()
   }
+
+  // Exit animation: the overlay keeps its data on screen for one animation,
+  // then really closes (closeBriefing clears the session). Skipped when
+  // animations are off. The timer is cleared on unmount so a stale close can
+  // never hit a briefing opened in the meantime.
+  const [closing, setClosing] = useState(false)
+  const closeTimer = useRef(null)
+  useEffect(() => () => clearTimeout(closeTimer.current), [])
+  const closeAnimated = () => {
+    if (closing) return
+    const ms = animDurationMs()
+    if (!ms) { closeBriefing(); return }
+    setClosing(true)
+    closeTimer.current = setTimeout(closeBriefing, ms)
+  }
+  const capPresence = usePresence(showCapPrompt)
+  const savePresence = usePresence(showSavePrompt)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -764,14 +782,15 @@ export default function BriefingView() {
     setShowSavePrompt(false)
     if (isAtCap(saves, BRIEFING_SAVES_CAP)) { setShowCapPrompt(true); return }
     saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getDarkMapSnapshot())
-    closeBriefing()
+    closeAnimated()
   }
-  const handleDiscardAndClose = () => { setShowSavePrompt(false); closeBriefing() }
+  const handleDiscardAndClose = () => { setShowSavePrompt(false); closeAnimated() }
 
   return (
     <>
     <div
       onClick={requestClose}
+      className={`cp-backdrop-in${closing ? ' is-closing' : ''}`}
       style={{
         position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
@@ -780,6 +799,7 @@ export default function BriefingView() {
     >
       <div
         onClick={e => e.stopPropagation()}
+        className={`cp-pop-in${closing ? ' is-closing' : ''}`}
         style={{
           position: 'relative',
           width: '100%', maxWidth: 980, background: 'var(--cp-bg)', borderRadius: 12,
@@ -966,16 +986,18 @@ export default function BriefingView() {
       </div>
     </div>
 
-    {showCapPrompt && (
+    {capPresence.mounted && (
       <CapReachedPrompt
+        closing={capPresence.closing}
         oldest={findOldest(saves)}
         cap={BRIEFING_SAVES_CAP}
         onConfirm={handleDeleteOldestAndSave}
         onCancel={() => setShowCapPrompt(false)}
       />
     )}
-    {showSavePrompt && (
+    {savePresence.mounted && (
       <SaveBeforeClosePrompt
+        closing={savePresence.closing}
         onSave={handleSaveThenClose}
         onDiscard={handleDiscardAndClose}
         onCancel={() => setShowSavePrompt(false)}

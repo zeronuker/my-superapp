@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { usePresence } from '../useTransitionAnim'
 
 // Standardized reset button: visibly orange by default (no hover needed to
 // read as "careful"), escalates to red on hover/press as the action is about
@@ -20,6 +21,7 @@ export default function ResetButton({ onReset, scoped = false, hasUnsavedBriefin
   const [hover, setHover] = useState(false)
   const [pressed, setPressed] = useState(false)
   const [open, setOpen] = useState(false)
+  const presence = usePresence(open)
 
   const colors = pressed || hover
     ? { borderColor: 'var(--cp-red)', color: 'var(--cp-red)', background: pressed ? 'rgba(239,68,68,0.20)' : 'rgba(239,68,68,0.10)' }
@@ -43,8 +45,9 @@ export default function ResetButton({ onReset, scoped = false, hasUnsavedBriefin
         }}
       >↺ RESET</button>
 
-      {open && createPortal(
+      {presence.mounted && createPortal(
         <div
+          className={`cp-backdrop-in${presence.closing ? ' is-closing' : ''}`}
           onClick={() => setOpen(false)}
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
@@ -53,7 +56,7 @@ export default function ResetButton({ onReset, scoped = false, hasUnsavedBriefin
           }}
         >
           <div
-            className="cp-card-bg2"
+            className={`cp-card-bg2 cp-pop-in${presence.closing ? ' is-closing' : ''}`}
             onClick={e => e.stopPropagation()}
             style={{
               border: '1px solid var(--cp-border2)', borderRadius: 8,
