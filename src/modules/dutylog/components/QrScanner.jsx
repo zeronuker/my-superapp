@@ -5,7 +5,11 @@ const mono = 'var(--cb-font-mono)'
 
 // Full-screen camera overlay — scans QR frames until one decodes, then calls
 // onResult and stops. Closeable any time via onClose.
-export default function QrScanner({ onResult, onClose }) {
+export default function QrScanner({ onResult, onClose, closing = false }) {
+  // While the exit animation plays the camera is still running; ignore any
+  // code it sees in that moment.
+  const closingRef = useRef(closing)
+  closingRef.current = closing
   const videoRef = useRef(null)
   const canvasRef = useRef(document.createElement('canvas'))
   const streamRef = useRef(null)
@@ -66,7 +70,7 @@ export default function QrScanner({ onResult, onClose }) {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
       const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const result = jsQR(frame.data, frame.width, frame.height)
-      if (result?.data) {
+      if (result?.data && !closingRef.current) {
         onResult(result.data)
         return
       }
@@ -81,7 +85,7 @@ export default function QrScanner({ onResult, onClose }) {
   }, [onResult])
 
   return (
-    <div style={{
+    <div className={`cp-backdrop-in${closing ? ' is-closing' : ''}`} style={{
       position: 'fixed', inset: 0, zIndex: 200,
       background: 'rgba(0,0,0,0.85)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',

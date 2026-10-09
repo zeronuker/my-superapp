@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { usePresence } from '../useTransitionAnim'
 import * as Flags from 'country-flag-icons/react/3x2'
 import { CURRENCIES, CURRENCY_BY_CODE } from '../data/currencies.js'
 import { useShallow } from 'zustand/react/shallow'
@@ -112,17 +113,18 @@ function FlagIcon({ code, size = 22 }) {
 }
 
 // Backdrop + panel wrapper shared by the base-currency picker and the edit-list picker
-function Overlay({ onClose, children }) {
+function Overlay({ onClose, closing, children }) {
   return (
     <div
       onClick={onClose}
+      className={`cp-backdrop-in${closing ? ' is-closing' : ''}`}
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 1000, padding: 16,
       }}
     >
-      <div className="cp-card-bg2" onClick={e => e.stopPropagation()} style={{
+      <div className={`cp-card-bg2 cp-pop-in${closing ? ' is-closing' : ''}`} onClick={e => e.stopPropagation()} style={{
         border: '1px solid var(--cp-border2)', borderRadius: 8,
         width: '100%', maxWidth: 380, maxHeight: '80vh', display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
@@ -173,8 +175,10 @@ export default function CurrencyCalculator() {
   const [fetchTrigger, setFetchTrigger] = useState(0)
 
   const [baseOpen, setBaseOpen] = useState(false)
+  const basePresence = usePresence(baseOpen)
   const [baseSearch, setBaseSearch] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const pickerPresence = usePresence(pickerOpen)
   const [pickerSearch, setPickerSearch] = useState('')
 
   const dragIndex = useRef(null)
@@ -393,8 +397,8 @@ export default function CurrencyCalculator() {
         </div>
       )}
 
-      {baseOpen && (
-        <Overlay onClose={() => { setBaseOpen(false); setBaseSearch('') }}>
+      {basePresence.mounted && (
+        <Overlay closing={basePresence.closing} onClose={() => { setBaseOpen(false); setBaseSearch('') }}>
           <div className="cp-label" style={{ padding: '12px 12px 0' }}>Select base currency</div>
 
           <div style={{ padding: '10px 12px 0' }}>
@@ -465,8 +469,8 @@ export default function CurrencyCalculator() {
         </Overlay>
       )}
 
-      {pickerOpen && (
-        <Overlay onClose={() => { setPickerOpen(false); setPickerSearch('') }}>
+      {pickerPresence.mounted && (
+        <Overlay closing={pickerPresence.closing} onClose={() => { setPickerOpen(false); setPickerSearch('') }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 0' }}>
             <div className="cp-label" style={{ margin: 0 }}>Currencies to show ({list.length})</div>
             <button onClick={() => { setPickerOpen(false); setPickerSearch('') }} className="cp-btn" style={{ padding: '4px 10px', fontSize: 11 }}>Done</button>

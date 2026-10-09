@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { sectorStripeColors, aircraftStripeColors } from '../utils/sectorColors'
 import { formatHHMM } from '../utils/formatHHMM'
+import { usePresence } from '../../../useTransitionAnim'
 
 const mono = 'var(--cb-font-mono)'
 
@@ -178,7 +179,7 @@ function Sector({ logId, sector, index, total, actions, onRemarks, aircraftList 
   )
 }
 
-function RemarksModal({ sector, index, onSave, onCancel }) {
+function RemarksModal({ sector, index, onSave, onCancel, closing }) {
   const [text, setText] = useState(sector.remark || '')
   const wrapRef = useRef()
   const taRef = useRef()
@@ -202,11 +203,11 @@ function RemarksModal({ sector, index, onSave, onCancel }) {
   }, [onCancel])
 
   return (
-    <div ref={wrapRef} style={{
+    <div ref={wrapRef} className={`cp-backdrop-in${closing ? ' is-closing' : ''}`} style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, zIndex: 5,
     }}>
-      <div style={{ width: '100%', maxWidth: 460, background: 'var(--cp-bg2)', border: '1px solid var(--cp-acc)', borderRadius: 8, padding: 14 }}>
+      <div className={`cp-pop-in${closing ? ' is-closing' : ''}`} style={{ width: '100%', maxWidth: 460, background: 'var(--cp-bg2)', border: '1px solid var(--cp-acc)', borderRadius: 8, padding: 14 }}>
         <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.12em', color: 'var(--cp-txt)', marginBottom: 4 }}>
           SECTOR #{index + 1} — REMARKS
         </div>
@@ -245,6 +246,12 @@ export default function LogEditor({ log, actions, onBack }) {
   const f = (key) => (v) => set({ [key]: v })
   const remarkSector = log.sectors.find(s => s.id === remarkSid)
   const remarkIndex = log.sectors.findIndex(s => s.id === remarkSid)
+  // Keep the last sector so the modal can finish its exit animation after the
+  // selection is cleared.
+  const remarkPresence = usePresence(!!remarkSector)
+  const lastRemark = useRef(null)
+  if (remarkSector) lastRemark.current = { sector: remarkSector, index: remarkIndex }
+  const shownRemark = lastRemark.current
   const atMaxAircraft = (log.aircraft || []).length >= 2
   const atMaxSectors = log.sectors.length >= 8
 
@@ -352,10 +359,11 @@ export default function LogEditor({ log, actions, onBack }) {
         ))}
       </div>
 
-      {remarkSector && (
+      {remarkPresence.mounted && shownRemark && (
         <RemarksModal
-          sector={remarkSector}
-          index={remarkIndex}
+          closing={remarkPresence.closing}
+          sector={shownRemark.sector}
+          index={shownRemark.index}
           onCancel={() => setRemarkSid(null)}
           onSave={(text) => { actions.updateSector(log.id, remarkSid, { remark: text }); setRemarkSid(null) }}
         />

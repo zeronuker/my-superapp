@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { usePresence } from '../../../useTransitionAnim'
 import QrScanner from '../components/QrScanner'
 import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
 import { CODE_RE } from '../services/sync'
@@ -500,6 +501,7 @@ export default function LogList({
   const [importError, setImportError] = useState('')
   const [openViewedLog, setOpenViewedLog] = useState(null)
   const [scanning, setScanning] = useState(false)
+  const scanPresence = usePresence(scanning)
 
   const [viewedExpanded, setViewedExpanded] = useState(() => new Set())
   const toggleViewed = (key) => setViewedExpanded(prev => {
@@ -775,8 +777,8 @@ export default function LogList({
         </div>
       )}
 
-      {scanning && (
-        <QrScanner onResult={handleScanResult} onClose={() => setScanning(false)} />
+      {scanPresence.mounted && (
+        <QrScanner onResult={handleScanResult} onClose={() => setScanning(false)} closing={scanPresence.closing} />
       )}
 
       {viewBusy && (
