@@ -300,7 +300,9 @@ export default function App() {
 
         {/* ── Header ──────────────────────────────────────────────────── */}
         <header style={{
-          background: 'linear-gradient(135deg, var(--cb-surface-0) 0%, var(--cb-surface-1) 60%, var(--cb-surface-0) 100%)',
+          // Top 11px matches the status-bar band + top-edge strip (surface-0), then
+          // fades into the gradient so no border shows where they meet.
+          background: 'linear-gradient(180deg, var(--cb-surface-0) 0, var(--cb-surface-0) 11px, transparent 44px), linear-gradient(135deg, var(--cb-surface-0) 0%, var(--cb-surface-1) 60%, var(--cb-surface-0) 100%)',
           borderBottom: '1px solid var(--cp-border)',
           paddingTop: 'calc(env(safe-area-inset-top) + var(--ios-edge, 0px))',
         }}>
