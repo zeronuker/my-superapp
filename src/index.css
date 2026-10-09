@@ -505,14 +505,3 @@ html[data-hico="true"] .cp-input:focus {
   backdrop-filter: blur(4px);
 }
 
-
-/* iPadOS 27 draws a blur over the top of installed web apps unless something
-   opaque is fixed at the very top edge (WebKit ignores strips <= 10px). */
-.ios-top-edge {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 20px;
-  background: red; /* TEMP DIAGNOSTIC */
-  pointer-events: none;
-  z-index: 9999;
-}
