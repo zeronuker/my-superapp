@@ -512,7 +512,7 @@ html[data-hico="true"] .cp-input:focus {
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 20px;
-  background: var(--cp-bg);
+  background: red; /* TEMP DIAGNOSTIC */
   pointer-events: none;
   z-index: 9999;
 }
