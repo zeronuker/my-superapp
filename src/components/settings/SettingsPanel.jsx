@@ -4,6 +4,7 @@ import TabLoading from '../TabLoading'
 import { CHANGELOG } from '../../changelog'
 import Changelog from '@brand/Changelog'
 import { APP_VERSION, ACCENT_SWATCHES, resolveAccentId } from '../../appConstants'
+import { useTransitionAnim } from '../../useTransitionAnim'
 
 // Named export → adapt to the default shape React.lazy expects (same chunk as PrayerModule)
 const PrayerSettings = lazy(() =>
@@ -40,10 +41,11 @@ function useMediaQuery(query) {
 }
 
 // ── Settings Panel ──────────────────────────────────────────────────────────
-export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, orderedCalcs, initialTab = 'appearance', update }) {
+export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClose, closing = false, orderedCalcs, initialTab = 'appearance', update }) {
   const panelRef = React.useRef(null)
   const [activeTab, setActiveTab] = React.useState(initialTab)
   const isWide = useMediaQuery('(min-width: 768px)')   // ≥768 → modal+rail, else sheet+strip
+  const tabAnim = useTransitionAnim(activeTab, SETTINGS_TABS.map(t => t.id), settings.animStyle)
 
   // Restore focus to previous element when panel closes
   React.useEffect(() => {
@@ -419,7 +421,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
   if (isWide) {
     return (
       <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
-        className="cp-modal-anim"
+        className={`cp-modal-anim${closing ? ' is-closing' : ''}`}
         onKeyDown={handlePanelKeyDown}
         style={{
           position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
@@ -435,7 +437,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
             {SETTINGS_TABS.map(t => <TabButton key={t.id} tab={t} variant="rail" />)}
           </div>
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px' }}>
-            {tabContent}
+            <div key={activeTab} className={tabAnim.className} style={tabAnim.style}>{tabContent}</div>
           </div>
         </div>
       </div>
@@ -445,7 +447,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
   // ── Mobile: full-height sheet with top tab strip ──
   return (
     <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
-      className="cp-sheet-anim"
+      className={`cp-sheet-anim${closing ? ' is-closing' : ''}`}
       onKeyDown={handlePanelKeyDown}
       style={{
         position: 'fixed', inset: 0,
@@ -459,7 +461,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
       </div>
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px',
         paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
-        {tabContent}
+        <div key={activeTab} className={tabAnim.className} style={tabAnim.style}>{tabContent}</div>
       </div>
     </div>
   )

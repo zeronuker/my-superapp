@@ -129,6 +129,9 @@ export default function App() {
     setSettingsOpen(true)
   }, [])
   const [fading, setFading] = React.useState(false)
+  // Keeps Settings on screen for its exit animation (all close paths — ✕,
+  // backdrop, Escape — just set settingsOpen false).
+  const settingsPresence = usePresence(settingsOpen)
 
   // Build ordered tab list — respects user-saved order, appends unknown new tabs at end
   const orderedCalcs = React.useMemo(() => {
@@ -461,9 +464,10 @@ export default function App() {
       <UpdatePrompt ready={!showSplash} update={update} />
 
       {/* ── Settings overlay ─────────────────────────────────────────── */}
-      {settingsOpen && (
+      {settingsPresence.mounted && (
         <>
           <div
+            className={`cp-backdrop-in${settingsPresence.closing ? ' is-closing' : ''}`}
             onClick={() => setSettingsOpen(false)}
             style={{
               position: 'fixed', inset: 0,
@@ -477,6 +481,7 @@ export default function App() {
             settings={settings}
             onUpdate={handleSettingsUpdate}
             onClose={() => setSettingsOpen(false)}
+            closing={settingsPresence.closing}
             orderedCalcs={orderedCalcs}
             initialTab={settingsInitialTab}
             update={update}
