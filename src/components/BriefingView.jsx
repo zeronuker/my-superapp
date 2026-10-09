@@ -1,6 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
-import { usePresence, animDurationMs } from '../useTransitionAnim'
+import { usePresence, animDurationMs, useTransitionAnim } from '../useTransitionAnim'
 import { fetchWeather } from '../services/weatherAPI'
 import { fetchNotams, autoDetectFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
 import { fetchAllSigmets } from '../services/sigmetAPI'
@@ -355,6 +355,16 @@ const BASEMAP_TABS = [
 const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot }, ref) {
   const [tab, setTab] = useState('dark')
   const cartoRef = useRef(null)
+  // Fade (not slide) when switching Dark ↔ Live Weather — the map is swapped
+  // in place, so it is animated through the element rather than remounted.
+  const mapBoxRef = useRef(null)
+  const firstTab = useRef(true)
+  useEffect(() => {
+    if (firstTab.current) { firstTab.current = false; return }
+    const ms = animDurationMs()
+    if (!ms || !mapBoxRef.current?.animate) return
+    mapBoxRef.current.animate([{ opacity: 0.3 }, { opacity: 1 }], { duration: ms, easing: 'ease-out' })
+  }, [tab])
 
   // Save Briefing only ever wants a still of the Dark map — Live Weather
   // isn't cached/saved at all (see WindyRouteMap.jsx), so there's nothing
@@ -425,7 +435,7 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
         </div>
       </div>
 
-      <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', maxHeight: 900 }}>
+      <div ref={mapBoxRef} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', maxHeight: 900 }}>
         {tab === 'live' ? (
           <WindyRouteMap markers={markers} isOffline={isOffline} />
         ) : (
@@ -604,6 +614,8 @@ export default function BriefingView() {
   const [now, setNow] = useState(Date.now())
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
   const [activeTab, setActiveTab] = useState('metar')
+  const animStyle = useCalculatorStore(s => s.settings.animStyle)
+  const tabAnim = useTransitionAnim(activeTab, ['metar', 'notam', 'sigmet'], animStyle)
   const [savedListOpen, setSavedListOpen] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(null)
@@ -910,6 +922,7 @@ export default function BriefingView() {
                 counts={{ metar: airports.length, notam: notamCount, sigmet: sigmets.length }}
               />
 
+              <div key={activeTab} className={tabAnim.className} style={tabAnim.style}>
               {activeTab === 'metar' && (
                 <>
                   {/* ── Departure / Arrival ── */}
@@ -980,6 +993,7 @@ export default function BriefingView() {
                   )}
                 </Section>
               )}
+              </div>
             </>
           )}
         </div>
