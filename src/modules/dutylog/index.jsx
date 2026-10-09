@@ -5,10 +5,11 @@ import LogList from './pages/LogList'
 import LogEditor from './pages/LogEditor'
 import { generateSyncCode, pushLogs, viewLogs, claimAndRestore } from './services/sync'
 import { relativeTimeFromNow } from './utils/relativeTime'
+import { useTransitionAnim } from '../../useTransitionAnim'
 
 const mono = 'var(--cb-font-mono)'
 
-export default function DutyLogModule({ onOpenSettings }) {
+export default function DutyLogModule({ onOpenSettings, animStyle }) {
   const {
     logs, editingId, setEditingId, createLog,
     updateLog, deleteLog,
@@ -20,6 +21,8 @@ export default function DutyLogModule({ onOpenSettings }) {
   } = useDutyLogStore()
 
   const editing = logs.find(l => l.id === editingId)
+  // List ↔ editor: forward into the editor, back out to the list.
+  const pageAnim = useTransitionAnim(editing ? 'editor' : 'list', ['list', 'editor'], animStyle)
 
   // Tracks the log created by the most recent "+ NEW" tap so the sync prompt
   // can fire once the user returns to the list, instead of immediately —
@@ -81,6 +84,7 @@ export default function DutyLogModule({ onOpenSettings }) {
 
   return (
     <div className="dutylog-shell">
+      <div key={editing ? 'editor' : 'list'} className={pageAnim.className} style={pageAnim.style}>
       {editing ? (
         <LogEditor
           log={editing}
@@ -109,6 +113,7 @@ export default function DutyLogModule({ onOpenSettings }) {
           onRemoveViewCode={removeViewCode}
         />
       )}
+      </div>
     </div>
   )
 }

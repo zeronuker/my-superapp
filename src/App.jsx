@@ -417,6 +417,7 @@ export default function App() {
                     {CurrentComponent && (
                       <CurrentComponent
                         clockFormat={settings.clockFormat || '24hr'}
+                        animStyle={settings.animStyle}
                         {...(currentCalc.id === 'dutylog' ? { onOpenSettings: openSettingsAbout } : {})}
                       />
                     )}

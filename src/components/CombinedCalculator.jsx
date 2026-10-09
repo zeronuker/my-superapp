@@ -6,6 +6,7 @@ import ScientificCalculator from './ScientificCalculator'
 import TimeCalculator from './TimeCalculator'
 import Converter from './Converter'
 import ResetButton from './ResetButton'
+import { useTransitionAnim } from '../useTransitionAnim'
 
 const MODES = [
   { id: 'basic',      label: 'BASIC',      icon: '🔢' },
@@ -14,8 +15,9 @@ const MODES = [
   { id: 'convert',    label: 'CONVERT',    icon: '🔄' },
 ]
 
-export default function CombinedCalculator() {
+export default function CombinedCalculator({ animStyle }) {
   const [mode, setMode] = useState('basic')
+  const modeAnim = useTransitionAnim(mode, MODES.map(m => m.id), animStyle)
   const setNormal = useCalculatorStore(s => s.setNormal)
   const setScientificDisplay = useCalculatorStore(s => s.setScientificDisplay)
   const setTime = useCalculatorStore(s => s.setTime)
@@ -77,10 +79,13 @@ export default function CombinedCalculator() {
 
       {/* ── Active calculator — fills all remaining space ────────────────── */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {mode === 'basic'      && <NormalCalculator />}
-        {mode === 'scientific' && <ScientificCalculator />}
-        {mode === 'time'       && <TimeCalculator />}
-        {mode === 'convert'    && <Converter />}
+        <div key={mode} className={modeAnim.className}
+          style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', ...modeAnim.style }}>
+          {mode === 'basic'      && <NormalCalculator />}
+          {mode === 'scientific' && <ScientificCalculator />}
+          {mode === 'time'       && <TimeCalculator />}
+          {mode === 'convert'    && <Converter />}
+        </div>
       </div>
     </div>
   )

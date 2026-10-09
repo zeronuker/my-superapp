@@ -13,6 +13,7 @@ import QiblaPage               from './pages/Qibla'
 import FlightPage              from './pages/Flight'
 import { T }                   from './components/tokens'
 import { TabIcon }             from '../../components/TabIcon'
+import { useTransitionAnim }   from '../../useTransitionAnim'
 
 // ── Sub-nav ──────────────────────────────────────────────────────────────────
 function SubNav({ active, onChange }) {
@@ -55,8 +56,9 @@ function SubNav({ active, onChange }) {
 }
 
 // ── Module root ───────────────────────────────────────────────────────────────
-export default function PrayerModule({ clockFormat = '24hr' }) {
+export default function PrayerModule({ clockFormat = '24hr', animStyle }) {
   const [tab, setTab] = useState('times')
+  const tabAnim = useTransitionAnim(tab, ['times', 'qiblat', 'flight'], animStyle)
 
   const { settings: prayerSettings, updatePrayerSettings } = usePrayerStore()
   // Clock format comes from the global app setting (passed as a prop), so the
@@ -76,6 +78,7 @@ export default function PrayerModule({ clockFormat = '24hr' }) {
     <div style={{ maxWidth: 480, margin: '0 auto' }}>
       <SubNav active={tab} onChange={setTab} />
 
+      <div key={tab} className={tabAnim.className} style={tabAnim.style}>
       {tab === 'times' && (
         <PrayerTimesPage
           location={location}
@@ -106,6 +109,7 @@ export default function PrayerModule({ clockFormat = '24hr' }) {
       {tab === 'flight' && (
         <FlightPage settings={settings} />
       )}
+      </div>
     </div>
   )
 }

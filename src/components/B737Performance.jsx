@@ -5,6 +5,7 @@ import GoAroundClimbGradient from './GoAroundClimbGradient'
 import QuickTurnaroundLimitWeight from './QuickTurnaroundLimitWeight'
 import BrakeCoolingSchedule from './BrakeCoolingSchedule'
 import ResetButton from './ResetButton'
+import { useTransitionAnim } from '../useTransitionAnim'
 
 const MODES = [
   { id: 'edto',     label: 'EDTO',                   icon: '🛬' },
@@ -13,8 +14,9 @@ const MODES = [
   { id: 'brakecooling', label: 'BRAKE COOLING',       icon: '🌡️' },
 ]
 
-export default function B737Performance() {
+export default function B737Performance({ animStyle }) {
   const [mode, setMode] = useState('edto')
+  const modeAnim = useTransitionAnim(mode, MODES.map(m => m.id), animStyle)
 
   const modeRefs = {
     edto: useRef(null),
@@ -71,10 +73,13 @@ export default function B737Performance() {
       </div>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {mode === 'edto'     && <EDTOCalculator ref={modeRefs.edto} />}
-        {mode === 'goaround' && <GoAroundClimbGradient ref={modeRefs.goaround} />}
-        {mode === 'quickturnaround' && <QuickTurnaroundLimitWeight ref={modeRefs.quickturnaround} />}
-        {mode === 'brakecooling' && <BrakeCoolingSchedule ref={modeRefs.brakecooling} />}
+        <div key={mode} className={modeAnim.className}
+          style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', ...modeAnim.style }}>
+          {mode === 'edto'     && <EDTOCalculator ref={modeRefs.edto} />}
+          {mode === 'goaround' && <GoAroundClimbGradient ref={modeRefs.goaround} />}
+          {mode === 'quickturnaround' && <QuickTurnaroundLimitWeight ref={modeRefs.quickturnaround} />}
+          {mode === 'brakecooling' && <BrakeCoolingSchedule ref={modeRefs.brakecooling} />}
+        </div>
       </div>
     </div>
   )
