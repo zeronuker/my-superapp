@@ -135,6 +135,34 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
             </SettingsRow>
           </SettingsSection>
 
+          <SettingsSection title="ANIMATION">
+            <SettingsRow label="ANIMATIONS">
+              <SegmentedToggle
+                options={[{ value: true, label: 'ON' }, { value: false, label: 'OFF' }]}
+                value={settings.animEnabled !== false}
+                onChange={v => onUpdate({ animEnabled: v })}
+              />
+            </SettingsRow>
+            {settings.animEnabled !== false && (
+              <>
+                <SettingsRow label="STYLE">
+                  <SegmentedToggle
+                    options={[{ value: 'slide', label: 'SLIDE' }, { value: 'rise', label: 'FADE RISE' }]}
+                    value={settings.animStyle === 'rise' ? 'rise' : 'slide'}
+                    onChange={v => onUpdate({ animStyle: v })}
+                  />
+                </SettingsRow>
+                <SettingsRow label="SPEED">
+                  <SegmentedToggle
+                    options={[{ value: 'normal', label: 'NORMAL' }, { value: 'slow', label: 'SLOW' }, { value: 'slower', label: 'SLOWER' }]}
+                    value={settings.animSpeed || 'normal'}
+                    onChange={v => onUpdate({ animSpeed: v })}
+                  />
+                </SettingsRow>
+              </>
+            )}
+          </SettingsSection>
+
           <SettingsSection title="FEEDBACK">
             <SettingsRow label="HAPTIC">
               <SegmentedToggle

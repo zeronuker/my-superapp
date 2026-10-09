@@ -342,14 +342,41 @@ input[type="number"] { -moz-appearance: textfield; }
   border-color: rgba(10,16,32,0.1) !important;
 }
 
-/* ── Settings: mobile sheet slide-up + desktop modal pop ── */
-@keyframes cpSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-@keyframes cpModalIn { from { opacity: 0; transform: translate(-50%, -47%); } to { opacity: 1; transform: translate(-50%, -50%); } }
-.cp-sheet-anim { animation: cpSheetUp 0.22s ease; }
-.cp-modal-anim { animation: cpModalIn 0.16s ease; }
+/* ── Transition animations ─────────────────────────────────────────────
+   Speed comes from --cp-dur (set in App.jsx from Settings → Animation; 0ms
+   when animations are off). Everything is movement/opacity only. Entrances
+   use "backwards" fill so no transform lingers once they finish. */
+:root { --cp-dur: 260ms; }
+@keyframes cpSheetUp   { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes cpSheetDown { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@keyframes cpModalIn   { from { opacity: 0; transform: translate(-50%, -47%) scale(0.97); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@keyframes cpModalOut  { from { opacity: 1; transform: translate(-50%, -50%); } to { opacity: 0; transform: translate(-50%, -47%) scale(0.97); } }
+@keyframes cpPopIn     { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes cpPopOut    { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.96); } }
+@keyframes cpBackdropIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cpBackdropOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes cpAnimSlide { from { opacity: 0; transform: translateX(calc(var(--dir, 1) * 36px)); } to { opacity: 1; transform: none; } }
+@keyframes cpAnimRise  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
-/* ── Reduce motion ── */
-html[data-reduce-motion="true"] .cp-calc-fade { animation: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .cp-sheet-anim { animation: cpSheetUp var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-sheet-anim.is-closing { animation: cpSheetDown var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
+  .cp-modal-anim { animation: cpModalIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-modal-anim.is-closing { animation: cpModalOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
+  .cp-pop-in { animation: cpPopIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-pop-in.is-closing { animation: cpPopOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
+  .cp-backdrop-in { animation: cpBackdropIn var(--cp-dur) ease backwards; }
+  .cp-backdrop-in.is-closing { animation: cpBackdropOut var(--cp-dur) ease forwards; }
+  .cp-anim-slide { animation: cpAnimSlide var(--cp-dur) cubic-bezier(.22,.8,.3,1) both; }
+  .cp-anim-rise  { animation: cpAnimRise var(--cp-dur) cubic-bezier(.22,.8,.3,1) both; }
+  .cp-launch-in  { animation: cpFadeIn var(--cp-dur) ease both; }
+}
+.is-closing { pointer-events: none; }
+
+/* ── Reduce motion (set from App.jsx: animations off, or the device's Reduce
+   Motion setting) ── */
+html[data-reduce-motion="true"] .cp-calc-fade,
+html[data-reduce-motion="true"] .cp-launch-in { animation: none; }
 html[data-reduce-motion="true"] * { transition: none !important; }
 
 /* ── Accent themes ──

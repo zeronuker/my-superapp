@@ -13,6 +13,7 @@ import TabLoading from './components/TabLoading'
 import DashboardHome from './components/DashboardHome'
 import SettingsPanel from './components/settings/SettingsPanel'
 import { APP_VERSION, resolveAccentId } from './appConstants'
+import { useTransitionAnim, usePresence, ANIM_SPEED_MS } from './useTransitionAnim'
 
 // Each tab is code-split into its own chunk, loaded on demand when first opened.
 // vite-plugin-pwa precaches every emitted chunk, so offline still works.
@@ -218,6 +219,21 @@ export default function App() {
     if (navStyle === 'launcher') setActiveCalculator(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navStyle])
+
+  // ── Animation speed + reduced motion ───────────────────────────────────
+  // --cp-dur drives every transition (0ms when animations are off).
+  // data-reduce-motion switches off the leftover animation/transition rules
+  // in index.css — when animations are off or the device asks for it.
+  React.useEffect(() => {
+    const off = settings.animEnabled === false
+    const ms = off ? 0 : ANIM_SPEED_MS[settings.animSpeed] || ANIM_SPEED_MS.normal
+    document.documentElement.style.setProperty('--cp-dur', `${ms}ms`)
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const apply = () => document.documentElement.setAttribute('data-reduce-motion', off || reduce.matches ? 'true' : 'false')
+    apply()
+    reduce.addEventListener('change', apply)
+    return () => reduce.removeEventListener('change', apply)
+  }, [settings.animEnabled, settings.animSpeed])
 
   // ── Sync darkMode → data-theme + persist ──────────────────────────────
   React.useEffect(() => {

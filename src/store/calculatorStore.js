@@ -52,6 +52,9 @@ export const DEFAULT_SETTINGS = {
   clockFormat:    '24hr',     // '24hr' | '12hr' — global, applies to all clocks
   rememberLastTab:true,       // reopen last-used tool on app restart
   dashboardWidgets: { utc: true, prayer: true, metar: true },
+  animEnabled:    true,       // transitions on/off (off = everything switches instantly)
+  animStyle:      'slide',    // 'slide' | 'rise'  (how tool / settings pages appear)
+  animSpeed:      'normal',   // 'normal' | 'slow' | 'slower'
 }
 
 export const DEFAULT_CURRENCY_BASE = 'MYR'
