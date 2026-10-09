@@ -383,6 +383,7 @@ export const CHANGELOG = [
     title: "Disable auto-update setting",
     notes: [
       "NEW: Settings → About → App Update has a 'Disable auto-update' switch. When on, the app stops checking for new versions in the background and never shows the 15s auto-update toast; 'Check for updates' still works manually.",
+      "FIX: iPadOS 27 drew a blur over the top of the installed app (a system effect, not an app element). Removed the Apple web-app tags and the viewport-fit=cover setting, and added a permanent top-edge strip; the header now fades from the status-bar colour into its gradient so no border shows. Remove the Home Screen icon and add it again once to take effect.",
     ],
   },
 ]
