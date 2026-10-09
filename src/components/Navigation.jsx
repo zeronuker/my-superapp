@@ -152,7 +152,7 @@ export function LauncherGrid({ calcs, onSelect }) {
               const delay = (cardIdx++) * 35
               return (
                 <button key={calc.id} onClick={() => onSelect(calc.id)}
-                  className="cp-launch-card cp-calc-fade"
+                  className="cp-launch-card cp-launch-in"
                   style={{
                     animationDelay: `${delay}ms`, animationFillMode: 'both',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',

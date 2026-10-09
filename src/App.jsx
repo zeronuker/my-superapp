@@ -292,6 +292,12 @@ export default function App() {
     }
   }, [])
 
+  // Tool switching animation. The launcher home counts as "before" every tool,
+  // so opening a tool from it always slides in from the right; tool-to-tool
+  // follows the saved tab order.
+  const toolOrder = React.useMemo(() => ['__home', ...orderedCalcs.map(c => c.id)], [orderedCalcs])
+  const toolAnim = useTransitionAnim(activeCalculator || '__home', toolOrder, settings.animStyle)
+
   return (
     <>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
@@ -390,13 +396,19 @@ export default function App() {
             <div className="cp-card-bg2" style={{
               border: '1px solid var(--cp-border)',
               borderRadius: 4,
+              // Clip (not scroll) sideways overflow so the slide-in can never
+              // widen the page for a moment.
+              overflowX: 'clip',
               ...(isCalcFullScreen
                 ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px' }
                 : { padding: landscapeCompact ? '16px' : '24px', zoom: landscapeCompact ? 0.82 : undefined }),
             }}>
               <div key={activeCalculator}
-                className="cp-calc-fade"
-                style={isCalcFullScreen ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : undefined}>
+                className={toolAnim.className}
+                style={{
+                  ...(isCalcFullScreen ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : {}),
+                  ...toolAnim.style,
+                }}>
                 <ErrorBoundary name={currentCalc?.name} resetKey={activeCalculator}>
                   <Suspense fallback={<TabLoading />}>
                     {CurrentComponent && (
