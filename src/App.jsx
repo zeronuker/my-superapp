@@ -155,6 +155,9 @@ export default function App() {
   // where content spans edge-to-edge instead of leaving margin beside it).
   const showResumePill = !briefing.open && (briefing.data || briefing.saves.length > 0)
   const resumePillBottomOffset = navStyle === 'tabs' && tabPosition === 'bottom' ? 74 : 16
+  // The pill and the offline banner slide in and out instead of popping.
+  const pillPresence = usePresence(!!showResumePill)
+  const offlinePresence = usePresence(!isOnline)
 
   const currentCalc      = activeCalculator ? CALCULATORS.find(c => c.id === activeCalculator) : undefined
   const CurrentComponent = currentCalc?.component
@@ -455,8 +458,8 @@ export default function App() {
       )}
 
       {/* ── Offline banner ───────────────────────────────────────────── */}
-      {!isOnline && (
-        <div className="cp-offline-banner">
+      {offlinePresence.mounted && (
+        <div className={`cp-offline-banner cp-pill-in${offlinePresence.closing ? ' is-closing' : ''}`}>
           ⊘ OFFLINE — SHOWING CACHED DATA
         </div>
       )}
@@ -515,8 +518,9 @@ export default function App() {
            there's something to bring back: a briefing paused mid-fetch (the
            NOTAM "view all" tab-jump) takes priority since it's still live
            in-progress work; otherwise it opens the most recently saved one. ── */}
-      {showResumePill && (
+      {pillPresence.mounted && (
         <button
+          className={`cp-pill-in${pillPresence.closing ? ' is-closing' : ''}`}
           onClick={() => (briefing.data ? resumeBriefing() : openSavedBriefing(briefing.saves[0].id))}
           style={{
             position: 'fixed', right: 16, zIndex: 95,

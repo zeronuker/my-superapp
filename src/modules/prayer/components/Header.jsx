@@ -194,7 +194,7 @@ export default function Header({ location, onGpsLocate, onManualSelect, gpsStatu
           )}
         </button>
       ) : (
-        <div>
+        <div className="cp-drop-in">
           {/* Search input */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
             <input
