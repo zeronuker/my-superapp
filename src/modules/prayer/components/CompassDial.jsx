@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import Collapse from '../../../components/Collapse'
 import { T } from './tokens'
 
 const CARDINALS = [
@@ -178,7 +179,7 @@ export default function CompassDial({
       )}
 
       {/* Calibration instructions panel */}
-      {showCalibration && (
+      <Collapse open={showCalibration} style={{ width: '100%' }}>
         <div style={{
           background: 'rgba(var(--cp-acc-rgb,63,224,197),0.05)',
           border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.2)',
@@ -211,7 +212,7 @@ export default function CompassDial({
             GOT IT
           </button>
         </div>
-      )}
+      </Collapse>
     </div>
   )
 }

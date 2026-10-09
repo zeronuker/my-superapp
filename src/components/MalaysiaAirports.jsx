@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import Collapse from './Collapse'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import { getRoleStyle } from '../utils/metarSeverity'
 import { useCalculatorStore } from '../store/calculatorStore'
@@ -155,7 +156,7 @@ function FlightCard({ f, logo }) {
           }}>
             ALSO SOLD AS {codeshares.length} FLIGHT{codeshares.length === 1 ? '' : 'S'} {showCodeshares ? '▲' : '▼'}
           </button>
-          {showCodeshares && (
+          <Collapse open={showCodeshares}>
             <div style={{
               display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 10px',
               background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 4,
@@ -167,7 +168,7 @@ function FlightCard({ f, logo }) {
                 </div>
               ))}
             </div>
-          )}
+          </Collapse>
         </>
       )}
 

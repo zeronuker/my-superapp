@@ -5,6 +5,7 @@ import { CHANGELOG } from '../../changelog'
 import Changelog from '@brand/Changelog'
 import { APP_VERSION, ACCENT_SWATCHES, resolveAccentId } from '../../appConstants'
 import { useTransitionAnim } from '../../useTransitionAnim'
+import Collapse from '../Collapse'
 
 // Named export → adapt to the default shape React.lazy expects (same chunk as PrayerModule)
 const PrayerSettings = lazy(() =>
@@ -263,7 +264,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
               CUSTOMISE ORDER
               <span style={{ color: 'var(--cp-dim)' }}>{orderOpen ? '▲' : '▼'}</span>
             </button>
-            {orderOpen && (
+            <Collapse open={orderOpen}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
                 {orderedCalcs.map((calc, idx) => (
                   <div key={calc.id} style={{
@@ -300,7 +301,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
                   </div>
                 ))}
               </div>
-            )}
+            </Collapse>
           </SettingsSection>
         </>
       )}

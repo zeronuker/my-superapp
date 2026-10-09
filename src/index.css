@@ -370,7 +370,23 @@ input[type="number"] { -moz-appearance: textfield; }
   .cp-anim-slide { animation: cpAnimSlide var(--cp-dur) cubic-bezier(.22,.8,.3,1) both; }
   .cp-anim-rise  { animation: cpAnimRise var(--cp-dur) cubic-bezier(.22,.8,.3,1) both; }
   .cp-launch-in  { animation: cpFadeIn var(--cp-dur) ease both; }
+  .cp-drop-in { animation: cpDropIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-pill-in { animation: cpPillIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-pill-in.is-closing { animation: cpPillOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
 }
+@keyframes cpDropIn  { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes cpPillIn  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes cpPillOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(14px); } }
+
+/* Inline expand/collapse panels (see components/Collapse.jsx): the height
+   slides between 0 and its natural size using a grid row (0fr ↔ 1fr). */
+.cp-collapse {
+  display: grid; grid-template-rows: 0fr; opacity: 0;
+  transition: grid-template-rows var(--cp-dur) cubic-bezier(.4,0,.2,1), opacity var(--cp-dur) ease;
+}
+.cp-collapse[data-open="true"] { grid-template-rows: 1fr; opacity: 1; }
+.cp-collapse-inner { overflow: hidden; min-height: 0; }
+@media (prefers-reduced-motion: reduce) { .cp-collapse { transition: none; } }
 .is-closing { pointer-events: none; }
 
 /* ── Reduce motion (set from App.jsx: animations off, or the device's Reduce

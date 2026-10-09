@@ -16,6 +16,7 @@ import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import SourceChip from './SourceChip'
+import Collapse from './Collapse'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
@@ -814,7 +815,7 @@ function RunwaysSection({ icao, role, windDirDeg, windSpeedKt }) {
         }}>{open ? '▴' : '▾'}</span>
       </button>
 
-      {open && (
+      <Collapse open={open}>{(
         runways === 'loading' ? (
           <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>Loading…</div>
         ) : runways === 'error' ? (
@@ -842,7 +843,7 @@ function RunwaysSection({ icao, role, windDirDeg, windSpeedKt }) {
             </tbody>
           </table>
         ) : null
-      )}
+      )}</Collapse>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import Collapse from './Collapse'
 import { convert, UNIT_CATEGORIES, convertFuel, FUEL_MASS_UNITS, FUEL_VOLUME_UNITS, UNIT_NAMES } from '../utils/units'
 
 const FUEL_UNITS = { ...FUEL_MASS_UNITS, ...FUEL_VOLUME_UNITS }
@@ -36,7 +37,7 @@ function UnitPicker({ value, options, open, onToggle, onPick }) {
         {UNIT_NAMES[value] ? `${UNIT_NAMES[value]} (${value})` : value}
         <span style={{ fontSize: 10, opacity: 0.6, transform: open ? 'rotate(180deg)' : 'none' }}>▾</span>
       </button>
-      {open && (
+      <Collapse open={open}>
         <div ref={dropdownRef} style={{
           display: 'flex', flexDirection: 'column', marginTop: 8,
           background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 6,
@@ -56,7 +57,7 @@ function UnitPicker({ value, options, open, onToggle, onPick }) {
             </button>
           ))}
         </div>
-      )}
+      </Collapse>
     </div>
   )
 }
