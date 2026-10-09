@@ -423,7 +423,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
         position: 'fixed', inset: 0,
         background: 'var(--cp-bg2)',
         zIndex: 200, display: 'flex', flexDirection: 'column',
-        paddingTop: 'env(safe-area-inset-top)',
+        paddingTop: 'calc(env(safe-area-inset-top) + var(--ios-edge, 0px))',
       }}>
       {header}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--cp-border)', flexShrink: 0 }}>

@@ -505,3 +505,22 @@ html[data-hico="true"] .cp-input:focus {
   backdrop-filter: blur(4px);
 }
 
+
+/* iPadOS 27 adds a blur over the top of an installed web app when nothing
+   fixed sits at the very top edge. A permanent opaque strip (WebKit ignores
+   strips <= 10px) prevents it; --ios-edge is the extra offset that keeps the
+   header clear of the strip (the strip overlaps the header's own 6px padding). */
+:root { --ios-edge: 0px; }
+.ios-top-edge { display: none; }
+@media (display-mode: standalone) {
+  :root { --ios-edge: 5px; }
+  .ios-top-edge {
+    display: block;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 11px;
+    background: var(--cb-surface-0);
+    pointer-events: none;
+    z-index: 99999;
+  }
+}

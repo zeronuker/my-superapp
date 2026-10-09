@@ -224,6 +224,10 @@ export default function App() {
     const theme = darkMode ? 'dark' : 'light'
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('cb-theme', theme)
+    // Keep the status-bar band the same colour as the header/top-edge strip.
+    const c = getComputedStyle(document.documentElement).getPropertyValue('--cb-surface-0').trim()
+    const m = document.querySelector('meta[name="theme-color"]')
+    if (c && m) m.setAttribute('content', c)
   }, [darkMode])
 
   // Theme change with a brief cross-fade
@@ -298,7 +302,7 @@ export default function App() {
         <header style={{
           background: 'linear-gradient(135deg, var(--cb-surface-0) 0%, var(--cb-surface-1) 60%, var(--cb-surface-0) 100%)',
           borderBottom: '1px solid var(--cp-border)',
-          paddingTop: 'env(safe-area-inset-top)',
+          paddingTop: 'calc(env(safe-area-inset-top) + var(--ios-edge, 0px))',
         }}>
           <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex',
             alignItems: 'center', justifyContent: 'space-between', paddingRight: 24 }}>
