@@ -5,6 +5,7 @@ import { CURRENCIES, CURRENCY_BY_CODE } from '../data/currencies.js'
 import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore, QUICK_BASE_MAX } from '../store/calculatorStore'
 import ResetButton from './ResetButton'
+import { currencyPickerRows } from '../utils/currencyPicker'
 
 // Last-resort hardcoded rates (USD base, circa 2024) — used only when a base
 // currency has never been fetched AND the device is offline. Once a base has
@@ -112,47 +113,25 @@ function FlagIcon({ code, size = 22 }) {
   )
 }
 
-// The part of the screen that is actually visible. On iPad/iPhone the on-screen
-// keyboard does NOT shrink the page — it slides over its bottom — so a fixed,
-// centred panel sized to the full screen ends up partly underneath it.
-// visualViewport is the visible rectangle (in layout-viewport coordinates), so
-// the Overlay below sizes itself to that instead. Null where unsupported, in
-// which case Overlay behaves exactly as before.
-function useVisibleArea() {
-  const [area, setArea] = useState(null)
-  useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    const update = () => setArea({ top: vv.offsetTop, left: vv.offsetLeft, width: vv.width, height: vv.height })
-    update()
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
-    return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
-    }
-  }, [])
-  return area
-}
-
-// Backdrop + panel wrapper shared by the base-currency picker and the edit-list picker
+// Backdrop + panel wrapper shared by the base-currency picker and the edit-list picker.
+// The panel is pinned to the TOP of the screen, not centred: the search box
+// auto-focuses, and on iPad/iPhone the on-screen keyboard slides over the
+// bottom of the page without resizing it, so anything lower down can end up
+// underneath. The top is always visible, with no keyboard measuring needed.
 function Overlay({ onClose, closing, children }) {
-  const area = useVisibleArea()
   return (
     <div
       onClick={onClose}
       className={`cp-backdrop-in${closing ? ' is-closing' : ''}`}
       style={{
-        position: 'fixed',
-        ...(area ? { top: area.top, left: area.left, width: area.width, height: area.height } : { inset: 0 }),
-        background: 'rgba(0,0,0,0.55)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1000, padding: 16, boxSizing: 'border-box',
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        zIndex: 1000, padding: 'max(12px, env(safe-area-inset-top, 0px)) 16px 16px',
       }}
     >
       <div className={`cp-card-bg2 cp-pop-in${closing ? ' is-closing' : ''}`} onClick={e => e.stopPropagation()} style={{
         border: '1px solid var(--cp-border2)', borderRadius: 8,
-        width: '100%', maxWidth: 380, maxHeight: 'min(80vh, 100%)', display: 'flex', flexDirection: 'column',
+        width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
       }}>
         {children}
@@ -161,6 +140,7 @@ function Overlay({ onClose, closing, children }) {
   )
 }
 
+// 16px stops iOS zooming into the field when it is focused.
 function SearchInput({ value, onChange, placeholder }) {
   return (
     <input
@@ -170,16 +150,19 @@ function SearchInput({ value, onChange, placeholder }) {
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       className="cp-input"
-      style={{ margin: 12, marginBottom: 8 }}
+      style={{ margin: 12, marginBottom: 6, fontSize: 16, width: 'calc(100% - 24px)', boxSizing: 'border-box' }}
     />
   )
 }
 
-function matches(c, q) {
-  if (!q) return true
-  const s = q.trim().toLowerCase()
-  return c.code.toLowerCase().includes(s) || c.name.toLowerCase().includes(s)
+// The pickers only list a few rows at a time (a short scroll window), so the
+// whole panel always fits above the on-screen keyboard.
+const PICKER_RESULTS_STYLE = {
+  overflowY: 'auto', maxHeight: 'min(30vh, 220px)', padding: '0 6px 8px',
+  overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch',
 }
+const PICKER_HINT_STYLE = { margin: '0 12px 6px', fontSize: 11, color: 'var(--cp-dim)', lineHeight: 1.4 }
+const matchCountText = (n) => `${n} ${n === 1 ? 'match' : 'matches'}`
 
 export default function CurrencyCalculator() {
   const { currency, setCurrencyAmount, setCurrencyBase, setCurrencyList, setQuickBaseCurrencies, resetCurrency, settings } = useCalculatorStore(useShallow(s => ({
@@ -206,6 +189,10 @@ export default function CurrencyCalculator() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const pickerPresence = usePresence(pickerOpen)
   const [pickerSearch, setPickerSearch] = useState('')
+  // What was selected when each picker opened — the empty-box rows come from
+  // this, so a row stays put when it is un-starred / unticked (see currencyPicker.js).
+  const [baseBaseline, setBaseBaseline] = useState([])
+  const [pickerBaseline, setPickerBaseline] = useState([])
 
   const dragIndex = useRef(null)
 
@@ -278,13 +265,15 @@ export default function CurrencyCalculator() {
     setCurrencyBase(code)
     setBaseOpen(false); setBaseSearch('')
   }
+  const openBasePicker = () => { setBaseBaseline(quickBase); setBaseOpen(true) }
+  const openListPicker = () => { setPickerBaseline(list); setPickerOpen(true) }
 
   const baseMeta = CURRENCY_BY_CODE[base]
   const amountNum = parseFloat(amount)
   const amountInvalid = amount !== '' && isNaN(amountNum)
 
-  const baseResults = CURRENCIES.filter(c => c.code !== base && matches(c, baseSearch))
-  const pickerResults = CURRENCIES.filter(c => c.code !== base && matches(c, pickerSearch))
+  const baseResults = currencyPickerRows({ query: baseSearch, all: CURRENCIES, byCode: CURRENCY_BY_CODE, baseline: baseBaseline, current: quickBase, base })
+  const pickerResults = currencyPickerRows({ query: pickerSearch, all: CURRENCIES, byCode: CURRENCY_BY_CODE, baseline: pickerBaseline, current: list, base })
 
   return (
     <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -310,7 +299,7 @@ export default function CurrencyCalculator() {
       <div>
         <div className="cp-label" style={{ marginBottom: 6 }}>Base currency</div>
         <button
-          onClick={() => setBaseOpen(true)}
+          onClick={openBasePicker}
           className="cp-input"
           style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--cb-font-mono)' }}
         >
@@ -346,7 +335,7 @@ export default function CurrencyCalculator() {
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div className="cp-section-header" style={{ margin: 0 }}>Converted to</div>
-        <button onClick={() => setPickerOpen(true)} className="cp-btn" style={{ fontSize: 11, padding: '6px 12px' }}>
+        <button onClick={openListPicker} className="cp-btn" style={{ fontSize: 11, padding: '6px 12px' }}>
           + Edit list
         </button>
       </div>
@@ -427,30 +416,13 @@ export default function CurrencyCalculator() {
         <Overlay closing={basePresence.closing} onClose={() => { setBaseOpen(false); setBaseSearch('') }}>
           <div className="cp-label" style={{ padding: '12px 12px 0' }}>Select base currency</div>
 
-          <div style={{ padding: '10px 12px 0' }}>
-            <div className="cp-label" style={{ marginBottom: 6 }}>Quick-select base ({quickBase.length}/{QUICK_BASE_MAX})</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {quickBase.map(code => (
-                <button
-                  key={code}
-                  onClick={() => toggleQuickBase(code)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700,
-                    fontFamily: 'var(--cb-font-mono)', color: 'var(--cp-acc)', background: 'var(--cp-accdim)',
-                    border: '1px solid var(--cp-acc)', borderRadius: 20, padding: '4px 10px', cursor: 'pointer',
-                  }}
-                  title="Remove from quick-select"
-                >
-                  {code}
-                  <span style={{ opacity: 0.7 }}>✕</span>
-                </button>
-              ))}
-              {quickBase.length === 0 && <span style={{ fontSize: 11, color: 'var(--cp-dim)' }}>None yet — tap ☆ below to add</span>}
-            </div>
-          </div>
-
           <SearchInput value={baseSearch} onChange={setBaseSearch} placeholder="Search code or name…" />
-          <div style={{ overflowY: 'auto', flex: 1, padding: '0 6px 6px' }}>
+          <div style={PICKER_HINT_STYLE}>
+            {baseSearch.trim()
+              ? matchCountText(baseResults.length)
+              : `Quick-select (${quickBase.length}/${QUICK_BASE_MAX}) — tap ★ to add or remove. Type to search all currencies.`}
+          </div>
+          <div style={PICKER_RESULTS_STYLE}>
             {baseResults.map(c => {
               const isQuick = quickBase.includes(c.code)
               const quickDisabled = !isQuick && quickBase.length >= QUICK_BASE_MAX
@@ -490,7 +462,7 @@ export default function CurrencyCalculator() {
                 </div>
               )
             })}
-            {baseResults.length === 0 && <div style={{ padding: 16, fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center' }}>No matches</div>}
+            {baseResults.length === 0 && <div style={{ padding: 16, fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center' }}>{baseSearch.trim() ? 'No matches' : 'Nothing here yet. Type to search.'}</div>}
           </div>
         </Overlay>
       )}
@@ -502,7 +474,12 @@ export default function CurrencyCalculator() {
             <button onClick={() => { setPickerOpen(false); setPickerSearch('') }} className="cp-btn" style={{ padding: '4px 10px', fontSize: 11 }}>Done</button>
           </div>
           <SearchInput value={pickerSearch} onChange={setPickerSearch} placeholder="Search code or name…" />
-          <div style={{ overflowY: 'auto', flex: 1, padding: '0 6px 6px' }}>
+          <div style={PICKER_HINT_STYLE}>
+            {pickerSearch.trim()
+              ? matchCountText(pickerResults.length)
+              : `Currencies you are showing (${list.length}). Type to search all currencies.`}
+          </div>
+          <div style={PICKER_RESULTS_STYLE}>
             {pickerResults.map(c => {
               const checked = list.includes(c.code)
               return (
@@ -523,7 +500,7 @@ export default function CurrencyCalculator() {
                 </label>
               )
             })}
-            {pickerResults.length === 0 && <div style={{ padding: 16, fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center' }}>No matches</div>}
+            {pickerResults.length === 0 && <div style={{ padding: 16, fontSize: 12, color: 'var(--cp-dim)', textAlign: 'center' }}>{pickerSearch.trim() ? 'No matches' : 'Nothing here yet. Type to search.'}</div>}
           </div>
         </Overlay>
       )}
