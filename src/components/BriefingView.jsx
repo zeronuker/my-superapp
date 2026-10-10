@@ -12,12 +12,15 @@ import {
   getRoleStyle,
 } from '../utils/metarSeverity'
 import { filterSigmetsByFir, reviveSigmets } from '../utils/sigmet'
-import { autoBriefingName, findOldest, isAtCap } from '../utils/savedBriefings'
+import { autoBriefingName, findOldest, isAtCap, formatSnapshotStamp } from '../utils/savedBriefings'
 import { BRIEFING_SAVES_CAP } from '../store/calculatorStore'
 import SigmetCard from './SigmetCard'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import WindyRouteMap, { hasWindyLoadedBefore } from './WindyRouteMap'
 import CartoRouteMap, { hasCartoLoadedBefore } from './CartoRouteMap'
+import OfflineCoastlineMap from './OfflineCoastlineMap'
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 // One fixed color per section (independent of the user's accent theme, same
 // precedent as ROLE_COLORS in metarSeverity.js) so each section of the
@@ -352,7 +355,10 @@ const BASEMAP_TABS = [
   { id: 'live', label: 'Live Weather' },
 ]
 
-const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot }, ref) {
+// `saved`: a saved briefing is a frozen snapshot — it shows the map picture
+// taken when it was saved (or, if none was captured, the bundled offline map)
+// and never loads the live CARTO or Windy maps, online or offline.
+const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, saved }, ref) {
   const [tab, setTab] = useState('dark')
   const cartoRef = useRef(null)
   // Fade (not slide) when switching Dark ↔ Live Weather — the map is swapped
@@ -367,11 +373,26 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
   }, [tab])
 
   // Save Briefing only ever wants a still of the Dark map — Live Weather
-  // isn't cached/saved at all (see WindyRouteMap.jsx), so there's nothing
-  // useful to grab while that tab is active.
+  // isn't cached/saved at all (see WindyRouteMap.jsx). So if Live Weather is
+  // showing, switch back to Dark first and give the map a moment to mount and
+  // load before photographing it, so every save online gets a map picture.
+  // Offline the Dark map can't be (re)loaded, so make a single attempt only.
   useImperativeHandle(ref, () => ({
-    getDarkMapSnapshot: () => (tab === 'dark' ? cartoRef.current?.getSnapshot() ?? null : null),
-  }), [tab])
+    getDarkMapSnapshot: async () => {
+      if (saved) return null
+      if (tab !== 'dark') {
+        if (isOffline) return null
+        setTab('dark')
+      }
+      const deadline = Date.now() + (isOffline ? 0 : 6000)
+      for (;;) {
+        const snap = await Promise.race([cartoRef.current?.getSnapshot() ?? null, sleep(2000).then(() => null)])
+        if (snap) return snap
+        if (Date.now() >= deadline) return null
+        await sleep(250)
+      }
+    },
+  }), [tab, saved, isOffline])
 
   const depAp = dep && lookupAirport(dep)
   const arrAp = arr && lookupAirport(arr)
@@ -414,13 +435,16 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
             // tiles were already fetched) stays cached, so switching back
             // to it offline still works.
             const hasLoadedBefore = opt.id === 'live' ? hasWindyLoadedBefore() : hasCartoLoadedBefore(opt.id)
-            const blocked = isOffline && !hasLoadedBefore
+            // A saved briefing never shows the live Windy map (it can't be saved).
+            const liveBlockedWhenSaved = saved && opt.id === 'live'
+            const blocked = liveBlockedWhenSaved || (!saved && isOffline && !hasLoadedBefore)
             return (
               <button
                 key={opt.id}
                 onClick={() => !blocked && setTab(opt.id)}
                 disabled={blocked}
-                title={blocked ? 'Unavailable offline — never loaded this session' : undefined}
+                title={liveBlockedWhenSaved ? 'Not available in saved briefings'
+                  : blocked ? 'Unavailable offline — never loaded this session' : undefined}
                 style={{
                   fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase',
                   color: tab === opt.id ? 'var(--cp-txt)' : 'var(--cp-dim)',
@@ -436,7 +460,27 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
       </div>
 
       <div ref={mapBoxRef} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', maxHeight: 900 }}>
-        {tab === 'live' ? (
+        {saved ? (
+          mapSnapshot ? (
+            // 'contain' (not 'cover'): the picture was taken at whatever size the
+            // map was when saved — never crop a marker off the edge.
+            <img src={mapSnapshot} alt="Saved route map"
+              style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'var(--cp-bg3)', display: 'block' }} />
+          ) : (
+            <>
+              <OfflineCoastlineMap markers={markers} />
+              <div style={{
+                position: 'absolute', top: 10, right: 10, pointerEvents: 'none',
+                background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+                border: '1px solid var(--cp-border3)', borderRadius: 7, padding: '5px 9px',
+                fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
+                color: 'var(--cp-yellow)',
+              }}>
+                No saved map picture — built-in map
+              </div>
+            </>
+          )
+        ) : tab === 'live' ? (
           <WindyRouteMap markers={markers} isOffline={isOffline} />
         ) : (
           <CartoRouteMap ref={cartoRef} markers={markers} styleKey={tab} isOffline={isOffline} mapSnapshot={mapSnapshot} />
@@ -628,6 +672,10 @@ export default function BriefingView() {
   // being full (the save was attempted and refused).
   const [storageFull, setStorageFull] = useState(false)
   const [saveError, setSaveError] = useState('')
+  // Saving can take a few seconds (it waits for the Dark map to photograph) —
+  // block a second tap from saving the same briefing twice.
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
   const routeMapRef = useRef(null)
 
   // Real close — ✕/Escape/backdrop. A fresh, unsaved fetch prompts to save
@@ -793,19 +841,27 @@ export default function BriefingView() {
   // nothing left to delete — and any other failure shows a message instead of
   // pretending the save worked.
   const commitSave = async () => {
+    if (savingRef.current) return false
+    savingRef.current = true
+    setSaving(true)
     setSaveError('')
-    const result = await saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getDarkMapSnapshot())
-    if (result.ok) return true
-    if (result.reason === 'full' && useCalculatorStore.getState().briefing.saves.length > 0) {
-      setStorageFull(true)
-      setShowCapPrompt(true)
-    } else {
-      setShowCapPrompt(false)
-      setSaveError(result.reason === 'full'
-        ? 'Not saved — device storage is full.'
-        : 'Not saved — could not write to device storage.')
+    try {
+      const result = await saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getDarkMapSnapshot())
+      if (result.ok) return true
+      if (result.reason === 'full' && useCalculatorStore.getState().briefing.saves.length > 0) {
+        setStorageFull(true)
+        setShowCapPrompt(true)
+      } else {
+        setShowCapPrompt(false)
+        setSaveError(result.reason === 'full'
+          ? 'Not saved — device storage is full.'
+          : 'Not saved — could not write to device storage.')
+      }
+      return false
+    } finally {
+      savingRef.current = false
+      setSaving(false)
     }
-    return false
   }
   const attemptSave = async () => {
     if (!data) return
@@ -886,11 +942,17 @@ export default function BriefingView() {
                 <span style={{ color: 'var(--cp-dim)', fontSize: 12, flexShrink: 0 }}>✎</span>
               </button>
             )}
+            {isSaved && data && (
+              <div style={{ marginTop: 3, fontFamily: 'var(--cb-font-mono)', fontSize: 9.5, fontWeight: 700,
+                letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cp-yellow)' }}>
+                Saved snapshot{formatSnapshotStamp(fetchedAt || savedEntry?.savedAt) && ` · data as of ${formatSnapshotStamp(fetchedAt || savedEntry?.savedAt)}`}
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: 2 }}>
             {!isSaved && data && (
-              <button onClick={attemptSave} className="cp-btn" style={{ fontSize: 10, letterSpacing: '0.1em' }}>
-                SAVE
+              <button onClick={attemptSave} disabled={saving} className="cp-btn" style={{ fontSize: 10, letterSpacing: '0.1em' }}>
+                {saving ? 'SAVING…' : 'SAVE'}
               </button>
             )}
             <button
@@ -952,7 +1014,7 @@ export default function BriefingView() {
                 {fetchedAt && ` · FETCHED ${new Date(fetchedAt).toUTCString().toUpperCase()}`}
               </div>
 
-              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} />
+              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} saved={isSaved} />
 
               <BriefingTabBar
                 active={activeTab}

@@ -21,6 +21,18 @@ export function autoBriefingName(route, timestamp = Date.now()) {
   return `${routePart} · ${day} ${month} ${hh}:${mm}`
 }
 
+// "15 Sep 14:20Z" — UTC, for the "Saved snapshot · data as of …" line shown on
+// a saved briefing. Empty string when there is no usable timestamp.
+export function formatSnapshotStamp(timestamp) {
+  if (!timestamp) return ''
+  const d = new Date(timestamp)
+  if (Number.isNaN(d.getTime())) return ''
+  const month = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })
+  const hh = String(d.getUTCHours()).padStart(2, '0')
+  const mm = String(d.getUTCMinutes()).padStart(2, '0')
+  return `${d.getUTCDate()} ${month} ${hh}:${mm}Z`
+}
+
 export function sortByNewest(list) {
   return [...list].sort((a, b) => b.savedAt - a.savedAt)
 }

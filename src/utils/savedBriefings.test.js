@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { autoBriefingName, sortByNewest, findOldest, isAtCap, pickNextAfterDelete, makeBriefingId } from './savedBriefings'
+import { autoBriefingName, formatSnapshotStamp, sortByNewest, findOldest, isAtCap, pickNextAfterDelete, makeBriefingId } from './savedBriefings'
 
 describe('autoBriefingName', () => {
   it('formats dep + arr + date + time', () => {
@@ -14,6 +14,18 @@ describe('autoBriefingName', () => {
   it('falls back to a generic label with neither', () => {
     const ts = Date.UTC(2026, 8, 15, 14, 20)
     expect(autoBriefingName({ dep: '', arr: '' }, ts)).toBe('Briefing · 15 Sep 14:20')
+  })
+})
+
+describe('formatSnapshotStamp', () => {
+  it('formats a timestamp as UTC day, month, HH:MMZ', () => {
+    expect(formatSnapshotStamp(Date.UTC(2026, 8, 5, 4, 7))).toBe('5 Sep 04:07Z')
+    expect(formatSnapshotStamp(Date.UTC(2026, 9, 10, 14, 20))).toBe('10 Oct 14:20Z')
+  })
+  it('returns an empty string for a missing or invalid timestamp', () => {
+    expect(formatSnapshotStamp(null)).toBe('')
+    expect(formatSnapshotStamp(undefined)).toBe('')
+    expect(formatSnapshotStamp('not a date')).toBe('')
   })
 })
 
