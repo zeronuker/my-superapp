@@ -49,7 +49,8 @@ src/
     Navigation.jsx (launcher/tabs/grouped chrome)
     BriefingView.jsx          #   ✈ Briefing overlay (METAR/TAF+NOTAM+SIGMET
                               #   combined) — saved briefings live in
-                              #   store/calculatorStore.js's `briefing.saves`
+                              #   store/calculatorStore.js's `briefing.saves`,
+                              #   persisted to IndexedDB by services/briefingStorage.js
     ErrorBoundary.jsx         #   per-tab crash isolation (wraps the active tab)
                               #   EDTOCalculator.jsx is now a mode nested inside
                               #   B737Performance.jsx, not its own tab (old

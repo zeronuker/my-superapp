@@ -1,27 +1,15 @@
 import { create } from 'zustand'
 import { makeBriefingId, autoBriefingName, sortByNewest, pickNextAfterDelete } from '../utils/savedBriefings'
+import { loadSaves, idbBackend, isQuotaError } from '../services/briefingStorage'
 
 // Named, manually-managed saves (unlike every cb-*-cache key, which is a
 // single slot with a 12h auto-expiry) — never expires, capped, only changed
-// by an explicit save/rename/delete.
-const BRIEFING_SAVES_KEY = 'cb-briefing-saves'
+// by an explicit save/rename/delete. Stored in IndexedDB (briefingStorage.js).
 export const BRIEFING_SAVES_CAP = 30
 // Pre-Saved-Briefings single-slot cache (open:false pause/resume) — actively
 // discarded, not migrated, the first time this loads post-update.
 const LEGACY_BRIEFING_CACHE_KEY = 'cb-briefing-cache'
-
-function loadSavedBriefings() {
-  try { localStorage.removeItem(LEGACY_BRIEFING_CACHE_KEY) } catch (_) {}
-  try {
-    const raw = localStorage.getItem(BRIEFING_SAVES_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch (_) { return [] }
-}
-function persistSavedBriefings(saves) {
-  try { localStorage.setItem(BRIEFING_SAVES_KEY, JSON.stringify(saves)) } catch (_) {}
-}
+try { localStorage.removeItem(LEGACY_BRIEFING_CACHE_KEY) } catch (_) {}
 // Same route input (dep/arr/destAlts/enrouteAlts) — ignores derived fields
 // like firs, which differ by which module opened Briefing.
 function routesMatch(a, b) {
@@ -119,7 +107,7 @@ function loadSettings() {
   } catch (_) { return DEFAULT_SETTINGS }
 }
 
-export const useCalculatorStore = create((set) => ({
+export const useCalculatorStore = create((set, get) => ({
   // ── Calculator state ────────────────────────────────────────────────────
   edto: {
     aircraft: 'b737-8', variant: 'leap-1b25', weight: '',
@@ -194,12 +182,14 @@ export const useCalculatorStore = create((set) => ({
   // already-fetched briefing. `route` is the input the 3 modules hand in
   // (dep/arr/destAlts/enrouteCount/enrouteAlts/firs); `data` is the fetched
   // result for the CURRENT session (unsaved unless `savedId` is set).
-  // `saves` is the persistent, capped, named list (seeded on load, sorted
-  // newest-first) — the only part of this that survives a reload; `open`/
-  // `route`/`data`/`savedId` always start closed/empty, same as before.
+  // `saves` is the persistent, capped, named list (sorted newest-first) — the
+  // only part of this that survives a reload; `open`/`route`/`data`/`savedId`
+  // always start closed/empty, same as before. IndexedDB loads asynchronously,
+  // so `saves` starts empty and is filled by initSavedBriefings() right after
+  // the store is created (bottom of this file).
   briefing: {
     open: false, route: null, data: null, savedId: null,
-    saves: sortByNewest(loadSavedBriefings()),
+    saves: [],
   },
 
   // ── Actions ─────────────────────────────────────────────────────────────
@@ -280,41 +270,71 @@ export const useCalculatorStore = create((set) => ({
     if (!entry) return {}
     return { briefing: { ...s.briefing, open: true, route: entry.route, data: entry.data, savedId: id } }
   }),
+  // Loads the saved list from IndexedDB (migrating the old localStorage list
+  // on first run). Merges rather than replaces, so a save made before the
+  // load finished is never dropped.
+  initSavedBriefings: async () => {
+    const loaded = await loadSaves()
+    set(s => {
+      const have = new Set(loaded.map(b => b.id))
+      const extra = s.briefing.saves.filter(b => !have.has(b.id))
+      return { briefing: { ...s.briefing, saves: sortByNewest([...loaded, ...extra]) } }
+    })
+  },
   // Instant save, no dialog — `name` optional (defaults to route + date +
   // time). Caller is responsible for the at-cap "delete oldest?" prompt
   // (see deleteSavedBriefing) before calling this past BRIEFING_SAVES_CAP.
   // `mapSnapshot` is a data URL of the Dark map at save time (null if the
   // Dark tab was never opened this session) — the saved offline fallback
   // when the live map can't reload later (see CartoRouteMap.jsx).
-  saveBriefing:     (name, mapSnapshot = null) => set(s => {
-    const { route, data } = s.briefing
-    if (!data) return {}
+  // Writes to storage FIRST and only adds the entry to the list once that
+  // succeeded. Resolves { ok: true } or { ok: false, reason } where reason is
+  // 'full' (device storage full — caller offers delete-oldest), 'nodata', or
+  // 'error' (anything else).
+  saveBriefing:     async (name, mapSnapshot = null) => {
+    const { route, data } = get().briefing
+    if (!data) return { ok: false, reason: 'nodata' }
     const savedAt = Date.now()
     const entry = { id: makeBriefingId(), name: (name || '').trim() || autoBriefingName(route, savedAt), route, data, savedAt, mapSnapshot }
-    const saves = sortByNewest([...s.briefing.saves, entry])
-    persistSavedBriefings(saves)
-    return { briefing: { ...s.briefing, saves, savedId: entry.id } }
-  }),
-  renameSavedBriefing: (id, name) => set(s => {
+    try { await idbBackend.put(entry) } catch (err) {
+      return { ok: false, reason: isQuotaError(err) ? 'full' : 'error' }
+    }
+    set(s => ({
+      briefing: {
+        ...s.briefing,
+        saves: sortByNewest([...s.briefing.saves, entry]),
+        // Only mark the open session as saved if it is still the one we saved.
+        savedId: s.briefing.data === data ? entry.id : s.briefing.savedId,
+      },
+    }))
+    return { ok: true }
+  },
+  renameSavedBriefing: async (id, name) => {
     const trimmed = (name || '').trim()
-    if (!trimmed) return {}
-    const saves = s.briefing.saves.map(b => (b.id === id ? { ...b, name: trimmed } : b))
-    persistSavedBriefings(saves)
-    return { briefing: { ...s.briefing, saves } }
-  }),
+    const current = get().briefing.saves.find(b => b.id === id)
+    if (!trimmed || !current) return { ok: false }
+    const renamed = { ...current, name: trimmed }
+    try { await idbBackend.put(renamed) } catch (_) { return { ok: false } }
+    set(s => ({ briefing: { ...s.briefing, saves: s.briefing.saves.map(b => (b.id === id ? renamed : b)) } }))
+    return { ok: true }
+  },
   // Manual delete only — saves never auto-expire. Deleting the entry
   // currently open switches the view to the next one in the list, or
-  // closes the overlay if none are left.
-  deleteSavedBriefing: (id)      => set(s => {
-    const sorted = sortByNewest(s.briefing.saves)
-    const saves = sorted.filter(b => b.id !== id)
-    persistSavedBriefings(saves)
-    if (s.briefing.savedId !== id) return { briefing: { ...s.briefing, saves } }
-    const nextId = pickNextAfterDelete(sorted, id)
-    if (!nextId) return { briefing: { ...s.briefing, saves, open: false, route: null, data: null, savedId: null } }
-    const next = saves.find(b => b.id === nextId)
-    return { briefing: { ...s.briefing, saves, route: next.route, data: next.data, savedId: nextId } }
-  }),
+  // closes the overlay if none are left. The list only changes once the
+  // storage delete succeeded.
+  deleteSavedBriefing: async (id) => {
+    try { await idbBackend.remove(id) } catch (_) { return { ok: false } }
+    set(s => {
+      const sorted = sortByNewest(s.briefing.saves)
+      const saves = sorted.filter(b => b.id !== id)
+      if (s.briefing.savedId !== id) return { briefing: { ...s.briefing, saves } }
+      const nextId = pickNextAfterDelete(sorted, id)
+      if (!nextId) return { briefing: { ...s.briefing, saves, open: false, route: null, data: null, savedId: null } }
+      const next = saves.find(b => b.id === nextId)
+      return { briefing: { ...s.briefing, saves, route: next.route, data: next.data, savedId: nextId } }
+    })
+    return { ok: true }
+  },
   // Hide without discarding anything — the NOTAM tab-jump link's only
   // caller (useViewAllNotams in BriefingView.jsx). Distinct from
   // closeBriefing: route/data/savedId are left exactly as they were, so
@@ -339,3 +359,5 @@ export const useCalculatorStore = create((set) => ({
     return { settings: next }
   }),
 }))
+
+useCalculatorStore.getState().initSavedBriefings()

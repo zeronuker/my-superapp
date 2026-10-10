@@ -528,18 +528,21 @@ function BriefingPromptModal({ onDismiss, closing, children }) {
   )
 }
 
-// ── Shown when saving would exceed BRIEFING_SAVES_CAP ──
-function CapReachedPrompt({ oldest, cap, onConfirm, onCancel, closing }) {
+// ── Shown when saving would exceed BRIEFING_SAVES_CAP, or when the device
+// storage is full (storageFull) — same "delete the oldest?" choice for both ──
+function CapReachedPrompt({ oldest, cap, storageFull, onConfirm, onCancel, closing }) {
   return (
     <BriefingPromptModal onDismiss={onCancel} closing={closing}>
       <div style={{
         fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
         textTransform: 'uppercase', color: 'var(--cp-yellow)', marginBottom: 12,
       }}>
-        Saved Briefings Full · {cap}/{cap}
+        {storageFull ? 'Storage Full' : `Saved Briefings Full · ${cap}/${cap}`}
       </div>
       <div style={{ fontSize: 12, color: 'var(--cp-txt)', lineHeight: 1.6, marginBottom: 14 }}>
-        You've reached the {cap}-briefing limit. Delete the oldest saved briefing to make room for this one?
+        {storageFull
+          ? 'Not enough storage to save this briefing. Delete the oldest saved briefing to make room for this one?'
+          : `You've reached the ${cap}-briefing limit. Delete the oldest saved briefing to make room for this one?`}
       </div>
       {oldest && (
         <div style={{
@@ -621,6 +624,10 @@ export default function BriefingView() {
   const [titleDraft, setTitleDraft] = useState(null)
   const [showSavePrompt, setShowSavePrompt] = useState(false)
   const [showCapPrompt, setShowCapPrompt] = useState(false)
+  // Why the cap prompt is up: the 30-briefing count cap, or the device storage
+  // being full (the save was attempted and refused).
+  const [storageFull, setStorageFull] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const routeMapRef = useRef(null)
 
   // Real close — ✕/Escape/backdrop. A fresh, unsaved fetch prompts to save
@@ -779,22 +786,46 @@ export default function BriefingView() {
     if (isSaved) renameSavedBriefing(savedId, trimmed)
   }
 
+  // Returns true once the briefing is really written to storage. If the device
+  // storage is full it (re)opens the delete-oldest prompt — unless there is
+  // nothing left to delete — and any other failure shows a message instead of
+  // pretending the save worked.
+  const commitSave = async () => {
+    setSaveError('')
+    const result = await saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getDarkMapSnapshot())
+    if (result.ok) return true
+    if (result.reason === 'full' && useCalculatorStore.getState().briefing.saves.length > 0) {
+      setStorageFull(true)
+      setShowCapPrompt(true)
+    } else {
+      setShowCapPrompt(false)
+      setSaveError(result.reason === 'full'
+        ? 'Not saved — device storage is full.'
+        : 'Not saved — could not write to device storage.')
+    }
+    return false
+  }
   const attemptSave = async () => {
     if (!data) return
-    if (isAtCap(saves, BRIEFING_SAVES_CAP)) { setShowCapPrompt(true); return }
-    saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getDarkMapSnapshot())
+    if (isAtCap(saves, BRIEFING_SAVES_CAP)) { setStorageFull(false); setShowCapPrompt(true); return }
+    await commitSave()
   }
   const handleDeleteOldestAndSave = async () => {
     const oldest = findOldest(saves)
-    if (oldest) deleteSavedBriefing(oldest.id)
-    saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getDarkMapSnapshot())
-    setShowCapPrompt(false)
+    if (oldest) {
+      const deleted = await deleteSavedBriefing(oldest.id)
+      if (!deleted.ok) {
+        setShowCapPrompt(false)
+        setSaveError('Not saved — could not delete the oldest briefing.')
+        return
+      }
+    }
+    if (await commitSave()) setShowCapPrompt(false)
   }
   const handleSaveThenClose = async () => {
     setShowSavePrompt(false)
-    if (isAtCap(saves, BRIEFING_SAVES_CAP)) { setShowCapPrompt(true); return }
-    saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getDarkMapSnapshot())
-    closeAnimated()
+    if (isAtCap(saves, BRIEFING_SAVES_CAP)) { setStorageFull(false); setShowCapPrompt(true); return }
+    if (await commitSave()) closeAnimated()
   }
   const handleDiscardAndClose = () => { setShowSavePrompt(false); closeAnimated() }
 
@@ -877,6 +908,11 @@ export default function BriefingView() {
             <button onClick={requestClose} className="cp-btn" style={{ width: 28, height: 28, padding: 0 }}>✕</button>
           </div>
         </div>
+
+        {saveError && (
+          <div style={{ color: 'var(--cp-red)', fontFamily: 'var(--cb-font-mono)', fontSize: 11,
+            letterSpacing: '0.06em', padding: '6px 20px 0' }}>{saveError}</div>
+        )}
 
         {savedListOpen && (
           <SavedList
@@ -1005,6 +1041,7 @@ export default function BriefingView() {
         closing={capPresence.closing}
         oldest={findOldest(saves)}
         cap={BRIEFING_SAVES_CAP}
+        storageFull={storageFull}
         onConfirm={handleDeleteOldestAndSave}
         onCancel={() => setShowCapPrompt(false)}
       />
