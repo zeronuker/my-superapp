@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { usePresence } from '../useTransitionAnim'
 import * as Flags from 'country-flag-icons/react/3x2'
 import { CURRENCIES, CURRENCY_BY_CODE } from '../data/currencies.js'
@@ -114,49 +115,65 @@ function FlagIcon({ code, size = 22 }) {
 }
 
 // Backdrop + panel wrapper shared by the base-currency picker and the edit-list picker.
+//
 // The search box auto-focuses, and on iPad/iPhone the on-screen keyboard slides
-// over the bottom of the page without resizing it, so the panel is:
-//  - pinned to the TOP of the screen (the keyboard only covers the bottom), and
-//  - inside a window that scrolls on its own, with blank room below the panel,
-//    so the user can drag the whole thing up to bring anything the keyboard
-//    still covers into view. The title + search box (`PICKER_HEAD_STYLE`) stay
-//    stuck to the top while that happens. No keyboard measuring is involved.
-// `resetKey` (the search text) sends the window back to the top when it changes.
-function Overlay({ onClose, closing, resetKey, children }) {
-  const scrollRef = useRef(null)
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0 }, [resetKey])
-  // The page behind stays put while the picker is open.
+// over the bottom of the page without resizing it. A fixed pop-up can't be moved
+// out of its way, so instead the pop-up is part of the PAGE and the whole app
+// scrolls up:
+//  - it is absolutely positioned on the document (via a portal to <body>, which
+//    also keeps it clear of the app's own zoom settings) and opens where the
+//    user tapped, on a dimmed layer covering the whole page;
+//  - once the keyboard is up, the page scrolls so the pop-up sits at the top of
+//    the screen. The layer is made taller than the page, so there is always room
+//    to scroll;
+//  - closing puts the page back exactly where it was.
+// `anchor` = { y, scrollBefore } in document coordinates, captured when it opened.
+// No keyboard measuring is involved.
+const KEYBOARD_SETTLE_MS = 350   // let the keyboard finish sliding up before scrolling
+function Overlay({ onClose, closing, anchor, children }) {
+  const [height, setHeight] = useState(null)
+
+  // Dimmed layer = the page's height + 75% of a screen, so the page can scroll far enough.
+  useLayoutEffect(() => {
+    const size = () => {
+      const page = document.getElementById('root')?.offsetHeight || document.documentElement.scrollHeight
+      setHeight(Math.max(page + window.innerHeight * 0.75, anchor.y + window.innerHeight))
+    }
+    size()
+    window.addEventListener('resize', size)
+    return () => window.removeEventListener('resize', size)
+  }, [anchor.y])
+
+  // Scroll the whole app up to the pop-up once the keyboard is out; put it back on close.
   useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [])
-  return (
+    const lift = () => window.scrollTo({ top: Math.max(0, anchor.y - 12), behavior: 'smooth' })
+    const timer = setTimeout(lift, KEYBOARD_SETTLE_MS)
+    return () => { clearTimeout(timer); window.scrollTo(0, anchor.scrollBefore) }
+  }, [anchor])
+
+  return createPortal(
     <div
-      ref={scrollRef}
       onClick={onClose}
       className={`cp-backdrop-in${closing ? ' is-closing' : ''}`}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
-        overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch',
+        position: 'absolute', top: 0, left: 0, width: '100%', boxSizing: 'border-box', zIndex: 1000,
+        background: 'rgba(0,0,0,0.55)', height: height ?? 'calc(100% + 75vh)',
       }}
     >
-      {/* minHeight: the content is always a little taller than the screen, so there
-          is ~150px of room to drag the panel up. Kept small on purpose — drag it
-          further and the sticky head would scroll away with the panel. */}
-      <div style={{
-        maxWidth: 412, margin: '0 auto', boxSizing: 'border-box', minHeight: 'calc(100% + 150px)',
-        padding: 'max(12px, env(safe-area-inset-top, 0px)) 16px 0',
-      }}>
-        {/* overflow must stay visible here, or the sticky head would not stick */}
-        <div className={`cp-card-bg2 cp-pop-in${closing ? ' is-closing' : ''}`} onClick={e => e.stopPropagation()} style={{
+      <div
+        className={`cp-card-bg2 cp-pop-in${closing ? ' is-closing' : ''}`}
+        onClick={e => e.stopPropagation()}
+        style={{
+          position: 'absolute', top: anchor.y, left: 0, right: 0, marginInline: 'auto',
+          width: 'min(380px, calc(100% - 32px))', boxSizing: 'border-box',
           border: '1px solid var(--cp-border2)', borderRadius: 8,
-          width: '100%', display: 'flex', flexDirection: 'column',
-        }}>
-          {children}
-        </div>
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}
+      >
+        {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -176,16 +193,10 @@ function SearchInput({ value, onChange, placeholder }) {
 }
 
 // The pickers only list a few rows at a time (a short scroll window), not the
-// full currency list. Scroll chaining stays on, so dragging past the end of
-// the list moves the whole window instead (see Overlay).
+// full currency list.
 const PICKER_RESULTS_STYLE = {
   overflowY: 'auto', maxHeight: 'min(30vh, 220px)', padding: '0 6px 8px',
   WebkitOverflowScrolling: 'touch',
-}
-// Title + search box + hint: stuck to the top of the window while it scrolls.
-const PICKER_HEAD_STYLE = {
-  position: 'sticky', top: 0, zIndex: 2, background: 'var(--cp-bg2)',
-  borderRadius: '8px 8px 0 0', boxShadow: '0 1px 0 var(--cp-border2)',
 }
 const PICKER_HINT_STYLE = { margin: '0 12px 6px', fontSize: 11, color: 'var(--cp-dim)', lineHeight: 1.4 }
 const matchCountText = (n) => `${n} ${n === 1 ? 'match' : 'matches'}`
@@ -218,6 +229,8 @@ export default function CurrencyCalculator() {
   // What was selected when each picker opened — the empty-box rows come from
   // this, so a row stays put when it is un-starred / unticked (see currencyPicker.js).
   const [baseBaseline, setBaseBaseline] = useState([])
+  // Where a picker was opened (document coordinates) — see Overlay.
+  const [anchor, setAnchor] = useState({ y: 0, scrollBefore: 0 })
   const [pickerBaseline, setPickerBaseline] = useState([])
 
   const dragIndex = useRef(null)
@@ -291,8 +304,9 @@ export default function CurrencyCalculator() {
     setCurrencyBase(code)
     setBaseOpen(false); setBaseSearch('')
   }
-  const openBasePicker = () => { setBaseBaseline(quickBase); setBaseOpen(true) }
-  const openListPicker = () => { setPickerBaseline(list); setPickerOpen(true) }
+  const anchorTo = (el) => setAnchor({ y: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 8), scrollBefore: window.scrollY })
+  const openBasePicker = (e) => { anchorTo(e.currentTarget); setBaseBaseline(quickBase); setBaseOpen(true) }
+  const openListPicker = (e) => { anchorTo(e.currentTarget); setPickerBaseline(list); setPickerOpen(true) }
 
   const baseMeta = CURRENCY_BY_CODE[base]
   const amountNum = parseFloat(amount)
@@ -439,16 +453,14 @@ export default function CurrencyCalculator() {
       )}
 
       {basePresence.mounted && (
-        <Overlay closing={basePresence.closing} resetKey={baseSearch} onClose={() => { setBaseOpen(false); setBaseSearch('') }}>
-          <div style={PICKER_HEAD_STYLE}>
-            <div className="cp-label" style={{ padding: '12px 12px 0' }}>Select base currency</div>
+        <Overlay closing={basePresence.closing} anchor={anchor} onClose={() => { setBaseOpen(false); setBaseSearch('') }}>
+          <div className="cp-label" style={{ padding: '12px 12px 0' }}>Select base currency</div>
 
-            <SearchInput value={baseSearch} onChange={setBaseSearch} placeholder="Search code or name…" />
-            <div style={PICKER_HINT_STYLE}>
-              {baseSearch.trim()
-                ? matchCountText(baseResults.length)
-                : `Quick-select (${quickBase.length}/${QUICK_BASE_MAX}) — tap ★ to add or remove. Type to search all currencies.`}
-            </div>
+          <SearchInput value={baseSearch} onChange={setBaseSearch} placeholder="Search code or name…" />
+          <div style={PICKER_HINT_STYLE}>
+            {baseSearch.trim()
+              ? matchCountText(baseResults.length)
+              : `Quick-select (${quickBase.length}/${QUICK_BASE_MAX}) — tap ★ to add or remove. Type to search all currencies.`}
           </div>
           <div key={baseSearch} style={PICKER_RESULTS_STYLE}>
             {baseResults.map(c => {
@@ -496,18 +508,16 @@ export default function CurrencyCalculator() {
       )}
 
       {pickerPresence.mounted && (
-        <Overlay closing={pickerPresence.closing} resetKey={pickerSearch} onClose={() => { setPickerOpen(false); setPickerSearch('') }}>
-          <div style={PICKER_HEAD_STYLE}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 0' }}>
-              <div className="cp-label" style={{ margin: 0 }}>Currencies to show ({list.length})</div>
-              <button onClick={() => { setPickerOpen(false); setPickerSearch('') }} className="cp-btn" style={{ padding: '4px 10px', fontSize: 11 }}>Done</button>
-            </div>
-            <SearchInput value={pickerSearch} onChange={setPickerSearch} placeholder="Search code or name…" />
-            <div style={PICKER_HINT_STYLE}>
-              {pickerSearch.trim()
-                ? matchCountText(pickerResults.length)
-                : `Currencies you are showing (${list.length}). Type to search all currencies.`}
-            </div>
+        <Overlay closing={pickerPresence.closing} anchor={anchor} onClose={() => { setPickerOpen(false); setPickerSearch('') }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 0' }}>
+            <div className="cp-label" style={{ margin: 0 }}>Currencies to show ({list.length})</div>
+            <button onClick={() => { setPickerOpen(false); setPickerSearch('') }} className="cp-btn" style={{ padding: '4px 10px', fontSize: 11 }}>Done</button>
+          </div>
+          <SearchInput value={pickerSearch} onChange={setPickerSearch} placeholder="Search code or name…" />
+          <div style={PICKER_HINT_STYLE}>
+            {pickerSearch.trim()
+              ? matchCountText(pickerResults.length)
+              : `Currencies you are showing (${list.length}). Type to search all currencies.`}
           </div>
           <div key={pickerSearch} style={PICKER_RESULTS_STYLE}>
             {pickerResults.map(c => {
