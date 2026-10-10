@@ -114,27 +114,47 @@ function FlagIcon({ code, size = 22 }) {
 }
 
 // Backdrop + panel wrapper shared by the base-currency picker and the edit-list picker.
-// The panel is pinned to the TOP of the screen, not centred: the search box
-// auto-focuses, and on iPad/iPhone the on-screen keyboard slides over the
-// bottom of the page without resizing it, so anything lower down can end up
-// underneath. The top is always visible, with no keyboard measuring needed.
-function Overlay({ onClose, closing, children }) {
+// The search box auto-focuses, and on iPad/iPhone the on-screen keyboard slides
+// over the bottom of the page without resizing it, so the panel is:
+//  - pinned to the TOP of the screen (the keyboard only covers the bottom), and
+//  - inside a window that scrolls on its own, with blank room below the panel,
+//    so the user can drag the whole thing up to bring anything the keyboard
+//    still covers into view. The title + search box (`PICKER_HEAD_STYLE`) stay
+//    stuck to the top while that happens. No keyboard measuring is involved.
+// `resetKey` (the search text) sends the window back to the top when it changes.
+function Overlay({ onClose, closing, resetKey, children }) {
+  const scrollRef = useRef(null)
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0 }, [resetKey])
+  // The page behind stays put while the picker is open.
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
   return (
     <div
+      ref={scrollRef}
       onClick={onClose}
       className={`cp-backdrop-in${closing ? ' is-closing' : ''}`}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        zIndex: 1000, padding: 'max(12px, env(safe-area-inset-top, 0px)) 16px 16px',
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
+        overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch',
       }}
     >
-      <div className={`cp-card-bg2 cp-pop-in${closing ? ' is-closing' : ''}`} onClick={e => e.stopPropagation()} style={{
-        border: '1px solid var(--cp-border2)', borderRadius: 8,
-        width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column',
-        overflow: 'hidden',
+      {/* minHeight: the content is always a little taller than the screen, so there
+          is ~150px of room to drag the panel up. Kept small on purpose — drag it
+          further and the sticky head would scroll away with the panel. */}
+      <div style={{
+        maxWidth: 412, margin: '0 auto', boxSizing: 'border-box', minHeight: 'calc(100% + 150px)',
+        padding: 'max(12px, env(safe-area-inset-top, 0px)) 16px 0',
       }}>
-        {children}
+        {/* overflow must stay visible here, or the sticky head would not stick */}
+        <div className={`cp-card-bg2 cp-pop-in${closing ? ' is-closing' : ''}`} onClick={e => e.stopPropagation()} style={{
+          border: '1px solid var(--cp-border2)', borderRadius: 8,
+          width: '100%', display: 'flex', flexDirection: 'column',
+        }}>
+          {children}
+        </div>
       </div>
     </div>
   )
@@ -155,11 +175,17 @@ function SearchInput({ value, onChange, placeholder }) {
   )
 }
 
-// The pickers only list a few rows at a time (a short scroll window), so the
-// whole panel always fits above the on-screen keyboard.
+// The pickers only list a few rows at a time (a short scroll window), not the
+// full currency list. Scroll chaining stays on, so dragging past the end of
+// the list moves the whole window instead (see Overlay).
 const PICKER_RESULTS_STYLE = {
   overflowY: 'auto', maxHeight: 'min(30vh, 220px)', padding: '0 6px 8px',
-  overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch',
+  WebkitOverflowScrolling: 'touch',
+}
+// Title + search box + hint: stuck to the top of the window while it scrolls.
+const PICKER_HEAD_STYLE = {
+  position: 'sticky', top: 0, zIndex: 2, background: 'var(--cp-bg2)',
+  borderRadius: '8px 8px 0 0', boxShadow: '0 1px 0 var(--cp-border2)',
 }
 const PICKER_HINT_STYLE = { margin: '0 12px 6px', fontSize: 11, color: 'var(--cp-dim)', lineHeight: 1.4 }
 const matchCountText = (n) => `${n} ${n === 1 ? 'match' : 'matches'}`
@@ -413,16 +439,18 @@ export default function CurrencyCalculator() {
       )}
 
       {basePresence.mounted && (
-        <Overlay closing={basePresence.closing} onClose={() => { setBaseOpen(false); setBaseSearch('') }}>
-          <div className="cp-label" style={{ padding: '12px 12px 0' }}>Select base currency</div>
+        <Overlay closing={basePresence.closing} resetKey={baseSearch} onClose={() => { setBaseOpen(false); setBaseSearch('') }}>
+          <div style={PICKER_HEAD_STYLE}>
+            <div className="cp-label" style={{ padding: '12px 12px 0' }}>Select base currency</div>
 
-          <SearchInput value={baseSearch} onChange={setBaseSearch} placeholder="Search code or name…" />
-          <div style={PICKER_HINT_STYLE}>
-            {baseSearch.trim()
-              ? matchCountText(baseResults.length)
-              : `Quick-select (${quickBase.length}/${QUICK_BASE_MAX}) — tap ★ to add or remove. Type to search all currencies.`}
+            <SearchInput value={baseSearch} onChange={setBaseSearch} placeholder="Search code or name…" />
+            <div style={PICKER_HINT_STYLE}>
+              {baseSearch.trim()
+                ? matchCountText(baseResults.length)
+                : `Quick-select (${quickBase.length}/${QUICK_BASE_MAX}) — tap ★ to add or remove. Type to search all currencies.`}
+            </div>
           </div>
-          <div style={PICKER_RESULTS_STYLE}>
+          <div key={baseSearch} style={PICKER_RESULTS_STYLE}>
             {baseResults.map(c => {
               const isQuick = quickBase.includes(c.code)
               const quickDisabled = !isQuick && quickBase.length >= QUICK_BASE_MAX
@@ -468,18 +496,20 @@ export default function CurrencyCalculator() {
       )}
 
       {pickerPresence.mounted && (
-        <Overlay closing={pickerPresence.closing} onClose={() => { setPickerOpen(false); setPickerSearch('') }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 0' }}>
-            <div className="cp-label" style={{ margin: 0 }}>Currencies to show ({list.length})</div>
-            <button onClick={() => { setPickerOpen(false); setPickerSearch('') }} className="cp-btn" style={{ padding: '4px 10px', fontSize: 11 }}>Done</button>
+        <Overlay closing={pickerPresence.closing} resetKey={pickerSearch} onClose={() => { setPickerOpen(false); setPickerSearch('') }}>
+          <div style={PICKER_HEAD_STYLE}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 12px 0' }}>
+              <div className="cp-label" style={{ margin: 0 }}>Currencies to show ({list.length})</div>
+              <button onClick={() => { setPickerOpen(false); setPickerSearch('') }} className="cp-btn" style={{ padding: '4px 10px', fontSize: 11 }}>Done</button>
+            </div>
+            <SearchInput value={pickerSearch} onChange={setPickerSearch} placeholder="Search code or name…" />
+            <div style={PICKER_HINT_STYLE}>
+              {pickerSearch.trim()
+                ? matchCountText(pickerResults.length)
+                : `Currencies you are showing (${list.length}). Type to search all currencies.`}
+            </div>
           </div>
-          <SearchInput value={pickerSearch} onChange={setPickerSearch} placeholder="Search code or name…" />
-          <div style={PICKER_HINT_STYLE}>
-            {pickerSearch.trim()
-              ? matchCountText(pickerResults.length)
-              : `Currencies you are showing (${list.length}). Type to search all currencies.`}
-          </div>
-          <div style={PICKER_RESULTS_STYLE}>
+          <div key={pickerSearch} style={PICKER_RESULTS_STYLE}>
             {pickerResults.map(c => {
               const checked = list.includes(c.code)
               return (
