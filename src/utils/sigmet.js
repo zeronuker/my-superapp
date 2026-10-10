@@ -43,6 +43,20 @@ export function normalizeSigmet(raw) {
   }
 }
 
+/**
+ * Turn validFrom/validTo back into Date objects. Anything that went through a
+ * JSON round-trip (localStorage caches, Saved Briefings stored before they
+ * moved to IndexedDB) has them as ISO strings, which breaks expiry checks and
+ * time formatting. Safe to call on already-live Dates.
+ */
+export function reviveSigmets(sigmets) {
+  return (sigmets || []).map(s => ({
+    ...s,
+    validFrom: s.validFrom ? new Date(s.validFrom) : null,
+    validTo: s.validTo ? new Date(s.validTo) : null,
+  }))
+}
+
 /** Filter a normalized SIGMET list down to the FIRs in `firIds` (a Set of uppercase codes). */
 export function filterSigmetsByFir(sigmets, firIds) {
   if (!firIds?.size) return []

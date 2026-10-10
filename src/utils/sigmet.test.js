@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeSigmet, filterSigmetsByFir, fmtHazard, hazardColor, fmtSigmetAlt, fmtSigmetTime } from './sigmet'
+import { normalizeSigmet, filterSigmetsByFir, reviveSigmets, fmtHazard, hazardColor, fmtSigmetAlt, fmtSigmetTime } from './sigmet'
 
 // Shape confirmed against a live /isigmet response (aviationweather.gov,
 // 10 Jul 2026) — including a real Malaysia-region entry.
@@ -74,4 +74,36 @@ describe('fmtSigmetAlt', () => {
 describe('fmtSigmetTime', () => {
   it('formats a Date as HHMMZ', () => { expect(fmtSigmetTime(new Date(Date.UTC(2026, 6, 10, 3, 0)))).toBe('0300Z') })
   it('returns null for missing time', () => { expect(fmtSigmetTime(null)).toBeNull() })
+})
+
+describe('reviveSigmets', () => {
+  it('turns JSON-round-tripped ISO strings back into Dates (the old Saved Briefings case)', () => {
+    const stored = JSON.parse(JSON.stringify([normalizeSigmet(RAW_WMKK)]))
+    expect(typeof stored[0].validTo).toBe('string')
+    const [s] = reviveSigmets(stored)
+    expect(s.validFrom).toBeInstanceOf(Date)
+    expect(s.validTo).toBeInstanceOf(Date)
+    expect(s.validTo.getTime()).toBe(RAW_WMKK.validTimeTo * 1000)
+    expect(fmtSigmetTime(s.validTo)).toBe(fmtSigmetTime(new Date(RAW_WMKK.validTimeTo * 1000)))
+  })
+  it('keeps already-live Dates (and the same moment in time)', () => {
+    const live = [normalizeSigmet(RAW_WMKK)]
+    const [s] = reviveSigmets(live)
+    expect(s.validTo).toBeInstanceOf(Date)
+    expect(s.validTo.getTime()).toBe(live[0].validTo.getTime())
+  })
+  it('leaves missing times as null and keeps every other field', () => {
+    const [s] = reviveSigmets([{ hazard: 'TS', validFrom: null, validTo: undefined, raw: 'X' }])
+    expect(s.validFrom).toBeNull()
+    expect(s.validTo).toBeNull()
+    expect(s.hazard).toBe('TS')
+    expect(s.raw).toBe('X')
+  })
+  it('returns [] for undefined / null input and does not mutate the input', () => {
+    expect(reviveSigmets(undefined)).toEqual([])
+    expect(reviveSigmets(null)).toEqual([])
+    const stored = [{ validTo: '2026-10-10T06:00:00.000Z' }]
+    reviveSigmets(stored)
+    expect(typeof stored[0].validTo).toBe('string')
+  })
 })

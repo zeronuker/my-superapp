@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { icaoToFir } from '../data/firLookup'
 import { autoDetectFirs } from '../services/notamAPI'
-import { filterSigmetsByFir } from '../utils/sigmet'
+import { filterSigmetsByFir, reviveSigmets } from '../utils/sigmet'
 import { fetchAllSigmets } from '../services/sigmetAPI'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import ResetButton from './ResetButton'
@@ -37,16 +37,6 @@ function SectionHeader({ title }) {
 }
 
 const upper = s => s.toUpperCase()
-
-// JSON round-tripping through localStorage turns validFrom/validTo Date
-// objects into strings — revive them so expiry checks keep working.
-function reviveSigmets(sigmets) {
-  return (sigmets || []).map(s => ({
-    ...s,
-    validFrom: s.validFrom ? new Date(s.validFrom) : null,
-    validTo: s.validTo ? new Date(s.validTo) : null,
-  }))
-}
 
 export default function SigmetViewer() {
   const { briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(useShallow(s => ({

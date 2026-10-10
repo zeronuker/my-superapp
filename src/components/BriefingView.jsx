@@ -11,7 +11,7 @@ import {
   getMetarFlightCat, getWindSev, tokenizeRaw, parseTafSegments,
   getRoleStyle,
 } from '../utils/metarSeverity'
-import { filterSigmetsByFir } from '../utils/sigmet'
+import { filterSigmetsByFir, reviveSigmets } from '../utils/sigmet'
 import { autoBriefingName, findOldest, isAtCap } from '../utils/savedBriefings'
 import { BRIEFING_SAVES_CAP } from '../store/calculatorStore'
 import SigmetCard from './SigmetCard'
@@ -760,7 +760,9 @@ export default function BriefingView() {
 
   const airports = data?.airports || []
   const notamsByIcao = data?.notamsByIcao || {}
-  const sigmets = data?.sigmets || []
+  // Briefings saved before the move to IndexedDB have validFrom/validTo as
+  // strings (JSON round-trip) — revive them or SigmetCard throws.
+  const sigmets = reviveSigmets(data?.sigmets)
   const firsUsed = data?.firsUsed || []
   const fetchedAt = data?.fetchedAt || null
 
