@@ -112,21 +112,47 @@ function FlagIcon({ code, size = 22 }) {
   )
 }
 
+// The part of the screen that is actually visible. On iPad/iPhone the on-screen
+// keyboard does NOT shrink the page — it slides over its bottom — so a fixed,
+// centred panel sized to the full screen ends up partly underneath it.
+// visualViewport is the visible rectangle (in layout-viewport coordinates), so
+// the Overlay below sizes itself to that instead. Null where unsupported, in
+// which case Overlay behaves exactly as before.
+function useVisibleArea() {
+  const [area, setArea] = useState(null)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => setArea({ top: vv.offsetTop, left: vv.offsetLeft, width: vv.width, height: vv.height })
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
+  return area
+}
+
 // Backdrop + panel wrapper shared by the base-currency picker and the edit-list picker
 function Overlay({ onClose, closing, children }) {
+  const area = useVisibleArea()
   return (
     <div
       onClick={onClose}
       className={`cp-backdrop-in${closing ? ' is-closing' : ''}`}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+        position: 'fixed',
+        ...(area ? { top: area.top, left: area.left, width: area.width, height: area.height } : { inset: 0 }),
+        background: 'rgba(0,0,0,0.55)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1000, padding: 16,
+        zIndex: 1000, padding: 16, boxSizing: 'border-box',
       }}
     >
       <div className={`cp-card-bg2 cp-pop-in${closing ? ' is-closing' : ''}`} onClick={e => e.stopPropagation()} style={{
         border: '1px solid var(--cp-border2)', borderRadius: 8,
-        width: '100%', maxWidth: 380, maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+        width: '100%', maxWidth: 380, maxHeight: 'min(80vh, 100%)', display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
       }}>
         {children}
