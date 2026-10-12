@@ -370,7 +370,7 @@ input[type="number"] { -moz-appearance: textfield; }
   .cp-anim-slide { animation: cpAnimSlide var(--cp-dur) cubic-bezier(.22,.8,.3,1) both; }
   .cp-anim-rise  { animation: cpAnimRise var(--cp-dur) cubic-bezier(.22,.8,.3,1) both; }
   .cp-launch-in  { animation: cpFadeIn var(--cp-dur) ease both; }
-  .cp-drop-in { animation: cpDropIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-drop-in { animation: cpDropIn var(--cp-dur) cubic-bezier(.4,0,.2,1) backwards; }
   .cp-drop-in.is-closing { animation: cpDropOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
   .cp-pill-in { animation: cpPillIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
   .cp-pill-in.is-closing { animation: cpPillOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
@@ -388,8 +388,14 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 .cp-collapse[data-open="true"] { grid-template-rows: 1fr; opacity: 1; }
 .cp-collapse[data-open="false"] { pointer-events: none; }
-.cp-collapse-inner { overflow: hidden; min-height: 0; }
-@media (prefers-reduced-motion: reduce) { .cp-collapse { transition: none; } }
+.cp-collapse-inner { overflow: hidden; min-height: 0; min-width: 0; }
+/* Horizontal variant: a field beside a switch grows from 0 to its width. */
+.cp-collapse.cp-collapse-x {
+  grid-template-rows: auto; grid-template-columns: 0fr;
+  transition: grid-template-columns var(--cp-dur) cubic-bezier(.4,0,.2,1), opacity var(--cp-dur) ease;
+}
+.cp-collapse.cp-collapse-x[data-open="true"] { grid-template-rows: auto; grid-template-columns: 1fr; }
+@media (prefers-reduced-motion: reduce) { .cp-collapse, .cp-collapse.cp-collapse-x { transition: none; } }
 .is-closing { pointer-events: none; }
 
 /* ── Reduce motion (set from App.jsx: animations off, or the device's Reduce

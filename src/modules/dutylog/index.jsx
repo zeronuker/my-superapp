@@ -108,6 +108,7 @@ export default function DutyLogModule({ onOpenSettings, animStyle }) {
           onOpenSettings={onOpenSettings}
           onView={viewLogs}
           onImport={handleImport}
+          animStyle={animStyle}
           viewCodeHistory={viewCodeHistory}
           onAddViewCode={addViewCode}
           onRemoveViewCode={removeViewCode}

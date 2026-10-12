@@ -437,14 +437,16 @@ export default function FTLCalculator() {
                 value={crewCat} onChange={v => setFTLField({ crewCat: v })}
               />
             </Row>
-            {crewCat === 'flight' && (
-              <Row label="TYPE">
-                <Seg
-                  options={[{ value: '2crew', label: '2+ CREW' }, { value: 'single', label: 'SINGLE' }]}
-                  value={crewType} onChange={handleCrewTypeChange}
-                />
-              </Row>
-            )}
+            <Collapse open={crewCat === 'flight'}>
+              {crewCat === 'flight' && (
+                <Row label="TYPE">
+                  <Seg
+                    options={[{ value: '2crew', label: '2+ CREW' }, { value: 'single', label: 'SINGLE' }]}
+                    value={crewType} onChange={handleCrewTypeChange}
+                  />
+                </Row>
+              )}
+            </Collapse>
             <Row label="ACCLIMATISED" note={effectiveCrew === 'single' ? 'CAD 1901 defines no Not-Acclimatised table for single-pilot ops' : undefined}>
               <Seg
                 options={[
@@ -473,24 +475,26 @@ export default function FTLCalculator() {
                 maxLength={5}
               />
             </Row>
-            {crewCat === 'cabin' && (
-              <Row label="CABIN REPORTS SEPARATELY" note={diffCabinTime ? 'Enter the flight crew\'s report time in REPORT TIME above (sets the FDP limit) and your own report time here (starts your FDP clock) — Ch. 2.21.2a' : undefined}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <Seg
-                    options={[{ value: false, label: 'NO' }, { value: true, label: 'YES' }]}
-                    value={diffCabinTime} onChange={v => setFTLField({ diffCabinTime: v })}
-                  />
-                  {diffCabinTime && (
-                    <input type="text" placeholder="HH:MM"
-                      inputMode="numeric" pattern="[0-9]*"
-                      value={cabinReportTime} onChange={e => setFTLField({ cabinReportTime: e.target.value })}
-                      onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ cabinReportTime: n }) }}
-                      style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
+            <Collapse open={crewCat === 'cabin'}>
+              {crewCat === 'cabin' && (
+                <Row label="CABIN REPORTS SEPARATELY" note={diffCabinTime ? 'Enter the flight crew\'s report time in REPORT TIME above (sets the FDP limit) and your own report time here (starts your FDP clock) — Ch. 2.21.2a' : undefined}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Seg
+                      options={[{ value: false, label: 'NO' }, { value: true, label: 'YES' }]}
+                      value={diffCabinTime} onChange={v => setFTLField({ diffCabinTime: v })}
                     />
-                  )}
-                </div>
-              </Row>
-            )}
+                    <Collapse open={diffCabinTime} horizontal style={{ flexShrink: 0 }}>
+                      <input type="text" placeholder="HH:MM"
+                        inputMode="numeric" pattern="[0-9]*"
+                        value={cabinReportTime} onChange={e => setFTLField({ cabinReportTime: e.target.value })}
+                        onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ cabinReportTime: n }) }}
+                        style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
+                      />
+                    </Collapse>
+                  </div>
+                </Row>
+              )}
+            </Collapse>
             <Row label="SECTORS">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <button className="cp-btn" style={{ padding: '4px 12px', fontSize: 16, lineHeight: 1 }}
@@ -502,24 +506,26 @@ export default function FTLCalculator() {
                   onClick={() => setFTLField({ sectors: Math.min(maxSectors, sectors + 1) })}>+</button>
               </div>
             </Row>
-            {crewCat === 'flight' && crewType === '2crew' && (
-              <Row label="LONG RANGE" note={longRange ? 'Duration of longest individual sector (Ch. 2.11)' : undefined}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <Seg
-                    options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
-                    value={longRange} onChange={v => setFTLField({ longRange: v })}
-                  />
-                  {longRange && (
-                    <input type="text" placeholder="H:MM"
-                      inputMode="numeric" pattern="[0-9]*"
-                      value={longestSector} onChange={e => setFTLField({ longestSector: e.target.value })}
-                      onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ longestSector: fmtDur(m) }) }}
-                      style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
+            <Collapse open={crewCat === 'flight' && crewType === '2crew'}>
+              {crewCat === 'flight' && crewType === '2crew' && (
+                <Row label="LONG RANGE" note={longRange ? 'Duration of longest individual sector (Ch. 2.11)' : undefined}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Seg
+                      options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
+                      value={longRange} onChange={v => setFTLField({ longRange: v })}
                     />
-                  )}
-                </div>
-              </Row>
-            )}
+                    <Collapse open={longRange} horizontal style={{ flexShrink: 0 }}>
+                      <input type="text" placeholder="H:MM"
+                        inputMode="numeric" pattern="[0-9]*"
+                        value={longestSector} onChange={e => setFTLField({ longestSector: e.target.value })}
+                        onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ longestSector: fmtDur(m) }) }}
+                        style={{ ...inp, width: 80, textAlign: 'center' }} maxLength={5}
+                      />
+                    </Collapse>
+                  </div>
+                </Row>
+              )}
+            </Collapse>
 
             {/* Timezone conversion — display only, does not affect the FDP
                 calculation. FDP stays anchored to local time at the
@@ -531,22 +537,24 @@ export default function FTLCalculator() {
               <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
                 value={tzConvert} onChange={v => setFTLField({ tzConvert: v })} />
             </Row>
-            {tzConvert && (
-              <>
-                <Row label="REPORTING STATION" note="e.g. +04:00">
-                  <UtcOffsetInput value={stationOffset}
-                    onChange={e => setFTLField({ stationOffset: e.target.value })}
-                    onBlur={e => { const m = parseOffset(e.target.value); if (m != null) setFTLField({ stationOffset: fmtOffset(m) }) }}
-                  />
-                </Row>
-                <Row label="WHERE YOU ARE NOW" note="Conversion only — read off your EFB or phone clock">
-                  <UtcOffsetInput value={hereOffset}
-                    onChange={e => setFTLField({ hereOffset: e.target.value })}
-                    onBlur={e => { const m = parseOffset(e.target.value); if (m != null) setFTLField({ hereOffset: fmtOffset(m) }) }}
-                  />
-                </Row>
-              </>
-            )}
+            <Collapse open={tzConvert}>
+              {tzConvert && (
+                <>
+                  <Row label="REPORTING STATION" note="e.g. +04:00">
+                    <UtcOffsetInput value={stationOffset}
+                      onChange={e => setFTLField({ stationOffset: e.target.value })}
+                      onBlur={e => { const m = parseOffset(e.target.value); if (m != null) setFTLField({ stationOffset: fmtOffset(m) }) }}
+                    />
+                  </Row>
+                  <Row label="WHERE YOU ARE NOW" note="Conversion only — read off your EFB or phone clock">
+                    <UtcOffsetInput value={hereOffset}
+                      onChange={e => setFTLField({ hereOffset: e.target.value })}
+                      onBlur={e => { const m = parseOffset(e.target.value); if (m != null) setFTLField({ hereOffset: fmtOffset(m) }) }}
+                    />
+                  </Row>
+                </>
+              )}
+            </Collapse>
           </Section>
 
           {/* Delayed reporting — Ch. 2.7. Mutually exclusive with Positioning.
@@ -646,25 +654,26 @@ export default function FTLCalculator() {
                     value={standbyLocation} onChange={v => setFTLField({ standbyLocation: v })}
                   />
                 </Row>
-                {standbyLocation === 'airport' && (
+                <Collapse open={standbyLocation === 'airport'}>
                   <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', lineHeight: 1.6, paddingBottom: 4 }}>
                     Immediate readiness — FDP based on standby start time, unless the actual FDP starts in a more limiting time band (Ch. 2.9.1, 2.9.2)
                   </div>
-                )}
-                {standbyLocation === 'home' && (
+                </Collapse>
+                <Collapse open={standbyLocation === 'home'}>
                   <Row label="SHORT NOTICE" note="≤2h notice, standby during 2200–0800 — skips standby-start band (Ch. 2.9.1 exception)">
                     <Seg
                       options={[{ value: false, label: 'NO' }, { value: true, label: 'YES' }]}
                       value={homeShortNotice} onChange={v => setFTLField({ homeShortNotice: v })}
                     />
                   </Row>
-                )}
+                </Collapse>
               </>
             )}
             </Collapse>
           </Section>
 
           {/* In-flight relief — 2+ crew only */}
+          <Collapse open={effectiveCrew === '2crew'}>
           {effectiveCrew === '2crew' && (
             <Section title="IN-FLIGHT RELIEF" toggle={
               <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
@@ -695,6 +704,7 @@ export default function FTLCalculator() {
               </Collapse>
             </Section>
           )}
+          </Collapse>
 
           {/* Reduced preceding rest — gates split duty (2.13.4) and PIC discretion (2.15.3/2.15.4) below */}
           <Section title="REDUCED PRECEDING REST" toggle={

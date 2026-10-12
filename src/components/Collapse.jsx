@@ -8,7 +8,9 @@ import { animDurationMs } from '../useTransitionAnim'
 // it mounts and unmounts instantly. While closing it keeps showing the last
 // content it had when open, so a panel whose data is cleared (a message, a
 // prompt) still fades out with its text instead of collapsing empty.
-export default function Collapse({ open, children, style }) {
+// `horizontal` grows/shrinks the width instead (for a field that sits beside
+// a switch in a flex row).
+export default function Collapse({ open, children, style, horizontal = false }) {
   const [mounted, setMounted] = useState(open)
   const [expanded, setExpanded] = useState(open)
   const lastOpenChildren = useRef(children)
@@ -31,7 +33,7 @@ export default function Collapse({ open, children, style }) {
 
   if (!mounted && !open) return null
   return (
-    <div className="cp-collapse" data-open={expanded} style={style}>
+    <div className={`cp-collapse${horizontal ? ' cp-collapse-x' : ''}`} data-open={expanded} style={style}>
       <div className="cp-collapse-inner">{open ? children : lastOpenChildren.current}</div>
     </div>
   )

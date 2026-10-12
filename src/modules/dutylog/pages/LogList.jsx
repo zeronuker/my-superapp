@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { usePresence } from '../../../useTransitionAnim'
+import { usePresence, useTransitionAnim } from '../../../useTransitionAnim'
 import Collapse from '../../../components/Collapse'
 import QrScanner from '../components/QrScanner'
 import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
@@ -479,6 +479,7 @@ export default function LogList({
   syncPromptId, onDismissSyncPrompt, onOpenSettings,
   onView, onImport,
   viewCodeHistory, onAddViewCode, onRemoveViewCode,
+  animStyle,
 }) {
   const [expanded, setExpanded] = useState(() => new Set())
   const toggle = (key) => setExpanded(prev => {
@@ -501,6 +502,8 @@ export default function LogList({
   const [importBusy, setImportBusy] = useState(false)
   const [importError, setImportError] = useState('')
   const [openViewedLog, setOpenViewedLog] = useState(null)
+  // Viewed list ↔ one log's detail: forward into the detail, back out to the list.
+  const viewedAnim = useTransitionAnim(openViewedLog ? 'detail' : 'list', ['list', 'detail'], animStyle)
   const [scanning, setScanning] = useState(false)
   const scanPresence = usePresence(scanning)
 
@@ -788,15 +791,16 @@ export default function LogList({
         <QrScanner onResult={handleScanResult} onClose={() => setScanning(false)} closing={scanPresence.closing} />
       )}
 
-      {viewBusy && (
+      <Collapse open={viewBusy}>
         <div style={{ marginTop: 14, border: '1px solid var(--cp-border)', borderRadius: 6, padding: 12 }}>
           <ScanViewfinderLoader code={pendingCode} />
         </div>
-      )}
+      </Collapse>
 
       <Collapse open={!viewBusy && !!viewedCode}>
       {!viewBusy && viewedCode && (
         <div style={{ marginTop: 14, border: '1px solid var(--cp-border)', borderRadius: 6, padding: 12 }}>
+          <div key={openViewedLog ? 'detail' : 'list'} className={viewedAnim.className} style={viewedAnim.style}>
           {openViewedLog ? (
             <ViewedLogDetail log={openViewedLog} onBack={() => setOpenViewedLog(null)} />
           ) : (
@@ -846,6 +850,7 @@ export default function LogList({
               </Collapse>
             </>
           )}
+          </div>
         </div>
       )}
       </Collapse>
