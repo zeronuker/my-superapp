@@ -185,7 +185,7 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>Airport OAT (°C)</div>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={goAround.oat}
                   onChange={e => setGoAroundField({ oat: e.target.value })}
                   placeholder="e.g. 30"
@@ -195,7 +195,7 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>Pressure Altitude (ft)</div>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={goAround.pressureAltitude}
                   onChange={e => setGoAroundField({ pressureAltitude: e.target.value })}
                   placeholder="e.g. 0"
@@ -206,6 +206,7 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
                 <div className="cp-label" style={{ marginBottom: 6 }}>Landing Weight</div>
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={weightDisplay}
                   onChange={e => {
                     setWeightDisplay(e.target.value)

@@ -239,7 +239,7 @@ export default function InterpolationCalculator() {
                   <th key={ci} style={{ minWidth: 90, borderLeft: S.colBorder(ci), background: isColActive(ci) ? 'rgba(79,195,247,0.08)' : undefined }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '2px 4px' }}>
                       <input
-                        type="number"
+                        type="number" inputMode="decimal"
                         value={z}
                         onChange={e => updateZ(ci, e.target.value)}
                         placeholder="Column Header Value"
@@ -267,12 +267,12 @@ export default function InterpolationCalculator() {
                 <tr key={ri} style={{ background: S.rowBg(ri), borderBottom: '1px solid var(--cp-border3)' }}>
                   <td style={{ textAlign: 'center', color: 'var(--cp-dim)', fontSize: 11, padding: '0 6px' }}>{ri + 1}</td>
                   <td>
-                    <input type="number" value={row.x} onChange={e => updateX(ri, e.target.value)} placeholder="Row Header Value"
+                    <input type="number" inputMode="decimal" value={row.x} onChange={e => updateX(ri, e.target.value)} placeholder="Row Header Value"
                       style={{ ...S.cellInputBox(isRowActive(ri)), color: S.cellText(ri, -1), fontFamily: "var(--cb-font-mono)", fontSize: 13, textAlign: 'center', width: '100%', padding: '6px 4px', outline: 'none' }} />
                   </td>
                   {zValues.map((_, ci) => (
                     <td key={ci} style={{ borderLeft: S.colBorder(ci), background: S.colBg(ci) }}>
-                      <input type="number" value={row.ys[ci] ?? ''} onChange={e => updateCell(ri, ci, e.target.value)} placeholder="Cell Value"
+                      <input type="number" inputMode="decimal" value={row.ys[ci] ?? ''} onChange={e => updateCell(ri, ci, e.target.value)} placeholder="Cell Value"
                         style={{ ...S.cellInputBox(isRowActive(ri) || isColActive(ci)), color: S.cellText(ri, ci), fontFamily: "var(--cb-font-mono)", fontSize: 13, textAlign: 'center', width: '100%', padding: '6px 4px', outline: 'none' }} />
                     </td>
                   ))}
@@ -326,7 +326,7 @@ export default function InterpolationCalculator() {
             <div key={i}>
               <div className="cp-label" style={{ marginBottom: 6 }}>{f.label}</div>
               <input
-                type="number"
+                type="number" inputMode="decimal"
                 value={f.value}
                 onChange={e => f.onChange(e.target.value)}
                 placeholder={f.placeholder}

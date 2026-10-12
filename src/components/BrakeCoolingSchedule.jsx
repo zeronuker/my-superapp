@@ -213,6 +213,7 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
                 <div className="cp-label" style={{ marginBottom: 6 }}>Aircraft Weight</div>
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={weightDisplay}
                   onChange={e => {
                     setWeightDisplay(e.target.value)
@@ -236,7 +237,7 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>OAT (°C)</div>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={bc.oat}
                   onChange={e => setBrakeCoolingField({ oat: e.target.value })}
                   placeholder="e.g. 15"
@@ -246,7 +247,7 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>Pressure Altitude (ft)</div>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={bc.pressureAltitude}
                   onChange={e => setBrakeCoolingField({ pressureAltitude: e.target.value })}
                   placeholder="e.g. 0"
@@ -256,7 +257,7 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>Brakes-On Speed (KIAS)</div>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={bc.speed}
                   onChange={e => setBrakeCoolingField({ speed: e.target.value })}
                   placeholder="e.g. 130"
@@ -266,7 +267,7 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>Wind Component (kt · + headwind / − tailwind)</div>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={bc.windComponent}
                   onChange={e => setBrakeCoolingField({ windComponent: e.target.value })}
                   placeholder="e.g. 0"
@@ -302,7 +303,7 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
                 <div>
                   <div className="cp-label" style={{ marginBottom: 6 }}>Residual Energy (millions ft-lb/brake)</div>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal"
                     value={bc.residualEnergy}
                     onChange={e => setBrakeCoolingField({ residualEnergy: e.target.value })}
                     placeholder="e.g. 0 — from a prior stop"
@@ -312,7 +313,7 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
                 <div>
                   <div className="cp-label" style={{ marginBottom: 6 }}>Taxi Distance Since Last Stop (miles)</div>
                   <input
-                    type="number"
+                    type="number" inputMode="decimal"
                     value={bc.taxiDistance}
                     onChange={e => setBrakeCoolingField({ taxiDistance: e.target.value })}
                     placeholder="e.g. 0"

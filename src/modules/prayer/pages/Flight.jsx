@@ -64,7 +64,7 @@ function Section({ title, children }) {
   )
 }
 
-function Field({ label, value, onChange, placeholder, unit, type = 'text', hint, error: fieldError, inlineSuffix }) {
+function Field({ label, value, onChange, placeholder, unit, type = 'text', inputMode, hint, error: fieldError, inlineSuffix }) {
   return (
     <div style={{ minWidth: 0 }}>
       <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
@@ -73,7 +73,7 @@ function Field({ label, value, onChange, placeholder, unit, type = 'text', hint,
         <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
           <input
             type={inlineSuffix ? 'text' : type}
-            inputMode={type === 'number' || inlineSuffix ? 'decimal' : undefined}
+            inputMode={inputMode ?? (type === 'number' || inlineSuffix ? 'decimal' : undefined)}
             value={value}
             onChange={e => onChange(
               inlineSuffix
@@ -607,9 +607,9 @@ export default function FlightPage({ settings }) {
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, minWidth: 0 }}>
               <Field label="DEP TIME (ETD)" value={depTime} onChange={v => setInputs({ depTime: v })}
-                placeholder="0930" hint="HH:MM" />
+                placeholder="0930" hint="HH:MM" inputMode="decimal" />
               <Field label="ARR TIME (ETA)" value={arrTime} onChange={v => setInputs({ arrTime: v })}
-                placeholder="1730" hint="HH:MM" />
+                placeholder="1730" hint="HH:MM" inputMode="decimal" />
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {[['utc', 'UTC / ZULU'], ['local', 'LOCAL']].map(([id, label]) => (

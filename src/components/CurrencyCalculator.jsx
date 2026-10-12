@@ -322,7 +322,7 @@ export default function CurrencyCalculator() {
       <div>
         <div className="cp-label" style={{ marginBottom: 6 }}>Amount</div>
         <input
-          type="number"
+          type="number" inputMode="decimal"
           value={amount}
           onChange={e => setCurrencyAmount(e.target.value)}
           placeholder="Enter amount"

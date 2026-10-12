@@ -161,6 +161,7 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
                 <div className="cp-label" style={{ marginBottom: 6 }}>Landing Weight</div>
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={weightDisplay}
                   onChange={e => {
                     setWeightDisplay(e.target.value)
@@ -184,7 +185,7 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>Airport OAT (°C)</div>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={quickTurnaround.oat}
                   onChange={e => setQuickTurnaroundField({ oat: e.target.value })}
                   placeholder="e.g. 30"
@@ -194,7 +195,7 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>Pressure Altitude (ft)</div>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={quickTurnaround.pressureAltitude}
                   onChange={e => setQuickTurnaroundField({ pressureAltitude: e.target.value })}
                   placeholder="e.g. 0"
@@ -204,7 +205,7 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>Runway Slope (% · + uphill / − downhill)</div>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={quickTurnaround.slopePercent}
                   onChange={e => setQuickTurnaroundField({ slopePercent: e.target.value })}
                   placeholder="e.g. 0"
@@ -214,7 +215,7 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>Wind Component (kt · + headwind / − tailwind)</div>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={quickTurnaround.windComponent}
                   onChange={e => setQuickTurnaroundField({ windComponent: e.target.value })}
                   placeholder="e.g. 0"

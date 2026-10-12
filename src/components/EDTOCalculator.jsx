@@ -250,6 +250,7 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
                 <div className="cp-label" style={{ marginBottom: 6 }}>Aircraft Weight</div>
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={weightDisplay}
                   onChange={e => {
                     setWeightDisplay(e.target.value)
@@ -282,7 +283,7 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>ISA Deviation (°C)</div>
                 <input
-                  type="number"
+                  type="number" inputMode="decimal"
                   value={edto.isaDeviation}
                   onChange={e => setEDTOIsaDeviation(e.target.value)}
                   placeholder="e.g. 15"
