@@ -371,10 +371,12 @@ input[type="number"] { -moz-appearance: textfield; }
   .cp-anim-rise  { animation: cpAnimRise var(--cp-dur) cubic-bezier(.22,.8,.3,1) both; }
   .cp-launch-in  { animation: cpFadeIn var(--cp-dur) ease both; }
   .cp-drop-in { animation: cpDropIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-drop-in.is-closing { animation: cpDropOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
   .cp-pill-in { animation: cpPillIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
   .cp-pill-in.is-closing { animation: cpPillOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
 }
 @keyframes cpDropIn  { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes cpDropOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-8px); } }
 @keyframes cpPillIn  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes cpPillOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(14px); } }
 
@@ -385,6 +387,7 @@ input[type="number"] { -moz-appearance: textfield; }
   transition: grid-template-rows var(--cp-dur) cubic-bezier(.4,0,.2,1), opacity var(--cp-dur) ease;
 }
 .cp-collapse[data-open="true"] { grid-template-rows: 1fr; opacity: 1; }
+.cp-collapse[data-open="false"] { pointer-events: none; }
 .cp-collapse-inner { overflow: hidden; min-height: 0; }
 @media (prefers-reduced-motion: reduce) { .cp-collapse { transition: none; } }
 .is-closing { pointer-events: none; }

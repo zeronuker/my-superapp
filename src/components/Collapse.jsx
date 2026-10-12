@@ -1,14 +1,18 @@
-import { useLayoutEffect, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { animDurationMs } from '../useTransitionAnim'
 
 // Animated expand / collapse for inline panels (accordions, dropdown lists).
 // Slides the height open and closed with a fade — via a grid row going between
 // 0fr and 1fr, which works for content of any (auto) height — and keeps the
 // content mounted for the length of the exit. With no animation (duration 0)
-// it mounts and unmounts instantly.
+// it mounts and unmounts instantly. While closing it keeps showing the last
+// content it had when open, so a panel whose data is cleared (a message, a
+// prompt) still fades out with its text instead of collapsing empty.
 export default function Collapse({ open, children, style }) {
   const [mounted, setMounted] = useState(open)
   const [expanded, setExpanded] = useState(open)
+  const lastOpenChildren = useRef(children)
+  if (open) lastOpenChildren.current = children
 
   useLayoutEffect(() => {
     if (open) {
@@ -28,7 +32,7 @@ export default function Collapse({ open, children, style }) {
   if (!mounted && !open) return null
   return (
     <div className="cp-collapse" data-open={expanded} style={style}>
-      <div className="cp-collapse-inner">{children}</div>
+      <div className="cp-collapse-inner">{open ? children : lastOpenChildren.current}</div>
     </div>
   )
 }

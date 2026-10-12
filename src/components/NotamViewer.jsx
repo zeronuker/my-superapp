@@ -6,6 +6,7 @@ import { lookupAirport } from '../data/airports'
 import { haptic } from '../utils/haptic'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
+import Collapse from './Collapse'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import SourceChip from './SourceChip'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
@@ -118,7 +119,7 @@ function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
         </span>
         <span style={{ fontFamily: T.mono, fontSize: 11, color: T.dim }}>{collapsed ? '▶' : '▼'}</span>
       </button>
-      {!collapsed && (
+      <Collapse open={!collapsed}>
         <div style={{ marginTop: 8 }}>
           {all.length === 0
             ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim, padding: '4px 2px' }}>
@@ -132,7 +133,7 @@ function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
                 </div>
               )}
         </div>
-      )}
+      </Collapse>
     </div>
   )
 }

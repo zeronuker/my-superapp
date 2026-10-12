@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import ResetButton from './ResetButton'
+import Collapse from './Collapse'
 import {
   normalizeTime, parseDur, fmtDur, parseOffset, fmtOffset, convertClock, computeFTL,
 } from '../utils/ftlCalculator'
@@ -554,6 +555,7 @@ export default function FTLCalculator() {
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
               value={delayedReporting} onChange={v => setFTLField(v ? { delayedReporting: v, positioning: false } : { delayedReporting: v })} />
           }>
+            <Collapse open={delayedReporting}>
             {delayedReporting && (
               <Row label="ACTUAL REPORT TIME" note="REPORT TIME above is treated as the original/planned time (Ch. 2.7.1)">
                 <input type="text" value={actualReportTime} placeholder="HH:MM"
@@ -570,6 +572,7 @@ export default function FTLCalculator() {
                   value={!!delayUndisturbed} onChange={v => setFTLField({ delayUndisturbed: v })} />
               </Row>
             )}
+            </Collapse>
           </Section>}
 
           {/* Positioning — Ch. 2.8. Mutually exclusive with Delayed Reporting. */}
@@ -577,19 +580,22 @@ export default function FTLCalculator() {
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
               value={positioning} onChange={v => setFTLField(v ? { positioning: v, delayedReporting: false } : { positioning: v })} />
           }>
-            {positioning && (
-              <Row label="POSITIONING REPORT TIME" note="FDP commences here, not at the flight report time (Ch. 2.8.1)">
-                <input type="text" value={positioningReportTime} placeholder="HH:MM"
-                  inputMode="numeric" pattern="[0-9]*"
-                  onChange={e => setFTLField({ positioningReportTime: e.target.value })}
-                  onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ positioningReportTime: n }) }}
-                  style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
-                />
-              </Row>
-            )}
+            <Collapse open={positioning}>
+              {positioning && (
+                <Row label="POSITIONING REPORT TIME" note="FDP commences here, not at the flight report time (Ch. 2.8.1)">
+                  <input type="text" value={positioningReportTime} placeholder="HH:MM"
+                    inputMode="numeric" pattern="[0-9]*"
+                    onChange={e => setFTLField({ positioningReportTime: e.target.value })}
+                    onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ positioningReportTime: n }) }}
+                    style={{ ...inp, width: 100, textAlign: 'center' }} maxLength={5}
+                  />
+                </Row>
+              )}
+            </Collapse>
           </Section>
 
           {/* Preceding rest — only shown for Table B (not acclimatised, 2+ crew) */}
+          <Collapse open={needsTableB}>
           {needsTableB && (
             <Section title="PRECEDING REST">
               <Row
@@ -612,12 +618,14 @@ export default function FTLCalculator() {
               </div>
             </Section>
           )}
+          </Collapse>
 
           {/* Standby */}
           <Section title="STANDBY" toggle={
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
               value={standby} onChange={v => setFTLField({ standby: v })} />
           }>
+            <Collapse open={standby}>
             {standby && (
               <>
                 <Row label="STANDBY START" note="Max 12h standby (Ch. 2.9)">
@@ -653,6 +661,7 @@ export default function FTLCalculator() {
                 )}
               </>
             )}
+            </Collapse>
           </Section>
 
           {/* In-flight relief — 2+ crew only */}
@@ -661,6 +670,7 @@ export default function FTLCalculator() {
               <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
                 value={ifr} onChange={v => setFTLField({ ifr: v })} />
             }>
+              <Collapse open={ifr}>
               {ifr && (
                 <>
                   <Row label="REST TYPE">
@@ -682,6 +692,7 @@ export default function FTLCalculator() {
                   </Row>
                 </>
               )}
+              </Collapse>
             </Section>
           )}
 
@@ -690,15 +701,17 @@ export default function FTLCalculator() {
             <Seg options={[{ value: false, label: 'NO' }, { value: true, label: 'YES' }]}
               value={reducedRest} onChange={v => setFTLField({ reducedRest: v })} />
           }>
-            {reducedRest && (
-              <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-orange)', lineHeight: 1.6, paddingBottom: 4 }}>
-                Was the rest before this duty reduced in any way — away from base (Ch. 2.14.3), by crew
-                discretion at home base (Ch. 2.14.4) or by PIC discretion (Ch. 2.16)? If so: split duty
-                is not permitted (Ch. 2.13.4), and PIC discretion below is restricted to immediately before
-                the last sector, exceptional circumstances only (Ch. 2.15.3) — reportable to CAAM regardless
-                of duration (Ch. 2.15.4).
-              </div>
-            )}
+            <Collapse open={reducedRest}>
+              {reducedRest && (
+                <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-orange)', lineHeight: 1.6, paddingBottom: 4 }}>
+                  Was the rest before this duty reduced in any way — away from base (Ch. 2.14.3), by crew
+                  discretion at home base (Ch. 2.14.4) or by PIC discretion (Ch. 2.16)? If so: split duty
+                  is not permitted (Ch. 2.13.4), and PIC discretion below is restricted to immediately before
+                  the last sector, exceptional circumstances only (Ch. 2.15.3) — reportable to CAAM regardless
+                  of duration (Ch. 2.15.4).
+                </div>
+              )}
+            </Collapse>
           </Section>
 
           {/* Split duty */}
@@ -706,6 +719,7 @@ export default function FTLCalculator() {
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
               value={splitDuty} onChange={v => setFTLField({ splitDuty: v })} />
           }>
+            <Collapse open={splitDuty}>
             {splitDuty && reducedRest && (
               <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-red)', lineHeight: 1.6, paddingBottom: 4 }}>
                 ⚠ Not permitted following a reduced rest period (Ch. 2.13.4)
@@ -727,6 +741,7 @@ export default function FTLCalculator() {
                 />
               </Row>
             )}
+            </Collapse>
           </Section>
 
           {/* PIC discretion */}
@@ -734,6 +749,7 @@ export default function FTLCalculator() {
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
               value={picDisc} onChange={v => setFTLField(v ? { picDisc: v } : { picDisc: v, picActualEnd: '' })} />
           }>
+            <Collapse open={picDisc}>
             {picDisc && (
               <>
                 <div style={{
@@ -829,6 +845,7 @@ export default function FTLCalculator() {
                 </Row>
               </>
             )}
+            </Collapse>
           </Section>
 
         </div>

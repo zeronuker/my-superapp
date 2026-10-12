@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { T } from './tokens'
 import { searchCities } from '../services/geolocation'
 import { useClock } from '../hooks/useClock'
+import { usePresence } from '../../../useTransitionAnim'
 
 // ── Hijri date using built-in Intl (no extra dependency) ─────────────────────
 const HIJRI_MONTHS_MY = [
@@ -86,12 +87,17 @@ export default function Header({ location, onGpsLocate, onManualSelect, gpsStatu
     setTimeout(() => inputRef.current?.focus(), 40)
   }
 
-  const closeEdit = () => {
-    setEditing(false)
+  // The panel stays mounted for its exit animation, so the search text and
+  // results are cleared once it has actually gone (not while it fades out).
+  const editPresence = usePresence(editing)
+  useEffect(() => {
+    if (editPresence.mounted) return
     setQuery('')
     setResults([])
     setSearchErr(false)
-  }
+  }, [editPresence.mounted])
+
+  const closeEdit = () => setEditing(false)
 
   const selectCity = (city) => {
     onManualSelect(city.name, city.country, city.lat, city.lng)
@@ -163,7 +169,7 @@ export default function Header({ location, onGpsLocate, onManualSelect, gpsStatu
       )}
 
       {/* Location row */}
-      {!editing ? (
+      {!editPresence.mounted ? (
         <button
           onClick={locating ? undefined : startEdit}
           style={{
@@ -194,7 +200,7 @@ export default function Header({ location, onGpsLocate, onManualSelect, gpsStatu
           )}
         </button>
       ) : (
-        <div className="cp-drop-in">
+        <div className={`cp-drop-in${editPresence.closing ? ' is-closing' : ''}`}>
           {/* Search input */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
             <input

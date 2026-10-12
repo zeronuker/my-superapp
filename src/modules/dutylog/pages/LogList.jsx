@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { usePresence } from '../../../useTransitionAnim'
+import Collapse from '../../../components/Collapse'
 import QrScanner from '../components/QrScanner'
 import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
 import { CODE_RE } from '../services/sync'
@@ -463,11 +464,11 @@ function CollapsibleBanner({ label, count, expanded, onToggle, children }) {
           <span style={{ color: 'var(--cp-acc)', fontSize: 11 }}>{expanded ? '▾' : '▸'}</span>
         </span>
       </div>
-      {expanded && (
+      <Collapse open={expanded}>
         <div style={{ paddingLeft: 10, marginTop: 9 }}>
           {children}
         </div>
-      )}
+      </Collapse>
     </div>
   )
 }
@@ -622,38 +623,42 @@ export default function LogList({
         Duty logs are stored locally on this device. Use Cloud Sync in Settings for an optional online sync.
       </div>
 
-      {promptLog && (
-        syncCode ? (
-          <SyncToast actions={<>
-            <button
-              onClick={() => { onSyncNow(); onDismissSyncPrompt() }}
-              disabled={syncBusy}
-              className="cp-btn"
-              style={{ fontSize: 9, padding: '5px 10px' }}
-            >{syncBusy ? '…' : 'SYNC NOW'}</button>
-            <button onClick={onDismissSyncPrompt} className="cp-btn" style={{ fontSize: 9, padding: '5px 10px' }}>LATER</button>
-          </>}>
-            New duty log saved locally. Sync it to the cloud now?
-          </SyncToast>
-        ) : (
-          <SyncToast actions={<>
-            <button
-              onClick={() => { onOpenSettings(); onDismissSyncPrompt() }}
-              className="cp-btn"
-              style={{ fontSize: 9, padding: '5px 10px' }}
-            >GO TO SETTINGS</button>
-            <button onClick={onDismissSyncPrompt} className="cp-btn" style={{ fontSize: 9, padding: '5px 10px' }}>LATER</button>
-          </>}>
-            New duty log saved locally. Set up a cloud sync code in Settings to sync it.
-          </SyncToast>
-        )
-      )}
+      <Collapse open={!!promptLog}>
+        {promptLog && (
+          syncCode ? (
+            <SyncToast actions={<>
+              <button
+                onClick={() => { onSyncNow(); onDismissSyncPrompt() }}
+                disabled={syncBusy}
+                className="cp-btn"
+                style={{ fontSize: 9, padding: '5px 10px' }}
+              >{syncBusy ? '…' : 'SYNC NOW'}</button>
+              <button onClick={onDismissSyncPrompt} className="cp-btn" style={{ fontSize: 9, padding: '5px 10px' }}>LATER</button>
+            </>}>
+              New duty log saved locally. Sync it to the cloud now?
+            </SyncToast>
+          ) : (
+            <SyncToast actions={<>
+              <button
+                onClick={() => { onOpenSettings(); onDismissSyncPrompt() }}
+                className="cp-btn"
+                style={{ fontSize: 9, padding: '5px 10px' }}
+              >GO TO SETTINGS</button>
+              <button onClick={onDismissSyncPrompt} className="cp-btn" style={{ fontSize: 9, padding: '5px 10px' }}>LATER</button>
+            </>}>
+              New duty log saved locally. Set up a cloud sync code in Settings to sync it.
+            </SyncToast>
+          )
+        )}
+      </Collapse>
 
-      {syncError && (
-        <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-red)', letterSpacing: '0.06em', lineHeight: 1.6, marginBottom: 14 }}>
-          {syncError}
-        </div>
-      )}
+      <Collapse open={!!syncError}>
+        {syncError && (
+          <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-red)', letterSpacing: '0.06em', lineHeight: 1.6, marginBottom: 14 }}>
+            {syncError}
+          </div>
+        )}
+      </Collapse>
 
       {logs.length > 0 && (
         <div style={{ marginBottom: 16 }}>
@@ -771,11 +776,13 @@ export default function LogList({
         </div>
       )}
 
-      {viewError && (
-        <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>
-          {viewError}
-        </div>
-      )}
+      <Collapse open={!!viewError}>
+        {viewError && (
+          <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>
+            {viewError}
+          </div>
+        )}
+      </Collapse>
 
       {scanPresence.mounted && (
         <QrScanner onResult={handleScanResult} onClose={() => setScanning(false)} closing={scanPresence.closing} />
@@ -787,6 +794,7 @@ export default function LogList({
         </div>
       )}
 
+      <Collapse open={!viewBusy && !!viewedCode}>
       {!viewBusy && viewedCode && (
         <div style={{ marginTop: 14, border: '1px solid var(--cp-border)', borderRadius: 6, padding: 12 }}>
           {openViewedLog ? (
@@ -824,20 +832,23 @@ export default function LogList({
               <button onClick={handleImportClick} disabled={importBusy} className="cp-btn-danger cp-btn" style={{ width: '100%', padding: '8px 10px' }}>
                 {importBusy ? 'IMPORTING…' : (confirmImport ? 'CONFIRM IMPORT' : 'IMPORT TO THIS DEVICE')}
               </button>
-              {confirmImport && (
+              <Collapse open={confirmImport}>
                 <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>
                   This will overwrite all logs currently on this device and make this device the owner of {viewedCode}. This action is not reversible.
                 </div>
-              )}
-              {importError && (
-                <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>
-                  {importError}
-                </div>
-              )}
+              </Collapse>
+              <Collapse open={!!importError}>
+                {importError && (
+                  <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-red)', letterSpacing: '0.04em', marginTop: 6, lineHeight: 1.5 }}>
+                    {importError}
+                  </div>
+                )}
+              </Collapse>
             </>
           )}
         </div>
       )}
+      </Collapse>
     </div>
   )
 }

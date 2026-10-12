@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
+import Collapse from './Collapse'
 import { TIMEZONES, searchZones } from '../data/worldTimezones'
 import { lookupAirport } from '../data/airports'
 import { WORLD_LAND_PATH, WORLD_MAP_WIDTH, WORLD_MAP_HEIGHT, projectLatLng } from '../data/worldMap'
@@ -271,7 +272,6 @@ export default function WorldTimeCalculator() {
   const [showAdd, setShowAdd] = useState(false)
   const [now,     setNow]     = useState(() => new Date())
   const [flashId, setFlashId] = useState(null)
-  const searchRef  = useRef(null)
   const flashTimer = useRef(null)
 
   // Tick every second
@@ -279,11 +279,6 @@ export default function WorldTimeCalculator() {
     const id = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(id)
   }, [])
-
-  // Focus search on open
-  useEffect(() => {
-    if (showAdd) searchRef.current?.focus()
-  }, [showAdd])
 
   // Local timezone (stable, detected once)
   const localTz    = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
@@ -392,10 +387,11 @@ export default function WorldTimeCalculator() {
 
       {/* ── Add zone ── */}
       {zones.length < MAX_ZONES ? (
-        showAdd ? (
+        <>
+          <Collapse open={showAdd}>
           <div className="cp-card-bg3" style={{ border: `1px solid ${T.bord}`, borderRadius: 6, padding: 12 }}>
             <input
-              ref={searchRef}
+              autoFocus
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search City"
@@ -438,15 +434,17 @@ export default function WorldTimeCalculator() {
               fontFamily: T.mono, fontSize: 9, letterSpacing: '0.1em', color: T.dim, padding: '4px 0',
             }}>✕ CANCEL</button>
           </div>
-        ) : (
-          <button onClick={() => setShowAdd(true)} style={{
-            width: '100%', padding: '10px',
-            background: 'rgba(var(--cp-acc-rgb,63,224,197),0.06)',
-            border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.25)',
-            borderRadius: 6, cursor: 'pointer',
-            fontFamily: T.mono, fontSize: 9, letterSpacing: '0.14em', color: T.acc,
-          }}>⊕ ADD TIMEZONE</button>
-        )
+          </Collapse>
+          <Collapse open={!showAdd}>
+            <button onClick={() => setShowAdd(true)} style={{
+              width: '100%', padding: '10px',
+              background: 'rgba(var(--cp-acc-rgb,63,224,197),0.06)',
+              border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.25)',
+              borderRadius: 6, cursor: 'pointer',
+              fontFamily: T.mono, fontSize: 9, letterSpacing: '0.14em', color: T.acc,
+            }}>⊕ ADD TIMEZONE</button>
+          </Collapse>
+        </>
       ) : (
         <div style={{
           fontFamily: T.mono, fontSize: 9, color: T.dim,

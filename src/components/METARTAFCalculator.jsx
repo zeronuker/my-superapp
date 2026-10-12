@@ -667,13 +667,15 @@ function AirportCard({ data, now }) {
               })
             }
 
-            {decoded && latestMetar && (
-              <DecodeBox role={role}>
-                {decodeMetar(latestMetar).map((r, i) => (
-                  <DecodeRow key={i} label={r.label} value={r.value} role={role} />
-                ))}
-              </DecodeBox>
-            )}
+            <Collapse open={decoded && !!latestMetar}>
+              {decoded && latestMetar && (
+                <DecodeBox role={role}>
+                  {decodeMetar(latestMetar).map((r, i) => (
+                    <DecodeRow key={i} label={r.label} value={r.value} role={role} />
+                  ))}
+                </DecodeBox>
+              )}
+            </Collapse>
           </div>
 
           <RunwaysSection icao={icao} role={role}
@@ -736,35 +738,37 @@ function AirportCard({ data, now }) {
               })
             }
 
-            {decoded && latestTaf && (() => {
-              const segs = decodeTaf(latestTaf.rawTAF)
-              if (!segs) return null
-              return (
-                <DecodeBox role={role}>
-                  {segs.map((seg, si) => (
-                    <div key={si} style={{
-                      marginBottom: si < segs.length - 1 ? 10 : 0,
-                      opacity: seg.isTemporal ? 0.78 : 1,
-                    }}>
-                      <div style={{
-                        fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700,
-                        letterSpacing: '0.1em', color: role.color, marginBottom: 3,
+            <Collapse open={decoded && !!latestTaf}>
+              {decoded && latestTaf && (() => {
+                const segs = decodeTaf(latestTaf.rawTAF)
+                if (!segs) return null
+                return (
+                  <DecodeBox role={role}>
+                    {segs.map((seg, si) => (
+                      <div key={si} style={{
+                        marginBottom: si < segs.length - 1 ? 10 : 0,
+                        opacity: seg.isTemporal ? 0.78 : 1,
                       }}>
-                        {seg.header}
-                      </div>
-                      {seg.items.map((it, j) => (
-                        <div key={j} style={{
-                          fontFamily: 'var(--cb-font-body)', fontSize: 12,
-                          color: 'var(--cp-txt)', lineHeight: 1.5, paddingLeft: 10,
+                        <div style={{
+                          fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700,
+                          letterSpacing: '0.1em', color: role.color, marginBottom: 3,
                         }}>
-                          {it}
+                          {seg.header}
                         </div>
-                      ))}
-                    </div>
-                  ))}
-                </DecodeBox>
-              )
-            })()}
+                        {seg.items.map((it, j) => (
+                          <div key={j} style={{
+                            fontFamily: 'var(--cb-font-body)', fontSize: 12,
+                            color: 'var(--cp-txt)', lineHeight: 1.5, paddingLeft: 10,
+                          }}>
+                            {it}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </DecodeBox>
+                )
+              })()}
+            </Collapse>
           </div>
         </>
       )}

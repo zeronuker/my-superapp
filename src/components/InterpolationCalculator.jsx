@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import ResetButton from './ResetButton'
+import Collapse from './Collapse'
 
 function bilinearInterpolate(rows, zValues, lookupX, lookupZ) {
   const x = parseFloat(lookupX)
@@ -157,7 +158,7 @@ export default function InterpolationCalculator() {
           <span style={{ fontSize: 12, color: 'var(--cp-dim)', transform: guideOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
         </button>
 
-        {guideOpen && (
+        <Collapse open={guideOpen}>
           <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--cp-border2)' }}>
             <div style={{ paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 11, color: 'var(--cp-muted)', letterSpacing: '0.08em', lineHeight: 1.9 }}>
@@ -190,7 +191,7 @@ export default function InterpolationCalculator() {
               </div>
             </div>
           </div>
-        )}
+        </Collapse>
       </div>
 
       {/* ── Step progress indicator ── */}

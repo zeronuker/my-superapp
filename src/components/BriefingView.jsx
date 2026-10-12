@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import React, { createContext, forwardRef, useContext, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { usePresence, animDurationMs, useTransitionAnim } from '../useTransitionAnim'
 import { fetchWeather } from '../services/weatherAPI'
@@ -136,10 +136,15 @@ function buildAirportTargets(dep, arr, destAlts, enrouteCount, enrouteAlts) {
 
 // Pausing (not discarding — see BriefingView) and jumping to the NOTAM tab
 // for the full, untruncated list. Shared by AirportCard and FirNotamCard.
+// BriefingView provides its animated pause through this context, so the overlay
+// fades out like ✕ does instead of vanishing when a card jumps to the NOTAM tab.
+const PauseBriefingContext = createContext(null)
+
 function useViewAllNotams() {
   const pauseBriefing = useCalculatorStore(s => s.pauseBriefing)
   const setActiveCalculator = useCalculatorStore(s => s.setActiveCalculator)
-  return () => { pauseBriefing(); setActiveCalculator('notam') }
+  const pauseAnimated = useContext(PauseBriefingContext)
+  return () => { (pauseAnimated || pauseBriefing)(); setActiveCalculator('notam') }
 }
 
 // Capped, prioritized, line-clamped NOTAM list — shared by AirportCard
@@ -491,9 +496,9 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
 })
 
 // ── Saved briefings dropdown — read-only browse/open/delete list ──
-function SavedList({ saves, savedId, onOpen, onDelete }) {
+function SavedList({ saves, savedId, onOpen, onDelete, closing }) {
   return (
-    <div style={{
+    <div className={`cp-drop-in${closing ? ' is-closing' : ''}`} style={{
       position: 'absolute', top: 66, right: 60, width: 280, maxHeight: 360, overflowY: 'auto',
       background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 10,
       boxShadow: '0 16px 40px rgba(0,0,0,0.5)', zIndex: 10,
@@ -644,6 +649,7 @@ export default function BriefingView() {
   const briefing = useCalculatorStore(s => s.briefing)
   const setBriefingData = useCalculatorStore(s => s.setBriefingData)
   const closeBriefing = useCalculatorStore(s => s.closeBriefing)
+  const pauseBriefing = useCalculatorStore(s => s.pauseBriefing)
   const openSavedBriefing = useCalculatorStore(s => s.openSavedBriefing)
   const saveBriefing = useCalculatorStore(s => s.saveBriefing)
   const renameSavedBriefing = useCalculatorStore(s => s.renameSavedBriefing)
@@ -692,15 +698,26 @@ export default function BriefingView() {
   const [closing, setClosing] = useState(false)
   const closeTimer = useRef(null)
   useEffect(() => () => clearTimeout(closeTimer.current), [])
-  const closeAnimated = () => {
+  const closeAnimated = (done = closeBriefing) => {
     if (closing) return
     const ms = animDurationMs()
-    if (!ms) { closeBriefing(); return }
+    if (!ms) { done(); return }
     setClosing(true)
-    closeTimer.current = setTimeout(closeBriefing, ms)
+    closeTimer.current = setTimeout(done, ms)
+  }
+  const pauseAnimated = () => closeAnimated(pauseBriefing)
+  // Deleting the open briefing when it is the last one closes the overlay (see
+  // deleteSavedBriefing) — fade it out first, and un-fade if the delete failed.
+  const deleteSaved = (id) => {
+    if (id !== savedId || saves.length !== 1) { deleteSavedBriefing(id); return }
+    closeAnimated(async () => {
+      const res = await deleteSavedBriefing(id)
+      if (!res.ok) setClosing(false)
+    })
   }
   const capPresence = usePresence(showCapPrompt)
   const savePresence = usePresence(showSavePrompt)
+  const savedListPresence = usePresence(savedListOpen)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -888,7 +905,7 @@ export default function BriefingView() {
   const handleDiscardAndClose = () => { setShowSavePrompt(false); closeAnimated() }
 
   return (
-    <>
+    <PauseBriefingContext.Provider value={pauseAnimated}>
     <div
       onClick={requestClose}
       className={`cp-backdrop-in${closing ? ' is-closing' : ''}`}
@@ -978,12 +995,13 @@ export default function BriefingView() {
             letterSpacing: '0.06em', padding: '6px 20px 0' }}>{saveError}</div>
         )}
 
-        {savedListOpen && (
+        {savedListPresence.mounted && (
           <SavedList
+            closing={savedListPresence.closing}
             saves={saves}
             savedId={savedId}
             onOpen={(id) => { openSavedBriefing(id); setSavedListOpen(false) }}
-            onDelete={(id) => deleteSavedBriefing(id)}
+            onDelete={deleteSaved}
           />
         )}
 
@@ -1118,6 +1136,6 @@ export default function BriefingView() {
         onCancel={() => setShowSavePrompt(false)}
       />
     )}
-    </>
+    </PauseBriefingContext.Provider>
   )
 }
