@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { sectorStripeColors, aircraftStripeColors } from '../utils/sectorColors'
 import { formatHHMM } from '../utils/formatHHMM'
-import { usePresence } from '../../../useTransitionAnim'
+import { usePresence, animDurationMs } from '../../../useTransitionAnim'
+import Collapse from '../../../components/Collapse'
 
 const mono = 'var(--cb-font-mono)'
 
@@ -228,6 +229,36 @@ function RemarksModal({ sector, index, onSave, onCancel, closing }) {
   )
 }
 
+// One crew row. A row added after the editor opened grows in; deleting one
+// collapses it out first and only then asks the store to drop it.
+function CrewRow({ crew, animateIn, onChange, onRemove }) {
+  const [shown, setShown] = useState(!animateIn)
+  const [leaving, setLeaving] = useState(false)
+  const timer = useRef(null)
+  useEffect(() => {
+    if (animateIn) setShown(true)
+    return () => clearTimeout(timer.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const remove = () => {
+    if (leaving) return
+    const ms = animDurationMs()
+    if (!ms) { onRemove(); return }
+    setLeaving(true)
+    timer.current = setTimeout(onRemove, ms)
+  }
+  return (
+    <Collapse open={shown && !leaving}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 7, alignItems: 'center' }}>
+        <Field value={crew.name} onChange={(v) => onChange({ name: v })} />
+        <Field value={crew.position} onChange={(v) => onChange({ position: v })} />
+        <button onClick={remove} aria-label="remove crew"
+          className="cp-btn" style={{ padding: '4px 8px', color: 'var(--cp-red)' }}>✕</button>
+      </div>
+    </Collapse>
+  )
+}
+
 export default function LogEditor({ log, actions, onBack }) {
   const [remarkSid, setRemarkSid] = useState(null)
   const [saveState, setSaveState] = useState('SAVED')
@@ -254,6 +285,11 @@ export default function LogEditor({ log, actions, onBack }) {
   const shownRemark = lastRemark.current
   const atMaxAircraft = (log.aircraft || []).length >= 2
   const atMaxSectors = log.sectors.length >= 8
+  // Crew present when this log was opened don't animate in; rows added after do.
+  const knownCrew = useRef({ logId: null, ids: new Set() })
+  if (knownCrew.current.logId !== log.id) knownCrew.current = { logId: log.id, ids: new Set(log.crew.map(c => c.id)) }
+  const crewIsNew = (id) => !knownCrew.current.ids.has(id)
+  useEffect(() => { log.crew.forEach(c => knownCrew.current.ids.add(c.id)) })
 
   return (
     <div style={{ position: 'relative' }}>
@@ -348,12 +384,9 @@ export default function LogEditor({ log, actions, onBack }) {
               <span />
             </div>
             {col.map((c) => (
-              <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 7, alignItems: 'center' }}>
-                <Field value={c.name} onChange={(v) => actions.updateCrew(log.id, c.id, { name: v })} />
-                <Field value={c.position} onChange={(v) => actions.updateCrew(log.id, c.id, { position: v })} />
-                <button onClick={() => actions.removeCrew(log.id, c.id)} aria-label="remove crew"
-                  className="cp-btn" style={{ padding: '4px 8px', color: 'var(--cp-red)' }}>✕</button>
-              </div>
+              <CrewRow key={c.id} crew={c} animateIn={crewIsNew(c.id)}
+                onChange={(patch) => actions.updateCrew(log.id, c.id, patch)}
+                onRemove={() => actions.removeCrew(log.id, c.id)} />
             ))}
           </div>
         ))}

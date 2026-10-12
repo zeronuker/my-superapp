@@ -663,6 +663,10 @@ export default function BriefingView() {
 
   const [targets] = useState(() => buildAirportTargets(route.dep, route.arr, route.destAlts, route.enrouteCount, route.enrouteAlts))
   const [loading, setLoading] = useState(!data)
+  // A fresh fetch swaps the radar sweep for the briefing: that reveal animates.
+  // A saved/resumed briefing already has its data, so the window's own open
+  // animation covers it.
+  const revealOnLoad = useRef(!data).current
   const [error, setError] = useState('')
   const [now, setNow] = useState(Date.now())
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
@@ -1005,7 +1009,7 @@ export default function BriefingView() {
           />
         )}
 
-        <div style={{ padding: '18px 20px 24px' }}>
+        <div className={revealOnLoad && !loading && !error ? 'cp-reveal-in' : undefined} style={{ padding: '18px 20px 24px' }}>
           {loading ? (
             <RadarSweepLoader targets={targets.map(t => t.icao)} />
           ) : error ? (
