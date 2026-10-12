@@ -87,6 +87,12 @@ function makeMarkerEl(m) {
 // snapshot (see getSnapshot below) never captures them. Redraws the same
 // markers onto a copy of that snapshot using Canvas 2D, mirroring
 // makeMarkerEl's look closely enough for a static fallback image.
+//
+// The route line is a real map layer, so it is normally already in the
+// canvas. But Save re-renders the briefing, which re-adds the layer's source,
+// and that loads asynchronously — a snapshot taken in that gap has no line.
+// Whenever the source isn't loaded, paint the line here too (same points,
+// dash and colour as the 'route-line' layer) so a saved map always has it.
 function drawMarkersOnSnapshot(map, baseCanvas, markers) {
   const out = document.createElement('canvas')
   out.width = baseCanvas.width
@@ -95,6 +101,22 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers) {
   ctx.drawImage(baseCanvas, 0, 0)
 
   const dpr = out.width / map.getContainer().clientWidth
+  const geo = routeGeoJSON(markers)
+  if (geo && !(map.getSource('route') && map.isSourceLoaded('route'))) {
+    const w = 2.5 * dpr
+    ctx.beginPath()
+    geo.geometry.coordinates.forEach(([lng, lat], i) => {
+      const { x, y } = map.project([lng, lat])
+      if (i) ctx.lineTo(x * dpr, y * dpr)
+      else ctx.moveTo(x * dpr, y * dpr)
+    })
+    ctx.setLineDash([3 * w, 2 * w])
+    ctx.lineWidth = w
+    ctx.strokeStyle = 'rgba(232,236,245,0.85)'
+    ctx.stroke()
+    ctx.setLineDash([])
+  }
+
   for (const m of markers) {
     const role = getRoleStyle(m.label)
     const { x, y } = map.project([m.lng, m.lat])
