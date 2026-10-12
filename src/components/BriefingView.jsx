@@ -926,6 +926,9 @@ export default function BriefingView() {
           position: 'relative',
           width: '100%', maxWidth: 980, background: 'var(--cp-bg)', borderRadius: 12,
           border: '1px solid var(--cp-border)', boxShadow: '0 24px 60px rgba(0,0,0,0.4)', overflow: 'hidden',
+          // Same curve open and close, so the Slower speed is actually felt
+          // (the shared pop-in curve front-loads nearly all of its movement).
+          animationTimingFunction: 'cubic-bezier(.4,0,.2,1)',
         }}
       >
         <div style={{

@@ -372,7 +372,7 @@ input[type="number"] { -moz-appearance: textfield; }
   .cp-launch-in  { animation: cpFadeIn var(--cp-dur) ease both; }
   .cp-drop-in { animation: cpDropIn var(--cp-dur) cubic-bezier(.4,0,.2,1) backwards; }
   .cp-drop-in.is-closing { animation: cpDropOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
-  .cp-reveal-in { animation: cpAnimRise var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-reveal-in { animation: cpAnimRise var(--cp-dur) cubic-bezier(.4,0,.2,1) backwards; }
   .cp-pill-in { animation: cpPillIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
   .cp-pill-in.is-closing { animation: cpPillOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
 }
