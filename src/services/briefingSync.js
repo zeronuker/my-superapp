@@ -7,11 +7,20 @@
 
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
+// METAR/TAF history depth Briefing fetches with — also recorded as the
+// synced METAR/TAF cache's `hours`, so it reflects what was actually fetched.
+export const BRIEFING_METAR_HOURS = 2
+
 function safeSet(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch (_) {}
 }
 
-export function syncModuleCaches({ route, weatherList, notamResult, resolvedFirs, scopedSigmets, hours }) {
+// `snapshotAt` (ms) marks a sync from a SAVED briefing: each module shows a
+// "saved snapshot, may be outdated" banner and the NOTAM cache carries the
+// already-parsed notams (a save doesn't keep the raw rows). `fetchedAt` stays
+// "now" either way so the modules' 12 h expiry doesn't wipe an old snapshot
+// the moment it is opened.
+export function syncModuleCaches({ route, weatherList, notamResult, resolvedFirs, scopedSigmets, hours, snapshotAt }) {
   const fetchedAt = Date.now()
   const { dep, arr, destAlts, enrouteCount, enrouteAlts } = route
 
@@ -25,12 +34,12 @@ export function syncModuleCaches({ route, weatherList, notamResult, resolvedFirs
       error: null,
     }
   }
-  safeSet(METAR_CACHE_KEY, { dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt })
+  safeSet(METAR_CACHE_KEY, { dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt, snapshotAt })
 
   safeSet(NOTAM_CACHE_KEY, {
     dep, arr, destAlts, enrouteCount, enrouteAlts,
     extraChips: resolvedFirs.map(f => ({ icao: f.icao, name: f.name, type: 'fir' })),
-    rawPerIcao: notamResult.rawPerIcao,
+    ...(snapshotAt ? { snapshot: { at: snapshotAt, notams: notamResult.notams } } : { rawPerIcao: notamResult.rawPerIcao }),
     fetchedAt,
   })
 
@@ -38,6 +47,19 @@ export function syncModuleCaches({ route, weatherList, notamResult, resolvedFirs
     dep, arr, destAlts, enrouteCount, enrouteAlts,
     chips: resolvedFirs,
     sigmets: scopedSigmets,
-    fetchedAt,
+    fetchedAt, snapshotAt,
+  })
+}
+
+// Same sync, fed from a saved briefing's stored data instead of a live fetch.
+export function syncSnapshotCaches(route, data) {
+  syncModuleCaches({
+    route,
+    weatherList: data.airports || [],
+    notamResult: { notams: Object.values(data.notamsByIcao || {}).flat() },
+    resolvedFirs: data.firsUsed || [],
+    scopedSigmets: data.sigmets || [],
+    hours: BRIEFING_METAR_HOURS,
+    snapshotAt: data.fetchedAt || Date.now(),
   })
 }

@@ -4,7 +4,7 @@ import { usePresence, animDurationMs, useTransitionAnim } from '../useTransition
 import { fetchWeather } from '../services/weatherAPI'
 import { fetchNotams, autoDetectFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
 import { fetchAllSigmets } from '../services/sigmetAPI'
-import { syncModuleCaches } from '../services/briefingSync'
+import { syncModuleCaches, BRIEFING_METAR_HOURS } from '../services/briefingSync'
 import { lookupAirport } from '../data/airports'
 import {
   CAT_COLORS, WIND_COLORS,
@@ -111,10 +111,6 @@ const NOTAM_CAP = 5
 // Rough chars-to-5-lines estimate at this card's font/width — see the
 // "no DOM measurement available" note where it's used.
 const NOTAM_TEXT_CLAMP_CHARS = 260
-// METAR/TAF history depth Briefing fetches with — also recorded as the
-// synced METAR/TAF cache's `hours`, so it accurately reflects what was
-// actually fetched rather than claiming a wider window than it has.
-const BRIEFING_METAR_HOURS = 2
 
 // ── Build the same ordered, deduped airport list every module builds ──
 // `key` (dep/arr/alt1/alt2/eraN) matches METARTAFCalculator's own target

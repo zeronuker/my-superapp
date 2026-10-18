@@ -13,6 +13,7 @@ import { fetchWeather } from '../services/weatherAPI'
 import { normalizeRunways, windComponents, fmtWindComponent, windSeverity } from '../utils/runways'
 import { fmtTrack } from '../utils/traffic'
 import ResetButton from './ResetButton'
+import SnapshotBanner from './SnapshotBanner'
 import CopyAirportsButton from './CopyAirportsButton'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import SourceChip from './SourceChip'
@@ -70,6 +71,7 @@ export default function METARTAFCalculator() {
   const [hours,        setHours]        = useState(cache?.hours        || settings.defaultHistory)
   const [results,      setResults]      = useState(cache?.results      || null)
   const [fetchedAt,    setFetchedAt]    = useState(cache?.fetchedAt    || null)
+  const [snapshotAt,   setSnapshotAt]   = useState(cache?.snapshotAt   || null)
   const [loading,      setLoading]      = useState(false)
   const [manualFetch,  setManualFetch]  = useState(false)
   const [activeTargets, setActiveTargets] = useState([])
@@ -87,8 +89,8 @@ export default function METARTAFCalculator() {
   // Persist airport inputs as they're typed (not just after a fetch) so the
   // NOTAM module's copy-airports button always sees current values
   useEffect(() => {
-    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt })
-  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt])
+    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt, snapshotAt })
+  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt, snapshotAt])
 
   // Briefing (an overlay, not a tab) leaves this module mounted underneath —
   // its fetch writes straight into our cache key, but that write alone
@@ -100,6 +102,7 @@ export default function METARTAFCalculator() {
     if (!fresh) return
     setResults(fresh.results)
     setFetchedAt(fresh.fetchedAt)
+    setSnapshotAt(fresh.snapshotAt || null)
   }, [briefing.data?.fetchedAt])
 
   // ── Track connectivity ─────────────────────────────────────────────────
@@ -139,6 +142,7 @@ export default function METARTAFCalculator() {
     setHours(settings.defaultHistory)
     setResults(null)
     setFetchedAt(null)
+    setSnapshotAt(null)
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
     if (scope === 'all') {
       try { localStorage.removeItem(NOTAM_CACHE_KEY); localStorage.removeItem(SIGMET_CACHE_KEY) } catch (_) {}
@@ -207,6 +211,7 @@ export default function METARTAFCalculator() {
       const ts = Date.now()
       setResults(out)
       setFetchedAt(ts)
+      setSnapshotAt(null)
       setNow(ts)
       setLoading(false)
       setManualFetch(false)
@@ -385,7 +390,7 @@ export default function METARTAFCalculator() {
           {results
             ? <span style={{ color: 'var(--cp-dim)' }}>
                 · SHOWING CACHED DATA
-                {fetchedAt ? ` · CACHED ${formatAge(fetchedAt / 1000, now)}` : ''}
+                {fetchedAt ? ` · CACHED ${formatAge((snapshotAt ?? fetchedAt) / 1000, now)}` : ''}
               </span>
             : <span style={{ color: 'var(--cp-dim)' }}>· NO CACHED DATA AVAILABLE</span>
           }
@@ -393,7 +398,8 @@ export default function METARTAFCalculator() {
       )}
 
       {/* ── FETCH TIMESTAMP ─────────────────────────────────────────────── */}
-      {fetchedAt && !isOffline && (
+      {snapshotAt && <SnapshotBanner at={snapshotAt} />}
+      {fetchedAt && !snapshotAt && !isOffline && (
         <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em',
           fontFamily: 'var(--cb-font-mono)', marginBottom: 24 }}>
           LAST FETCH · {new Date(fetchedAt).toUTCString().toUpperCase()}

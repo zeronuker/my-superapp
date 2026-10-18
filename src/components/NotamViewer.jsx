@@ -5,6 +5,7 @@ import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
 import { haptic } from '../utils/haptic'
 import ResetButton from './ResetButton'
+import SnapshotBanner from './SnapshotBanner'
 import CopyAirportsButton from './CopyAirportsButton'
 import Collapse from './Collapse'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
@@ -167,6 +168,7 @@ export default function NotamViewer() {
   const [activeTargets, setActiveTargets] = useState([])
   const [notams,       setNotams]       = useState(() => {
     if (cache?.rawPerIcao) return parseMixedNotams(cache.rawPerIcao, cache.source)
+    if (cache?.snapshot)   return cache.snapshot.notams   // from a saved briefing (no raw rows kept)
     if (cache?.notams)     return cache.notams   // backwards compat: old cache format
     return null
   })
@@ -179,12 +181,13 @@ export default function NotamViewer() {
 
   const [savedRaw, setSavedRaw] = useState(cache?.rawPerIcao || null)
   const [fetchedAt, setFetchedAt] = useState(cache?.fetchedAt || null)
+  const [snapshot, setSnapshot] = useState(cache?.snapshot || null)
 
   // Persist airport inputs as they're typed (not just after a fetch) so the
   // METAR/TAF module's copy-airports button always sees current values
   useEffect(() => {
-    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw, fetchedAt })
-  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw, fetchedAt])
+    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw, snapshot, fetchedAt })
+  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw, snapshot, fetchedAt])
 
   // Briefing (an overlay, not a tab) leaves this module mounted underneath —
   // its fetch writes straight into our cache key, but that write alone
@@ -196,7 +199,8 @@ export default function NotamViewer() {
     if (!fresh) return
     setExtraChips(fresh.extraChips || [])
     setSavedRaw(fresh.rawPerIcao || null)
-    setNotams(fresh.rawPerIcao ? parseMixedNotams(fresh.rawPerIcao, fresh.source) : null)
+    setNotams(fresh.rawPerIcao ? parseMixedNotams(fresh.rawPerIcao, fresh.source) : (fresh.snapshot?.notams ?? null))
+    setSnapshot(fresh.snapshot || null)
     setFetchedAt(fresh.fetchedAt)
   }, [briefing.data?.fetchedAt])
 
@@ -231,6 +235,7 @@ export default function NotamViewer() {
     setExtraChips([])
     setNotams(null)
     setSavedRaw(null)
+    setSnapshot(null)
     setFetchedAt(null)
     setError('')
     setCollapsedMap({})
@@ -295,6 +300,7 @@ export default function NotamViewer() {
       const reveal = () => {
         setNotams(result)
         setSavedRaw(rawPerIcao)
+        setSnapshot(null)
         setFetchedAt(Date.now())
         setLoading(false)
         setManualFetch(false)
@@ -490,6 +496,8 @@ export default function NotamViewer() {
           ✈ BRIEFING
         </button>
       </div>
+
+      {snapshot && <SnapshotBanner at={snapshot.at} />}
 
       {/* ── Loading ── */}
       {manualFetch && <RadarSweepLoader targets={activeTargets} />}

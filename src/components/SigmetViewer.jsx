@@ -9,6 +9,7 @@ import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
 import SigmetCard from './SigmetCard'
+import SnapshotBanner from './SnapshotBanner'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
 const CACHE_KEY = SIGMET_CACHE_KEY
@@ -58,6 +59,7 @@ export default function SigmetViewer() {
 
   const [sigmets, setSigmets] = useState(() => cache?.sigmets ? reviveSigmets(cache.sigmets) : null)
   const [fetchedAt, setFetchedAt] = useState(cache?.fetchedAt || null)
+  const [snapshotAt, setSnapshotAt] = useState(cache?.snapshotAt || null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
@@ -79,8 +81,8 @@ export default function SigmetViewer() {
   }, [])
 
   useEffect(() => {
-    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt })
-  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt])
+    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt, snapshotAt })
+  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt, snapshotAt])
 
   // Briefing (an overlay, not a tab) leaves this module mounted underneath —
   // its fetch writes straight into our cache key, but that write alone
@@ -93,6 +95,7 @@ export default function SigmetViewer() {
     setChips(fresh.chips || [])
     setSigmets(fresh.sigmets ? reviveSigmets(fresh.sigmets) : null)
     setFetchedAt(fresh.fetchedAt)
+    setSnapshotAt(fresh.snapshotAt || null)
   }, [briefing.data?.fetchedAt])
 
   const applyCopiedAirports = (data) => {
@@ -112,7 +115,7 @@ export default function SigmetViewer() {
     setEnrouteCount(0)
     setEnrouteAlts(Array(ERA_MAX).fill(''))
     setChips([]); setCustomInput('')
-    setSigmets(null); setFetchedAt(null); setError('')
+    setSigmets(null); setFetchedAt(null); setSnapshotAt(null); setError('')
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
     if (scope === 'all') {
       try { localStorage.removeItem(METAR_CACHE_KEY); localStorage.removeItem(NOTAM_CACHE_KEY) } catch (_) {}
@@ -150,6 +153,7 @@ export default function SigmetViewer() {
       filtered.sort((a, b) => (a.validTo?.getTime() ?? Infinity) - (b.validTo?.getTime() ?? Infinity))
       setSigmets(filtered)
       setFetchedAt(Date.now())
+      setSnapshotAt(null)
     } catch (e) {
       setError(`Failed to fetch SIGMETs: ${e.message}`)
     } finally {
@@ -183,14 +187,15 @@ export default function SigmetViewer() {
           ⚠ OFFLINE
           {sigmets
             ? <span style={{ color: 'var(--cp-dim)', fontWeight: 400 }}>
-                {' '}— SHOWING CACHED SIGMETs{fetchedAt ? ` · FETCHED ${formatAge(fetchedAt, now)}` : ''} · MAY BE EXPIRED
+                {' '}— SHOWING CACHED SIGMETs{fetchedAt ? ` · FETCHED ${formatAge(snapshotAt ?? fetchedAt, now)}` : ''} · MAY BE EXPIRED
               </span>
             : <span style={{ color: 'var(--cp-dim)', fontWeight: 400 }}> — NO CACHED SIGMETs AVAILABLE, reconnect to fetch</span>
           }
         </div>
       )}
 
-      {fetchedAt && isOnline && (
+      {snapshotAt && <SnapshotBanner at={snapshotAt} />}
+      {fetchedAt && !snapshotAt && isOnline && (
         <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em',
           fontFamily: 'var(--cb-font-mono)', marginBottom: 20 }}>
           LAST FETCH · {new Date(fetchedAt).toUTCString().toUpperCase()}

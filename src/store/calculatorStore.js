@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { makeBriefingId, autoBriefingName, sortByNewest, pickNextAfterDelete } from '../utils/savedBriefings'
 import { loadSaves, idbBackend, isQuotaError } from '../services/briefingStorage'
+import { syncSnapshotCaches } from '../services/briefingSync'
 
 // Named, manually-managed saves (unlike every cb-*-cache key, which is a
 // single slot with a 12h auto-expiry) — never expires, capped, only changed
@@ -272,6 +273,8 @@ export const useCalculatorStore = create((set, get) => ({
   openSavedBriefing: (id)        => set(s => {
     const entry = s.briefing.saves.find(b => b.id === id)
     if (!entry) return {}
+    // Fill METAR/TAF, NOTAM and SIGMET with this save (flagged as a snapshot).
+    syncSnapshotCaches(entry.route, entry.data)
     return { briefing: { ...s.briefing, open: true, route: entry.route, data: entry.data, savedId: id } }
   }),
   // Loads the saved list from IndexedDB (migrating the old localStorage list
