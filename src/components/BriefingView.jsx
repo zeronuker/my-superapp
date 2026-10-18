@@ -140,11 +140,12 @@ function buildAirportTargets(dep, arr, destAlts, enrouteCount, enrouteAlts) {
 // fades out like ✕ does instead of vanishing when a card jumps to the NOTAM tab.
 const PauseBriefingContext = createContext(null)
 
-function useViewAllNotams() {
+function useViewAllNotams(icao) {
   const pauseBriefing = useCalculatorStore(s => s.pauseBriefing)
   const setActiveCalculator = useCalculatorStore(s => s.setActiveCalculator)
+  const setNotamFocus = useCalculatorStore(s => s.setNotamFocus)
   const pauseAnimated = useContext(PauseBriefingContext)
-  return () => { (pauseAnimated || pauseBriefing)(); setActiveCalculator('notam') }
+  return () => { (pauseAnimated || pauseBriefing)(); setNotamFocus(icao); setActiveCalculator('notam') }
 }
 
 // Capped, prioritized, line-clamped NOTAM list — shared by AirportCard
@@ -222,7 +223,7 @@ function NotamListSection({ notams, onViewAll }) {
 
 // ── One FIR's NOTAMs — airspace/oceanic notices, not tied to any one airport ──
 function FirNotamCard({ fir, notams }) {
-  const viewAllNotams = useViewAllNotams()
+  const viewAllNotams = useViewAllNotams(fir.icao)
   return (
     <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
       <div style={{
@@ -250,7 +251,7 @@ function FirNotamCard({ fir, notams }) {
 function AirportNotamCard({ target, notams }) {
   const role = getRoleStyle(target.label)
   const airport = lookupAirport(target.icao)
-  const viewAllNotams = useViewAllNotams()
+  const viewAllNotams = useViewAllNotams(target.icao)
 
   return (
     <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>

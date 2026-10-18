@@ -172,6 +172,9 @@ export const useCalculatorStore = create((set, get) => ({
     } catch (_) {}
     return 'calculator'
   })(),
+  // ICAO/FIR the NOTAM tab should open + scroll to on arrival (set by Briefing's
+  // "view all in NOTAM tab"); NotamViewer clears it once handled.
+  notamFocus: null,
 
   // ── Settings ────────────────────────────────────────────────────────────
   settings: loadSettings(),
@@ -250,6 +253,7 @@ export const useCalculatorStore = create((set, get) => ({
   toggleDarkMode:    ()          => set(s => ({ darkMode: !s.darkMode })),
   setDarkMode:       (v)         => set({ darkMode: v }),
   setActiveCalculator: (id)      => set({ activeCalculator: id }),
+  setNotamFocus:     (icao)      => set({ notamFocus: icao }),
 
   // route: { dep, arr, destAlts, enrouteCount, enrouteAlts, firs }. Starts a
   // fresh, unsaved session — data:null tells BriefingView to fetch — except

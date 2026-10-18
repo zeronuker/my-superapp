@@ -147,6 +147,8 @@ export default function NotamViewer() {
     discardUnsavedBriefing: s.discardUnsavedBriefing,
   })))
   const hasUnsavedBriefing = !!briefing.data && !briefing.savedId
+  const notamFocus = useCalculatorStore(s => s.notamFocus)
+  const setNotamFocus = useCalculatorStore(s => s.setNotamFocus)
 
   const [cache]        = useState(() => loadWithExpiry(CACHE_KEY))
   // Inputs (mirror METAR/TAF)
@@ -197,6 +199,17 @@ export default function NotamViewer() {
     setNotams(fresh.rawPerIcao ? parseMixedNotams(fresh.rawPerIcao, fresh.source) : null)
     setFetchedAt(fresh.fetchedAt)
   }, [briefing.data?.fetchedAt])
+
+  // Briefing's "view all in NOTAM tab": open only the tapped airport/FIR
+  // section (others stay collapsed) and scroll to it. Runs on mount (tab
+  // remounts on switch) and on change (tab already open under the overlay).
+  useEffect(() => {
+    if (!notamFocus) return
+    setCollapsedMap({ [notamFocus]: false })
+    requestAnimationFrame(() =>
+      document.getElementById(`notam-sec-${notamFocus}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    setNotamFocus(null)
+  }, [notamFocus, setNotamFocus])
 
   const applyCopiedAirports = (data) => {
     setDep(data.dep)
