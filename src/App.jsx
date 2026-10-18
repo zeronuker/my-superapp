@@ -5,6 +5,7 @@ import { loadLastPosition } from './modules/prayer/services/geolocation'
 import ErrorBoundary from './components/ErrorBoundary'
 import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar } from './components/Navigation'
 import BrandBanner from '@brand/BrandBanner'
+import SettingsIcon from '@brand/SettingsIcon'
 import SplashScreen from '@brand/SplashScreen'
 import UpdatePrompt from '@brand/UpdatePrompt'
 import { useUpdate } from '@brand/useUpdate'
@@ -351,7 +352,7 @@ export default function App() {
                 title={update.needRefresh ? 'Settings · update available' : 'Settings'}
                 aria-label="Open settings"
               >
-                ⚙
+                <SettingsIcon size={16} />
                 {update.needRefresh && (
                   <span style={{
                     position: 'absolute', top: -2, right: -2,
