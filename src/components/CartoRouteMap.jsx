@@ -1,7 +1,8 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { Map as MaplibreMap, Marker, LngLatBounds, setWorkerUrl } from 'maplibre-gl'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { Map as MaplibreMap, Marker, Popup, LngLatBounds, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getRoleStyle } from '../utils/metarSeverity'
+import { sigmetsToGeoJSON, hazardColor, fmtHazard } from '../utils/sigmet'
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import OfflineCoastlineMap from './OfflineCoastlineMap'
 
@@ -65,6 +66,36 @@ function routeGeoJSON(markers) {
     coords.push([p.lng, p.lat])
   }
   return { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } }
+}
+
+// MapLibre paint values can't use CSS variables — resolve `var(--x)` to its colour.
+function cssColor(v) {
+  const m = /^var\((--[\w-]+)\)$/.exec(v)
+  return m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() || '#888' : v
+}
+
+// Tap-a-zone popup. Built with textContent (the feed's text is external) and
+// explicit dark text, since MapLibre's popup background is white.
+function sigmetPopupEl(features) {
+  const el = document.createElement('div')
+  el.style.cssText = 'font-family:var(--cb-font-mono); font-size:11px; line-height:1.5; color:#0a1020; max-height:180px; overflow-y:auto;'
+  features.forEach((f, i) => {
+    const { title, fir, alt, valid } = f.properties
+    const box = document.createElement('div')
+    box.style.cssText = i ? 'margin-top:8px; padding-top:6px; border-top:1px solid #ccd;' : ''
+    const head = document.createElement('div')
+    head.style.fontWeight = '700'
+    head.textContent = title
+    box.append(head)
+    for (const line of [fir, alt, valid]) {
+      if (!line) continue
+      const d = document.createElement('div')
+      d.textContent = line
+      box.append(d)
+    }
+    el.append(box)
+  })
+  return el
 }
 
 function makeMarkerEl(m) {
@@ -142,7 +173,7 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers) {
   return out
 }
 
-const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isOffline, mapSnapshot }, ref) {
+const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isOffline, mapSnapshot, sigmets }, ref) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
@@ -152,6 +183,15 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isO
   // offline coastline fallback; "declined" just stops asking and leaves the
   // plain "unavailable" message up.
   const [fallbackChoice, setFallbackChoice] = useState('pending')
+
+  // `sigmets` is a fresh array every parent render, so redraw only when the set
+  // of drawn zones actually changes (same trick the route layer can't use —
+  // `markers` is also fresh each render, but it is cheap to re-add).
+  const sigGeo = useMemo(() => sigmetsToGeoJSON(sigmets), [sigmets])
+  const sigKey = sigGeo.features.map(f => `${f.properties.title}|${f.properties.valid}|${f.geometry.coordinates[0].length}`).join(';')
+  const sigGeoRef = useRef(sigGeo)
+  sigGeoRef.current = sigGeo
+  const sigHazards = [...new Set(sigGeo.features.map(f => f.properties.hazard))]
 
   // Exposed to BriefingView so Save Briefing can grab a still of whatever
   // this route currently looks like — the saved offline fallback for next
@@ -220,6 +260,19 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isO
       loaded = true
       clearTimeout(timeoutId)
       markStyleLoaded(styleKey)
+      // Tap a SIGMET zone → popup with every zone under the finger (they overlap).
+      // One handler per map instance; the layer itself comes and goes (see the
+      // sigmet effect below), so look it up at click time.
+      map.on('click', (e) => {
+        if (!map.getLayer('sigmet-fill')) return
+        const hits = map.queryRenderedFeatures(e.point, { layers: ['sigmet-fill'] })
+        if (!hits.length) return
+        new Popup({ maxWidth: '260px' }).setLngLat(e.lngLat).setDOMContent(sigmetPopupEl(hits)).addTo(map)
+      })
+      map.on('mousemove', (e) => {
+        map.getCanvas().style.cursor =
+          map.getLayer('sigmet-fill') && map.queryRenderedFeatures(e.point, { layers: ['sigmet-fill'] }).length ? 'pointer' : ''
+      })
       setStatus('ready')
     })
     // Only a failure BEFORE the map ever finished loading counts as fatal.
@@ -292,6 +345,28 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isO
     map.fitBounds(bounds, { padding: 60, maxZoom: 9, duration: 0 })
   }, [status, markers])
 
+  // SIGMET zones, under the route line and airport markers. The route effect
+  // above re-adds 'route-line' on every render, so it always ends up on top.
+  useEffect(() => {
+    const map = mapRef.current
+    if (status !== 'ready' || !map) return
+    const draw = () => {
+      for (const id of ['sigmet-fill', 'sigmet-line']) if (map.getLayer(id)) map.removeLayer(id)
+      if (map.getSource('sigmets')) map.removeSource('sigmets')
+      const geo = sigGeoRef.current
+      if (!geo.features.length) return
+      const features = geo.features.map(f => ({ ...f, properties: { ...f.properties, color: cssColor(hazardColor(f.properties.hazard)) } }))
+      map.addSource('sigmets', { type: 'geojson', data: { type: 'FeatureCollection', features } })
+      const before = map.getLayer('route-line') ? 'route-line' : undefined
+      map.addLayer({ id: 'sigmet-fill', type: 'fill', source: 'sigmets', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 } }, before)
+      map.addLayer({ id: 'sigmet-line', type: 'line', source: 'sigmets', paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.9 } }, before)
+    }
+    // Unlike the route effect (re-run every render), this one only runs when the
+    // zones change — so if the style is still loading right now, wait for it.
+    if (map.isStyleLoaded()) draw()
+    else { map.once('idle', draw); return () => map.off('idle', draw) }
+  }, [status, sigKey])
+
   const buttonStyle = {
     fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase',
     color: 'var(--cp-txt)', background: 'var(--cp-bg3)', border: '1px solid var(--cp-border3)',
@@ -311,6 +386,24 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isO
           color: 'var(--cp-yellow)',
         }}>
           Offline — map frozen
+        </div>
+      )}
+
+      {status === 'ready' && sigHazards.length > 0 && (
+        <div style={{
+          position: 'absolute', bottom: 10, left: 10, pointerEvents: 'none',
+          background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+          border: '1px solid var(--cp-border3)', borderRadius: 7, padding: '5px 9px',
+          fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
+          color: 'var(--cp-txt)', display: 'flex', flexDirection: 'column', gap: 3,
+        }}>
+          <div style={{ color: 'var(--cp-dim)' }}>SIGMET</div>
+          {sigHazards.map(h => (
+            <div key={h || 'unknown'} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: hazardColor(h), opacity: 0.85 }} />
+              {fmtHazard(h)}
+            </div>
+          ))}
         </div>
       )}
 

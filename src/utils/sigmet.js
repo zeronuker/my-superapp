@@ -40,6 +40,10 @@ export function normalizeSigmet(raw) {
     spd: raw.spd && raw.spd !== '0' && raw.spd !== 'UNK' ? raw.spd : null,
     chng: raw.chng && raw.chng !== 'NC' ? raw.chng : null,
     raw: raw.rawSigmet || '',
+    // Affected area as the feed sends it: geom 'AREA' = [{lat,lon}...],
+    // 'AREAS' = a list of those. Some SIGMETs have none (entire-FIR / empty).
+    geom: raw.geom || null,
+    coords: Array.isArray(raw.coords) && raw.coords.length ? raw.coords : null,
   }
 }
 
@@ -61,4 +65,57 @@ export function reviveSigmets(sigmets) {
 export function filterSigmetsByFir(sigmets, firIds) {
   if (!firIds?.size) return []
   return sigmets.filter(s => s.firId && firIds.has(s.firId.toUpperCase()))
+}
+
+// ── Map polygons ──────────────────────────────────────────────────────────────
+// A SIGMET's area as closed [lng, lat] rings. The feed's rings aren't always
+// closed and can cross the date line, so close them and keep longitudes
+// continuous (a jump of >180° becomes ±360°) or the polygon smears across the map.
+function toRing(points) {
+  const ring = []
+  let prev = null
+  for (const p of points) {
+    if (typeof p?.lat !== 'number' || typeof p?.lon !== 'number') continue
+    let lng = p.lon
+    if (prev !== null) {
+      while (lng - prev > 180) lng -= 360
+      while (lng - prev < -180) lng += 360
+    }
+    ring.push([lng, p.lat])
+    prev = lng
+  }
+  if (ring.length < 3) return null
+  const [fx, fy] = ring[0], [lx, ly] = ring[ring.length - 1]
+  if (fx !== lx || fy !== ly) ring.push([fx, fy])
+  return ring.length >= 4 ? ring : null
+}
+
+export function sigmetRings(s) {
+  if (!s?.coords) return []
+  const groups = Array.isArray(s.coords[0]) ? s.coords : [s.coords]
+  return groups.map(toRing).filter(Boolean)
+}
+
+/**
+ * GeoJSON polygons for every SIGMET that has an area and hasn't expired.
+ * Feature properties carry what the map popup shows; `color` is added by the
+ * map (CSS variables need resolving there).
+ */
+export function sigmetsToGeoJSON(sigmets, now = Date.now()) {
+  const features = []
+  for (const s of sigmets || []) {
+    if (s.validTo && s.validTo.getTime() < now) continue
+    const alt = [s.base, s.top].map(fmtSigmetAlt).filter(Boolean)
+    const props = {
+      hazard: s.hazard || null,
+      title: fmtHazard(s.hazard) + (s.qualifier ? ` · ${s.qualifier}` : ''),
+      fir: s.firName || s.firId || '',
+      alt: alt.length === 2 ? alt.join(' – ') : alt.length === 1 ? `to ${alt[0]}` : '',
+      valid: s.validFrom || s.validTo ? `${fmtSigmetTime(s.validFrom) || ''} – ${fmtSigmetTime(s.validTo) || ''}` : '',
+    }
+    for (const ring of sigmetRings(s)) {
+      features.push({ type: 'Feature', properties: props, geometry: { type: 'Polygon', coordinates: [ring] } })
+    }
+  }
+  return { type: 'FeatureCollection', features }
 }

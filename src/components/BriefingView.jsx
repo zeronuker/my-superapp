@@ -360,7 +360,7 @@ const BASEMAP_TABS = [
 // `saved`: a saved briefing is a frozen snapshot — it shows the map picture
 // taken when it was saved (or, if none was captured, the bundled offline map)
 // and never loads the live CARTO or Windy maps, online or offline.
-const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, saved }, ref) {
+const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, saved, sigmets }, ref) {
   const [tab, setTab] = useState('dark')
   const cartoRef = useRef(null)
   // Fade (not slide) when switching Dark ↔ Live Weather — the map is swapped
@@ -485,7 +485,7 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
         ) : tab === 'live' ? (
           <WindyRouteMap markers={markers} isOffline={isOffline} />
         ) : (
-          <CartoRouteMap ref={cartoRef} markers={markers} styleKey={tab} isOffline={isOffline} mapSnapshot={mapSnapshot} />
+          <CartoRouteMap ref={cartoRef} markers={markers} styleKey={tab} isOffline={isOffline} mapSnapshot={mapSnapshot} sigmets={sigmets} />
         )}
       </div>
     </div>
@@ -1036,7 +1036,7 @@ export default function BriefingView() {
                 {fetchedAt && ` · FETCHED ${new Date(fetchedAt).toUTCString().toUpperCase()}`}
               </div>
 
-              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} saved={isSaved} />
+              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} saved={isSaved} sigmets={sigmets} />
 
               <BriefingTabBar
                 active={activeTab}

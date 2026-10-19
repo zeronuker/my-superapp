@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeSigmet, filterSigmetsByFir, reviveSigmets, fmtHazard, hazardColor, fmtSigmetAlt, fmtSigmetTime } from './sigmet'
+import { normalizeSigmet, filterSigmetsByFir, reviveSigmets, fmtHazard, hazardColor, fmtSigmetAlt, fmtSigmetTime, sigmetRings, sigmetsToGeoJSON } from './sigmet'
 
 // Shape confirmed against a live /isigmet response (aviationweather.gov,
 // 10 Jul 2026) — including a real Malaysia-region entry.
@@ -105,5 +105,42 @@ describe('reviveSigmets', () => {
     const stored = [{ validTo: '2026-10-10T06:00:00.000Z' }]
     reviveSigmets(stored)
     expect(typeof stored[0].validTo).toBe('string')
+  })
+})
+
+describe('sigmet map polygons', () => {
+  const pt = (lon, lat) => ({ lon, lat })
+  const area = [pt(100, 1), pt(101, 1), pt(101, 2), pt(100, 2)]
+  const withArea = (extra = {}) => normalizeSigmet({ ...RAW_WMKK, geom: 'AREA', coords: area, ...extra })
+
+  it('keeps geom/coords from the feed, and null when there are none', () => {
+    expect(withArea().coords).toHaveLength(4)
+    expect(normalizeSigmet(RAW_WMKK).coords).toBeNull()
+    expect(normalizeSigmet({ ...RAW_WMKK, coords: [] }).coords).toBeNull()
+  })
+  it('closes an open ring and leaves a closed one alone', () => {
+    const [open] = sigmetRings(withArea())
+    expect(open).toHaveLength(5)
+    expect(open[4]).toEqual(open[0])
+    const [closed] = sigmetRings(withArea({ coords: [...area, area[0]] }))
+    expect(closed).toHaveLength(5)
+  })
+  it('handles AREAS (several polygons) and skips rings with < 3 points', () => {
+    const s = normalizeSigmet({ ...RAW_WMKK, geom: 'AREAS', coords: [area, [pt(1, 1), pt(2, 2)], area] })
+    expect(sigmetRings(s)).toHaveLength(2)
+  })
+  it('keeps longitudes continuous across the date line', () => {
+    const [ring] = sigmetRings(withArea({ coords: [pt(179, 0), pt(-179, 0), pt(-179, 1), pt(179, 1)] }))
+    expect(ring.map(p => p[0])).toEqual([179, 181, 181, 179, 179])
+  })
+  it('builds one feature per ring, drops expired and area-less SIGMETs', () => {
+    const live = withArea({ validTimeTo: 2_000_000_000 })
+    const expired = withArea({ validTimeTo: 1_000 })
+    const none = normalizeSigmet(RAW_WMKK)
+    const geo = sigmetsToGeoJSON([live, expired, none], 1_500_000_000_000)
+    expect(geo.features).toHaveLength(1)
+    expect(geo.features[0].geometry.type).toBe('Polygon')
+    expect(geo.features[0].properties.title).toBe('Thunderstorm · EMBD')
+    expect(geo.features[0].properties.alt).toBe('to FL520')
   })
 })
