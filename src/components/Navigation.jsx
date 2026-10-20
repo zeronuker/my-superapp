@@ -97,7 +97,7 @@ export function GroupedNav({ calcs, activeId, onSelect }) {
 
         {/* Sub-row — only when the active group has more than one tool */}
         {activeGroup && activeGroup.calcs.length > 1 && (
-          <div style={{ display: 'flex', gap: 6, overflowX: 'auto',
+          <div style={{ display: 'flex', gap: '2px 10px', flexWrap: 'wrap',
             padding: '8px 0 9px', borderTop: '1px solid var(--cp-border3)' }}>
             {activeGroup.calcs.map(c => {
               const on = c.id === activeId

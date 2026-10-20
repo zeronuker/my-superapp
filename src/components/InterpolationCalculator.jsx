@@ -202,7 +202,7 @@ export default function InterpolationCalculator() {
           { n: 3, label: 'Read result', done: hasLookup && result && result !== 'out of range' },
         ].map((step, i) => (
           <React.Fragment key={step.n}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 auto', minWidth: 0 }}>
               <div style={{
                 width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
                 background: step.done ? 'rgba(74,222,128,0.15)' : 'var(--cp-bg3)',
@@ -211,9 +211,9 @@ export default function InterpolationCalculator() {
                 fontFamily: "var(--cb-font-mono)", fontSize: 10, fontWeight: 700,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>{step.done ? '✓' : step.n}</div>
-              <span style={{ fontSize: 10, color: step.done ? 'var(--cp-green)' : 'var(--cp-dim)', letterSpacing: '0.12em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{step.label}</span>
+              <span style={{ fontSize: 10, color: step.done ? 'var(--cp-green)' : 'var(--cp-dim)', letterSpacing: '0.12em', textTransform: 'uppercase', lineHeight: 1.3 }}>{step.label}</span>
             </div>
-            {i < 2 && <div style={{ height: 1, flex: 1, background: 'var(--cp-border)', margin: '0 8px' }} />}
+            {i < 2 && <div style={{ height: 1, flex: '1 1 12px', background: 'var(--cp-border)', margin: '0 8px' }} />}
           </React.Fragment>
         ))}
       </div>

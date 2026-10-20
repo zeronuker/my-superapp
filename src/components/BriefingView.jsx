@@ -76,6 +76,7 @@ function BriefingTabBar({ active, onSelect, counts }) {
           return (
             <button
               key={tab.id}
+              className="cp-bf-tab"
               onClick={() => onSelect(tab.id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
@@ -1050,7 +1051,7 @@ export default function BriefingView() {
                   {/* ── Departure / Arrival ── */}
                   {depArr.length > 0 && (
                     <Section title="Departure & Arrival" color={SECTION_COLORS.depArr}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 12 }}>
                         {depArr.map(a => <AirportCard key={a.icao} target={a} weather={a} />)}
                       </div>
                     </Section>
@@ -1059,7 +1060,7 @@ export default function BriefingView() {
                   {/* ── Destination Alternates ── */}
                   {destAltList.length > 0 && (
                     <Section title="Destination Alternates" color={SECTION_COLORS.destAlt}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 12 }}>
                         {destAltList.map(a => <AirportCard key={a.icao} target={a} weather={a} />)}
                       </div>
                     </Section>
@@ -1068,7 +1069,7 @@ export default function BriefingView() {
                   {/* ── Enroute Alternates ── */}
                   {eraList.length > 0 && (
                     <Section title="Enroute Alternates" color={SECTION_COLORS.era}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 12 }}>
                         {eraList.map(a => <AirportCard key={a.icao} target={a} weather={a} />)}
                       </div>
                     </Section>
@@ -1081,7 +1082,7 @@ export default function BriefingView() {
                 <>
                   {airports.length > 0 && (
                     <Section title="Notams — Airports" color={SECTION_COLORS.notam}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 12 }}>
                         {airports.map(a => <AirportNotamCard key={a.icao} target={a} notams={notamsByIcao[a.icao]} />)}
                       </div>
                     </Section>
@@ -1091,7 +1092,7 @@ export default function BriefingView() {
                     {firsUsed.length === 0 ? (
                       <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
                     ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 12 }}>
                         {firsUsed.map(fir => <FirNotamCard key={fir.icao} fir={fir} notams={notamsByIcao[fir.icao]} />)}
                       </div>
                     )}

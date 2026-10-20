@@ -554,8 +554,8 @@ function SettingsSection({ title, children }) {
 
 function SettingsRow({ label, children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center',
-      justifyContent: 'space-between', gap: 12 }}>
+    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap',
+      justifyContent: 'space-between', gap: '8px 12px' }}>
       <span className="cp-label" style={{ flexShrink: 0 }}>{label}</span>
       {children}
     </div>

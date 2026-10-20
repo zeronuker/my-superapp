@@ -379,7 +379,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.5", date: "Oct 2026", current: true,
+    v: "v3.5", date: "Oct 2026",
     title: "Disable auto-update setting",
     notes: [
       "NEW: Settings → About → App Update has a 'Disable auto-update' switch. When on, the app stops checking for new versions in the background and never shows the 15s auto-update toast; 'Check for updates' still works manually.",
@@ -388,6 +388,18 @@ export const CHANGELOG = [
       "FIX: Briefing: a newly saved briefing (e.g. the 7th) could look saved but be gone after closing the app. Saved briefings were kept in the browser's small (~5 MB) localStorage; once full, the save failed silently. They now live in IndexedDB, which holds far more (your existing saved briefings are copied over automatically the first time you open the app), and a briefing only counts as saved once it is really written. If storage is ever full, a 'Storage Full' prompt asks whether to delete the oldest saved briefing to make room.",
       "FIX: Briefing: opening the SIGMETs tab on a briefing saved before the storage change crashed the Briefing window (and hid the Resume Briefing pill until the app was restarted). Those older saved briefings now open their SIGMETs normally; no saved data was lost.",
       "FIX: Briefing: a saved briefing is now a true snapshot. Opening one — online or offline — shows exactly what was saved and never loads anything new: its map is the picture taken when you saved (or the built-in offline map for older saves that have no picture), and the Live Weather map is switched off for it. A 'Saved snapshot · data as of …' line shows how old it is. Saving now also switches to the Dark map first so the picture is captured, and 'SAVING…' stops a double-tap saving twice.",
+    ],
+  },
+  {
+    v: "v3.6", date: "Oct 2026", current: true,
+    title: "Fits narrow phones",
+    notes: [
+      "FIX: On narrow phones, several tools were cut off on the right with no way to scroll to the hidden part: Interpolation, Flight Time Limitations, METAR/TAF, NOTAM, SIGMET, World Time, Qiblat & Solat and the clock on the home screen. The page margins and tool cards are slimmer on phones, so every tool gets about 48 px more width, and these tools now fit screens as narrow as 360 px.",
+      "FIX: On narrow phones the Flight Briefing's METAR/TAF cards ran past the window and its three tabs (METAR/TAF, NOTAMs, SIGMETs) scrolled sideways with the last one half hidden. The cards now fit the window and the tabs share the row.",
+      "FIX: On narrow phones the scientific calculator's right-hand column of keys (÷ × − + =) was cut off, and the sin⁻¹, cos⁻¹ and tan⁻¹ labels overflowed their keys. The whole keypad now fits.",
+      "IMP: Settings rows move their control under the label when the two do not fit side by side, instead of running off the edge. The three steps at the top of Interpolation, the tag beside the Flight Time Limitations heading and long section titles (such as Go-around Step 3) now wrap onto extra lines on phones.",
+      "IMP: On phones the Calculator and B737 Performance sub tabs sit in two even rows at the same height, so every mode is visible without sideways scrolling. The grouped navigation's tool row wraps the same way.",
+      "IMP: On phones the Converter shows its 12 categories as two rows of six and stacks FROM above TO, so every unit name fits.",
     ],
   },
 ]

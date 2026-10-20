@@ -34,6 +34,6 @@ export const CALC_BTN = {
   eq:       { ...base, fontSize: 26, background: 'rgba(34,197,94,0.12)',    color: 'var(--cp-green)',  borderColor: 'rgba(34,197,94,0.4)' },
   // Scientific-only extras — no Basic/Time equivalent to match, sized smaller
   // to fit multi-character labels (sin, cos⁻¹, ...) in a 6-column grid.
-  sci:      { ...base, fontSize: 14, background: 'var(--cp-bg2)',           color: 'var(--cp-acc2)',   borderColor: 'var(--cp-border)'  },
+  sci:      { ...base, fontSize: 'clamp(10px, 3vw, 14px)', background: 'var(--cp-bg2)',           color: 'var(--cp-acc2)',   borderColor: 'var(--cp-border)'  },
   pi:       { ...base, fontSize: 15, background: 'rgba(167,139,250,0.12)',  color: 'var(--cp-purple)', borderColor: 'rgba(167,139,250,0.4)' },
 }

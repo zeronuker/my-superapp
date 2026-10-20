@@ -410,12 +410,12 @@ export default function FTLCalculator() {
       <div className="cp-section-header" style={{ marginBottom: 20 }}>
         <span className="cp-section-title">FLIGHT TIME LIMITATIONS</span>
         <div className="cp-divider" />
-        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', whiteSpace: 'nowrap', letterSpacing: '0.1em' }}>
+        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.1em', textAlign: 'right' }}>
           CAD 1901 · CAAM MALAYSIA
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: 24, alignItems: 'start' }}>
 
         {/* ── LEFT: Inputs ──────────────────────────────────────────────── */}
         <div>

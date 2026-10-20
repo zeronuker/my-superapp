@@ -33,9 +33,9 @@ export default function CombinedCalculator({ animStyle }) {
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8, flexShrink: 0 }}>
+      <div className="cp-mode-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8, flexShrink: 0 }}>
         {/* ── Mode toggle ───────────────────────────────────────────────── */}
-        <div style={{
+        <div className="cp-mode-strip" style={{
           display: 'inline-flex',
           background: 'var(--cp-bg3)',
           border: '1px solid var(--cp-border)',
@@ -48,6 +48,7 @@ export default function CombinedCalculator({ animStyle }) {
           {MODES.map(({ id, label, icon }) => (
             <button
               key={id}
+              className="cp-mode-btn"
               onClick={() => setMode(id)}
               style={{
                 fontFamily: 'var(--cb-font-mono)',

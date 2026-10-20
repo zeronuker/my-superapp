@@ -584,3 +584,42 @@ html[data-hico="true"] .cp-input:focus {
     z-index: 99999;
   }
 }
+
+/* ── Narrow phones: slimmer page margin and tool card padding ──
+   Both were 24px (plus a 24px card), leaving only ~W-98px for a tool's content
+   (262px on a 360px phone); tools were cut off by the card's overflow clip. */
+@media (max-width: 520px) {
+  .cp-main { padding-left: 12px !important; padding-right: 12px !important; }
+  .cp-tool-card { padding: 12px !important; }
+  .cp-header-row { padding-right: 12px !important; }
+  /* Section titles are one-line by default; a long one ("Step 3 — Conditions (...)")
+     is wider than the card on a phone, so let it wrap. */
+  .cp-section-title { white-space: normal; }
+  /* Mode strips (Calculator, B737 Performance): two even columns instead of a
+     sideways-scrolling row with the last modes hidden. */
+  .cp-mode-head { flex-wrap: wrap; }
+  .cp-mode-head > :last-child { margin-left: auto; }
+  .cp-mode-strip { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 1 1 100%; min-width: 0; overflow: visible !important; }
+  /* One line each, so every tab is the same height; the label scales with the screen. */
+  .cp-mode-btn {
+    white-space: nowrap !important; justify-content: center; padding: 7px 4px !important;
+    font-size: clamp(8px, 2.6vw, 10px) !important; letter-spacing: 0 !important;
+  }
+  /* Converter: FROM and TO stack, so each gets the full card width and long unit names fit. */
+  .cp-conv-pair { flex-direction: column; align-items: stretch !important; }
+  .cp-conv-pair > button { align-self: center; transform: rotate(90deg); }
+  /* Briefing's three tabs share the row (METAR/TAF, NOTAMs, SIGMETs) instead of
+     scrolling sideways with the last one half hidden. */
+  .cp-bf-tab {
+    flex: 1 1 0 !important; min-width: 0; justify-content: center;
+    padding: 7px 4px !important; font-size: 10px !important; letter-spacing: 0.04em !important;
+  }
+  /* brand.css gives the banner 12px each side; trim it so the logo and the
+     settings button both fit a 320px screen. */
+  .cp-header-row .cb-banner { padding-left: 8px !important; padding-right: 4px !important; }
+}
+/* Smallest phones (320px class): a little tighter still. */
+@media (max-width: 340px) {
+  .cp-main { padding-left: 8px !important; padding-right: 8px !important; }
+  .cp-tool-card { padding: 8px !important; }
+}

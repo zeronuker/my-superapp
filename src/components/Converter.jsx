@@ -156,7 +156,7 @@ export default function Converter() {
           <button key={c} onClick={() => pickCat(c)} style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             flex: `0 0 calc((100% - ${(catCols - 1) * 6}px) / ${catCols})`,
-            fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.06em', padding: '8px 2px',
+            fontFamily: 'var(--cb-font-mono)', fontSize: 'clamp(8px, 2.4vw, 9px)', letterSpacing: '0.02em', padding: '8px 0', minWidth: 0,
             borderRadius: 6, cursor: 'pointer',
             border: `1px solid ${cat === c ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
             background: cat === c ? 'var(--cp-accdim)' : 'transparent',
@@ -178,7 +178,7 @@ export default function Converter() {
       )}
 
       {/* bidirectional from/to */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+      <div className="cp-conv-pair" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>{twinCard('from')}</div>
         <button onClick={swap} style={{ flexShrink: 0, background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
           borderRadius: 6, color: 'var(--cp-acc)', fontSize: 16, cursor: 'pointer', padding: '10px 12px' }}>⇄</button>

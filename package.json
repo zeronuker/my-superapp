@@ -1,12 +1,13 @@
 {
   "name": "pilot-utility-suite",
-  "version": "3.5.0",
+  "version": "3.6.0",
   "type": "module",
   "scripts": {
     "dev": "node brand-kit/scripts/write-build-info.mjs && vite",
     "build": "node brand-kit/scripts/write-build-info.mjs && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "check:fit": "node scripts/check-fit.mjs",
     "test:watch": "vitest",
     "brand:fonts": "node brand-kit/scripts/download-fonts.mjs",
     "brand:icons": "node brand-kit/scripts/generate-brand-icons.mjs",
@@ -29,6 +30,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.31",
+    "puppeteer-core": "^25.15.0",
     "vite": "^8.2.1",
     "vite-plugin-pwa": "^1.3.0",
     "vite-plugin-static-copy": "^4.1.1",

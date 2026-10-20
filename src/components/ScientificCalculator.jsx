@@ -80,7 +80,7 @@ export default function ScientificCalculator() {
       </div>
 
       {/* controls: angle + memory — 1 row */}
-      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: CALC_GRID_GAP }}>
         <Btn style={BTN.util} onClick={() => setAngle(a => a === 'deg' ? 'rad' : 'deg')}>{angle === 'deg' ? 'RAD' : 'DEG'}</Btn>
         <Btn style={BTN.util} onClick={() => setMem(0)}>MC</Btn>
         <Btn style={BTN.util} onClick={() => memAdd(1)}>M+</Btn>
@@ -90,7 +90,7 @@ export default function ScientificCalculator() {
 
       {/* functions (left) + numpad/equals (right) side by side — fills all remaining space */}
       <div style={{ flex: 8, minHeight: 0, display: 'flex', gap: 8 }}>
-        <div style={{ flex: '0 0 44%', minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(6, 1fr)', gap: CALC_GRID_GAP }}>
+        <div style={{ flex: '0 0 44%', minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gridTemplateRows: 'repeat(6, minmax(0, 1fr))', gap: CALC_GRID_GAP }}>
           <Btn style={BTN.sci} onClick={() => insert('sin(')}>sin</Btn>
           <Btn style={BTN.sci} onClick={() => insert('cos(')}>cos</Btn>
           <Btn style={BTN.sci} onClick={() => insert('tan(')}>tan</Btn>
@@ -111,7 +111,7 @@ export default function ScientificCalculator() {
           <Btn style={BTN.sci} onClick={() => insert('exp(')}>eˣ</Btn>
         </div>
 
-        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(5, 1fr)', gap: CALC_GRID_GAP }}>
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gridTemplateRows: 'repeat(5, minmax(0, 1fr))', gap: CALC_GRID_GAP }}>
           <Btn style={BTN.clr} onClick={clear}>C</Btn>
           <Btn style={BTN.utilLg} onClick={back}>⌫</Btn>
           <Btn style={BTN.op} onClick={() => insert('÷')}>÷</Btn>

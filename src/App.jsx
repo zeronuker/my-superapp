@@ -335,7 +335,7 @@ export default function App() {
           borderBottom: '1px solid var(--cp-border)',
           paddingTop: 'calc(env(safe-area-inset-top) + var(--ios-edge, 0px))',
         }}>
-          <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex',
+          <div className="cp-header-row" style={{ maxWidth: 960, margin: '0 auto', display: 'flex',
             alignItems: 'center', justifyContent: 'space-between', paddingRight: 24 }}>
 
             {/* minWidth:0 lets this shrink instead of pushing the settings
@@ -381,7 +381,7 @@ export default function App() {
 
         {/* ── Main content ─────────────────────────────────────────────── */}
         <main
-          className={isLauncherHome ? 'cb-grid-bg' : ''}
+          className={`${isCalcFullScreen ? '' : 'cp-main'}${isLauncherHome ? ' cb-grid-bg' : ''}`}
           style={{
             maxWidth: 960, margin: '0 auto', width: '100%',
             ...(isCalcFullScreen
@@ -400,7 +400,7 @@ export default function App() {
               <LauncherGrid calcs={orderedCalcs} onSelect={handleSelectCalculator} />
             </>
           ) : (
-            <div className="cp-card-bg2" style={{
+            <div className={isCalcFullScreen ? 'cp-card-bg2' : 'cp-card-bg2 cp-tool-card'} style={{
               border: '1px solid var(--cp-border)',
               borderRadius: 4,
               // Clip (not scroll) sideways overflow so the slide-in can never
