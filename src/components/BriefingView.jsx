@@ -675,7 +675,7 @@ export default function BriefingView() {
   const [titleDraft, setTitleDraft] = useState(null)
   const [showSavePrompt, setShowSavePrompt] = useState(false)
   const [showCapPrompt, setShowCapPrompt] = useState(false)
-  // Why the cap prompt is up: the 30-briefing count cap, or the device storage
+  // Why the cap prompt is up: the BRIEFING_SAVES_CAP count cap, or the device storage
   // being full (the save was attempted and refused).
   const [storageFull, setStorageFull] = useState(false)
   const [saveError, setSaveError] = useState('')

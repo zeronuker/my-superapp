@@ -6,7 +6,7 @@ import { syncSnapshotCaches } from '../services/briefingSync'
 // Named, manually-managed saves (unlike every cb-*-cache key, which is a
 // single slot with a 12h auto-expiry) — never expires, capped, only changed
 // by an explicit save/rename/delete. Stored in IndexedDB (briefingStorage.js).
-export const BRIEFING_SAVES_CAP = 30
+export const BRIEFING_SAVES_CAP = 100
 // Pre-Saved-Briefings single-slot cache (open:false pause/resume) — actively
 // discarded, not migrated, the first time this loads post-update.
 const LEGACY_BRIEFING_CACHE_KEY = 'cb-briefing-cache'
