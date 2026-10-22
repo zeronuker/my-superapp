@@ -5,6 +5,7 @@ import { getRoleStyle } from '../utils/metarSeverity'
 import { sigmetsToGeoJSON, hazardColor, fmtHazard } from '../utils/sigmet'
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import { routeLineCoords } from '../utils/routeLine'
+import { placeLabels } from '../utils/labelLayout'
 import OfflineCoastlineMap from './OfflineCoastlineMap'
 
 // MapLibre builds its worker's own URL from a dynamic template literal
@@ -102,19 +103,51 @@ function sigmetPopupEl(features) {
   return el
 }
 
-// Small dot + name for a fix on a pasted route (the "fix names" toggle). Built
-// with textContent: the name comes from saved data.
+// Small dot + name for a fix on a pasted route (the "fix names" toggle). The dot
+// is the marker; the name is positioned next to it by layoutFixLabels so names
+// never overlap each other or the airport labels. Built with textContent: the
+// name comes from saved data.
+const FIX_CHAR_PX = 5.6   // width of one 9px monospace character
+const FIX_LABEL_H = 11
 function makeFixEl(name) {
-  const el = document.createElement('div')
-  el.style.cssText = 'display:flex; flex-direction:column; align-items:center; pointer-events:none;'
+  const root = document.createElement('div')
+  root.style.cssText = 'position:relative; width:6px; height:6px; box-sizing:border-box; border-radius:50%; background:#e8ecf5; border:1px solid var(--cp-bg3); pointer-events:none;'
   const label = document.createElement('div')
-  label.style.cssText = `font-family:var(--cb-font-mono); font-size:9px; color:var(--cp-txt);
-    text-shadow:0 0 3px var(--cp-bg3), 0 0 3px var(--cp-bg3); margin-bottom:1px; white-space:nowrap;`
+  label.style.cssText = `position:absolute; font-family:var(--cb-font-mono); font-size:9px; line-height:${FIX_LABEL_H}px; color:var(--cp-txt);
+    text-shadow:0 0 3px var(--cp-bg3), 0 0 3px var(--cp-bg3); white-space:nowrap; pointer-events:none; display:none;`
   label.textContent = name
-  const dot = document.createElement('div')
-  dot.style.cssText = 'width:6px; height:6px; border-radius:50%; background:#e8ecf5; border:1px solid var(--cp-bg3);'
-  el.append(label, dot)
-  return el
+  root.append(label)
+  return { root, label, w: Math.ceil(name.length * FIX_CHAR_PX), h: FIX_LABEL_H }
+}
+
+// Screen rects taken by the airport dots and ICAO labels (see makeMarkerEl:
+// label above a dot whose box is size + 4 px, anchored at its bottom).
+function airportRects(map, markers) {
+  const rects = []
+  for (const m of markers) {
+    const { x, y } = map.project([m.lng, m.lat])
+    const s = (m.big ? 14 : 10) + 4
+    const w = Math.ceil(m.icao.length * 6.2)
+    rects.push({ x: x - s / 2, y: y - s, w: s, h: s })
+    rects.push({ x: x - w / 2, y: y - s - 15, w, h: 13 })
+  }
+  return rects
+}
+
+// Places every fix label (see utils/labelLayout.js), shows or hides it, and
+// returns the layout so the saved-map picture can paint the same thing.
+function layoutFixLabels(map, markers, fixItems) {
+  if (!fixItems.length) return []
+  const pts = fixItems.map(f => ({ ...map.project([f.lng, f.lat]), w: f.w, h: f.h }))
+  const c = map.getContainer()
+  const spots = placeLabels(pts, airportRects(map, markers), { w: c.clientWidth, h: c.clientHeight })
+  return fixItems.map((f, i) => {
+    const s = spots[i]
+    // the dot is 6px, so its centre is 3px in from the label's offset origin
+    if (s) { f.label.style.left = `${3 + s.dx}px`; f.label.style.top = `${3 + s.dy}px` }
+    f.label.style.display = s ? 'block' : 'none'
+    return { name: f.name, lng: f.lng, lat: f.lat, w: f.w, h: f.h, dx: s?.dx, dy: s?.dy, visible: !!s }
+  })
 }
 
 function makeMarkerEl(m) {
@@ -143,7 +176,7 @@ function makeMarkerEl(m) {
 // and that loads asynchronously — a snapshot taken in that gap has no line.
 // Whenever the source isn't loaded, paint the line here too (same points,
 // dash and colour as the 'route-line' layer) so a saved map always has it.
-function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, showFixNames) {
+function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, fixLayout) {
   const out = document.createElement('canvas')
   out.width = baseCanvas.width
   out.height = baseCanvas.height
@@ -168,22 +201,25 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, showFixNames
   }
 
   // Fix dots + names (markers are DOM elements, so they are not in the canvas).
-  if (showFixNames && routeLine) {
-    for (const p of routeLine.points) {
-      if (!p.name) continue
-      const { x, y } = map.project([p.lng, p.lat])
+  // `fixLayout` is the placement layoutFixLabels chose, so the picture matches the screen.
+  if (fixLayout?.length) {
+    for (const f of fixLayout) {
+      const { x, y } = map.project([f.lng, f.lat])
       const px = x * dpr, py = y * dpr
       ctx.beginPath()
       ctx.arc(px, py, 3 * dpr, 0, Math.PI * 2)
       ctx.fillStyle = '#e8ecf5'
       ctx.fill()
+      if (!f.visible) continue
       ctx.font = `500 ${9 * dpr}px monospace`
-      ctx.textAlign = 'center'
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'top'
       ctx.lineWidth = 3 * dpr
       ctx.strokeStyle = 'rgba(10,16,32,0.9)'
-      ctx.strokeText(p.name, px, py - 6 * dpr)
+      ctx.strokeText(f.name, px + f.dx * dpr, py + f.dy * dpr + dpr)
       ctx.fillStyle = '#e8ecf5'
-      ctx.fillText(p.name, px, py - 6 * dpr)
+      ctx.fillText(f.name, px + f.dx * dpr, py + f.dy * dpr + dpr)
+      ctx.textBaseline = 'alphabetic'
     }
   }
 
@@ -216,6 +252,8 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
+  const fixLayoutRef = useRef([])        // where each fix label was placed (for the saved-map picture)
+  const baseLabelVisRef = useRef(null)   // the basemap's own text layers and their original visibility
   const [status, setStatus] = useState('loading') // loading | ready | error
   // pending | accepted | declined — only relevant once status === 'error'
   // AND there's no saved snapshot to show instead. "accepted" swaps in the
@@ -250,12 +288,12 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
       const map = mapRef.current
       if (status !== 'ready' || !map) { resolve(null); return }
       map.once('render', () => {
-        const withMarkers = drawMarkersOnSnapshot(map, map.getCanvas(), markers, routeLine, showFixNames)
+        const withMarkers = drawMarkersOnSnapshot(map, map.getCanvas(), markers, routeLine, fixLayoutRef.current)
         resolve(withMarkers.toDataURL('image/jpeg', 0.72))
       })
       map.triggerRepaint()
     }),
-  }), [status, markers, routeLine, showFixNames])
+  }), [status, markers, routeLine])
 
   // Re-create the map whenever the basemap style changes — MapLibre's own
   // setStyle() tears down every custom source/layer, so a full teardown +
@@ -331,6 +369,8 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
       clearTimeout(timeoutId)
       markersRef.current.forEach(mk => mk.remove())
       markersRef.current = []
+      fixLayoutRef.current = []
+      baseLabelVisRef.current = null
       map.remove()
       mapRef.current = null
     }
@@ -365,11 +405,22 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
         .setLngLat([m.lng, m.lat])
         .addTo(map)
     )
+    const fixItems = []
     if (showFixNames && routeLine) {
       for (const p of routeLine.points) {
         if (!p.name) continue
-        markersRef.current.push(new Marker({ element: makeFixEl(p.name), anchor: 'bottom' }).setLngLat([p.lng, p.lat]).addTo(map))
+        const { root, label, w, h } = makeFixEl(p.name)
+        markersRef.current.push(new Marker({ element: root, anchor: 'center' }).setLngLat([p.lng, p.lat]).addTo(map))
+        fixItems.push({ name: p.name, lng: p.lng, lat: p.lat, label, w, h })
       }
+    }
+
+    // With fix names on, the basemap's own place names (countries, cities) would
+    // print over them and over the route, so they are hidden; restored when off.
+    const textLayers = (map.getStyle().layers || []).filter(l => l.type === 'symbol' && l.layout?.['text-field'])
+    baseLabelVisRef.current ??= Object.fromEntries(textLayers.map(l => [l.id, l.layout?.visibility ?? 'visible']))
+    for (const [id, original] of Object.entries(baseLabelVisRef.current)) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', fixItems.length ? 'none' : original)
     }
 
     const geo = routeGeoJSON(markers, routeLine)
@@ -390,6 +441,13 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
     )
     if (routeLine) routeLine.points.forEach(p => bounds.extend([p.lng, p.lat]))
     map.fitBounds(bounds, { padding: 60, maxZoom: 9, duration: 0 })
+
+    // Place the fix names now, and again whenever the zoom (or size) changes.
+    const relayout = () => { fixLayoutRef.current = layoutFixLabels(map, markers, fixItems) }
+    relayout()
+    map.on('zoomend', relayout)
+    map.on('resize', relayout)
+    return () => { map.off('zoomend', relayout); map.off('resize', relayout) }
   }, [status, markers, routeLine, showFixNames])
 
   // SIGMET zones, under the route line and airport markers. The route effect
