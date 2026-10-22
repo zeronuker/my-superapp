@@ -111,7 +111,9 @@ const FIX_CHAR_PX = 5.6   // width of one 9px monospace character
 const FIX_LABEL_H = 11
 function makeFixEl(name) {
   const root = document.createElement('div')
-  root.style.cssText = 'position:relative; width:6px; height:6px; box-sizing:border-box; border-radius:50%; background:#e8ecf5; border:1px solid var(--cp-bg3); pointer-events:none;'
+  // no `position` here: MapLibre's marker class positions the element, and the
+  // absolutely positioned name below is placed relative to it
+  root.style.cssText = 'width:6px; height:6px; box-sizing:border-box; border-radius:50%; background:#e8ecf5; border:1px solid var(--cp-bg3); pointer-events:none;'
   const label = document.createElement('div')
   label.style.cssText = `position:absolute; font-family:var(--cb-font-mono); font-size:9px; line-height:${FIX_LABEL_H}px; color:var(--cp-txt);
     text-shadow:0 0 3px var(--cp-bg3), 0 0 3px var(--cp-bg3); white-space:nowrap; pointer-events:none; display:none;`
@@ -134,13 +136,17 @@ function airportRects(map, markers) {
   return rects
 }
 
-// Places every fix label (see utils/labelLayout.js), shows or hides it, and
+// Places every fix label (see utils/labelLayout.js) clear of the airports, the
+// other names and the route line, shows or hides it, and
 // returns the layout so the saved-map picture can paint the same thing.
-function layoutFixLabels(map, markers, fixItems) {
+function layoutFixLabels(map, markers, fixItems, routeLine) {
   if (!fixItems.length) return []
   const pts = fixItems.map(f => ({ ...map.project([f.lng, f.lat]), w: f.w, h: f.h }))
+  // the route line itself, as screen segments, so a name never sits on it
+  const line = routeLineCoords(routeLine.points).map(([lng, lat]) => map.project([lng, lat]))
+  const lines = line.slice(1).map((p, i) => ({ x1: line[i].x, y1: line[i].y, x2: p.x, y2: p.y }))
   const c = map.getContainer()
-  const spots = placeLabels(pts, airportRects(map, markers), { w: c.clientWidth, h: c.clientHeight })
+  const spots = placeLabels(pts, airportRects(map, markers), { w: c.clientWidth, h: c.clientHeight }, lines)
   return fixItems.map((f, i) => {
     const s = spots[i]
     // the dot is 6px, so its centre is 3px in from the label's offset origin
@@ -443,7 +449,7 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
     map.fitBounds(bounds, { padding: 60, maxZoom: 9, duration: 0 })
 
     // Place the fix names now, and again whenever the zoom (or size) changes.
-    const relayout = () => { fixLayoutRef.current = layoutFixLabels(map, markers, fixItems) }
+    const relayout = () => { fixLayoutRef.current = layoutFixLabels(map, markers, fixItems, routeLine) }
     relayout()
     map.on('zoomend', relayout)
     map.on('resize', relayout)
