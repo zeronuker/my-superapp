@@ -8,7 +8,7 @@ Guidance for working in this repository.
 plus a prayer-times module. Single-page app, tabbed calculators, deployed to
 Vercel (auto-deploys from `master`).
 
-Current version: **v3.6** — driven by `src/changelog.js`'s `current: true`
+Current version: **v3.7** — driven by `src/changelog.js`'s `current: true`
 entry (`currentVersion(CHANGELOG)` in `App.jsx`); also keep `package.json`'s
 `version` and `README.md`'s "Current version" line in sync with it.
 
@@ -107,6 +107,18 @@ when asked. The service worker caches aggressively; users get an update prompt
   Requires `AUTOROUTER_EMAIL` / `AUTOROUTER_PASSWORD` in Vercel env vars — these
   are the account login email/password (autorouter uses them as the OAuth
   client_id/client_secret). Verified working against WMKK.
+  autorouter allows only **20 valid tokens per account** (each lasts an hour;
+  going over answers `toomanytokens`). Both autorouter functions log in through
+  `api/_autorouterToken.js` (callers that arrive during a login wait for it),
+  and `fetchNotams` sends ONE `/api/notam?icaos=A,B,C` request per briefing
+  (max 12 locations, paged 100 rows at a time) instead of one per airport.
+- **Pasted route (`api/route.js`)** — the optional ROUTE box on the METAR/TAF,
+  NOTAM and SIGMET tabs (`RouteInput.jsx`). `utils/routeParse.js` keeps only the
+  fixes (airways, SIDs/STARs, runways, DCT dropped: autorouter does not know
+  the Asian airways and mixed up duplicate names when they were sent), the
+  function asks autorouter's flight-plan parser for each fix's position (parse
+  only, never files), and the Dark map draws the line. Fixes autorouter lacks
+  go in `src/data/fixOverrides.js`. SIDs/STARs and airway bends are not drawn.
 - **AeroDataBox (`api/aerodatabox.js`)** only does one thing now — airport
   runway data (`/airports/{icao}/runways`), used by METAR/TAF's wind-component
   calc. Requires `AERODATABOX_API_KEY` in Vercel env vars (X-RapidAPI-Key from

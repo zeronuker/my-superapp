@@ -1,9 +1,12 @@
-import React, { createContext, forwardRef, useContext, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import React, { createContext, forwardRef, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { usePresence, animDurationMs, useTransitionAnim } from '../useTransitionAnim'
 import { fetchWeather } from '../services/weatherAPI'
 import { fetchNotams, autoDetectFirs, NOTAM_CATEGORIES } from '../services/notamAPI'
 import { fetchAllSigmets } from '../services/sigmetAPI'
+import { lookupRoute } from '../services/routeAPI'
+import { buildRouteLine } from '../utils/routeParse'
+import { FIX_OVERRIDES } from '../data/fixOverrides'
 import { syncModuleCaches, BRIEFING_METAR_HOURS } from '../services/briefingSync'
 import { lookupAirport } from '../data/airports'
 import {
@@ -361,8 +364,9 @@ const BASEMAP_TABS = [
 // `saved`: a saved briefing is a frozen snapshot — it shows the map picture
 // taken when it was saved (or, if none was captured, the bundled offline map)
 // and never loads the live CARTO or Windy maps, online or offline.
-const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, saved, sigmets }, ref) {
+const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, saved, sigmets, routeFixes, routeError }, ref) {
   const [tab, setTab] = useState('dark')
+  const [showFixNames, setShowFixNames] = useState(false)
   const cartoRef = useRef(null)
   // Fade (not slide) when switching Dark ↔ Live Weather — the map is swapped
   // in place, so it is animated through the element rather than remounted.
@@ -399,6 +403,11 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
 
   const depAp = dep && lookupAirport(dep)
   const arrAp = arr && lookupAirport(arr)
+  // A pasted route draws through its fixes; otherwise the dashed direct line.
+  const routeLine = useMemo(
+    () => (routeFixes && depAp && arrAp ? buildRouteLine(depAp, arrAp, routeFixes, FIX_OVERRIDES) : null),
+    [routeFixes, depAp, arrAp],
+  )
 
   const markers = []
   if (depAp) markers.push({ icao: dep, label: 'DEPARTURE', lat: depAp.lat, lng: depAp.lng, big: true })
@@ -428,6 +437,20 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
         }}>
           Route &amp; Alternates
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {routeLine && !saved && tab === 'dark' && (
+          <button
+            onClick={() => setShowFixNames(v => !v)}
+            aria-pressed={showFixNames}
+            title="Show or hide the fix names along the route"
+            style={{
+              fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase',
+              color: showFixNames ? 'var(--cp-txt)' : 'var(--cp-dim)',
+              background: showFixNames ? 'var(--cp-bg3)' : 'transparent',
+              border: '1px solid var(--cp-border3)', borderRadius: 7, padding: '7px 10px', cursor: 'pointer',
+            }}
+          >Fix names</button>
+        )}
         <div style={{
           display: 'flex', gap: 2, background: 'var(--cp-bg)', border: '1px solid var(--cp-border3)',
           borderRadius: 7, padding: 2,
@@ -460,6 +483,7 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
             )
           })}
         </div>
+        </div>
       </div>
 
       <div ref={mapBoxRef} style={{ position: 'relative', width: '100%', aspectRatio: '16 / 10', maxHeight: 900 }}>
@@ -486,9 +510,16 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
         ) : tab === 'live' ? (
           <WindyRouteMap markers={markers} isOffline={isOffline} />
         ) : (
-          <CartoRouteMap ref={cartoRef} markers={markers} styleKey={tab} isOffline={isOffline} mapSnapshot={mapSnapshot} sigmets={sigmets} />
+          <CartoRouteMap ref={cartoRef} markers={markers} routeLine={routeLine} showFixNames={showFixNames} styleKey={tab} isOffline={isOffline} mapSnapshot={mapSnapshot} sigmets={sigmets} />
         )}
       </div>
+      {(routeLine?.missing.length > 0 || routeError) && (
+        <div style={{ padding: '8px 14px', fontSize: 11, color: 'var(--cp-yellow)', borderTop: '1px solid var(--cp-border3)' }}>
+          {routeError
+            ? `Route not drawn: ${routeError}`
+            : `Not found, skipped on the map: ${routeLine.missing.join(', ')}`}
+        </div>
+      )}
     </div>
   )
 })
@@ -784,10 +815,11 @@ export default function BriefingView() {
         ...resolvedFirs.map(f => f.icao.toUpperCase()),
       ])]
 
-      const [weatherList, notamResult, allSigmets] = await Promise.all([
+      const [weatherList, notamResult, allSigmets, routeResult] = await Promise.all([
         Promise.all(targets.map(async (t) => ({ ...t, ...(await fetchWeather(t.icao, BRIEFING_METAR_HOURS)) }))),
         fetchNotams(notamTargetIcaos),
         fetchAllSigmets(AbortSignal.timeout(15_000)).catch(() => []),
+        lookupRoute(route),
       ])
       if (cancelled) return
 
@@ -804,6 +836,7 @@ export default function BriefingView() {
           notamsByIcao: notamBySource,
           sigmets: scopedSigmets,
           firsUsed: resolvedFirs,
+          ...routeResult,   // { routeFixes } or { routeError } when a route was pasted
           fetchedAt: Date.now(),
         })
         // Push these same, already-fetched results into METAR/TAF, NOTAM
@@ -1037,7 +1070,7 @@ export default function BriefingView() {
                 {fetchedAt && ` · FETCHED ${new Date(fetchedAt).toUTCString().toUpperCase()}`}
               </div>
 
-              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} saved={isSaved} sigmets={sigmets} />
+              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} saved={isSaved} sigmets={sigmets} routeFixes={data?.routeFixes} routeError={data?.routeError} />
 
               <BriefingTabBar
                 active={activeTab}

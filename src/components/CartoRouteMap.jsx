@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { getRoleStyle } from '../utils/metarSeverity'
 import { sigmetsToGeoJSON, hazardColor, fmtHazard } from '../utils/sigmet'
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
+import { routeLineCoords } from '../utils/routeLine'
 import OfflineCoastlineMap from './OfflineCoastlineMap'
 
 // MapLibre builds its worker's own URL from a dynamic template literal
@@ -57,7 +58,10 @@ function markStyleLoaded(styleKey) {
   } catch {}
 }
 
-function routeGeoJSON(markers) {
+// `routeLine` ({ points }, from a pasted route) draws through its fixes; without
+// it, the dashed direct line between departure and arrival.
+function routeGeoJSON(markers, routeLine) {
+  if (routeLine) return { type: 'Feature', geometry: { type: 'LineString', coordinates: routeLineCoords(routeLine.points) } }
   if (markers.length < 2) return null
   const [dep, arr] = markers
   const coords = []
@@ -98,6 +102,21 @@ function sigmetPopupEl(features) {
   return el
 }
 
+// Small dot + name for a fix on a pasted route (the "fix names" toggle). Built
+// with textContent: the name comes from saved data.
+function makeFixEl(name) {
+  const el = document.createElement('div')
+  el.style.cssText = 'display:flex; flex-direction:column; align-items:center; pointer-events:none;'
+  const label = document.createElement('div')
+  label.style.cssText = `font-family:var(--cb-font-mono); font-size:9px; color:var(--cp-txt);
+    text-shadow:0 0 3px var(--cp-bg3), 0 0 3px var(--cp-bg3); margin-bottom:1px; white-space:nowrap;`
+  label.textContent = name
+  const dot = document.createElement('div')
+  dot.style.cssText = 'width:6px; height:6px; border-radius:50%; background:#e8ecf5; border:1px solid var(--cp-bg3);'
+  el.append(label, dot)
+  return el
+}
+
 function makeMarkerEl(m) {
   const role = getRoleStyle(m.label)
   const size = m.big ? 14 : 10
@@ -124,7 +143,7 @@ function makeMarkerEl(m) {
 // and that loads asynchronously — a snapshot taken in that gap has no line.
 // Whenever the source isn't loaded, paint the line here too (same points,
 // dash and colour as the 'route-line' layer) so a saved map always has it.
-function drawMarkersOnSnapshot(map, baseCanvas, markers) {
+function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, showFixNames) {
   const out = document.createElement('canvas')
   out.width = baseCanvas.width
   out.height = baseCanvas.height
@@ -132,7 +151,7 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers) {
   ctx.drawImage(baseCanvas, 0, 0)
 
   const dpr = out.width / map.getContainer().clientWidth
-  const geo = routeGeoJSON(markers)
+  const geo = routeGeoJSON(markers, routeLine)
   if (geo && !(map.getSource('route') && map.isSourceLoaded('route'))) {
     const w = 2.5 * dpr
     ctx.beginPath()
@@ -141,11 +160,31 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers) {
       if (i) ctx.lineTo(x * dpr, y * dpr)
       else ctx.moveTo(x * dpr, y * dpr)
     })
-    ctx.setLineDash([3 * w, 2 * w])
+    ctx.setLineDash(routeLine ? [] : [3 * w, 2 * w])   // solid for a pasted route, dashed for the direct line
     ctx.lineWidth = w
     ctx.strokeStyle = 'rgba(232,236,245,0.85)'
     ctx.stroke()
     ctx.setLineDash([])
+  }
+
+  // Fix dots + names (markers are DOM elements, so they are not in the canvas).
+  if (showFixNames && routeLine) {
+    for (const p of routeLine.points) {
+      if (!p.name) continue
+      const { x, y } = map.project([p.lng, p.lat])
+      const px = x * dpr, py = y * dpr
+      ctx.beginPath()
+      ctx.arc(px, py, 3 * dpr, 0, Math.PI * 2)
+      ctx.fillStyle = '#e8ecf5'
+      ctx.fill()
+      ctx.font = `500 ${9 * dpr}px monospace`
+      ctx.textAlign = 'center'
+      ctx.lineWidth = 3 * dpr
+      ctx.strokeStyle = 'rgba(10,16,32,0.9)'
+      ctx.strokeText(p.name, px, py - 6 * dpr)
+      ctx.fillStyle = '#e8ecf5'
+      ctx.fillText(p.name, px, py - 6 * dpr)
+    }
   }
 
   for (const m of markers) {
@@ -173,7 +212,7 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers) {
   return out
 }
 
-const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isOffline, mapSnapshot, sigmets }, ref) {
+const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, showFixNames, styleKey, isOffline, mapSnapshot, sigmets }, ref) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
@@ -211,12 +250,12 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isO
       const map = mapRef.current
       if (status !== 'ready' || !map) { resolve(null); return }
       map.once('render', () => {
-        const withMarkers = drawMarkersOnSnapshot(map, map.getCanvas(), markers)
+        const withMarkers = drawMarkersOnSnapshot(map, map.getCanvas(), markers, routeLine, showFixNames)
         resolve(withMarkers.toDataURL('image/jpeg', 0.72))
       })
       map.triggerRepaint()
     }),
-  }), [status, markers])
+  }), [status, markers, routeLine, showFixNames])
 
   // Re-create the map whenever the basemap style changes — MapLibre's own
   // setStyle() tears down every custom source/layer, so a full teardown +
@@ -326,15 +365,22 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isO
         .setLngLat([m.lng, m.lat])
         .addTo(map)
     )
+    if (showFixNames && routeLine) {
+      for (const p of routeLine.points) {
+        if (!p.name) continue
+        markersRef.current.push(new Marker({ element: makeFixEl(p.name), anchor: 'bottom' }).setLngLat([p.lng, p.lat]).addTo(map))
+      }
+    }
 
-    const geo = routeGeoJSON(markers)
+    const geo = routeGeoJSON(markers, routeLine)
     if (map.getLayer('route-line')) map.removeLayer('route-line')
     if (map.getSource('route')) map.removeSource('route')
     if (geo) {
       map.addSource('route', { type: 'geojson', data: geo })
       map.addLayer({
         id: 'route-line', type: 'line', source: 'route',
-        paint: { 'line-color': '#e8ecf5', 'line-width': 2.5, 'line-dasharray': [3, 2], 'line-opacity': 0.85 },
+        // solid for a pasted route, dashed for the estimated direct line
+        paint: { 'line-color': '#e8ecf5', 'line-width': 2.5, 'line-opacity': 0.85, ...(routeLine ? {} : { 'line-dasharray': [3, 2] }) },
       })
     }
 
@@ -342,8 +388,9 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, styleKey, isO
       (b, m) => b.extend([m.lng, m.lat]),
       new LngLatBounds([markers[0].lng, markers[0].lat], [markers[0].lng, markers[0].lat])
     )
+    if (routeLine) routeLine.points.forEach(p => bounds.extend([p.lng, p.lat]))
     map.fitBounds(bounds, { padding: 60, maxZoom: 9, duration: 0 })
-  }, [status, markers])
+  }, [status, markers, routeLine, showFixNames])
 
   // SIGMET zones, under the route line and airport markers. The route effect
   // above re-adds 'route-line' on every render, so it always ends up on top.

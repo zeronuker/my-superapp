@@ -391,7 +391,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.6", date: "Oct 2026", current: true,
+    v: "v3.6", date: "Oct 2026",
     title: "Fits narrow phones",
     notes: [
       "FIX: On narrow phones, several tools were cut off on the right with no way to scroll to the hidden part: Interpolation, Flight Time Limitations, METAR/TAF, NOTAM, SIGMET, World Time, Qiblat & Solat and the clock on the home screen. The page margins and tool cards are slimmer on phones, so every tool gets about 48 px more width, and these tools now fit screens as narrow as 360 px.",
@@ -400,6 +400,16 @@ export const CHANGELOG = [
       "IMP: Settings rows move their control under the label when the two do not fit side by side, instead of running off the edge. The three steps at the top of Interpolation, the tag beside the Flight Time Limitations heading and long section titles (such as Go-around Step 3) now wrap onto extra lines on phones.",
       "IMP: On phones the Calculator and B737 Performance sub tabs sit in two even rows at the same height, so every mode is visible without sideways scrolling. The grouped navigation's tool row wraps the same way.",
       "IMP: On phones the Converter shows its 12 categories as two rows of six and stacks FROM above TO, so every unit name fits.",
+    ],
+  },
+  {
+    v: "v3.7", date: "Oct 2026", current: true,
+    title: "Paste a route, see it on the Briefing map",
+    notes: [
+      "NEW: METAR/TAF, NOTAM and SIGMET have an optional ROUTE box. Paste the route copied from FDPro or eWAS and Departure and Arrival fill in by themselves. The Briefing's Dark map then draws the route through its fixes as a solid line (the dashed line is still the direct estimate when no route is pasted). A 'Fix names' switch on the map shows each fix's name.",
+      "NEW: Fixes the route lookup does not know are listed under the map and skipped. Airways and SID/STAR paths are not drawn, so the line is approximate near the airports and along long airway legs.",
+      "NEW: A saved briefing keeps its drawn route, so it opens the same way offline.",
+      "IMP: Briefing now fetches NOTAMs for all its airports in one request and shares one autorouter login, instead of one login per airport. This avoids the autorouter limit of 20 active logins, which could stop NOTAMs loading after a few briefings in an hour.",
     ],
   },
 ]

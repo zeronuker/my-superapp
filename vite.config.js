@@ -86,6 +86,16 @@ export default defineConfig({
               networkTimeoutSeconds: 8,
             },
           },
+          // Pasted route — fix positions via autorouter.aero (rarely change)
+          {
+            urlPattern:  /\/api\/route\b/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'route-data',
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              networkTimeoutSeconds: 8,
+            },
+          },
           // SkyLink — shared proxy (METAR/TAF/NOTAM fallback source, ADS-B,
           // aircraft lookup, schedules boards)
           {

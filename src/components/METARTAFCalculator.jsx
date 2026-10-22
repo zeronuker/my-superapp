@@ -15,6 +15,7 @@ import { fmtTrack } from '../utils/traffic'
 import ResetButton from './ResetButton'
 import SnapshotBanner from './SnapshotBanner'
 import CopyAirportsButton from './CopyAirportsButton'
+import RouteInput from './RouteInput'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import SourceChip from './SourceChip'
 import Collapse from './Collapse'
@@ -65,6 +66,7 @@ export default function METARTAFCalculator() {
   const [cache]        = useState(() => loadWithExpiry(CACHE_KEY))
   const [dep,          setDep]          = useState(cache?.dep          || '')
   const [arr,          setArr]          = useState(cache?.arr          || '')
+  const [routeText,    setRouteText]    = useState(cache?.routeText    || '')
   const [destAlts,     setDestAlts]     = useState(cache?.destAlts     || { alt1: '', alt2: '' })
   const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount || 0)
   const [enrouteAlts,  setEnrouteAlts]  = useState(cache?.enrouteAlts  || Array(ERA_MAX).fill(''))
@@ -89,8 +91,8 @@ export default function METARTAFCalculator() {
   // Persist airport inputs as they're typed (not just after a fetch) so the
   // NOTAM module's copy-airports button always sees current values
   useEffect(() => {
-    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt, snapshotAt })
-  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt, snapshotAt])
+    saveCache({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt, snapshotAt })
+  }, [dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt, snapshotAt])
 
   // Briefing (an overlay, not a tab) leaves this module mounted underneath —
   // its fetch writes straight into our cache key, but that write alone
@@ -128,6 +130,7 @@ export default function METARTAFCalculator() {
   const applyCopiedAirports = (data) => {
     setDep(data.dep)
     setArr(data.arr)
+    setRouteText(data.routeText || '')
     setDestAlts(data.destAlts)
     setEnrouteCount(data.enrouteCount)
     setEnrouteAlts(Array.from({ length: ERA_MAX }, (_, i) => data.enrouteAlts[i] || ''))
@@ -135,7 +138,7 @@ export default function METARTAFCalculator() {
 
   // ── Reset this tab (scope: 'module' default, or 'all' for all 3) ────────
   const handleReset = (scope) => {
-    setDep(''); setArr('')
+    setDep(''); setArr(''); setRouteText('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(0)
     setEnrouteAlts(Array(ERA_MAX).fill(''))
@@ -299,6 +302,9 @@ export default function METARTAFCalculator() {
         </div>
       </div>
 
+      <RouteInput value={routeText} onChange={setRouteText}
+        onAirports={(d, a) => { setDep(d); setArr(a) }} dep={dep} arr={arr} />
+
       {/* ── DESTINATION ALTERNATES ───────────────────────────────────────── */}
       <SectionHeader title="Destination Alternates" />
 
@@ -364,7 +370,7 @@ export default function METARTAFCalculator() {
           }}>
           {loading ? 'FETCHING…' : '⟳  FETCH WEATHER'}
         </button>
-        <button className="cp-btn" onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts })} disabled={!hasInput}
+        <button className="cp-btn" onClick={() => openBriefing({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts })} disabled={!hasInput}
           style={{
             opacity: hasInput ? 1 : 0.4,
             padding: '12px 10px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em',

@@ -8,6 +8,7 @@ import { fetchAllSigmets } from '../services/sigmetAPI'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
+import RouteInput from './RouteInput'
 import SigmetCard from './SigmetCard'
 import SnapshotBanner from './SnapshotBanner'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
@@ -50,6 +51,7 @@ export default function SigmetViewer() {
 
   const [dep, setDep] = useState(cache?.dep || '')
   const [arr, setArr] = useState(cache?.arr || '')
+  const [routeText, setRouteText] = useState(cache?.routeText || '')
   const [destAlts, setDestAlts] = useState(cache?.destAlts || { alt1: '', alt2: '' })
   const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount || 0)
   const [enrouteAlts, setEnrouteAlts] = useState(cache?.enrouteAlts || Array(ERA_MAX).fill(''))
@@ -81,8 +83,8 @@ export default function SigmetViewer() {
   }, [])
 
   useEffect(() => {
-    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt, snapshotAt })
-  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt, snapshotAt])
+    saveCache({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt, snapshotAt })
+  }, [dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, chips, sigmets, fetchedAt, snapshotAt])
 
   // Briefing (an overlay, not a tab) leaves this module mounted underneath —
   // its fetch writes straight into our cache key, but that write alone
@@ -101,6 +103,7 @@ export default function SigmetViewer() {
   const applyCopiedAirports = (data) => {
     setDep(data.dep)
     setArr(data.arr)
+    setRouteText(data.routeText || '')
     setDestAlts(data.destAlts)
     setEnrouteCount(data.enrouteCount)
     setEnrouteAlts(Array.from({ length: ERA_MAX }, (_, i) => data.enrouteAlts[i] || ''))
@@ -110,7 +113,7 @@ export default function SigmetViewer() {
   }
 
   const handleReset = (scope) => {
-    setDep(''); setArr('')
+    setDep(''); setArr(''); setRouteText('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(0)
     setEnrouteAlts(Array(ERA_MAX).fill(''))
@@ -220,6 +223,9 @@ export default function SigmetViewer() {
         </div>
       </div>
 
+      <RouteInput value={routeText} onChange={setRouteText}
+        onAirports={(d, a) => { setDep(d); setArr(a) }} dep={dep} arr={arr} />
+
       {/* ── Destination Alternates ── */}
       <SectionHeader title="Destination Alternates" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
@@ -311,7 +317,7 @@ export default function SigmetViewer() {
           letterSpacing: '0.16em', color: 'var(--cp-acc)', opacity: chips.length ? 1 : 0.5 }}>
           {loading ? '⊙ FETCHING SIGMETs…' : '⊕ FETCH SIGMETs'}
         </button>
-        <button onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts, firs: chips })}
+        <button onClick={() => openBriefing({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs: chips })}
           disabled={!chips.length} style={{
           padding: '12px 16px', background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
           border: '2px solid var(--cp-green)',

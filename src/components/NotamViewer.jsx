@@ -7,6 +7,7 @@ import { haptic } from '../utils/haptic'
 import ResetButton from './ResetButton'
 import SnapshotBanner from './SnapshotBanner'
 import CopyAirportsButton from './CopyAirportsButton'
+import RouteInput from './RouteInput'
 import Collapse from './Collapse'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import SourceChip from './SourceChip'
@@ -155,6 +156,7 @@ export default function NotamViewer() {
   // Inputs (mirror METAR/TAF)
   const [dep,          setDep]          = useState(cache?.dep          || '')
   const [arr,          setArr]          = useState(cache?.arr          || '')
+  const [routeText,    setRouteText]    = useState(cache?.routeText    || '')
   const [destAlts,     setDestAlts]     = useState(cache?.destAlts     || { alt1: '', alt2: '' })
   const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount || 0)
   const [enrouteAlts,  setEnrouteAlts]  = useState(cache?.enrouteAlts  || Array(ERA_MAX).fill(''))
@@ -186,8 +188,8 @@ export default function NotamViewer() {
   // Persist airport inputs as they're typed (not just after a fetch) so the
   // METAR/TAF module's copy-airports button always sees current values
   useEffect(() => {
-    saveCache({ dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw, snapshot, fetchedAt })
-  }, [dep, arr, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw, snapshot, fetchedAt])
+    saveCache({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, extraChips, rawPerIcao: savedRaw, snapshot, fetchedAt })
+  }, [dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, extraChips, savedRaw, snapshot, fetchedAt])
 
   // Briefing (an overlay, not a tab) leaves this module mounted underneath —
   // its fetch writes straight into our cache key, but that write alone
@@ -218,6 +220,7 @@ export default function NotamViewer() {
   const applyCopiedAirports = (data) => {
     setDep(data.dep)
     setArr(data.arr)
+    setRouteText(data.routeText || '')
     setDestAlts(data.destAlts)
     setEnrouteCount(data.enrouteCount)
     setEnrouteAlts(Array.from({ length: ERA_MAX }, (_, i) => data.enrouteAlts[i] || ''))
@@ -228,7 +231,7 @@ export default function NotamViewer() {
   }
 
   const handleReset = (scope) => {
-    setDep(''); setArr('')
+    setDep(''); setArr(''); setRouteText('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(0)
     setEnrouteAlts(Array(ERA_MAX).fill(''))
@@ -394,6 +397,9 @@ export default function NotamViewer() {
         </div>
       </div>
 
+      <RouteInput value={routeText} onChange={setRouteText}
+        onAirports={(d, a) => { setDep(d); setArr(a) }} dep={dep} arr={arr} />
+
       {/* ── DESTINATION ALTERNATES ── */}
       <SectionHeader title="Destination Alternates" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
@@ -487,7 +493,7 @@ export default function NotamViewer() {
           letterSpacing: '0.16em', color: T.acc, opacity: targets.length ? 1 : 0.5 }}>
           {loading ? '⊙ FETCHING NOTAMs…' : '⊕ FETCH NOTAMs'}
         </button>
-        <button onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts, firs: extraChips.filter(c => c.type === 'fir') })}
+        <button onClick={() => openBriefing({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs: extraChips.filter(c => c.type === 'fir') })}
           disabled={!targets.length} style={{
           padding: '12px 16px', background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
           border: '2px solid var(--cp-green)',
