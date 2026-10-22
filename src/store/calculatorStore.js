@@ -3,6 +3,7 @@ import { makeBriefingId, autoBriefingName, sortByNewest, pickNextAfterDelete } f
 import { loadSaves, idbBackend, isQuotaError } from '../services/briefingStorage'
 import { syncSnapshotCaches } from '../services/briefingSync'
 import { parseRoute } from '../utils/routeParse'
+import { activeEnroute } from '../utils/enrouteAlts'
 
 // Named, manually-managed saves (unlike every cb-*-cache key, which is a
 // single slot with a 12h auto-expiry) — never expires, capped, only changed
@@ -21,8 +22,8 @@ function routesMatch(a, b) {
     && routeFixesKey(a) === routeFixesKey(b)
     && (a.destAlts?.alt1 || '') === (b.destAlts?.alt1 || '')
     && (a.destAlts?.alt2 || '') === (b.destAlts?.alt2 || '')
-    && (a.enrouteCount || 0) === (b.enrouteCount || 0)
-    && JSON.stringify(a.enrouteAlts || []) === JSON.stringify(b.enrouteAlts || [])
+    // only the alternates actually entered: an empty field and no field are the same route
+    && activeEnroute(a.enrouteCount, a.enrouteAlts).join(',') === activeEnroute(b.enrouteCount, b.enrouteAlts).join(',')
 }
 
 export const DEFAULT_SETTINGS = {

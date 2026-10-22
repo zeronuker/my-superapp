@@ -406,9 +406,10 @@ export const CHANGELOG = [
     v: "v3.7", date: "Oct 2026", current: true,
     title: "Paste a route, see it on the Briefing map",
     notes: [
-      "NEW: METAR/TAF, NOTAM and SIGMET have an optional ROUTE box. Paste the route copied from FDPro or eWAS and Departure and Arrival fill in by themselves. The Briefing's Dark map then draws the route through its fixes as a solid line (the dashed line is still the direct estimate when no route is pasted). A 'Fix names' switch on the map shows each fix's name; the names never overlap each other or the airport labels (a name with no free spot is hidden until you zoom in), and the map's own place names are hidden while the switch is on.",
+      "NEW: METAR/TAF, NOTAM and SIGMET have an optional ROUTE box. Paste the route copied from FDPro or eWAS and Departure and Arrival fill in by themselves. The Briefing's Dark map then draws the route through its fixes as a solid line (the dashed line is still the direct estimate when no route is pasted). A FIX OFF | ON toggle on the map shows each fix's name; the names never overlap each other or the airport labels (a name with no free spot is hidden until you zoom in), and the map's own place names are hidden while the switch is on.",
       "NEW: Fixes the route lookup does not know are listed under the map and skipped. Airways and SID/STAR paths are not drawn, so the line is approximate near the airports and along long airway legs.",
       "NEW: A saved briefing keeps its drawn route, so it opens the same way offline.",
+      "IMP: Enroute Alternates on METAR/TAF, NOTAM and SIGMET no longer use a dropdown. The tab opens with one empty field, '+ ADD' adds another (up to 5) and the red × in a field removes it.",
       "IMP: Briefing now fetches NOTAMs for all its airports in one request and shares one autorouter login, instead of one login per airport. This avoids the autorouter limit of 20 active logins, which could stop NOTAMs loading after a few briefings in an hour.",
     ],
   },

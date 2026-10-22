@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY } from '../utils/moduleCacheKeys'
+import { activeEnroute } from '../utils/enrouteAlts'
 
 const CACHE_KEYS = { metar: METAR_CACHE_KEY, notam: NOTAM_CACHE_KEY }
 const ARM_TIMEOUT = 4000
@@ -17,7 +18,8 @@ function readOtherAirports(sourceModule) {
       enrouteCount: c.enrouteCount || 0,
       enrouteAlts: c.enrouteAlts || [],
     }
-    const hasAny = data.dep || data.arr || data.destAlts.alt1 || data.destAlts.alt2 || data.enrouteCount > 0
+    // an empty enroute field (the default) is not data worth copying
+    const hasAny = data.dep || data.arr || data.destAlts.alt1 || data.destAlts.alt2 || activeEnroute(data.enrouteCount, data.enrouteAlts).length > 0
     return hasAny ? data : null
   } catch (_) { return null }
 }

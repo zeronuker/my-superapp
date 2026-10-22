@@ -22,6 +22,7 @@ import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import WindyRouteMap, { hasWindyLoadedBefore } from './WindyRouteMap'
 import CartoRouteMap, { hasCartoLoadedBefore } from './CartoRouteMap'
 import OfflineCoastlineMap from './OfflineCoastlineMap'
+import Seg from './Seg'
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -439,17 +440,11 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {routeLine && !saved && tab === 'dark' && (
-          <button
-            onClick={() => setShowFixNames(v => !v)}
-            aria-pressed={showFixNames}
-            title="Show or hide the fix names along the route"
-            style={{
-              fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase',
-              color: showFixNames ? 'var(--cp-txt)' : 'var(--cp-dim)',
-              background: showFixNames ? 'var(--cp-bg3)' : 'transparent',
-              border: '1px solid var(--cp-border3)', borderRadius: 7, padding: '7px 10px', cursor: 'pointer',
-            }}
-          >Fix names</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title="Show or hide the fix names along the route">
+            <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--cp-dim)' }}>FIX</span>
+            <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
+              value={showFixNames} onChange={setShowFixNames} />
+          </div>
         )}
         <div style={{
           display: 'flex', gap: 2, background: 'var(--cp-bg)', border: '1px solid var(--cp-border3)',

@@ -8,6 +8,7 @@ import ResetButton from './ResetButton'
 import SnapshotBanner from './SnapshotBanner'
 import CopyAirportsButton from './CopyAirportsButton'
 import RouteInput from './RouteInput'
+import EnrouteAlternates from './EnrouteAlternates'
 import Collapse from './Collapse'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import SourceChip from './SourceChip'
@@ -65,11 +66,6 @@ function makeComparator(mode) {
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
 const monoInput = { fontFamily: T.mono, letterSpacing: '0.12em' }
-const sel = {
-  background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)',
-  borderRadius: 4, color: 'var(--cp-txt)', fontFamily: T.mono,
-  fontSize: 12, padding: '7px 10px', outline: 'none', cursor: 'pointer',
-}
 const upper = (v, n = 4) => v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, n)
 
 function SectionHeader({ title }) {
@@ -158,7 +154,7 @@ export default function NotamViewer() {
   const [arr,          setArr]          = useState(cache?.arr          || '')
   const [routeText,    setRouteText]    = useState(cache?.routeText    || '')
   const [destAlts,     setDestAlts]     = useState(cache?.destAlts     || { alt1: '', alt2: '' })
-  const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount || 0)
+  const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount ?? 1)   // opens with one field; a saved 0 stays 0
   const [enrouteAlts,  setEnrouteAlts]  = useState(cache?.enrouteAlts  || Array(ERA_MAX).fill(''))
   const [extraChips,   setExtraChips]   = useState(cache?.extraChips   || [])
   const [customInput,  setCustomInput]  = useState('')
@@ -233,7 +229,7 @@ export default function NotamViewer() {
   const handleReset = (scope) => {
     setDep(''); setArr(''); setRouteText('')
     setDestAlts({ alt1: '', alt2: '' })
-    setEnrouteCount(0)
+    setEnrouteCount(1)
     setEnrouteAlts(Array(ERA_MAX).fill(''))
     setExtraChips([])
     setNotams(null)
@@ -414,28 +410,9 @@ export default function NotamViewer() {
       </div>
 
       {/* ── ENROUTE ALTERNATES ── */}
-      <div className="cp-section-header">
-        <span className="cp-section-title">Enroute Alternates</span>
-        <div className="cp-divider" />
-        <select value={enrouteCount} onChange={e => setEnrouteCount(Number(e.target.value))} style={sel}>
-          <option value={0}>NONE</option>
-          {Array.from({ length: ERA_MAX }, (_, i) => (
-            <option key={i + 1} value={i + 1}>{i + 1} AIRPORT{i > 0 ? 'S' : ''}</option>
-          ))}
-        </select>
-      </div>
-      {enrouteCount > 0 ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
-          {Array.from({ length: enrouteCount }, (_, i) => (
-            <div key={i}>
-              <div className="cp-label" style={{ marginBottom: 4 }}>ERA {i + 1}</div>
-              <input className="cp-input" style={monoInput} placeholder="ICAO" value={enrouteAlts[i] || ''} maxLength={4}
-                onChange={e => setEnrouteAlts(p => { const n = [...p]; n[i] = upper(e.target.value); return n })}
-                onKeyDown={e => e.key === 'Enter' && handleFetch()} />
-            </div>
-          ))}
-        </div>
-      ) : <div style={{ marginBottom: 20 }} />}
+      <EnrouteAlternates count={enrouteCount} alts={enrouteAlts} max={ERA_MAX}
+        onChange={({ count, alts }) => { setEnrouteCount(count); setEnrouteAlts(alts) }}
+        inputStyle={monoInput} clean={upper} onEnter={handleFetch} />
 
       {/* ── FIRs & MANUAL ── */}
       <SectionHeader title="FIRs & Manual Entries" />
