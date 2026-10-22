@@ -7,6 +7,7 @@
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import { icaoToFir, latlngToFir } from '../data/firLookup'
 import { lookupAirport } from '../data/airports'
+import { splitRowsByIcao } from '../utils/notamSplit'
 
 // ── Q-code subject → plain English ───────────────────────────────────────────
 const Q_SUBJECT = {
@@ -311,14 +312,19 @@ export function parseMixedNotams(rawPerIcao, fallbackSource = 'autorouter') {
 }
 
 // ── Main fetch ────────────────────────────────────────────────────────────────
-async function fetchOneAutorouter(icao, pageSize) {
+// One request covers several locations (the server pages through autorouter's
+// 100-row limit), so a briefing costs at most one autorouter login instead of
+// one per airport. Keep in step with MAX_LOCATIONS in api/notam.js.
+const MAX_LOCATIONS_PER_REQUEST = 12
+
+async function fetchBatchAutorouter(icaos) {
   const r = await fetch(
-    `/api/notam?icao=${icao.toUpperCase()}&pageSize=${pageSize}`,
-    { signal: AbortSignal.timeout(15_000) }
+    `/api/notam?icaos=${icaos.join(',')}`,
+    { signal: AbortSignal.timeout(25_000) }
   )
   if (r.ok) return (await r.json())?.rows ?? []
   const body = await r.json().catch(() => null)
-  throw new Error(`${icao}: ${body?.error || `HTTP ${r.status}`}`)
+  throw new Error(`${icaos.join(',')}: ${body?.error || `HTTP ${r.status}`}`)
 }
 
 async function fetchOneSkylink(icao) {
@@ -331,35 +337,39 @@ async function fetchOneSkylink(icao) {
   throw new Error(`${icao}: ${body?.error || `HTTP ${r.status}`}`)
 }
 
-const FETCHERS = { autorouter: fetchOneAutorouter, skylink: fetchOneSkylink }
-
 /**
  * Fetch NOTAMs for a list of ICAO location codes (airports or FIRs).
- * autorouter.aero is free and unlimited, so it's always primary — SkyLink
- * (metered, low free-tier quota) is only a fallback for when it's down. If
- * an individual ICAO fails on autorouter, only that ICAO retries against
- * SkyLink — one bad airport no longer waits for the whole batch to fail
- * before falling back.
+ * autorouter.aero is always primary — SkyLink (metered, low free-tier quota)
+ * is only a fallback. The primary request is batched; if it fails, every
+ * location in that batch retries against SkyLink individually.
  * Returns { notams, rawPerIcao } — rawPerIcao is `[{ icao, rows, source }]`,
  * suitable for caching (re-parsed on restore via parseMixedNotams so
  * validity status stays fresh); `source` on each entry is whichever API
  * actually supplied that ICAO's rows.
  */
-export async function fetchNotams(icaoList, pageSize = 100) {
+export async function fetchNotams(icaoList) {
   if (!icaoList?.length) return { notams: [], rawPerIcao: [] }
 
   const primary = 'autorouter'
   const backup  = 'skylink'
 
-  const primaryResults = await Promise.allSettled(
-    icaoList.map(icao => FETCHERS[primary](icao, pageSize))
-  )
+  const codes  = icaoList.map(icao => String(icao || '').toUpperCase())
+  const unique = [...new Set(codes.filter(Boolean))]
 
-  const rawPerIcao = await Promise.all(primaryResults.map(async (r, idx) => {
-    const icao = String(icaoList[idx] || '').toUpperCase()
-    if (r.status === 'fulfilled') return { icao, rows: r.value, source: primary }
+  // Chunks go one after another so the login is shared, not repeated.
+  const fromPrimary = {}   // icao -> rows
+  for (let i = 0; i < unique.length; i += MAX_LOCATIONS_PER_REQUEST) {
+    const chunk = unique.slice(i, i + MAX_LOCATIONS_PER_REQUEST)
     try {
-      const rows = await FETCHERS[backup](icao, pageSize)
+      const split = splitRowsByIcao(await fetchBatchAutorouter(chunk), chunk)
+      for (const icao of chunk) fromPrimary[icao] = split[icao]
+    } catch (_) { /* these locations fall back to SkyLink below */ }
+  }
+
+  const rawPerIcao = await Promise.all(codes.map(async (icao) => {
+    if (icao in fromPrimary) return { icao, rows: fromPrimary[icao], source: primary }
+    try {
+      const rows = await fetchOneSkylink(icao)
       return { icao, rows, source: backup }
     } catch (_) {
       return { icao, rows: [], source: primary }

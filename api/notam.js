@@ -6,133 +6,103 @@
  *   AUTOROUTER_EMAIL    – your autorouter.aero login email
  *   AUTOROUTER_PASSWORD – your autorouter.aero login password
  *
- * GET /api/notam?icao=WMKK&pageSize=100
+ * GET /api/notam?icao=WMKK
+ * GET /api/notam?icaos=WMKK,WSSS,WMFC      (one request for several locations)
+ *
+ * One autorouter call covers all the locations, so a briefing costs at most
+ * one login instead of one per airport (see _autorouterToken.js).
  */
 
 import { rateLimited } from './_rateLimit.js'
+import { getToken, invalidateToken } from './_autorouterToken.js'
 
-const OAUTH_URL  = 'https://api.autorouter.aero/v1.0/oauth2/token'
-const NOTAM_URL  = 'https://api.autorouter.aero/v1.0/notam'
-const ICAO_RE    = /^[A-Z0-9]{2,6}$/
+const NOTAM_URL = 'https://api.autorouter.aero/v1.0/notam'
+const ICAO_RE = /^[A-Z0-9]{2,6}$/
+const MAX_LOCATIONS = 12
+const PAGE_SIZE = 100   // autorouter's maximum rows per call
+const MAX_PAGES = 8     // 800 rows per request, so a busy briefing isn't silently cut short
 
-// Module-level token cache — survives across warm invocations of the same Lambda
-let cachedToken   = null
-let tokenExpiresAt = 0   // Unix ms
-
-async function getToken() {
-  const now = Date.now()
-  if (cachedToken && now < tokenExpiresAt) return cachedToken
-
-  const email    = process.env.AUTOROUTER_EMAIL
-  const password = process.env.AUTOROUTER_PASSWORD
-
-  if (!email || !password) {
-    throw new Error('AUTOROUTER_EMAIL / AUTOROUTER_PASSWORD env vars not set')
-  }
-
-  const body = new URLSearchParams({
-    grant_type:    'client_credentials',
-    client_id:     email,
-    client_secret: password,
+function fetchPage(token, itemas, startvalidity, offset) {
+  const url =
+    `${NOTAM_URL}` +
+    `?itemas=${encodeURIComponent(JSON.stringify(itemas))}` +
+    `&limit=${PAGE_SIZE}` +
+    `&offset=${offset}` +
+    `&startvalidity=${startvalidity}`
+  return fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(12_000),
   })
+}
 
-  const res = await fetch(OAUTH_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body:    body.toString(),
-    signal:  AbortSignal.timeout(8_000),
-  })
+// Every row for the given locations: pages through the results until autorouter's
+// reported total is reached (or MAX_PAGES). A 401 means the token was invalidated,
+// so log in again and retry once.
+async function collectRows(itemas, startvalidity) {
+  let token = await getToken()
+  let retried = false
+  const rows = []
+  let total = 0
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`autorouter OAuth failed ${res.status}: ${text.slice(0, 120)}`)
+  for (let page = 0; page < MAX_PAGES; page++) {
+    let r = await fetchPage(token, itemas, startvalidity, rows.length)
+    if (r.status === 401 && !retried) {
+      retried = true
+      invalidateToken()
+      token = await getToken()
+      r = await fetchPage(token, itemas, startvalidity, rows.length)
+    }
+    if (!r.ok) {
+      const text = await r.text().catch(() => '')
+      const err = new Error(`NOTAM API returned ${r.status}`)
+      err.status = r.status
+      err.detail = text.slice(0, 200)
+      throw err
+    }
+    const data = await r.json()
+    const got = data?.rows ?? []
+    total = data?.total ?? got.length
+    rows.push(...got)
+    if (!got.length || rows.length >= total) break
   }
-
-  const json = await res.json()
-  const token    = json.access_token
-  const expiresIn = json.expires_in ?? 3600   // seconds; default 1 h
-
-  if (!token) throw new Error('autorouter OAuth returned no access_token')
-
-  cachedToken    = token
-  tokenExpiresAt = now + (expiresIn - 60) * 1000   // refresh 60 s before expiry
-  return token
+  return { total, rows }
 }
 
 export default async function handler(req, res) {
   if (rateLimited(req, res, { limit: 30, windowMs: 60_000 })) return
 
-  const { icao, pageSize: pageSizeRaw = '100' } = req.query
+  const raw = String(req.query.icaos ?? req.query.icao ?? '')
+  const icaos = [...new Set(raw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean))]
 
-  if (!icao) {
-    return res.status(400).json({ error: 'icao query parameter is required' })
+  if (!icaos.length) {
+    return res.status(400).json({ error: 'icao or icaos query parameter is required' })
   }
-
-  const icaoUpper = String(icao).toUpperCase()
-  if (!ICAO_RE.test(icaoUpper)) {
-    return res.status(400).json({ error: 'icao must be 2–6 alphanumeric characters' })
+  if (icaos.length > MAX_LOCATIONS) {
+    return res.status(400).json({ error: `at most ${MAX_LOCATIONS} locations per request` })
   }
-
-  const pageSize = Math.min(Math.max(parseInt(pageSizeRaw, 10) || 100, 1), 100)
+  if (!icaos.every(x => ICAO_RE.test(x))) {
+    return res.status(400).json({ error: 'each icao must be 2–6 alphanumeric characters' })
+  }
 
   // Include NOTAMs valid from 1 hour ago onwards
   const startvalidity = Math.floor(Date.now() / 1000) - 3600
-
-  let token
-  try {
-    token = await getToken()
-  } catch (e) {
-    console.error(`[notam] getToken failed: ${e.message}`)
-    return res.status(503).json({ error: `Auth error: ${e.message}` })
-  }
-
-  const url =
-    `${NOTAM_URL}` +
-    `?itemas=${encodeURIComponent(JSON.stringify([icaoUpper]))}` +
-    `&limit=${pageSize}` +
-    `&startvalidity=${startvalidity}`
+  const label = icaos.join(',')
 
   try {
-    const upstream = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal:  AbortSignal.timeout(12_000),
-    })
-
-    if (upstream.status === 401) {
-      // Token may have been invalidated — clear cache and retry once
-      cachedToken    = null
-      tokenExpiresAt = 0
-      const freshToken = await getToken()
-      const retry = await fetch(url, {
-        headers: { Authorization: `Bearer ${freshToken}` },
-        signal:  AbortSignal.timeout(12_000),
-      })
-      if (!retry.ok) {
-        const text = await retry.text().catch(() => '')
-        console.error(`[notam] retry failed ${retry.status} for ${icaoUpper}: ${text.slice(0, 200)}`)
-        return res.status(retry.status).json({
-          error: `NOTAM API returned ${retry.status} for ${icaoUpper}`,
-        })
-      }
-      const data = await retry.json()
-      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300')
-      return res.status(200).json(data)
-    }
-
-    if (!upstream.ok) {
-      const text = await upstream.text().catch(() => '')
-      console.error(`[notam] upstream failed ${upstream.status} for ${icaoUpper}: ${text.slice(0, 200)}`)
-      return res.status(upstream.status).json({
-        error: `NOTAM API returned ${upstream.status} for ${icaoUpper}`,
-      })
-    }
-
-    const data = await upstream.json()
+    const data = await collectRows(icaos, startvalidity)
     res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300')
     return res.status(200).json(data)
   } catch (e) {
+    if (e.status) {
+      console.error(`[notam] upstream failed ${e.status} for ${label}: ${e.detail}`)
+      return res.status(e.status).json({ error: `NOTAM API returned ${e.status} for ${label}` })
+    }
+    if (/OAuth|env vars|login limit/i.test(e.message)) {
+      console.error(`[notam] getToken failed: ${e.message}`)
+      return res.status(503).json({ error: `Auth error: ${e.message}` })
+    }
     const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
-    console.error(`[notam] ${isTimeout ? 'timeout' : 'fetch error'} for ${icaoUpper}: ${e}`)
+    console.error(`[notam] ${isTimeout ? 'timeout' : 'fetch error'} for ${label}: ${e}`)
     return res.status(isTimeout ? 504 : 502).json({
       error: isTimeout ? 'NOTAM API timed out' : String(e),
     })
