@@ -166,7 +166,9 @@ export default defineConfig({
     exclude: ['maplibre-gl'],
   },
   server: {
-    port: 3000,
+    // `vercel dev` hands the dev server the port it will proxy to via PORT;
+    // ignoring it leaves vercel dev waiting forever (port 3010 hangs).
+    port: Number(process.env.PORT) || 3000,
     fs: { allow: ['.'] },
   },
 })
