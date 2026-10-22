@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { usePresence } from '../useTransitionAnim'
+import { usePresence, animDurationMs } from '../useTransitionAnim'
 import * as Flags from 'country-flag-icons/react/3x2'
 import { CURRENCIES, CURRENCY_BY_CODE } from '../data/currencies.js'
 import { useShallow } from 'zustand/react/shallow'
@@ -148,8 +148,31 @@ function Overlay({ onClose, closing, anchor, children }) {
   useEffect(() => {
     const lift = () => window.scrollTo({ top: Math.max(0, anchor.y - 12), behavior: 'smooth' })
     const timer = setTimeout(lift, KEYBOARD_SETTLE_MS)
-    return () => { clearTimeout(timer); window.scrollTo(0, anchor.scrollBefore) }
+    // Unmount without an exit animation (reduced motion): snap back if not already there.
+    return () => {
+      clearTimeout(timer)
+      if (Math.abs(window.scrollY - anchor.scrollBefore) > 1) window.scrollTo(0, anchor.scrollBefore)
+    }
   }, [anchor])
+
+  // Closing: glide back while the dimmed layer is still mounted (removing it
+  // shrinks the page, so doing this on unmount would snap). Hand-timed to the
+  // exit animation instead of `behavior: 'smooth'`, whose length the browser
+  // picks — a long one would outlast the layer and snap at the end.
+  useEffect(() => {
+    if (!closing) return undefined
+    const from = window.scrollY
+    const ms = animDurationMs()
+    const t0 = performance.now()
+    let raf
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / ms)
+      window.scrollTo(0, from + (anchor.scrollBefore - from) * (1 - (1 - p) ** 3))
+      if (p < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [closing, anchor.scrollBefore])
 
   return createPortal(
     <div
