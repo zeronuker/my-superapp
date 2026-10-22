@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { T } from '../components/tokens'
 import { useFlight, formatInTz, getUtcOffsetStr } from '../hooks/useFlight'
 import ResetButton from '../../../components/ResetButton'
+import { methodName } from '../services/methods'
 
 // Vertical pixels per hour of flight time, for spacing timeline rows
 // proportionally to the real time gap between events (not just row count).
@@ -14,16 +15,6 @@ const MARKER_SIZE  = 14
 // edge — segments are measured against markers' real rendered positions, so
 // this gap is a hard guarantee, not a hope that z-order hides the overlap.
 const MARKER_GAP = 4
-
-// Short labels for the footer note
-const METHOD_SHORT = {
-  jakim:        'JAKIM',
-  moonsighting: 'MOONSIGHTING',
-  mwl:          'MWL',
-  isna:         'ISNA',
-  egyptian:     'EGYPTIAN',
-  uaq:          'UMM AL-QURA',
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // Degrees + decimal minutes (e.g. "N 12° 20.74'"). Rounding the minutes can
@@ -817,7 +808,7 @@ export default function FlightPage({ settings }) {
                 ? prayerTzView === 'utc'
                   ? 'UTC TIME (ZULU)'
                   : `${prayerTzView === 'dep' ? 'DEPARTURE' : 'ARRIVAL'} TIME (${getUtcOffsetStr(prayerTzId)})`
-                : 'DEVICE LOCAL TIME — TZ UNKNOWN'} · {METHOD_SHORT[settings?.calculationMethod] ?? 'JAKIM'} METHOD
+                : 'DEVICE LOCAL TIME — TZ UNKNOWN'} · {methodName(settings?.calculationMethod).toUpperCase()} METHOD
               <br />
               CALCULATED FOR {fmtCalcDate(new Date(result.depInstantMs), prayerTzId)}
             </div>

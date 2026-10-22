@@ -20,7 +20,7 @@ const usePrayerStore = create(persist(
 
     // ── Settings ──────────────────────────────────────────────────────────
     settings: {
-      calculationMethod: 'jakim',   // default Malaysia
+      calculationMethod: 'auto',    // 'auto' (local authority, by location) | a method key
       madhab:            'shafi',   // 'shafi' | 'hanafi'
       timeFormat:        '24hr',    // '24hr' | '12hr'
     },
@@ -52,7 +52,14 @@ const usePrayerStore = create(persist(
     }),
 
   }),
-  { name: 'prayer-module-store' }   // scoped localStorage key — never collides with parent
+  {
+    name: 'prayer-module-store',   // scoped localStorage key — never collides with parent
+    version: 1,
+    // v0 had 'jakim' as the default for everyone; move those saves to Auto once.
+    migrate: (state, version) => version < 1
+      ? { ...state, settings: { ...state.settings, calculationMethod: 'auto' } }
+      : state,
+  }
 ))
 
 export default usePrayerStore

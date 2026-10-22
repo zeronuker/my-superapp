@@ -1,55 +1,34 @@
-import {
-  Coordinates,
-  CalculationMethod,
-  CalculationParameters,
-  Madhab,
-  PrayerTimes,
-} from 'adhan'
-
-// ── Calculation method map ────────────────────────────────────────────────────
-// JAKIM uses Fajr 20°, Isha 18° — not a named method in adhan.js, so custom
-const METHOD_MAP = {
-  jakim:        () => new CalculationParameters('Other', 20, 18),
-  moonsighting: () => CalculationMethod.MoonsightingCommittee(),
-  mwl:          () => CalculationMethod.MuslimWorldLeague(),
-  isna:         () => CalculationMethod.NorthAmerica(),
-  egyptian:     () => CalculationMethod.Egyptian(),
-  uaq:          () => CalculationMethod.UmmAlQura(),
-}
-
-function fmt(date, timeFormat) {
-  if (!date) return '--:--'
-  const h = date.getHours()
-  const m = String(date.getMinutes()).padStart(2, '0')
-  if (timeFormat === '12hr') {
-    const ampm = h >= 12 ? 'PM' : 'AM'
-    return `${h % 12 || 12}:${m} ${ampm}`
-  }
-  return `${String(h).padStart(2, '0')}:${m}`
-}
+import { Coordinates, Madhab, PrayerTimes } from 'adhan'
+import { METHODS, resolveMethodId } from './methods'
+import { formatInZone } from './zonedTime'
 
 /**
  * Calculate prayer times locally using adhan.js.
+ * `method` is a settings value or a method id (see methods.js; resolve 'auto'
+ * to an id first). `tz` is the location's IANA time zone — the clock strings
+ * are shown in it; omit it to use the device's zone.
  * Returns normalized times object with both formatted strings and raw Date objects.
  */
-export function calculateLocal(lat, lng, date, method = 'jakim', madhab = 'shafi', timeFormat = '24hr') {
+export function calculateLocal(lat, lng, date, method = 17, madhab = 'shafi', timeFormat = '24hr', tz) {
+  const methodId = resolveMethodId(method)
   const coords  = new Coordinates(lat, lng)
-  const params  = (METHOD_MAP[method] ?? METHOD_MAP.jakim)()
+  const params  = METHODS[methodId].params()
   params.madhab = madhab === 'hanafi' ? Madhab.Hanafi : Madhab.Shafi
 
   const pt = new PrayerTimes(coords, date, params)
+  const fmt = (d) => formatInZone(d, tz, timeFormat)
 
   // Imsak: 10 minutes before Fajr (JAKIM standard; universally used across methods)
   const imsakDate = new Date(pt.fajr.getTime() - 10 * 60_000)
 
   return {
-    Imsak:   fmt(imsakDate, timeFormat),
-    Fajr:    fmt(pt.fajr,    timeFormat),
-    Sunrise: fmt(pt.sunrise, timeFormat),
-    Dhuhr:   fmt(pt.dhuhr,  timeFormat),
-    Asr:     fmt(pt.asr,    timeFormat),
-    Maghrib: fmt(pt.maghrib, timeFormat),
-    Isha:    fmt(pt.isha,   timeFormat),
+    Imsak:   fmt(imsakDate),
+    Fajr:    fmt(pt.fajr),
+    Sunrise: fmt(pt.sunrise),
+    Dhuhr:   fmt(pt.dhuhr),
+    Asr:     fmt(pt.asr),
+    Maghrib: fmt(pt.maghrib),
+    Isha:    fmt(pt.isha),
     // Raw Date objects for countdown / next-prayer logic
     imsakDate,
     fajrDate:    pt.fajr,
@@ -60,5 +39,7 @@ export function calculateLocal(lat, lng, date, method = 'jakim', madhab = 'shafi
     ishaDate:    pt.isha,
     source: 'local',
     date:   date.toDateString(),
+    methodId,
+    timeZone: tz,
   }
 }

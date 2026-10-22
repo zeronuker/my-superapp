@@ -1,19 +1,11 @@
 import { useState, useMemo } from 'react'
 import { calculateLocal } from '../services/adhanLocal'
+import { methodName }     from '../services/methods'
 import Header        from '../components/Header'
 import NextPrayerCard from '../components/NextPrayerCard'
 import PrayerRow     from '../components/PrayerRow'
 import OfflinePill   from '../components/OfflinePill'
 import { T }         from '../components/tokens'
-
-const METHOD_LABELS = {
-  jakim:        'JAKIM (Malaysia)',
-  moonsighting: 'Moonsighting Committee',
-  mwl:          'Muslim World League',
-  isna:         'ISNA (North America)',
-  egyptian:     'Egyptian General Authority',
-  uaq:          'Umm Al-Qura (Makkah)',
-}
 
 function buildRows(times, isToday) {
   if (!times) return []
@@ -91,11 +83,13 @@ export default function PrayerTimesPage({
     if (!location?.lat || !location?.lng) return times
     const d = new Date()
     d.setDate(d.getDate() + dayOffset)
+    // same rule and clock zone as today's times, whether they came from the API or not
     return calculateLocal(
       location.lat, location.lng, d,
-      settings?.calculationMethod ?? 'jakim',
+      times.methodId,
       settings?.madhab ?? 'shafi',
       settings?.timeFormat ?? '24hr',
+      times.timeZone,
     )
   }, [dayOffset, times, location, settings])
 
@@ -197,7 +191,7 @@ export default function PrayerTimesPage({
           </div>
           <div style={{ paddingTop: 12, textAlign: 'center' }}>
             <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, letterSpacing: '0.1em' }}>
-              {(METHOD_LABELS[settings?.calculationMethod] ?? 'JAKIM (Malaysia)').toUpperCase()}
+              {(settings?.calculationMethod === 'auto' ? `AUTO · ${methodName(times.methodId)}` : methodName(times.methodId)).toUpperCase()}
               {' · '}
               {settings?.madhab === 'hanafi' ? 'HANAFI' : "SHAFI'I"}
               {' · '}

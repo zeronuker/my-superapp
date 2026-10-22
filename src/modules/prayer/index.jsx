@@ -5,6 +5,7 @@
  */
 import { useState, useEffect } from 'react'
 import usePrayerStore          from './store/prayerStore'
+import { resolveMethodId }     from './services/methods'
 import { useGeolocation }      from './hooks/useGeolocation'
 import { usePrayerTimes }      from './hooks/usePrayerTimes'
 import { useQibla }            from './hooks/useQibla'
@@ -107,7 +108,9 @@ export default function PrayerModule({ clockFormat = '24hr', animStyle }) {
       )}
 
       {tab === 'flight' && (
-        <FlightPage settings={settings} />
+        // A flight crosses regions, so it uses one rule throughout: the one Auto
+        // picked for the saved location (or the one chosen in Settings).
+        <FlightPage settings={{ ...settings, calculationMethod: resolveMethodId(settings.calculationMethod, times?.methodId) }} />
       )}
       </div>
     </div>
@@ -122,7 +125,8 @@ export function PrayerSettings() {
   const { settings, updatePrayerSettings } = usePrayerStore()
 
   const METHODS = [
-    { value: 'jakim',        label: 'JAKIM (Malaysia)' },
+    { value: 'auto',         label: 'Auto (by location)' },
+    { value: 'jakim',       label: 'JAKIM (Malaysia)' },
     { value: 'moonsighting', label: 'Moonsighting Committee' },
     { value: 'mwl',          label: 'Muslim World League' },
     { value: 'isna',         label: 'ISNA (North America)' },

@@ -1,46 +1,26 @@
 // Aladhan.com REST API — free, no API key required
 // Docs: https://aladhan.com/prayer-times-api
+import { METHOD_ID } from './methods'
+import { zonedDate, fmtClock } from './zonedTime'
 
-// Method numbers as defined by Aladhan API
-// JAKIM uses Fajr 20°, Isha 18° — map to method=99 (custom) with methodSettings
-const ALADHAN_METHOD = {
-  jakim:        { method: 99, methodSettings: '20,null,18' },
-  moonsighting: { method: 15 },
-  mwl:          { method: 3  },
-  isna:         { method: 2  },
-  egyptian:     { method: 5  },
-  uaq:          { method: 4  },
-}
+// "05:39" or "05:39 (+08)" → "05:39"
+const hhmm = (s) => /\d{1,2}:\d{2}/.exec(s)[0]
 
-function toDate(timeStr, baseDate) {
-  const [h, m] = timeStr.split(':').map(Number)
-  const d = new Date(baseDate)
-  d.setHours(h, m, 0, 0)
-  return d
-}
-
-function fmt(timeStr, baseDate, timeFormat) {
-  if (timeFormat === '12hr') {
-    const d = toDate(timeStr, baseDate)
-    const h = d.getHours()
-    const m = String(d.getMinutes()).padStart(2, '0')
-    const ampm = h >= 12 ? 'PM' : 'AM'
-    return `${h % 12 || 12}:${m} ${ampm}`
-  }
-  return timeStr.substring(0, 5)  // already "HH:MM" from API
-}
+// Aladhan's "DD-MM-YYYY" → "YYYY-MM-DD"
+const isoDay = (ddmmyyyy) => ddmmyyyy.split('-').reverse().join('-')
 
 /**
  * Fetch prayer times from Aladhan.com API.
+ * `method` 'auto' leaves the method out so Aladhan picks the local authority's
+ * from the coordinates; the id it used comes back as `methodId`.
  * Throws on network error or non-2xx response — caller handles fallback.
  */
-export async function fetchAladhan(lat, lng, date, method = 'jakim', madhab = 'shafi', timeFormat = '24hr') {
+export async function fetchAladhan(lat, lng, date, method = 'auto', madhab = 'shafi', timeFormat = '24hr') {
   const timestamp = Math.floor(date.getTime() / 1000)
-  const m = ALADHAN_METHOD[method] ?? ALADHAN_METHOD.jakim
   const school = madhab === 'hanafi' ? 1 : 0
 
-  let url = `https://api.aladhan.com/v1/timings/${timestamp}?latitude=${lat}&longitude=${lng}&method=${m.method}&school=${school}`
-  if (m.methodSettings) url += `&methodSettings=${encodeURIComponent(m.methodSettings)}`
+  let url = `https://api.aladhan.com/v1/timings/${timestamp}?latitude=${lat}&longitude=${lng}&school=${school}`
+  if (method !== 'auto') url += `&method=${METHOD_ID[method] ?? METHOD_ID.mwl}`
 
   const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
   if (!res.ok) throw new Error(`Aladhan ${res.status}`)
@@ -48,27 +28,35 @@ export async function fetchAladhan(lat, lng, date, method = 'jakim', madhab = 's
   const json = await res.json()
   if (json.code !== 200) throw new Error(`Aladhan error: ${json.status}`)
 
-  const t = json.data.timings
-
-  const sunriseDate = toDate(t.Sunrise, date)
+  const { timings: t, meta } = json.data
+  const tz = meta.timezone
+  // The calendar day in the LOCATION, which can differ from the device's day.
+  const day = isoDay(json.data.date.gregorian.date)
+  const at = (s) => zonedDate(day, hhmm(s), tz)
+  const clock = (s) => {
+    const [h, m] = hhmm(s).split(':').map(Number)
+    return fmtClock(h, m, timeFormat)
+  }
 
   return {
-    Imsak:   fmt(t.Imsak,   date, timeFormat),
-    Fajr:    fmt(t.Fajr,    date, timeFormat),
-    Sunrise: fmt(t.Sunrise, date, timeFormat),
-    Dhuhr:   fmt(t.Dhuhr,   date, timeFormat),
-    Asr:     fmt(t.Asr,     date, timeFormat),
-    Maghrib: fmt(t.Maghrib, date, timeFormat),
-    Isha:    fmt(t.Isha,    date, timeFormat),
+    Imsak:   clock(t.Imsak),
+    Fajr:    clock(t.Fajr),
+    Sunrise: clock(t.Sunrise),
+    Dhuhr:   clock(t.Dhuhr),
+    Asr:     clock(t.Asr),
+    Maghrib: clock(t.Maghrib),
+    Isha:    clock(t.Isha),
     // Raw Date objects
-    imsakDate:   toDate(t.Imsak,   date),
-    fajrDate:    toDate(t.Fajr,    date),
-    sunriseDate,
-    dhuhrDate:   toDate(t.Dhuhr,   date),
-    asrDate:     toDate(t.Asr,     date),
-    maghribDate: toDate(t.Maghrib, date),
-    ishaDate:    toDate(t.Isha,    date),
+    imsakDate:   at(t.Imsak),
+    fajrDate:    at(t.Fajr),
+    sunriseDate: at(t.Sunrise),
+    dhuhrDate:   at(t.Dhuhr),
+    asrDate:     at(t.Asr),
+    maghribDate: at(t.Maghrib),
+    ishaDate:    at(t.Isha),
     source: 'api',
     date:   date.toDateString(),
+    methodId: meta.method.id,
+    timeZone: tz,
   }
 }

@@ -1,11 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getPrayerTimes } from '../services/prayerTimes'
 import usePrayerStore from '../store/prayerStore'
-
-/** Local calendar date as YYYY-MM-DD (respects device timezone) */
-function localDateStr(d = new Date()) {
-  return d.toLocaleDateString('en-CA')   // en-CA always formats as YYYY-MM-DD
-}
+import { dayInZone } from '../services/zonedTime'
 
 /**
  * Cache-first prayer time hook.
@@ -86,12 +82,14 @@ export function usePrayerTimes(location, settings) {
       const current = timesRef.current
       if (!current) return
 
-      // fajrDate is a Date object; compare its local calendar date to today
+      // fajrDate is a Date object; compare its calendar date to today, both in
+      // the location's zone (device zone when unknown)
+      const tz = current.timeZone
       const timesDay = current.fajrDate instanceof Date
-        ? localDateStr(current.fajrDate)
+        ? dayInZone(current.fajrDate, tz)
         : null
 
-      if (timesDay && timesDay !== localDateStr()) {
+      if (timesDay && timesDay !== dayInZone(new Date(), tz)) {
         fetchTimes(new Date())
       }
     }
