@@ -25,6 +25,7 @@ const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY
 
 const STYLE_IDS = {
   dark: 'dark-matter-gl-style',
+  light: 'voyager-gl-style',
 }
 
 function styleUrl(styleId) {
@@ -113,7 +114,7 @@ function makeFixEl(name) {
   const root = document.createElement('div')
   // no `position` here: MapLibre's marker class positions the element, and the
   // absolutely positioned name below is placed relative to it
-  root.style.cssText = 'width:6px; height:6px; box-sizing:border-box; border-radius:50%; background:#e8ecf5; border:1px solid var(--cp-bg3); pointer-events:none;'
+  root.style.cssText = 'width:6px; height:6px; box-sizing:border-box; border-radius:50%; background:var(--cp-txt); border:1px solid var(--cp-bg3); pointer-events:none;'
   const label = document.createElement('div')
   label.style.cssText = `position:absolute; font-family:var(--cb-font-mono); font-size:9px; line-height:${FIX_LABEL_H}px; color:var(--cp-txt);
     text-shadow:0 0 3px var(--cp-bg3), 0 0 3px var(--cp-bg3); white-space:nowrap; pointer-events:none; display:none;`
@@ -190,6 +191,9 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, fixLayout) {
   ctx.drawImage(baseCanvas, 0, 0)
 
   const dpr = out.width / map.getContainer().clientWidth
+  // same theme colours the live overlays use: ink for line/dots/text, surface for halos
+  const ink = cssColor('var(--cp-txt)')
+  const halo = cssColor('var(--cp-bg3)')
   const geo = routeGeoJSON(markers, routeLine)
   if (geo && !(map.getSource('route') && map.isSourceLoaded('route'))) {
     const w = 2.5 * dpr
@@ -201,8 +205,10 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, fixLayout) {
     })
     ctx.setLineDash(routeLine ? [] : [3 * w, 2 * w])   // solid for a pasted route, dashed for the direct line
     ctx.lineWidth = w
-    ctx.strokeStyle = 'rgba(232,236,245,0.85)'
+    ctx.strokeStyle = ink
+    ctx.globalAlpha = 0.85
     ctx.stroke()
+    ctx.globalAlpha = 1
     ctx.setLineDash([])
   }
 
@@ -214,16 +220,16 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, fixLayout) {
       const px = x * dpr, py = y * dpr
       ctx.beginPath()
       ctx.arc(px, py, 3 * dpr, 0, Math.PI * 2)
-      ctx.fillStyle = '#e8ecf5'
+      ctx.fillStyle = ink
       ctx.fill()
       if (!f.visible) continue
       ctx.font = `500 ${9 * dpr}px monospace`
       ctx.textAlign = 'left'
       ctx.textBaseline = 'top'
       ctx.lineWidth = 3 * dpr
-      ctx.strokeStyle = 'rgba(10,16,32,0.9)'
+      ctx.strokeStyle = halo
       ctx.strokeText(f.name, px + f.dx * dpr, py + f.dy * dpr + dpr)
-      ctx.fillStyle = '#e8ecf5'
+      ctx.fillStyle = ink
       ctx.fillText(f.name, px + f.dx * dpr, py + f.dy * dpr + dpr)
       ctx.textBaseline = 'alphabetic'
     }
@@ -240,13 +246,13 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, fixLayout) {
     ctx.fillStyle = role.color
     ctx.fill()
     ctx.lineWidth = 2 * dpr
-    ctx.strokeStyle = '#0a1020'
+    ctx.strokeStyle = halo
     ctx.stroke()
 
     ctx.font = `${m.big ? 700 : 500} ${10 * dpr}px monospace`
     ctx.textAlign = 'center'
     ctx.lineWidth = 3 * dpr
-    ctx.strokeStyle = 'rgba(10,16,32,0.9)'
+    ctx.strokeStyle = halo
     ctx.strokeText(m.icao, px, py - r - 4 * dpr)
     ctx.fillStyle = role.color
     ctx.fillText(m.icao, px, py - r - 4 * dpr)
@@ -301,7 +307,7 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
     }),
   }), [status, markers, routeLine])
 
-  // Re-create the map whenever the basemap style changes — MapLibre's own
+  // Re-create the map whenever the basemap style (i.e. the app theme) changes — MapLibre's own
   // setStyle() tears down every custom source/layer, so a full teardown +
   // rebuild here is simpler than re-adding everything after a style swap.
   useEffect(() => {
@@ -437,7 +443,7 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
       map.addLayer({
         id: 'route-line', type: 'line', source: 'route',
         // solid for a pasted route, dashed for the estimated direct line
-        paint: { 'line-color': '#e8ecf5', 'line-width': 2.5, 'line-opacity': 0.85, ...(routeLine ? {} : { 'line-dasharray': [3, 2] }) },
+        paint: { 'line-color': cssColor('var(--cp-txt)'), 'line-width': 2.5, 'line-opacity': 0.85, ...(routeLine ? {} : { 'line-dasharray': [3, 2] }) },
       })
     }
 
@@ -491,7 +497,7 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
       {status === 'ready' && isOffline && (
         <div style={{
           position: 'absolute', top: 10, right: 10, pointerEvents: 'none',
-          background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+          background: 'color-mix(in srgb, var(--cp-bg3) 80%, transparent)', backdropFilter: 'blur(6px)',
           border: '1px solid var(--cp-border3)', borderRadius: 7, padding: '5px 9px',
           fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
           color: 'var(--cp-yellow)',
@@ -503,7 +509,7 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
       {status === 'ready' && sigHazards.length > 0 && (
         <div style={{
           position: 'absolute', bottom: 10, left: 10, pointerEvents: 'none',
-          background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+          background: 'color-mix(in srgb, var(--cp-bg3) 80%, transparent)', backdropFilter: 'blur(6px)',
           border: '1px solid var(--cp-border3)', borderRadius: 7, padding: '5px 9px',
           fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
           color: 'var(--cp-txt)', display: 'flex', flexDirection: 'column', gap: 3,
@@ -533,7 +539,7 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
           <img src={mapSnapshot} alt="Saved route map" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <div style={{
             position: 'absolute', top: 10, right: 10, pointerEvents: 'none',
-            background: 'rgba(10,16,32,0.72)', backdropFilter: 'blur(6px)',
+            background: 'color-mix(in srgb, var(--cp-bg3) 80%, transparent)', backdropFilter: 'blur(6px)',
             border: '1px solid var(--cp-border3)', borderRadius: 7, padding: '5px 9px',
             fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.03em', textTransform: 'uppercase',
             color: 'var(--cp-yellow)',

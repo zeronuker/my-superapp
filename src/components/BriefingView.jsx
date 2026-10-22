@@ -358,18 +358,20 @@ function AirportCard({ target, weather }) {
 
 // ── Route map: CARTO vector basemap + role-colored airport dots ──
 const BASEMAP_TABS = [
-  { id: 'dark', label: 'Dark' },
-  { id: 'live', label: 'Live Weather' },
+  { id: 'static', label: 'Static' },
+  { id: 'live', label: 'Live' },
 ]
 
 // `saved`: a saved briefing is a frozen snapshot — it shows the map picture
 // taken when it was saved (or, if none was captured, the bundled offline map)
 // and never loads the live CARTO or Windy maps, online or offline.
 const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, saved, sigmets, routeFixes, routeError }, ref) {
-  const [tab, setTab] = useState('dark')
+  const [tab, setTab] = useState('static')
+  // The Static map follows the app theme: dark map in dark mode, light in light.
+  const styleKey = useCalculatorStore(s => s.darkMode) ? 'dark' : 'light'
   const [showFixNames, setShowFixNames] = useState(false)
   const cartoRef = useRef(null)
-  // Fade (not slide) when switching Dark ↔ Live Weather — the map is swapped
+  // Fade (not slide) when switching Static ↔ Live — the map is swapped
   // in place, so it is animated through the element rather than remounted.
   const mapBoxRef = useRef(null)
   const firstTab = useRef(true)
@@ -380,17 +382,18 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
     mapBoxRef.current.animate([{ opacity: 0.3 }, { opacity: 1 }], { duration: ms, easing: 'ease-out' })
   }, [tab])
 
-  // Save Briefing only ever wants a still of the Dark map — Live Weather
-  // isn't cached/saved at all (see WindyRouteMap.jsx). So if Live Weather is
-  // showing, switch back to Dark first and give the map a moment to mount and
-  // load before photographing it, so every save online gets a map picture.
-  // Offline the Dark map can't be (re)loaded, so make a single attempt only.
+  // Save Briefing only ever wants a still of the Static map (in whichever
+  // theme is showing) — Live isn't cached/saved at all (see WindyRouteMap.jsx).
+  // So if Live is showing, switch back to Static first and give the map a
+  // moment to mount and load before photographing it, so every save online
+  // gets a map picture. Offline the Static map can't be (re)loaded, so make a
+  // single attempt only.
   useImperativeHandle(ref, () => ({
-    getDarkMapSnapshot: async () => {
+    getMapSnapshot: async () => {
       if (saved) return null
-      if (tab !== 'dark') {
+      if (tab !== 'static') {
         if (isOffline) return null
-        setTab('dark')
+        setTab('static')
       }
       const deadline = Date.now() + (isOffline ? 0 : 6000)
       for (;;) {
@@ -439,7 +442,7 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
           Route &amp; Alternates
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {routeLine && !saved && tab === 'dark' && (
+        {routeLine && !saved && tab === 'static' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title="Show or hide the fix names along the route">
             <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--cp-dim)' }}>FIX</span>
             <Seg options={[{ value: false, label: 'OFF' }, { value: true, label: 'ON' }]}
@@ -455,7 +458,7 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
             // once a basemap has loaded this session, it (and whatever
             // tiles were already fetched) stays cached, so switching back
             // to it offline still works.
-            const hasLoadedBefore = opt.id === 'live' ? hasWindyLoadedBefore() : hasCartoLoadedBefore(opt.id)
+            const hasLoadedBefore = opt.id === 'live' ? hasWindyLoadedBefore() : hasCartoLoadedBefore(styleKey)
             // A saved briefing never shows the live Windy map (it can't be saved).
             const liveBlockedWhenSaved = saved && opt.id === 'live'
             const blocked = liveBlockedWhenSaved || (!saved && isOffline && !hasLoadedBefore)
@@ -505,7 +508,7 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
         ) : tab === 'live' ? (
           <WindyRouteMap markers={markers} isOffline={isOffline} />
         ) : (
-          <CartoRouteMap ref={cartoRef} markers={markers} routeLine={routeLine} showFixNames={showFixNames} styleKey={tab} isOffline={isOffline} mapSnapshot={mapSnapshot} sigmets={sigmets} />
+          <CartoRouteMap ref={cartoRef} markers={markers} routeLine={routeLine} showFixNames={showFixNames} styleKey={styleKey} isOffline={isOffline} mapSnapshot={mapSnapshot} sigmets={sigmets} />
         )}
       </div>
       {(routeLine?.missing.length > 0 || routeError) && (
@@ -893,7 +896,7 @@ export default function BriefingView() {
     setSaving(true)
     setSaveError('')
     try {
-      const result = await saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getDarkMapSnapshot())
+      const result = await saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getMapSnapshot())
       if (result.ok) return true
       if (result.reason === 'full' && useCalculatorStore.getState().briefing.saves.length > 0) {
         setStorageFull(true)
