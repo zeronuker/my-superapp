@@ -5,8 +5,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- Theme color: status bar + PWA chrome -->
-    <meta name="theme-color" content="#0a1020" />
+    <!-- Theme color: status bar + PWA chrome. Follows the device's light/dark at
+         first launch; the script below and App.jsx then set it from the app's own theme. -->
+    <meta name="theme-color" content="#0a1020" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
     <meta name="apple-mobile-web-app-title" content="C•B AirBorne" />
 
     <!-- Favicons -->
@@ -25,7 +27,7 @@
     <link rel="manifest" href="/brand/manifest.webmanifest" />
 
     <!-- Restore saved theme before first paint — prevents flash -->
-    <script>(function(){var s=localStorage.getItem('cb-theme');if(s)document.documentElement.setAttribute('data-theme',s);})()</script>
+    <script>(function(){var s=localStorage.getItem('cb-theme');if(s){document.documentElement.setAttribute('data-theme',s);var c=s==='light'?'#f4f6fb':'#0a1020';[].forEach.call(document.querySelectorAll('meta[name=theme-color]'),function(m){m.setAttribute('content',c)})}})()</script>
 
     <meta name="description" content="Multi-function calculator for pilots with EDTO calculator, scientific, time, currency, and interpolation tools." />
     <title>ClaudeBorne · Utility Suite</title>

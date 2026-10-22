@@ -248,9 +248,15 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('cb-theme', theme)
     // Keep the status-bar band the same colour as the header/top-edge strip.
+    // The tag is replaced, not edited: iOS tends to ignore a changed attribute.
     const c = getComputedStyle(document.documentElement).getPropertyValue('--cb-surface-0').trim()
-    const m = document.querySelector('meta[name="theme-color"]')
-    if (c && m) m.setAttribute('content', c)
+    if (c) {
+      document.querySelectorAll('meta[name="theme-color"]').forEach(old => old.remove())
+      const m = document.createElement('meta')
+      m.name = 'theme-color'
+      m.content = c
+      document.head.append(m)
+    }
   }, [darkMode])
 
   // Theme change with a brief cross-fade
