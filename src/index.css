@@ -472,11 +472,18 @@ html[data-card="glass"] .cp-card-bg3 {
 }
 
 /* ── High contrast (cockpit) mode ── */
-html[data-hico="true"] {
+html[data-hico="true"]:not([data-theme="light"]) {
   --cp-txt:  #ffffff;
   --cp-muted: #d8e0f0;
   --cp-dim:  #a0aec0;
   --cb-line-2: rgba(255,255,255,0.22);
+}
+/* Light mode: the same push, towards black — white text vanishes on light surfaces. */
+html[data-hico="true"][data-theme="light"] {
+  --cp-txt:  #000000;
+  --cp-muted: #1a2133;
+  --cp-dim:  #3d4559;
+  --cb-line-2: rgba(0,0,0,0.3);
 }
 html[data-hico="true"] .cp-input:focus {
   box-shadow: 0 0 0 2px var(--cp-acc);

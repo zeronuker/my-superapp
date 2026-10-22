@@ -28,6 +28,17 @@ const STYLE_IDS = {
   light: 'voyager-gl-style',
 }
 
+// Colours for what is drawn on top of each basemap (route line, fix dots and
+// names, snapshot). Fixed per map, not taken from the theme vars: High
+// contrast mode forces --cp-txt white, which vanishes on the light map.
+// `halo` is the thin outline that keeps them readable on any terrain.
+const OVERLAY = {
+  dark:  { ink: '#e8ecf5', halo: '#1b2340' },
+  light: { ink: '#0a1020', halo: '#ffffff' },
+}
+const ROUTE_WIDTH = 2.5
+const CASING_WIDTH = 4.5
+
 function styleUrl(styleId) {
   const base = `https://basemaps.cartocdn.com/gl/${styleId}/style.json`
   // CARTO now requires a key on every basemap request (this used to be
@@ -110,14 +121,14 @@ function sigmetPopupEl(features) {
 // name comes from saved data.
 const FIX_CHAR_PX = 5.6   // width of one 9px monospace character
 const FIX_LABEL_H = 11
-function makeFixEl(name) {
+function makeFixEl(name, { ink, halo }) {
   const root = document.createElement('div')
   // no `position` here: MapLibre's marker class positions the element, and the
   // absolutely positioned name below is placed relative to it
-  root.style.cssText = 'width:6px; height:6px; box-sizing:border-box; border-radius:50%; background:var(--cp-txt); border:1px solid var(--cp-bg3); pointer-events:none;'
+  root.style.cssText = `width:6px; height:6px; box-sizing:border-box; border-radius:50%; background:${ink}; border:1px solid ${halo}; pointer-events:none;`
   const label = document.createElement('div')
-  label.style.cssText = `position:absolute; font-family:var(--cb-font-mono); font-size:9px; line-height:${FIX_LABEL_H}px; color:var(--cp-txt);
-    text-shadow:0 0 3px var(--cp-bg3), 0 0 3px var(--cp-bg3); white-space:nowrap; pointer-events:none; display:none;`
+  label.style.cssText = `position:absolute; font-family:var(--cb-font-mono); font-size:9px; line-height:${FIX_LABEL_H}px; color:${ink};
+    text-shadow:0 0 3px ${halo}, 0 0 3px ${halo}; white-space:nowrap; pointer-events:none; display:none;`
   label.textContent = name
   root.append(label)
   return { root, label, w: Math.ceil(name.length * FIX_CHAR_PX), h: FIX_LABEL_H }
@@ -183,7 +194,7 @@ function makeMarkerEl(m) {
 // and that loads asynchronously — a snapshot taken in that gap has no line.
 // Whenever the source isn't loaded, paint the line here too (same points,
 // dash and colour as the 'route-line' layer) so a saved map always has it.
-function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, fixLayout) {
+function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, fixLayout, { ink, halo }) {
   const out = document.createElement('canvas')
   out.width = baseCanvas.width
   out.height = baseCanvas.height
@@ -191,22 +202,24 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, fixLayout) {
   ctx.drawImage(baseCanvas, 0, 0)
 
   const dpr = out.width / map.getContainer().clientWidth
-  // same theme colours the live overlays use: ink for line/dots/text, surface for halos
-  const ink = cssColor('var(--cp-txt)')
-  const halo = cssColor('var(--cp-bg3)')
   const geo = routeGeoJSON(markers, routeLine)
   if (geo && !(map.getSource('route') && map.isSourceLoaded('route'))) {
-    const w = 2.5 * dpr
+    const w = ROUTE_WIDTH * dpr
     ctx.beginPath()
     geo.geometry.coordinates.forEach(([lng, lat], i) => {
       const { x, y } = map.project([lng, lat])
       if (i) ctx.lineTo(x * dpr, y * dpr)
       else ctx.moveTo(x * dpr, y * dpr)
     })
-    ctx.setLineDash(routeLine ? [] : [3 * w, 2 * w])   // solid for a pasted route, dashed for the direct line
+    // outline first, then the line; same dash lengths in pixels for both
+    const dash = routeLine ? [] : [3 * w, 2 * w]   // solid for a pasted route, dashed for the direct line
+    ctx.setLineDash(dash)
+    ctx.globalAlpha = 0.85
+    ctx.lineWidth = CASING_WIDTH * dpr
+    ctx.strokeStyle = halo
+    ctx.stroke()
     ctx.lineWidth = w
     ctx.strokeStyle = ink
-    ctx.globalAlpha = 0.85
     ctx.stroke()
     ctx.globalAlpha = 1
     ctx.setLineDash([])
@@ -300,12 +313,12 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
       const map = mapRef.current
       if (status !== 'ready' || !map) { resolve(null); return }
       map.once('render', () => {
-        const withMarkers = drawMarkersOnSnapshot(map, map.getCanvas(), markers, routeLine, fixLayoutRef.current)
+        const withMarkers = drawMarkersOnSnapshot(map, map.getCanvas(), markers, routeLine, fixLayoutRef.current, OVERLAY[styleKey])
         resolve(withMarkers.toDataURL('image/jpeg', 0.72))
       })
       map.triggerRepaint()
     }),
-  }), [status, markers, routeLine])
+  }), [status, markers, routeLine, styleKey])
 
   // Re-create the map whenever the basemap style (i.e. the app theme) changes — MapLibre's own
   // setStyle() tears down every custom source/layer, so a full teardown +
@@ -421,7 +434,7 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
     if (showFixNames && routeLine) {
       for (const p of routeLine.points) {
         if (!p.name) continue
-        const { root, label, w, h } = makeFixEl(p.name)
+        const { root, label, w, h } = makeFixEl(p.name, OVERLAY[styleKey])
         markersRef.current.push(new Marker({ element: root, anchor: 'center' }).setLngLat([p.lng, p.lat]).addTo(map))
         fixItems.push({ name: p.name, lng: p.lng, lat: p.lat, label, w, h })
       }
@@ -436,14 +449,22 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
     }
 
     const geo = routeGeoJSON(markers, routeLine)
-    if (map.getLayer('route-line')) map.removeLayer('route-line')
+    for (const id of ['route-casing', 'route-line']) if (map.getLayer(id)) map.removeLayer(id)
     if (map.getSource('route')) map.removeSource('route')
     if (geo) {
       map.addSource('route', { type: 'geojson', data: geo })
+      // outline under the line; dash lengths are in line widths, so scale the
+      // wider outline's pattern to keep the dashes the same length on screen
+      const { ink, halo } = OVERLAY[styleKey]
+      const k = ROUTE_WIDTH / CASING_WIDTH
+      map.addLayer({
+        id: 'route-casing', type: 'line', source: 'route',
+        paint: { 'line-color': halo, 'line-width': CASING_WIDTH, 'line-opacity': 0.85, ...(routeLine ? {} : { 'line-dasharray': [3 * k, 2 * k] }) },
+      })
       map.addLayer({
         id: 'route-line', type: 'line', source: 'route',
         // solid for a pasted route, dashed for the estimated direct line
-        paint: { 'line-color': cssColor('var(--cp-txt)'), 'line-width': 2.5, 'line-opacity': 0.85, ...(routeLine ? {} : { 'line-dasharray': [3, 2] }) },
+        paint: { 'line-color': ink, 'line-width': ROUTE_WIDTH, 'line-opacity': 0.85, ...(routeLine ? {} : { 'line-dasharray': [3, 2] }) },
       })
     }
 
@@ -460,7 +481,7 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
     map.on('zoomend', relayout)
     map.on('resize', relayout)
     return () => { map.off('zoomend', relayout); map.off('resize', relayout) }
-  }, [status, markers, routeLine, showFixNames])
+  }, [status, markers, routeLine, showFixNames, styleKey])
 
   // SIGMET zones, under the route line and airport markers. The route effect
   // above re-adds 'route-line' on every render, so it always ends up on top.
@@ -474,7 +495,7 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
       if (!geo.features.length) return
       const features = geo.features.map(f => ({ ...f, properties: { ...f.properties, color: cssColor(hazardColor(f.properties.hazard)) } }))
       map.addSource('sigmets', { type: 'geojson', data: { type: 'FeatureCollection', features } })
-      const before = map.getLayer('route-line') ? 'route-line' : undefined
+      const before = map.getLayer('route-casing') ? 'route-casing' : undefined
       map.addLayer({ id: 'sigmet-fill', type: 'fill', source: 'sigmets', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 } }, before)
       map.addLayer({ id: 'sigmet-line', type: 'line', source: 'sigmets', paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.9 } }, before)
     }
