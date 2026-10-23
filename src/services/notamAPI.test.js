@@ -60,6 +60,28 @@ describe('fetchNotams (batched)', () => {
     expect(urls(f)[1].split('icaos=')[1].split(',')).toHaveLength(2)
   })
 
+  it('leaves a mistyped code out of the batch so the other locations still load', async () => {
+    const f = vi.fn(async () => reply({ total: 2, rows: [row(1, ['WMKK']), row(2, ['WIII'])] }))
+    vi.stubGlobal('fetch', f)
+
+    const { rawPerIcao } = await fetchNotams(['WMKK', 'WTT', 'WIII'])
+
+    expect(f).toHaveBeenCalledTimes(1)                       // no SkyLink call for the typo
+    expect(urls(f)[0]).toContain('/api/notam?icaos=WMKK,WIII')
+    const by = Object.fromEntries(rawPerIcao.map(e => [e.icao, e]))
+    expect(by.WMKK.rows).toHaveLength(1)
+    expect(by.WIII.rows).toHaveLength(1)
+    expect(by.WTT).toEqual({ icao: 'WTT', rows: [], source: 'autorouter' })
+  })
+
+  it('makes no request at all when every code is invalid', async () => {
+    const f = vi.fn()
+    vi.stubGlobal('fetch', f)
+    const { rawPerIcao } = await fetchNotams(['WTT', 'X'])
+    expect(f).not.toHaveBeenCalled()
+    expect(rawPerIcao.map(e => e.rows)).toEqual([[], []])
+  })
+
   it('makes no request for an empty list', async () => {
     const f = vi.fn()
     vi.stubGlobal('fetch', f)

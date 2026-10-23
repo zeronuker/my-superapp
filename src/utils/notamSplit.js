@@ -3,6 +3,10 @@
 // back to the location each one belongs to, so the per-ICAO cache shape and
 // the parser downstream stay unchanged.
 
+// autorouter only takes 4-character location codes and rejects the WHOLE request
+// if one entry is malformed, so a typo must never reach a batch.
+export const NOTAM_CODE_RE = /^[A-Z]{2}[A-Z0-9]{2}$/
+
 // Every location a row names: item A (a list or a plain string, possibly
 // space-separated) plus the FIR field.
 function rowLocations(row) {

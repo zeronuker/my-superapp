@@ -7,7 +7,7 @@
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import { icaoToFir, latlngToFir } from '../data/firLookup'
 import { lookupAirport } from '../data/airports'
-import { splitRowsByIcao } from '../utils/notamSplit'
+import { splitRowsByIcao, NOTAM_CODE_RE } from '../utils/notamSplit'
 
 // ── Q-code subject → plain English ───────────────────────────────────────────
 const Q_SUBJECT = {
@@ -354,7 +354,7 @@ export async function fetchNotams(icaoList) {
   const backup  = 'skylink'
 
   const codes  = icaoList.map(icao => String(icao || '').toUpperCase())
-  const unique = [...new Set(codes.filter(Boolean))]
+  const unique = [...new Set(codes.filter(c => NOTAM_CODE_RE.test(c)))]
 
   // Chunks go one after another so the login is shared, not repeated.
   const fromPrimary = {}   // icao -> rows
@@ -368,6 +368,7 @@ export async function fetchNotams(icaoList) {
 
   const rawPerIcao = await Promise.all(codes.map(async (icao) => {
     if (icao in fromPrimary) return { icao, rows: fromPrimary[icao], source: primary }
+    if (!NOTAM_CODE_RE.test(icao)) return { icao, rows: [], source: primary }   // typo: no NOTAMs, no SkyLink call
     try {
       const rows = await fetchOneSkylink(icao)
       return { icao, rows, source: backup }

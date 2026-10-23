@@ -15,9 +15,9 @@
 
 import { rateLimited } from './_rateLimit.js'
 import { getToken, invalidateToken } from './_autorouterToken.js'
+import { NOTAM_CODE_RE } from '../src/utils/notamSplit.js'
 
 const NOTAM_URL = 'https://api.autorouter.aero/v1.0/notam'
-const ICAO_RE = /^[A-Z0-9]{2,6}$/
 const MAX_LOCATIONS = 12
 const PAGE_SIZE = 100   // autorouter's maximum rows per call
 const MAX_PAGES = 8     // 800 rows per request, so a busy briefing isn't silently cut short
@@ -80,8 +80,8 @@ export default async function handler(req, res) {
   if (icaos.length > MAX_LOCATIONS) {
     return res.status(400).json({ error: `at most ${MAX_LOCATIONS} locations per request` })
   }
-  if (!icaos.every(x => ICAO_RE.test(x))) {
-    return res.status(400).json({ error: 'each icao must be 2–6 alphanumeric characters' })
+  if (!icaos.every(x => NOTAM_CODE_RE.test(x))) {
+    return res.status(400).json({ error: 'each icao must be a 4-character location code' })
   }
 
   // Include NOTAMs valid from 1 hour ago onwards
