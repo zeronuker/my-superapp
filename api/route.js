@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     const token = await getToken()
     let r = await postPlan(token, fpl)
     if (r.status === 401) {       // autorouter says the token is no good: log in again, once
-      invalidateToken(token)
+      await invalidateToken(token)
       r = await postPlan(await getToken(), fpl)
     }
     if (!r.ok) {

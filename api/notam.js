@@ -48,7 +48,7 @@ async function collectRows(itemas, startvalidity) {
     let r = await fetchPage(token, itemas, startvalidity, rows.length)
     if (r.status === 401 && !retried) {
       retried = true
-      invalidateToken(token)
+      await invalidateToken(token)
       token = await getToken()
       r = await fetchPage(token, itemas, startvalidity, rows.length)
     }
