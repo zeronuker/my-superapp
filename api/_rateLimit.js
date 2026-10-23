@@ -10,6 +10,12 @@
  */
 const buckets = new Map() // ip -> { count, resetAt }
 
+/** Country and start of the browser type, for log lines. Deliberately no IP address. */
+export function callerInfo(req) {
+  const h = req.headers ?? {}
+  return `country=${h['x-vercel-ip-country'] || '?'} ua=${String(h['user-agent'] || '?').slice(0, 40)}`
+}
+
 export function rateLimited(req, res, { limit = 60, windowMs = 60_000 } = {}) {
   const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim()
   const now = Date.now()

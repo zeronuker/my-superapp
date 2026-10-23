@@ -93,8 +93,19 @@ describe('/api/route lookup', () => {
 
     expect(res.code).toBe(200)
     expect(invalidateToken).toHaveBeenCalledTimes(1)
+    expect(invalidateToken).toHaveBeenCalledWith('OLD')   // only the token that failed is dropped
     expect(f.mock.calls[0][1].headers.Authorization).toBe('Bearer OLD')
     expect(f.mock.calls[1][1].headers.Authorization).toBe('Bearer NEW')
+  })
+
+  it('logs who asked, without an IP address', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.stubGlobal('fetch', vi.fn(async () => reply(WMSA_WMKP)))
+    const res = fakeRes()
+    await handler({ query: { dep: 'WMSA', arr: 'WMKP', fixes: 'ATIMU,TEPUS' },
+      headers: { 'x-vercel-ip-country': 'MY', 'user-agent': 'iPad', 'x-forwarded-for': '203.0.113.9' }, socket: {} }, res)
+    expect(log).toHaveBeenCalledWith('[route] 2 fixes, country=MY ua=iPad')
+    log.mockRestore()
   })
 
   it('answers 502 rather than guess when the reply cannot be matched', async () => {

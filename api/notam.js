@@ -13,7 +13,7 @@
  * one login instead of one per airport (see _autorouterToken.js).
  */
 
-import { rateLimited } from './_rateLimit.js'
+import { rateLimited, callerInfo } from './_rateLimit.js'
 import { getToken, invalidateToken } from './_autorouterToken.js'
 import { NOTAM_CODE_RE } from '../src/utils/notamSplit.js'
 
@@ -36,8 +36,8 @@ function fetchPage(token, itemas, startvalidity, offset) {
 }
 
 // Every row for the given locations: pages through the results until autorouter's
-// reported total is reached (or MAX_PAGES). A 401 means the token was invalidated,
-// so log in again and retry once.
+// reported total is reached (or MAX_PAGES). A 401 means autorouter no longer accepts
+// the token, so log in again and retry once.
 async function collectRows(itemas, startvalidity) {
   let token = await getToken()
   let retried = false
@@ -48,7 +48,7 @@ async function collectRows(itemas, startvalidity) {
     let r = await fetchPage(token, itemas, startvalidity, rows.length)
     if (r.status === 401 && !retried) {
       retried = true
-      invalidateToken()
+      invalidateToken(token)
       token = await getToken()
       r = await fetchPage(token, itemas, startvalidity, rows.length)
     }
@@ -87,6 +87,7 @@ export default async function handler(req, res) {
   // Include NOTAMs valid from 1 hour ago onwards
   const startvalidity = Math.floor(Date.now() / 1000) - 3600
   const label = icaos.join(',')
+  console.log(`[notam] ${icaos.length} locations, ${callerInfo(req)}`)
 
   try {
     const data = await collectRows(icaos, startvalidity)

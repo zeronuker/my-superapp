@@ -13,7 +13,7 @@
  * Fix positions barely change, so answers are cached for a day.
  */
 
-import { rateLimited } from './_rateLimit.js'
+import { rateLimited, callerInfo } from './_rateLimit.js'
 import { getToken, invalidateToken } from './_autorouterToken.js'
 import { matchResolved, MAX_FIXES } from '../src/utils/routeParse.js'
 
@@ -49,11 +49,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'each fix must be 2–5 letters' })
   }
 
+  console.log(`[route] ${fixes.length} fixes, ${callerInfo(req)}`)
+
   try {
     const fpl = buildFpl(dep, arr, fixes)
-    let r = await postPlan(await getToken(), fpl)
-    if (r.status === 401) {       // token was invalidated: log in again, once
-      invalidateToken()
+    const token = await getToken()
+    let r = await postPlan(token, fpl)
+    if (r.status === 401) {       // autorouter says the token is no good: log in again, once
+      invalidateToken(token)
       r = await postPlan(await getToken(), fpl)
     }
     if (!r.ok) {
