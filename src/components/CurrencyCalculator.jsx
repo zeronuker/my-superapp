@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore, QUICK_BASE_MAX } from '../store/calculatorStore'
 import ResetButton from './ResetButton'
 import { currencyPickerRows } from '../utils/currencyPicker'
+import ChamferFrame from '@brand/ChamferFrame'
 
 // Last-resort hardcoded rates (USD base, circa 2024) — used only when a base
 // currency has never been fetched AND the device is offline. Once a base has
@@ -183,18 +184,16 @@ function Overlay({ onClose, closing, anchor, children }) {
         background: 'rgba(0,0,0,0.55)', height: height ?? 'calc(100% + 75vh)',
       }}
     >
-      <div
-        className={`cp-card-bg2 cp-pop-in${closing ? ' is-closing' : ''}`}
+      <ChamferFrame
+        className={`cp-pop-in${closing ? ' is-closing' : ''}`}
         onClick={e => e.stopPropagation()}
         style={{
           position: 'absolute', top: anchor.y, left: 0, right: 0, marginInline: 'auto',
           width: 'min(380px, calc(100% - 32px))', boxSizing: 'border-box',
-          border: '1px solid var(--cp-border2)', borderRadius: 8,
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}
       >
         {children}
-      </div>
+      </ChamferFrame>
     </div>,
     document.body
   )

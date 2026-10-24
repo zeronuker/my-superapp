@@ -434,6 +434,11 @@ html[data-reduce-motion="true"] * { transition: none !important; }
 :root[data-theme="light"][data-accent="gold"]    { --cp-acc: #8c6a00; --cp-acc2: #966500; --cp-accdim: #fef9c3; }
 :root[data-theme="light"][data-accent="coral"]   { --cp-acc: #bd4e00; --cp-acc2: #c84500; --cp-accdim: #ffedd5; }
 
+/* Window frame (brand-kit ChamferFrame): the fill is the card colour; the line is the brand gradient,
+   or the chosen accent when it is not the gradient. */
+:root { --cf-face: var(--cp-bg2); }
+:root[data-accent]:not([data-accent="gradient"]) { --cf-line: var(--cp-acc); }
+
 @media (prefers-color-scheme: light) {
   :root:not([data-theme])[data-accent="blue"]    { --cp-acc: #0065f3; --cp-acc2: #086aeb; --cp-accdim: #d4eaf8; }
   :root:not([data-theme])[data-accent="violet"]  { --cp-acc: #4759ff; --cp-acc2: #3a4be5; --cp-accdim: #ede9fe; }

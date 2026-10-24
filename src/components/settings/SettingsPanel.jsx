@@ -6,6 +6,7 @@ import Changelog from '@brand/Changelog'
 import { APP_VERSION, ACCENT_SWATCHES, resolveAccentId } from '../../appConstants'
 import { useTransitionAnim } from '../../useTransitionAnim'
 import Collapse from '../Collapse'
+import ChamferFrame from '@brand/ChamferFrame'
 
 // Named export → adapt to the default shape React.lazy expects (same chunk as PrayerModule)
 const PrayerSettings = lazy(() =>
@@ -421,15 +422,13 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
   // ── Desktop / iPad: centred modal with left rail ──
   if (isWide) {
     return (
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
+      <ChamferFrame ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
         className={`cp-modal-anim${closing ? ' is-closing' : ''}`}
         onKeyDown={handlePanelKeyDown}
         style={{
           position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
           width: 'min(560px, 92vw)', height: 'min(620px, 86vh)',
-          background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 8,
-          zIndex: 200, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          boxShadow: '0 24px 60px rgba(0,0,0,0.55)',
+          zIndex: 200,
         }}>
         {header}
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
@@ -441,21 +440,18 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
             <div key={activeTab} className={tabAnim.className} style={tabAnim.style}>{tabContent}</div>
           </div>
         </div>
-      </div>
+      </ChamferFrame>
     )
   }
 
-  // ── Mobile: full-height sheet with top tab strip ──
+  // ── Mobile: full-height sheet with top tab strip. A full-screen sheet has no edge to frame, so no cut corners and the lines blend into the fill. ──
   return (
-    <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
+    <ChamferFrame ref={panelRef} role="dialog" aria-modal="true" aria-label="Settings"
       className={`cp-sheet-anim${closing ? ' is-closing' : ''}`}
       onKeyDown={handlePanelKeyDown}
-      style={{
-        position: 'fixed', inset: 0,
-        background: 'var(--cp-bg2)',
-        zIndex: 200, display: 'flex', flexDirection: 'column',
-        paddingTop: 'calc(env(safe-area-inset-top) + var(--ios-edge, 0px))',
-      }}>
+      color="var(--cp-bg2)"
+      pad="calc(env(safe-area-inset-top) + var(--ios-edge, 0px)) 0 0"
+      style={{ position: 'fixed', inset: 0, zIndex: 200, '--cf-c': '0px' }}>
       {header}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--cp-border)', flexShrink: 0 }}>
         {SETTINGS_TABS.map(t => <TabButton key={t.id} tab={t} variant="strip" />)}
@@ -464,7 +460,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
         paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>
         <div key={activeTab} className={tabAnim.className} style={tabAnim.style}>{tabContent}</div>
       </div>
-    </div>
+    </ChamferFrame>
   )
 }
 

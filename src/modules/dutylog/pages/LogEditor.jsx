@@ -3,6 +3,7 @@ import { sectorStripeColors, aircraftStripeColors } from '../utils/sectorColors'
 import { formatHHMM } from '../utils/formatHHMM'
 import { usePresence, animDurationMs } from '../../../useTransitionAnim'
 import Collapse from '../../../components/Collapse'
+import ChamferFrame from '@brand/ChamferFrame'
 
 const mono = 'var(--cb-font-mono)'
 
@@ -208,7 +209,7 @@ function RemarksModal({ sector, index, onSave, onCancel, closing }) {
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, zIndex: 5,
     }}>
-      <div className={`cp-pop-in${closing ? ' is-closing' : ''}`} style={{ width: '100%', maxWidth: 460, background: 'var(--cp-bg2)', border: '1px solid var(--cp-acc)', borderRadius: 8, padding: 14 }}>
+      <ChamferFrame className={`cp-pop-in${closing ? ' is-closing' : ''}`} pad="14px" style={{ width: '100%', maxWidth: 460 }}>
         <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.12em', color: 'var(--cp-txt)', marginBottom: 4 }}>
           SECTOR #{index + 1} — REMARKS
         </div>
@@ -224,7 +225,7 @@ function RemarksModal({ sector, index, onSave, onCancel, closing }) {
             SAVE REMARKS
           </button>
         </div>
-      </div>
+      </ChamferFrame>
     </div>
   )
 }

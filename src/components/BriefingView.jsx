@@ -23,6 +23,7 @@ import WindyRouteMap, { hasWindyLoadedBefore } from './WindyRouteMap'
 import CartoRouteMap, { hasCartoLoadedBefore } from './CartoRouteMap'
 import OfflineCoastlineMap from './OfflineCoastlineMap'
 import Seg from './Seg'
+import ChamferFrame from '@brand/ChamferFrame'
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -594,12 +595,11 @@ function BriefingPromptModal({ onDismiss, closing, children }) {
       position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.6)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
     }}>
-      <div onClick={e => e.stopPropagation()} className={`cp-pop-in${closing ? ' is-closing' : ''}`} style={{
-        width: '100%', maxWidth: 380, background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)',
-        borderRadius: 10, padding: 18,
+      <ChamferFrame onClick={e => e.stopPropagation()} className={`cp-pop-in${closing ? ' is-closing' : ''}`} pad="18px" style={{
+        width: '100%', maxWidth: 380,
       }}>
         {children}
-      </div>
+      </ChamferFrame>
     </div>
   )
 }
@@ -948,13 +948,12 @@ export default function BriefingView() {
         padding: '24px 16px', overflowY: 'auto',
       }}
     >
-      <div
+      <ChamferFrame
         onClick={e => e.stopPropagation()}
         className={`cp-pop-in${closing ? ' is-closing' : ''}`}
+        face="var(--cp-bg)"
         style={{
-          position: 'relative',
-          width: '100%', maxWidth: 980, background: 'var(--cp-bg)', borderRadius: 12,
-          border: '1px solid var(--cp-border)', boxShadow: '0 24px 60px rgba(0,0,0,0.4)', overflow: 'hidden',
+          width: '100%', maxWidth: 980,
           // Same curve open and close, so the Slower speed is actually felt
           // (the shared pop-in curve front-loads nearly all of its movement).
           animationTimingFunction: 'cubic-bezier(.4,0,.2,1)',
@@ -1151,7 +1150,7 @@ export default function BriefingView() {
             </>
           )}
         </div>
-      </div>
+      </ChamferFrame>
     </div>
 
     {capPresence.mounted && (

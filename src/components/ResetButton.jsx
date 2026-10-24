@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { usePresence } from '../useTransitionAnim'
+import ChamferFrame from '@brand/ChamferFrame'
 
 // Standardized reset button: visibly orange by default (no hover needed to
 // read as "careful"), escalates to red on hover/press as the action is about
@@ -55,13 +56,11 @@ export default function ResetButton({ onReset, scoped = false, hasUnsavedBriefin
             zIndex: 1000, padding: 16,
           }}
         >
-          <div
-            className={`cp-card-bg2 cp-pop-in${presence.closing ? ' is-closing' : ''}`}
+          <ChamferFrame
+            className={`cp-pop-in${presence.closing ? ' is-closing' : ''}`}
             onClick={e => e.stopPropagation()}
-            style={{
-              border: '1px solid var(--cp-border2)', borderRadius: 8,
-              width: '100%', maxWidth: 340, padding: 18,
-            }}
+            pad="18px"
+            style={{ width: '100%', maxWidth: 340 }}
           >
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--cp-txt)', marginBottom: 6 }}>
               CONFIRM RESET
@@ -122,7 +121,7 @@ export default function ResetButton({ onReset, scoped = false, hasUnsavedBriefin
                 Cancel
               </button>
             </div>
-          </div>
+          </ChamferFrame>
         </div>,
         document.body
       )}
