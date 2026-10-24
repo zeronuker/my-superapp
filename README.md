@@ -132,11 +132,11 @@ The service worker caches aggressively. Users receive an in-app update prompt wh
 
 | Variable | Required for |
 |---|---|
-| `AUTOROUTER_EMAIL`, `AUTOROUTER_PASSWORD` | NOTAM (autorouter.aero login, used as OAuth client_id/secret) |
+| `AUTOROUTER_EMAIL`, `AUTOROUTER_PASSWORD` | NOTAM and pasted-route lookup (autorouter.aero login, used as OAuth client_id/secret; the password also derives the key that encrypts the stored token) |
 | `VITE_WINDY_API_KEY` | Briefing's live weather map. Domain-restricted at api.windy.com/keys, not a secret in the traditional sense — bundled into the client build |
 | `VITE_CARTO_API_KEY` | Briefing's route map basemap. From carto.com/basemaps/apikey — also bundled client-side |
 | `AERODATABOX_API_KEY` | METAR/TAF's runway wind-component calc (RapidAPI AeroDataBox) |
-| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Duty Log's optional cloud sync |
+| `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` | Duty Log's optional cloud sync, and the shared autorouter token (Firestore collection `appSecrets`, encrypted; skipped if unset) |
 | `RAINBOW_API_KEY` | Rain/Clouds layers on Briefing's live weather map |
 | `GATEFINDER_API_KEY` | Malaysia Airports gate lookup — optional, has a working default |
 | `SKYLINK_API_KEY` | Fallback only for METAR/TAF and NOTAM if the primary sources fail — optional |

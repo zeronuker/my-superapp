@@ -107,11 +107,25 @@ when asked. The service worker caches aggressively; users get an update prompt
   Requires `AUTOROUTER_EMAIL` / `AUTOROUTER_PASSWORD` in Vercel env vars — these
   are the account login email/password (autorouter uses them as the OAuth
   client_id/client_secret). Verified working against WMKK.
-  autorouter allows only **20 valid tokens per account** (each lasts an hour;
-  going over answers `toomanytokens`). Both autorouter functions log in through
-  `api/_autorouterToken.js` (callers that arrive during a login wait for it),
-  and `fetchNotams` sends ONE `/api/notam?icaos=A,B,C` request per briefing
-  (max 12 locations, paged 100 rows at a time) instead of one per airport.
+  autorouter allows only **20 valid tokens per account**; going over answers
+  `toomanytokens`. Their docs say a token lasts an hour, but the live reply
+  says `expires_in: 259200` (**3 days**), so every login holds a slot for days.
+  Both autorouter functions log in through `api/_autorouterToken.js`: it keeps
+  the token until a caller gets a 401 (no clock of its own), makes callers that
+  arrive during a login wait for it, pauses 30 s after a refused login, and logs
+  every login / failure (no secrets) so tokens taken can be counted in the Vercel
+  logs (they only keep ~70 min). The token is also kept in a **durable shared
+  store** (`api/_tokenStore.js`): Firestore doc `appSecrets/autorouter-<VERCEL_ENV>`
+  (the same Firebase project as the Duty Log), AES-256-GCM encrypted with a key
+  derived from `AUTOROUTER_PASSWORD`, so a cold start or the other function
+  reuses it instead of taking another slot. Vercel's Runtime Cache was tried
+  first and forgot the token within hours — do not go back to it. Every store
+  call has a 5 s limit and any failure just falls back to logging in. Firestore
+  rules deny all client access (`allow read, write: if false`); keep it that way.
+  Their Terms say API use needs an "API usage agreement" (never asked about).
+  `fetchNotams` sends ONE `/api/notam?icaos=A,B,C` request per briefing (max 12
+  locations, paged 100 rows at a time) instead of one per airport, and only
+  sends 4-character codes (autorouter rejects the whole batch for one typo).
 - **Pasted route (`api/route.js`)** — the optional ROUTE box on the METAR/TAF,
   NOTAM and SIGMET tabs (`RouteInput.jsx`). `utils/routeParse.js` keeps only the
   fixes (airways, SIDs/STARs, runways, DCT dropped: autorouter does not know
