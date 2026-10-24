@@ -74,7 +74,7 @@ export default function DashboardHome({ onSelect, widgets = { utc: true, prayer:
   const W = {
     border: '1px solid var(--cp-border2)',
     borderTop: '2px solid var(--cp-acc)',
-    borderRadius: 6, padding: '14px 16px', flex: 1, minWidth: 0,
+    borderRadius: 6, padding: '14px clamp(10px, 3vw, 16px)', flex: 1, minWidth: 0,
     cursor: 'pointer', transition: 'border-color 0.12s, background 0.12s',
   }
 
@@ -92,8 +92,8 @@ export default function DashboardHome({ onSelect, widgets = { utc: true, prayer:
         <div className="cp-launch-card" style={W} onClick={() => onSelect('worldtime')}>
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.18em',
             color: 'var(--cp-dim)', marginBottom: 6 }}>UTC / ZULU</div>
-          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 22, fontWeight: 700,
-            color: 'var(--cp-acc)', letterSpacing: '0.04em', lineHeight: 1,
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 'clamp(12px, 4vw, 22px)', fontWeight: 700,
+            color: 'var(--cp-acc)', letterSpacing: '0.02em', lineHeight: 1,
             fontVariantNumeric: 'tabular-nums' }}>{utcStr}</div>
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)',
             letterSpacing: '0.06em', marginTop: 5 }}>{utcDate}</div>
@@ -105,7 +105,7 @@ export default function DashboardHome({ onSelect, widgets = { utc: true, prayer:
           <div className="cp-launch-card" style={W} onClick={() => onSelect('prayer')}>
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.18em',
               color: 'var(--cp-dim)', marginBottom: 6 }}>NEXT PRAYER</div>
-            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 16, fontWeight: 700,
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 'clamp(12px, 4vw, 16px)', fontWeight: 700,
               color: 'var(--cp-acc)', letterSpacing: '0.04em', lineHeight: 1,
               fontVariantNumeric: 'tabular-nums' }}>{nextPrayer.countdown}</div>
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)',
@@ -118,7 +118,7 @@ export default function DashboardHome({ onSelect, widgets = { utc: true, prayer:
           <div className="cp-launch-card" style={W} onClick={() => onSelect('metartaf')}>
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.18em',
               color: 'var(--cp-dim)', marginBottom: 6 }}>METAR</div>
-            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 22, fontWeight: 700,
+            <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 'clamp(12px, 4vw, 22px)', fontWeight: 700,
               color: metarAge === 'LIVE' ? 'var(--cp-green)' : 'var(--cp-acc)',
               letterSpacing: '0.04em', lineHeight: 1 }}>{metarAge}</div>
             {metarRoute && (
