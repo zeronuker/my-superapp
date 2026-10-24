@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-// A stand-in for Vercel's Runtime Cache, shared by every "worker" (module reload) in a test.
-const shared = vi.hoisted(() => ({
-  store: new Map(),
-  namespaces: [],
-  get: vi.fn(async (k) => shared.store.get(k) ?? null),
-  set: vi.fn(async (k, v) => { shared.store.set(k, v) }),
-  delete: vi.fn(async (k) => { shared.store.delete(k) }),
+// A stand-in for the shared store (Firestore), shared by every "worker" (module reload) in a test.
+const store = vi.hoisted(() => ({
+  token: null,
+  read: vi.fn(async () => store.token),
+  write: vi.fn(async (t) => { store.token = t }),
+  del: vi.fn(async (failed) => { if (store.token === failed) store.token = null }),
 }))
-vi.mock('@vercel/functions', () => ({
-  getCache: (opts) => { shared.namespaces.push(opts?.namespace); return shared },
+vi.mock('./_tokenStore.js', () => ({
+  readStoredToken: (...a) => store.read(...a),
+  writeStoredToken: (...a) => store.write(...a),
+  deleteStoredToken: (...a) => store.del(...a),
 }))
 
 const reply = (body, status = 200) => ({
@@ -23,15 +24,16 @@ const ok = (token, expires_in = 3600) => reply({ access_token: token, expires_in
 
 let getToken, invalidateToken, now, log, warn
 const logged = () => [...log.mock.calls, ...warn.mock.calls].map(c => c.join(' ')).join('\n')
-const newWorker = async () => {   // a fresh serverless instance: empty memory, same shared cache
+const warned = () => warn.mock.calls.map(c => c[0]).join('\n')
+const loginLines = () => log.mock.calls.map(c => c[0]).filter(l => /new token/.test(l))
+const newWorker = async () => {   // a fresh serverless instance: empty memory, same shared store
   vi.resetModules()
   ;({ getToken, invalidateToken } = await import('./_autorouterToken.js'))
 }
 
 beforeEach(async () => {
-  shared.store.clear()
-  shared.namespaces.length = 0
-  shared.get.mockClear(); shared.set.mockClear(); shared.delete.mockClear()
+  store.token = null
+  store.read.mockClear(); store.write.mockClear(); store.del.mockClear()
   await newWorker()
   now = 1_000_000
   vi.spyOn(Date, 'now').mockImplementation(() => now)
@@ -131,12 +133,11 @@ describe('getToken', () => {
   })
 })
 
-describe('shared cache between workers', () => {
-  it('a new login is stored in the shared cache for just under the token lifetime', async () => {
+describe('shared store between workers', () => {
+  it('a new login is saved to the shared store with its lifetime', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ok('T1', 259200)))
     await getToken()
-    expect(shared.set).toHaveBeenCalledWith('token', 'T1', { ttl: 259200 - 600 })
-    expect(new Set(shared.namespaces)).toEqual(new Set(['autorouter']))   // own namespace: the Hobby cache is shared by all projects
+    expect(store.write).toHaveBeenCalledWith('T1', 259200)
   })
 
   it('a second worker uses the stored token and does not log in', async () => {
@@ -146,67 +147,76 @@ describe('shared cache between workers', () => {
     await newWorker()                 // worker 2 starts empty
     expect(await getToken()).toBe('T1')
     expect(f).toHaveBeenCalledTimes(1)
-    expect(log.mock.calls.map(c => c[0])).toContain('[autorouter] token from shared cache')
+    expect(log.mock.calls.map(c => c[0]).some(l => /^\[autorouter\] token from shared store \(\d+ ms\)$/.test(l))).toBe(true)
   })
 
-  it('a rejected token is removed from the shared cache and replaced', async () => {
+  it('says how long saving and reading took', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ok('T1')))
+    await getToken()
+    expect(log.mock.calls.map(c => c[0]).some(l => /^\[autorouter\] token saved to shared store \(\d+ ms\)$/.test(l))).toBe(true)
+  })
+
+  it('asks the store to drop a rejected token, then replaces it', async () => {
     const f = vi.fn().mockResolvedValueOnce(ok('T1')).mockResolvedValueOnce(ok('T2'))
     vi.stubGlobal('fetch', f)
     await invalidateToken(await getToken())
-    expect(shared.delete).toHaveBeenCalledWith('token')
+    expect(store.del).toHaveBeenCalledWith('T1')
     expect(await getToken()).toBe('T2')
-    expect(shared.store.get('token')).toBe('T2')
+    expect(store.token).toBe('T2')
   })
 
-  it("does not delete a newer token another worker has already stored", async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ok('T1')))
-    const t1 = await getToken()
-    shared.store.set('token', 'T2')   // another worker replaced it
-    await invalidateToken(t1)
-    expect(shared.delete).not.toHaveBeenCalled()
-    expect(shared.store.get('token')).toBe('T2')
-  })
-
-  it('never reuses a token it was told is rejected, even if the cache still holds it', async () => {
+  it('never reuses a token it was told is rejected, even if the store still holds it', async () => {
     const f = vi.fn().mockResolvedValueOnce(ok('T1')).mockResolvedValueOnce(ok('T2'))
     vi.stubGlobal('fetch', f)
     const t1 = await getToken()
-    shared.delete.mockRejectedValueOnce(new Error('cache down'))   // the delete fails, T1 stays cached
+    store.del.mockRejectedValueOnce(new Error('store down'))   // the delete fails, T1 stays stored
     await invalidateToken(t1)
     expect(await getToken()).toBe('T2')
   })
 
-  it('still logs in when reading the cache fails', async () => {
-    shared.get.mockRejectedValueOnce(new Error('cache down'))
+  it('still logs in when reading the store fails', async () => {
+    store.read.mockRejectedValueOnce(new Error('store down'))
     vi.stubGlobal('fetch', vi.fn(async () => ok('T1')))
     expect(await getToken()).toBe('T1')
-    expect(warn.mock.calls.map(c => c[0]).join('\n')).toMatch(/shared cache read failed/)
+    expect(warned()).toMatch(/shared store read failed/)
   })
 
-  it('still returns the token when writing the cache fails', async () => {
-    shared.set.mockRejectedValueOnce(new Error('cache down'))
+  it('still returns the token when saving it fails', async () => {
+    store.write.mockRejectedValueOnce(new Error('store down'))
     vi.stubGlobal('fetch', vi.fn(async () => ok('T1')))
     expect(await getToken()).toBe('T1')
-    expect(warn.mock.calls.map(c => c[0]).join('\n')).toMatch(/shared cache write failed/)
+    expect(warned()).toMatch(/shared store write failed/)
   })
 
-  it('does not wait forever for a cache that never answers', async () => {
+  it('does not wait forever for a store that never answers', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    shared.get.mockImplementationOnce(() => new Promise(() => {}))   // hangs
+    store.read.mockImplementationOnce(() => new Promise(() => {}))   // hangs
     vi.stubGlobal('fetch', vi.fn(async () => ok('T1')))
     const p = getToken()
-    await vi.advanceTimersByTimeAsync(2_500)
+    await vi.advanceTimersByTimeAsync(5_500)
     expect(await p).toBe('T1')
+    expect(warned()).toMatch(/shared store read failed: timed out/)
   })
 
-  it('works when the shared cache cannot be created at all', async () => {
-    shared.get.mockImplementation(() => { throw new Error('no runtime') })
+  it('gives the store time to wake up: no give-up before 4 seconds', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    store.read.mockImplementationOnce(() => new Promise(r => setTimeout(() => r('SLOW'), 3_500)))   // a cold Firestore
+    const f = vi.fn(async () => ok('T1'))
+    vi.stubGlobal('fetch', f)
+    const p = getToken()
+    await vi.advanceTimersByTimeAsync(3_600)
+    expect(await p).toBe('SLOW')
+    expect(f).not.toHaveBeenCalled()
+  })
+
+  it('works when the store cannot be reached at all', async () => {
+    store.read.mockImplementation(() => { throw new Error('no firebase') })
     vi.stubGlobal('fetch', vi.fn(async () => ok('T1')))
     expect(await getToken()).toBe('T1')
-    shared.get.mockImplementation(async (k) => shared.store.get(k) ?? null)
+    store.read.mockImplementation(async () => store.token)
   })
 
-  it('a refused login still pauses even when the shared cache is empty', async () => {
+  it('a refused login still pauses even when the shared store is empty', async () => {
     const f = vi.fn(async () => refused())
     vi.stubGlobal('fetch', f)
     await getToken().catch(() => {})
@@ -220,8 +230,7 @@ describe('log lines', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(ok('T1')).mockResolvedValueOnce(ok('T2')))
     await invalidateToken(await getToken())
     await getToken()
-    const lines = log.mock.calls.map(c => c[0])
-    expect(lines).toEqual([
+    expect(loginLines()).toEqual([
       '[autorouter] new token: cold start, valid 3600s',
       '[autorouter] new token: after a 401, valid 3600s',
     ])

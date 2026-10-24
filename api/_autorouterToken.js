@@ -8,43 +8,47 @@
  * one. So:
  *   - the token is cached per warm instance and kept until a caller reports it
  *     failed (invalidateToken); there is no expiry clock of our own;
- *   - it is also kept in Vercel's Runtime Cache, which every instance of every
- *     function in the region can read, so a fresh instance (a cold start, or
- *     the other function) reuses it instead of taking another slot;
+ *   - it is also kept in a durable shared store (_tokenStore.js, Firestore), so
+ *     a fresh instance (a cold start, or the other function) reuses it instead
+ *     of taking another slot;
  *   - callers that arrive while a login is in progress wait for it;
  *   - after autorouter refuses a login (limit reached, bad credentials) we
  *     answer the same way for a short while instead of retrying every request.
- * The shared cache is only a bonus: if it is missing, slow or failing, we log
- * in exactly as before. Every login and failure is logged, so the number of
- * tokens this app takes can be counted from the Vercel logs (no secrets).
+ * The shared store is only a bonus: if it is missing, slow or failing, we log
+ * in exactly as before. Every login and failure is logged, with how long the
+ * store took, so the number of tokens this app takes can be counted from the
+ * Vercel logs (no secrets).
  *
  * Required Vercel environment variables:
  *   AUTOROUTER_EMAIL    – your autorouter.aero login email
  *   AUTOROUTER_PASSWORD – your autorouter.aero login password
+ * (and the FIREBASE_* variables the shared store uses; without them the store is skipped)
  */
 
-import { getCache } from '@vercel/functions'
+import { readStoredToken, writeStoredToken, deleteStoredToken } from './_tokenStore.js'
 
 const OAUTH_URL = 'https://api.autorouter.aero/v1.0/oauth2/token'
 const PAUSE_MS = 30_000          // after a refused login, don't ask again for this long
-const CACHE_KEY = 'token'
-const CACHE_TIMEOUT_MS = 2_000   // a slow shared cache must never hold up a request
+const STORE_TIMEOUT_MS = 5_000   // a cold Firestore takes a couple of seconds; a hung one must not hold up a request
 
 let cachedToken = null
 let inflight = null          // the token lookup/login in progress, if any
 let loggedInBefore = false   // tells a first login from a re-login in the log
 let refusal = null           // { error, until } while pausing after a refused login
-let rejected = null          // the last token autorouter refused: ignored even if the shared cache still holds it
+let rejected = null          // the last token autorouter refused: ignored even if the shared store still holds it
 
-// Runs one shared-cache operation. Any problem is logged and turned into null,
-// never thrown, so the cache can only ever make things better.
+// Runs one shared-store operation. Any problem is logged and turned into null,
+// never thrown, so the store can only ever make things better. On success it
+// returns { value, ms }.
 async function sharedCall(what, call) {
+  const started = Date.now()
   let timer
   try {
-    const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timed out')), CACHE_TIMEOUT_MS) })
-    return await Promise.race([call(getCache({ namespace: 'autorouter' })), timeout])   // own namespace: on Hobby the cache is shared by all projects
+    const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timed out')), STORE_TIMEOUT_MS) })
+    const value = await Promise.race([call(), timeout])
+    return { value, ms: Date.now() - started }
   } catch (e) {
-    console.warn(`[autorouter] shared cache ${what} failed: ${e.message}`)
+    console.warn(`[autorouter] shared store ${what} failed: ${e.message}`)
     return null
   } finally {
     clearTimeout(timer)
@@ -84,8 +88,8 @@ async function requestToken() {
   console.log(`[autorouter] new token: ${loggedInBefore ? 'after a 401' : 'cold start'}, valid ${json.expires_in ?? '?'}s`)
   loggedInBefore = true
   cachedToken = json.access_token
-  // Shared for just under its lifetime; if it is ever wrong, the 401 path replaces it.
-  await sharedCall('write', c => c.set(CACHE_KEY, cachedToken, { ttl: Math.max(60, (json.expires_in ?? 3600) - 600) }))
+  const saved = await sharedCall('write', () => writeStoredToken(cachedToken, json.expires_in ?? 3600))
+  if (saved) console.log(`[autorouter] token saved to shared store (${saved.ms} ms)`)
   return cachedToken
 }
 
@@ -103,9 +107,10 @@ async function login() {
 }
 
 async function obtainToken() {
-  const stored = await sharedCall('read', c => c.get(CACHE_KEY))
+  const read = await sharedCall('read', readStoredToken)
+  const stored = read?.value
   if (typeof stored === 'string' && stored && stored !== rejected) {
-    console.log('[autorouter] token from shared cache')
+    console.log(`[autorouter] token from shared store (${read.ms} ms)`)
     loggedInBefore = true
     cachedToken = stored
     return stored
@@ -121,13 +126,12 @@ export async function getToken() {
 }
 
 /**
- * Forget a token autorouter answered 401 to, here and in the shared cache. Only
+ * Forget a token autorouter answered 401 to, here and in the shared store. Only
  * that token: if another request or instance has already replaced it, the new
  * one is kept. Await this before calling getToken() again.
  */
 export async function invalidateToken(failedToken) {
   rejected = failedToken
   if (cachedToken === failedToken) cachedToken = null
-  const stored = await sharedCall('read', c => c.get(CACHE_KEY))
-  if (stored === failedToken) await sharedCall('delete', c => c.delete(CACHE_KEY))
+  await sharedCall('delete', () => deleteStoredToken(failedToken))
 }

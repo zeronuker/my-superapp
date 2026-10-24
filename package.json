@@ -14,7 +14,6 @@
     "brand:sync": "git submodule update --remote brand-kit && git add brand-kit && git commit -m \"Bump claudeborne-brand-kit\""
   },
   "dependencies": {
-    "@vercel/functions": "^3.10.3",
     "adhan": "^4.4.3",
     "country-flag-icons": "^1.6.18",
     "firebase-admin": "^14.0.0",
