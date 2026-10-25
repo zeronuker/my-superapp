@@ -19,7 +19,7 @@ import Seg from './Seg'
 // and SIGMET tabs (briefingSync.js), so they show the same flight.
 const CACHE_KEY = BRIEFING_SETUP_CACHE_KEY
 const ERA_MAX = 5
-const SAVED_PREVIEW = 2
+const PAGE_SIZE = 5   // saved briefings per page
 
 function saveCache(data) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch (_) {}
@@ -120,15 +120,15 @@ export default function BriefingModule() {
   const [firInput,     setFirInput]     = useState('')
   const [busy,         setBusy]         = useState(false)
   const [importError,  setImportError]  = useState('')
-  const [showAll,      setShowAll]      = useState(false)
+  const [page,         setPage]         = useState(cache?.savedPage || 1)   // saved-list page, kept when you leave the tab
   const fileRef = useRef(null)
 
   useEffect(() => {
-    saveCache({ mode, ofp, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, fetchedAt: importedAt })
-  }, [mode, ofp, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, importedAt])
+    saveCache({ mode, ofp, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, savedPage: page, fetchedAt: importedAt })
+  }, [mode, ofp, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, page, importedAt])
 
   const handleReset = () => {
-    setMode('ofp'); setOfp(null)
+    setMode('ofp'); setOfp(null); setPage(1)
     setDep(''); setArr(''); setRouteText('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(1); setEnrouteAlts(Array(ERA_MAX).fill(''))
@@ -176,7 +176,11 @@ export default function BriefingModule() {
   const openIt = () => ready && openBriefing({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs })
 
   const parsed = useMemo(() => parseRoute(routeText), [routeText])
-  const shown = showAll ? saves : saves.slice(0, SAVED_PREVIEW)
+  // The saves load from storage a moment after the tab opens, so `page` is only clamped when
+  // drawing: deleting the last briefing on a page lands on the page before it.
+  const pages = Math.max(1, Math.ceil(saves.length / PAGE_SIZE))
+  const cur = Math.min(page, pages)
+  const shown = saves.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE)
 
   const info = ofp?.info
   const warning = info ? ofpWarning(Date.now(), info) : null
@@ -347,10 +351,17 @@ export default function BriefingModule() {
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
             </div>
           ))}
-          {saves.length > SAVED_PREVIEW && (
-            <button className="cp-btn" onClick={() => setShowAll(v => !v)} style={{ ...smallBtn, marginTop: 10 }}>
-              {showAll ? 'SHOW LESS' : `SEE ALL (${saves.length})`}
-            </button>
+          {saves.length > PAGE_SIZE && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 12 }}>
+              <button className="cp-btn" onClick={() => setPage(cur - 1)} disabled={cur === 1}
+                style={{ ...smallBtn, opacity: cur === 1 ? 0.4 : 1 }}>‹ PREV</button>
+              <div style={{ textAlign: 'center', fontFamily: 'var(--cb-font-mono)' }}>
+                <div style={{ fontSize: 13 }}>{(cur - 1) * PAGE_SIZE + 1}–{Math.min(saves.length, cur * PAGE_SIZE)} of {saves.length}</div>
+                <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em' }}>PAGE {cur} OF {pages}</div>
+              </div>
+              <button className="cp-btn" onClick={() => setPage(cur + 1)} disabled={cur === pages}
+                style={{ ...smallBtn, opacity: cur === pages ? 0.4 : 1 }}>NEXT ›</button>
+            </div>
           )}
         </div>
       )}
@@ -361,7 +372,7 @@ export default function BriefingModule() {
             width: '100%', opacity: ready ? 1 : 0.4, padding: '14px 10px', fontSize: 11, borderRadius: 6, letterSpacing: '0.16em',
             border: '2px solid var(--cp-green)', color: 'var(--cp-green)',
             background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
-          }}>OPEN BRIEFING</button>
+          }}>GENERATE BRIEFING</button>
       </div>
     </div>
   )

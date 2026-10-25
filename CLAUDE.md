@@ -42,7 +42,7 @@ src/
                               #   CALCULATORS array = the tab registry — add new tabs here.
   components/                 # one file per calculator tab (+ shared UI)
     BriefingModule.jsx        #   Briefing tab: the front door for a flight (import
-                              #   the OFP or type it in, saved briefings, OPEN BRIEFING)
+                              #   the OFP or type it in, saved briefings (5 per page), GENERATE BRIEFING)
     METARTAFCalculator.jsx    #   METAR/TAF tab.  NotamViewer.jsx = own NOTAM tab
     B737Performance.jsx, FTLCalculator.jsx, InterpolationCalculator.jsx,
     CurrencyCalculator.jsx, CombinedCalculator.jsx (basic+scientific),
@@ -156,7 +156,7 @@ when asked. The service worker caches aggressively; users get an update prompt
   filed (from the FPL line, shown only while the imported points are present).
   A wrong-OFP warning shows when STD is more than 6 h from now: red "generated X
   ago" (counted from the computed time) once STD is more than 6 h gone, yellow
-  "STD is X ahead" when it is more than 6 h away. OPEN BRIEFING goes on, EDIT OFP
+  "STD is X ahead" when it is more than 6 h away. GENERATE BRIEFING goes on, EDIT OFP
   opens the manual form already filled in.
   Opening a briefing also fills the METAR/TAF, NOTAM and SIGMET tabs
   (`briefingSync.js`). Points ride in the route text as `NAME:lat:lon`
