@@ -7,10 +7,13 @@
 // parseOfpXml(text) / parseOfpPdf(lines) -> { ok: true, flight, dep, arr, route,
 //   destAlts, enrouteAlts, points: [{name, lat, lon}] } | { ok: false, error }
 // (`route` is the route as filed, for showing to the pilot; `points` are what the map draws;
-// `info` is what identifies the OFP: tail, type, OFP number, STD/STA/computed time, trip, distance.)
+// `info` is what identifies the OFP: tail, type, OFP number, STD/STA/computed time, trip, distance;
+// `firs` is [{icao, name}] for the FIRs flown through, in order, each once.)
 // ofpToFields() shapes that for a tab's boxes; ofpRouteText() writes the points
 // into the route text as NAME:lat:lon tokens (parsed back by routeParse.js), so
 // they travel with the route text everywhere it already goes.
+
+import { icaoToFir, FIR_BY_PREFIX } from '../data/firLookup.js'
 
 // Filed ICAO flight plan, e.g.
 //   (FPL-MXD372-IS / -B738/M-SDF / -WMKK1815 / -N0461F350 ... / -WPDL0353 WAAA WATT / -PBN/...)
@@ -28,12 +31,16 @@ function readFlight(text) {
   const tokens = (fields[3] ?? '').trim().split(/\s+/).filter(Boolean)
   if (/^[NKM]\d{3,4}[FASM]\d{3,4}$/.test(tokens[0])) tokens.shift()
   const dof = /DOF\/(\d{2})(\d{2})(\d{2})/.exec(m[1])   // date of flight (UTC), YYMMDD
+  // EET/VTBB0039 VYYF0116 … : each FIR boundary with the elapsed time. The list can run onto the
+  // next line, so read up to the next "XXX/" item rather than to the end of the line.
+  const eet = /EET\/([\s\S]*?)(?=\s[A-Z]{2,4}\/|\n\s*-|$)/.exec(m[1])
   return {
     flight, dep, arr: arr[1],
     destAlts: alts ? alts.split(/\s+/).slice(0, 2) : [],
     route: [dep, ...tokens, arr[1]].join(' '),
     dof: dof ? `20${dof[1]}-${dof[2]}-${dof[3]}` : null,
     stdHm: /^[A-Z]{4}(\d{4})/.exec(fields[2])?.[1] ?? null,
+    eetFirs: eet ? [...eet[1].matchAll(/\b([A-Z]{4})\d{4}\b/g)].map(x => x[1]) : [],
   }
 }
 
@@ -136,7 +143,32 @@ function pdfInfo(text, f) {
   }
 }
 
-function finish(flight, text, rawPoints, info) {
+// ── FIRs along the route, in order, each once ─────────────────────────────────
+// XmlOFP: the FIR at every waypoint (airspaceICAOCode + AirspaceName), which includes the one
+// the flight starts in. PFP/PFB: the filed plan's EET list has every FIR entered after take-off
+// (a re-entered FIR is listed twice), so the departure FIR comes from the departure airport.
+const titleCase = s => s.toLowerCase().replace(/\b[a-z]+/g, w => (w.length <= 3 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)))
+
+function xmlFirs(text) {
+  const main = text.split('<AlternateRoutes>')[0]
+  return [...main.matchAll(/<Airspace airspaceICAOCode="([A-Z]{4})">\s*<AirspaceName>([^<]*)</g)]
+    .map(m => ({ icao: m[1], name: `${titleCase(m[2].trim())} FIR` }))
+}
+
+function listFirs(fromXml, flight) {
+  let list = fromXml
+  if (!list.length) {
+    const dep = icaoToFir(flight.dep)
+    list = [...(dep ? [dep] : []), ...flight.eetFirs.map(code => {
+      const known = Object.values(FIR_BY_PREFIX).find(f => f.fir === code)
+      return { icao: code, name: known ? known.name : code }
+    })]
+  }
+  const seen = new Set()
+  return list.filter(f => !seen.has(f.icao) && seen.add(f.icao))
+}
+
+function finish(flight, text, rawPoints, info, xmlAirspaces = []) {
   if (!flight) return { ok: false, error: "Couldn't find the filed flight plan in this file." }
   const points = trimRoute(rawPoints, flight.dep, flight.arr)
   if (!points.length) return { ok: false, error: "Couldn't find the route points in this file." }
@@ -148,10 +180,11 @@ function finish(flight, text, rawPoints, info) {
     enrouteAlts: readEnroute(text, [flight.dep, flight.arr, ...flight.destAlts]),
     points,
     info,
+    firs: listFirs(xmlAirspaces, flight),
   }
 }
 
-export const parseOfpXml = text => finish(readFlight(text), text, xmlPoints(text), xmlInfo(text))
+export const parseOfpXml = text => finish(readFlight(text), text, xmlPoints(text), xmlInfo(text), xmlFirs(text))
 
 /** @param {string[]} lines  the PFP's text, one string per line (pdfText.js) */
 export function parseOfpPdf(lines) {
@@ -174,6 +207,7 @@ export function ofpToFields(r, eraMax = 5) {
     filedRoute: r.route,
     flight: r.flight,
     info: r.info,
+    firs: r.firs,
     destAlts: { alt1: r.destAlts[0] ?? '', alt2: r.destAlts[1] ?? '' },
     enrouteCount: enroute.length,
     enrouteAlts: Array.from({ length: eraMax }, (_, i) => enroute[i] ?? ''),

@@ -4,12 +4,15 @@ import { parseRoute } from './routeParse'
 
 // Made-up OFP shaped like the company's XmlOFP (ARINC 633): the filed flight
 // plan and ENROUTE ALT sit in the remarks, waypoints carry arc-second coordinates.
-const wp = (name, lat, lon) => `
+const wp = (name, lat, lon, fir) => `
         <Waypoint waypointName="${name}"
                   sequenceId="1"
         >
             <Coordinates latitude="${lat}" longitude="${lon}"/>
-            <Airway>M774</Airway>
+            <Airway>M774</Airway>${fir ? `
+            <Airspace airspaceICAOCode="${fir[0]}">
+                <AirspaceName>${fir[1]}</AirspaceName>
+            </Airspace>` : ''}
         </Waypoint>`
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?>
@@ -46,10 +49,10 @@ ENROUTE ALT     :WMKK WIII WADD WAAA WPDL
 MEL/CDL         :CDL 57-54-10 </Text></Paragraph>
         </Remark>
     </Remarks>
-    <Route>${wp('WMKK', 9864, 366113)}${wp('KK701', 10044, 366060)}${wp('TOC', 4890, 372060)}${wp('KADAR', -408, 387822)}${wp('TOD', -30000, 450000)}${wp('WPDL', -30768, 450690)}${wp('08327S125320E', -30762, 450720)}
+    <Route>${wp('WMKK', 9864, 366113, ['WMFC', 'KUALA LUMPUR'])}${wp('KK701', 10044, 366060, ['WMFC', 'KUALA LUMPUR'])}${wp('TOC', 4890, 372060, ['WIIF', 'JAKARTA'])}${wp('KADAR', -408, 387822, ['WAAF', 'UJUNG PANDANG'])}${wp('TOD', -30000, 450000, ['WIIF', 'JAKARTA'])}${wp('WPDL', -30768, 450690, ['WAAF', 'UJUNG PANDANG'])}${wp('08327S125320E', -30762, 450720)}
     </Route>
     <AlternateRoutes>
-        <AlternateRoute>${wp('ALTFX', -30000, 451000)}</AlternateRoute>
+        <AlternateRoute>${wp('ALTFX', -30000, 451000, ['ZZZZ', 'NOT ON THE MAIN ROUTE'])}</AlternateRoute>
     </AlternateRoutes>
 </FlightPlan>`
 
@@ -69,6 +72,9 @@ const PDF = [
   'DCT',
   '-WPDL0353 WAAA WATT',
   '-PBN/A1B1C1D1O1S2 DOF/261022',
+  'EET/WIIF0023 WAAF0134 WIIF0200',
+  'WAAF0210',
+  'SEL/AQER CODE/750582 RMK/CALLSIGN MALINDO',
   'C/TBN)',
   'ENROUTE ALT :WMKK WIII WADD WAAA WPDL',
   'WPT LAT FL WIND OAT GS T/T LEGD LEGT FUSED ACTUAL',
@@ -112,6 +118,19 @@ describe('parseOfpXml', () => {
     })
   })
 
+  it('lists the FIRs flown through in order, each once, from the main route only', () => {
+    expect(r.firs).toEqual([
+      { icao: 'WMFC', name: 'Kuala Lumpur FIR' },
+      { icao: 'WIIF', name: 'Jakarta FIR' },       // re-entered later: listed once
+      { icao: 'WAAF', name: 'Ujung Pandang FIR' }, // the alternate leg's FIR (ZZZZ) is left out
+    ])
+  })
+
+  it('keeps short words like UPB in capitals in a FIR name', () => {
+    const upper = XML.replace('JAKARTA', 'CHENNAI UPB')
+    expect(parseOfpXml(upper).firs[1].name).toBe('Chennai UPB FIR')
+  })
+
   it('converts arc-seconds to degrees, south and west negative', () => {
     const kadar = r.points.find(p => p.name === 'KADAR')
     expect(kadar).toEqual({ name: 'KADAR', lat: -0.1133, lon: 107.7283 })
@@ -140,6 +159,21 @@ describe('parseOfpPdf', () => {
     expect(r.destAlts).toEqual(['WAAA', 'WATT'])
     expect(r.enrouteAlts).toEqual(['WIII', 'WADD'])
     expect(r.route).toBe('WMKK MITOS1D MITOS M630 DIL DCT WPDL')
+  })
+
+  it('lists the FIRs from the filed plan’s EET list (it runs onto a second line): departure FIR from the airport, then each once', () => {
+    expect(r.firs.map(f => f.icao)).toEqual(['WMFC', 'WIIF', 'WAAF'])
+    expect(r.firs[0].name).toBe('Kuala Lumpur FIR')
+  })
+
+  it('uses the code as the name when it does not know the FIR', () => {
+    const odd = PDF.map(l => l.replace('EET/WIIF0023', 'EET/VYYF0023'))
+    expect(parseOfpPdf(odd).firs[1]).toEqual({ icao: 'VYYF', name: 'VYYF' })
+  })
+
+  it('gives just the departure FIR when the plan stays in one FIR (no EET list)', () => {
+    const none = PDF.filter(l => !/EET\/|^WAAF0210$/.test(l))
+    expect(parseOfpPdf(none).firs.map(f => f.icao)).toEqual(['WMFC'])
   })
 
   it('reads the same identifying details as the XmlOFP, dating the clock times from the filed plan', () => {
@@ -193,6 +227,7 @@ describe('ofpToFields', () => {
     expect(f.enrouteAlts).toEqual(['WIII', 'WADD', '', '', ''])
     expect(f.routeText.startsWith('WMKK KK701:')).toBe(true)
     expect(f.filedRoute).toBe('WMKK MITOS1D MITOS M630 JUNHA M774 KEVOK A215 MKS W37 DIL DCT WPDL')
+    expect(f.firs.map(x => x.icao)).toEqual(['WMFC', 'WIIF', 'WAAF'])
   })
 
   it('caps the enroute alternates at the tab limit', () => {

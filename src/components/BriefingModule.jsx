@@ -149,7 +149,7 @@ export default function BriefingModule() {
     const f = ofpToFields(r, ERA_MAX)
     setDep(f.dep); setArr(f.arr); setRouteText(f.routeText)
     setDestAlts(f.destAlts); setEnrouteCount(f.enrouteCount); setEnrouteAlts(f.enrouteAlts)
-    setFirs([])
+    setFirs(f.firs ?? [])
     // Airport time zones for the local times; loaded now so the airport list stays out of this tab's own chunk.
     let depTz = null, arrTz = null
     try {
@@ -267,7 +267,13 @@ export default function BriefingModule() {
               ? <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.6, overflowWrap: 'anywhere' }}>{routeShown}</div>
               : none}
           </Row>
-          {firs.length > 0 && <Row label="FIRS">{firs.map(f => <Chip key={f.icao} code={f.icao} />)}</Row>}
+          {firs.length > 0 && (
+            <Row label="FIRS" stacked>
+              <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
+                {firs.map((f, i) => <span key={f.icao} style={{ color: 'var(--cp-fir)' }}>{i ? ' ' : ''}{f.icao}</span>)}
+              </div>
+            </Row>
+          )}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button className="cp-btn" onClick={() => fileRef.current?.click()} disabled={busy} style={smallBtn}>{busy ? 'READING…' : 'CHANGE OFP'}</button>
             <button className="cp-btn" onClick={() => setMode('manual')} style={smallBtn}>EDIT OFP</button>
@@ -323,7 +329,8 @@ export default function BriefingModule() {
             {firs.map(f => (
               <span key={f.icao} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', marginRight: 6, marginBottom: 6,
-                borderRadius: 4, border: '1px solid var(--cp-acc)', color: 'var(--cp-acc)', background: 'var(--cp-accdim)',
+                borderRadius: 4, border: '1px solid color-mix(in srgb, var(--cp-fir) 45%, transparent)', color: 'var(--cp-fir)',
+                background: 'color-mix(in srgb, var(--cp-fir) 10%, transparent)',
                 fontFamily: 'var(--cb-font-mono)', fontSize: 12,
               }}>{f.icao}
                 <button onClick={() => setFirs(prev => prev.filter(x => x.icao !== f.icao))} aria-label={`Remove ${f.icao}`}

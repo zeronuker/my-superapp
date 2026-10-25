@@ -157,7 +157,16 @@ when asked. The service worker caches aggressively; users get an update prompt
   A wrong-OFP warning shows when STD is more than 6 h from now: red "generated X
   ago" (counted from the computed time) once STD is more than 6 h gone, yellow
   "STD is X ahead" when it is more than 6 h away. GENERATE BRIEFING goes on, EDIT OFP
-  opens the manual form already filled in.
+  opens the manual form already filled in. The FIRS line (amber, plain text like
+  the route) lists the FIRs flown through, each once, in order: from the
+  XmlOFP's per-waypoint airspaces, or for the PFP/PFB from the filed plan's
+  `EET/` list (it can run onto a second line) with the departure FIR taken from
+  the departure airport (`icaoToFir`, a country-prefix guess). The same list
+  fills the manual form's FIR chips and is passed as `route.firs`, which REPLACES
+  the Briefing's own FIR auto-detect (so alternates' own FIRs, e.g. Lahore for
+  OPMT/OPIS, are only included if they are on the route or added by hand). A
+  long list means more than 12 NOTAM locations, which `fetchNotams` already
+  splits into batches of 12.
   Opening a briefing also fills the METAR/TAF, NOTAM and SIGMET tabs
   (`briefingSync.js`). Points ride in the route text as `NAME:lat:lon`
   tokens, so saves and the setup cache carry them with no extra
