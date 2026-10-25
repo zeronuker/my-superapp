@@ -162,7 +162,9 @@ when asked. The service worker caches aggressively; users get an update prompt
   XmlOFP's per-waypoint airspaces, or for the PFP/PFB from the filed plan's
   `EET/` list (it can run onto a second line) with the departure FIR taken from
   the departure airport (`icaoToFir`, a country-prefix guess). The same list
-  fills the manual form's FIR chips and is passed as `route.firs`, which REPLACES
+  fills the manual form's FIR chips (which also has the NOTAM/SIGMET tabs' AUTO-DETECT FIRs
+  button for a hand-typed flight; an empty list falls back to the same auto-detect when
+  generating) and is passed as `route.firs`, which REPLACES
   the Briefing's own FIR auto-detect (so alternates' own FIRs, e.g. Lahore for
   OPMT/OPIS, are only included if they are on the route or added by hand). A
   long list means more than 12 NOTAM locations, which `fetchNotams` already

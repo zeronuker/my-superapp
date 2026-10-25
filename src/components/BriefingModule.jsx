@@ -118,7 +118,8 @@ export default function BriefingModule() {
   const [firs,         setFirs]         = useState(cache?.firs || [])
   const [importedAt,   setImportedAt]   = useState(cache?.fetchedAt || null)
   const [firInput,     setFirInput]     = useState('')
-  const [busy,         setBusy]         = useState(false)
+  const [detecting,    setDetecting]    = useState(false)
+  const [busy,        setBusy]         = useState(false)
   const [importError,  setImportError]  = useState('')
   const [page,         setPage]         = useState(cache?.savedPage || 1)   // saved-list page, kept when you leave the tab
   const fileRef = useRef(null)
@@ -172,8 +173,21 @@ export default function BriefingModule() {
     setFirs(prev => (prev.some(c => c.icao === entry.icao) ? prev : [...prev, entry]))
   }
 
+  // Same as the NOTAM and SIGMET tabs' button: each airport's home FIR plus the FIRs along the
+  // dep→arr great circle, added to whatever is already listed. Loaded on demand so the airport
+  // list stays out of this tab's own chunk.
+  const detectFirs = async () => {
+    setDetecting(true)
+    try {
+      const { autoDetectFirs } = await import('../services/notamAPI')
+      const found = autoDetectFirs(dep, arr, destAlts, enrouteCount, enrouteAlts, firs.map(f => f.icao))
+      setFirs(prev => [...prev, ...found.filter(f => !prev.some(p => p.icao === f.icao))])
+    } catch (_) {}
+    setDetecting(false)
+  }
+
   const ready = dep.length === 4 && arr.length === 4
-  const openIt = () => ready && openBriefing({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs })
+  const openIt =() => ready && openBriefing({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs })
 
   const parsed = useMemo(() => parseRoute(routeText), [routeText])
   // The saves load from storage a moment after the tab opens, so `page` is only clamped when
@@ -317,26 +331,41 @@ export default function BriefingModule() {
           <EnrouteAlternates count={enrouteCount} alts={enrouteAlts} max={ERA_MAX}
             onChange={({ count, alts }) => { setEnrouteCount(count); setEnrouteAlts(alts) }} inputStyle={monoInput} />
 
+          {/* Laid out like the FIR block on the NOTAM and SIGMET tabs: auto-detect, the chips, then the add box. */}
           <SectionHeader title="FIRs (optional)" />
-          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-            <input className="cp-input" placeholder="Add an ICAO airport or FIR code…" value={firInput} maxLength={4}
-              onChange={e => setFirInput(e.target.value.toUpperCase())}
+          <button onClick={detectFirs} disabled={detecting || !dep || !arr} style={{
+            width: '100%', marginBottom: 10,
+            background: 'rgba(var(--cp-acc-rgb,63,224,197),0.06)',
+            border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.25)',
+            borderRadius: 6, padding: '9px', cursor: 'pointer', opacity: !dep || !arr ? 0.4 : 1,
+            fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.14em', color: 'var(--cp-acc)',
+          }}>
+            {detecting ? '⊙ DETECTING…' : '⊕ AUTO-DETECT FIRs (ROUTE + HOME FIRs)'}
+          </button>
+
+          {firs.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+              {firs.map(f => (
+                <div key={f.icao} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 20, padding: '4px 8px 4px 12px',
+                  background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.40)' }}>
+                  <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, color: 'var(--cp-fir)', letterSpacing: '0.08em' }}>{f.icao}</span>
+                  <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-fir)', opacity: 0.8 }}>FIR</span>
+                  <button onClick={() => setFirs(prev => prev.filter(x => x.icao !== f.icao))} aria-label={`Remove ${f.icao}`}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 13, lineHeight: 1, padding: '0 2px' }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            <input className="cp-input" placeholder="Add ICAO airport or FIR code…" value={firInput}
+              maxLength={4} onChange={e => setFirInput(e.target.value.toUpperCase())}
               onKeyDown={e => e.key === 'Enter' && addFir()}
-              style={{ flex: 1, ...monoInput }} />
-            <button className="cp-btn" onClick={addFir} disabled={!firInput} style={{ ...accentBtn, opacity: firInput ? 1 : 0.4 }}>+ ADD</button>
-          </div>
-          <div style={{ marginBottom: 20 }}>
-            {firs.map(f => (
-              <span key={f.icao} style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 8px', marginRight: 6, marginBottom: 6,
-                borderRadius: 4, border: '1px solid color-mix(in srgb, var(--cp-fir) 45%, transparent)', color: 'var(--cp-fir)',
-                background: 'color-mix(in srgb, var(--cp-fir) 10%, transparent)',
-                fontFamily: 'var(--cb-font-mono)', fontSize: 12,
-              }}>{f.icao}
-                <button onClick={() => setFirs(prev => prev.filter(x => x.icao !== f.icao))} aria-label={`Remove ${f.icao}`}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-red)', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
-              </span>
-            ))}
+              style={{ flex: 1, fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.08em' }} />
+            <button onClick={addFir} disabled={!firInput} style={{
+              background: 'rgba(var(--cp-acc-rgb,63,224,197),0.1)', border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.3)',
+              borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontFamily: 'var(--cb-font-mono)', fontSize: 9,
+              letterSpacing: '0.12em', color: 'var(--cp-acc)', opacity: firInput ? 1 : 0.4 }}>+ ADD</button>
           </div>
         </>
       )}
