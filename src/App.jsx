@@ -42,7 +42,7 @@ export const CALCULATORS = [
   { id: 'interpolation', icon: '📐',  name: 'Interpolation',  component: InterpolationCalculator },
   { id: 'b737perf',      icon: '✈️', name: 'B737 Performance', component: B737Performance },
   { id: 'currency',      icon: '💱',  name: 'Currency',       component: CurrencyCalculator },
-  { id: 'briefing',      icon: '🧭',  name: 'Briefing',       component: BriefingModule },
+  { id: 'briefing',      icon: '🗺️', name: 'Briefing',       component: BriefingModule },
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
   { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
   { id: 'sigmet',        icon: '⛈️',  name: 'SIGMET',         component: SigmetViewer },
