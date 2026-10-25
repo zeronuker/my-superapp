@@ -48,11 +48,14 @@ function Chips({ list }) {
   ))
 }
 
-function Row({ label, children }) {
+function Row({ label, children, stacked }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--cp-border3)' }}>
-      <span className="cp-label" style={{ margin: 0, paddingTop: 3 }}>{label}</span>
-      <span style={{ textAlign: 'right' }}>{children}</span>
+    <div style={{
+      display: 'flex', flexDirection: stacked ? 'column' : 'row', justifyContent: 'space-between', alignItems: stacked ? 'stretch' : 'flex-start',
+      gap: stacked ? 4 : 10, padding: '8px 0', borderBottom: '1px solid var(--cp-border3)',
+    }}>
+      <span className="cp-label" style={{ margin: 0, paddingTop: stacked ? 0 : 3 }}>{label}</span>
+      <span style={{ textAlign: stacked ? 'left' : 'right' }}>{children}</span>
     </div>
   )
 }
@@ -69,6 +72,7 @@ export default function BriefingModule() {
   const [cache] = useState(() => loadWithExpiry(CACHE_KEY))
   const [mode,         setMode]         = useState(cache?.mode || 'ofp')
   const [flightNo,     setFlightNo]     = useState(cache?.flightNo ?? null)   // set when the flight came from an OFP
+  const [filedRoute,   setFiledRoute]   = useState(cache?.filedRoute || '')   // that OFP's route as filed, for display
   const [dep,          setDep]          = useState(cache?.dep || '')
   const [arr,          setArr]          = useState(cache?.arr || '')
   const [routeText,    setRouteText]    = useState(cache?.routeText || '')
@@ -84,11 +88,11 @@ export default function BriefingModule() {
   const fileRef = useRef(null)
 
   useEffect(() => {
-    saveCache({ mode, flightNo, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, fetchedAt: importedAt })
-  }, [mode, flightNo, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, importedAt])
+    saveCache({ mode, flightNo, filedRoute, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, fetchedAt: importedAt })
+  }, [mode, flightNo, filedRoute, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, importedAt])
 
   const handleReset = () => {
-    setMode('ofp'); setFlightNo(null)
+    setMode('ofp'); setFlightNo(null); setFiledRoute('')
     setDep(''); setArr(''); setRouteText('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(1); setEnrouteAlts(Array(ERA_MAX).fill(''))
@@ -111,6 +115,7 @@ export default function BriefingModule() {
     setDestAlts(f.destAlts); setEnrouteCount(f.enrouteCount); setEnrouteAlts(f.enrouteAlts)
     setFirs([])
     setFlightNo(r.flight || 'OFP')
+    setFiledRoute(f.filedRoute)
     setImportedAt(Date.now())
     setMode('ofp')
   }
@@ -169,9 +174,18 @@ export default function BriefingModule() {
           </div>
           <Row label="DEST ALTS"><Chips list={destList} /></Row>
           <Row label="ENROUTE"><Chips list={enrouteList} /></Row>
-          <Row label="ROUTE"><span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>
-            {parsed.pts ? `${parsed.pts.length} points` : parsed.fixes.length ? `${parsed.fixes.length} fixes` : 'none'}
-          </span></Row>
+          <Row label="ROUTE" stacked>
+            {parsed.pts || parsed.fixes.length ? (
+              <>
+                {parsed.pts && filedRoute && (
+                  <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.6, overflowWrap: 'anywhere' }}>{filedRoute}</div>
+                )}
+                <div style={{ color: 'var(--cp-dim)', fontSize: 11, marginTop: 2 }}>
+                  {parsed.pts ? `${parsed.pts.length} points` : `${parsed.fixes.length} fixes`}
+                </div>
+              </>
+            ) : <span style={{ color: 'var(--cp-dim)', fontSize: 12 }}>none</span>}
+          </Row>
           {firs.length > 0 && <Row label="FIRS"><Chips list={firs.map(f => f.icao)} /></Row>}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button className="cp-btn" onClick={() => fileRef.current?.click()} disabled={busy} style={smallBtn}>{busy ? 'READING…' : 'REPLACE OFP'}</button>
@@ -200,7 +214,7 @@ export default function BriefingModule() {
             </div>
           </div>
 
-          <RouteInput value={routeText} onChange={setRouteText} onAirports={(d, a) => { setDep(d); setArr(a) }} dep={dep} arr={arr} />
+          <RouteInput value={routeText} onChange={setRouteText} onAirports={(d, a) => { setDep(d); setArr(a) }} dep={dep} arr={arr} label={filedRoute} />
 
           <SectionHeader title="Destination Alternates" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>

@@ -80,6 +80,10 @@ describe('parseOfpXml', () => {
     expect(r.enrouteAlts).toEqual(['WIII', 'WADD'])
   })
 
+  it('reads the route as filed, without the speed/level group', () => {
+    expect(r.route).toBe('WMKK MITOS1D MITOS M630 JUNHA M774 KEVOK A215 MKS W37 DIL DCT WPDL')
+  })
+
   it('converts arc-seconds to degrees, south and west negative', () => {
     const kadar = r.points.find(p => p.name === 'KADAR')
     expect(kadar).toEqual({ name: 'KADAR', lat: -0.1133, lon: 107.7283 })
@@ -107,6 +111,7 @@ describe('parseOfpPdf', () => {
     expect([r.flight, r.dep, r.arr]).toEqual(['MXD372', 'WMKK', 'WPDL'])
     expect(r.destAlts).toEqual(['WAAA', 'WATT'])
     expect(r.enrouteAlts).toEqual(['WIII', 'WADD'])
+    expect(r.route).toBe('WMKK MITOS1D MITOS M630 DIL DCT WPDL')
   })
 
   it('reads positions from the two-line navlog rows and stops at the arrival row', () => {
@@ -150,6 +155,7 @@ describe('ofpToFields', () => {
     expect(f.enrouteCount).toBe(2)
     expect(f.enrouteAlts).toEqual(['WIII', 'WADD', '', '', ''])
     expect(f.routeText.startsWith('WMKK KK701:')).toBe(true)
+    expect(f.filedRoute).toBe('WMKK MITOS1D MITOS M630 JUNHA M774 KEVOK A215 MKS W37 DIL DCT WPDL')
   })
 
   it('caps the enroute alternates at the tab limit', () => {

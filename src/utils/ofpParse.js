@@ -4,8 +4,9 @@
 // flight plan and the "ENROUTE ALT" remark as plain text, so one reader serves
 // both; only the route points differ.
 //
-// parseOfpXml(text) / parseOfpPdf(lines) -> { ok: true, flight, dep, arr,
+// parseOfpXml(text) / parseOfpPdf(lines) -> { ok: true, flight, dep, arr, route,
 //   destAlts, enrouteAlts, points: [{name, lat, lon}] } | { ok: false, error }
+// (`route` is the route as filed, for showing to the pilot; `points` are what the map draws.)
 // ofpToFields() shapes that for a tab's boxes; ofpRouteText() writes the points
 // into the route text as NAME:lat:lon tokens (parsed back by routeParse.js), so
 // they travel with the route text everywhere it already goes.
@@ -22,7 +23,14 @@ function readFlight(text) {
   const arr = /^([A-Z]{4})\d{4}((?:\s+[A-Z]{4})*)\s*$/.exec(fields[4] ?? '')
   if (!dep || !arr) return null
   const alts = arr[2].trim()
-  return { flight, dep, arr: arr[1], destAlts: alts ? alts.split(/\s+/).slice(0, 2) : [] }
+  // Route as filed ("WMKK MITOS1D MITOS M630 … DIL DCT WPDL"): field 15 without its leading speed/level group.
+  const tokens = (fields[3] ?? '').trim().split(/\s+/).filter(Boolean)
+  if (/^[NKM]\d{3,4}[FASM]\d{3,4}$/.test(tokens[0])) tokens.shift()
+  return {
+    flight, dep, arr: arr[1],
+    destAlts: alts ? alts.split(/\s+/).slice(0, 2) : [],
+    route: [dep, ...tokens, arr[1]].join(' '),
+  }
 }
 
 // "ENROUTE ALT : WMKK WIII WADD WAAA WPDL" minus airports already used elsewhere.
@@ -78,6 +86,7 @@ function finish(flight, text, rawPoints) {
   return {
     ok: true,
     flight: flight.flight, dep: flight.dep, arr: flight.arr,
+    route: flight.route,
     destAlts: flight.destAlts,
     enrouteAlts: readEnroute(text, [flight.dep, flight.arr, ...flight.destAlts]),
     points,
@@ -100,6 +109,7 @@ export function ofpToFields(r, eraMax = 5) {
     dep: r.dep,
     arr: r.arr,
     routeText: ofpRouteText(r),
+    filedRoute: r.route,
     destAlts: { alt1: r.destAlts[0] ?? '', alt2: r.destAlts[1] ?? '' },
     enrouteCount: enroute.length,
     enrouteAlts: Array.from({ length: eraMax }, (_, i) => enroute[i] ?? ''),

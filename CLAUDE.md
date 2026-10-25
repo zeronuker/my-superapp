@@ -146,7 +146,8 @@ when asked. The service worker caches aggressively; users get an update prompt
   share; route points come from the XML waypoints (arc-seconds, south/west
   negative) or the PFP navlog (two lines per row, stops at the arrival row).
   The loaded flight shows as a summary card (that is the "is this right?"
-  check): OPEN BRIEFING goes on, EDIT opens the manual form already filled in.
+  check, with the route as filed from the FPL line, shown only while the
+  imported points are present): OPEN BRIEFING goes on, EDIT opens the manual form already filled in.
   Opening a briefing also fills the METAR/TAF, NOTAM and SIGMET tabs
   (`briefingSync.js`). Points ride in the route text as `NAME:lat:lon`
   tokens, so saves and the setup cache carry them with no extra

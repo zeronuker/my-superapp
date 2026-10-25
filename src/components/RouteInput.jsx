@@ -4,9 +4,9 @@ import { parseRoute, MAX_FIXES } from '../utils/routeParse'
 // Optional ROUTE box on the Briefing screen's manual form. The pilot pastes the
 // route copied from FDPro/eWAS; a readable route fills Departure and Arrival,
 // and Briefing draws it on the Dark map. A route that came from an imported OFP
-// is shown as a one-line summary with CLEAR instead of its coordinate text.
+// is shown as the route as filed (`label`) with CLEAR instead of its coordinate text.
 // `dep`/`arr` are the form's current airport boxes, to warn when they disagree.
-export default function RouteInput({ value, onChange, onAirports, dep, arr }) {
+export default function RouteInput({ value, onChange, onAirports, dep, arr, label }) {
   const parsed = useMemo(() => parseRoute(value), [value])
 
   const handleChange = (e) => {
@@ -37,10 +37,13 @@ export default function RouteInput({ value, onChange, onAirports, dep, arr }) {
     <div style={{ marginBottom: 20 }}>
       <div className="cp-label" style={{ marginBottom: 4 }}>ROUTE (OPTIONAL)</div>
       {parsed.pts ? (
-        <div className="cp-input" style={{ ...mono, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 52 }}>
-          <span>{parsed.dep} → {parsed.arr} · OFP route · {parsed.pts.length} points</span>
+        <div className="cp-input" style={{ ...mono, height: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, minHeight: 52 }}>
+          <div style={{ minWidth: 0, overflowWrap: 'anywhere', fontSize: 12, lineHeight: 1.5 }}>
+            <div>{label || `${parsed.dep} → ${parsed.arr}`}</div>
+            <div style={{ color: 'var(--cp-dim)', fontSize: 11, marginTop: 3 }}>OFP route · {parsed.pts.length} points</div>
+          </div>
           <button className="cp-btn" onClick={() => onChange('')}
-            style={{ padding: '6px 10px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em' }}>CLEAR</button>
+            style={{ padding: '6px 10px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em', flexShrink: 0 }}>CLEAR</button>
         </div>
       ) : (
         <textarea
