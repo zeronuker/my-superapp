@@ -13,7 +13,6 @@ function readOtherAirports(sourceModule) {
     const data = {
       dep: c.dep || '',
       arr: c.arr || '',
-      routeText: c.routeText || '',
       destAlts: c.destAlts || { alt1: '', alt2: '' },
       enrouteCount: c.enrouteCount || 0,
       enrouteAlts: c.enrouteAlts || [],

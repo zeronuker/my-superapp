@@ -41,6 +41,8 @@ src/
   App.jsx                     # shell: header, tab bar, settings, theme/zoom.
                               #   CALCULATORS array = the tab registry — add new tabs here.
   components/                 # one file per calculator tab (+ shared UI)
+    BriefingModule.jsx        #   Briefing tab: the front door for a flight (import
+                              #   the OFP or type it in, saved briefings, OPEN BRIEFING)
     METARTAFCalculator.jsx    #   METAR/TAF tab.  NotamViewer.jsx = own NOTAM tab
     B737Performance.jsx, FTLCalculator.jsx, InterpolationCalculator.jsx,
     CurrencyCalculator.jsx, CombinedCalculator.jsx (basic+scientific),
@@ -126,26 +128,32 @@ when asked. The service worker caches aggressively; users get an update prompt
   `fetchNotams` sends ONE `/api/notam?icaos=A,B,C` request per briefing (max 12
   locations, paged 100 rows at a time) instead of one per airport, and only
   sends 4-character codes (autorouter rejects the whole batch for one typo).
-- **Pasted route (`api/route.js`)** — the optional ROUTE box on the METAR/TAF,
-  NOTAM and SIGMET tabs (`RouteInput.jsx`). `utils/routeParse.js` keeps only the
+- **Pasted route (`api/route.js`)** — the optional ROUTE box in the Briefing
+  tab's manual form (`RouteInput.jsx`; METAR/TAF, NOTAM and SIGMET no longer
+  carry a route, so an old one cannot draw for another flight on the same city
+  pair). `utils/routeParse.js` keeps only the
   fixes (airways, SIDs/STARs, runways, DCT dropped: autorouter does not know
   the Asian airways and mixed up duplicate names when they were sent), the
   function asks autorouter's flight-plan parser for each fix's position (parse
   only, never files), and the Dark map draws the line. Fixes autorouter lacks
   go in `src/data/fixOverrides.js`. SIDs/STARs and airway bends are not drawn.
-- **OFP import (`RouteInput.jsx` IMPORT OFP, `utils/ofpParse.js`,
-  `utils/pdfText.js`, `services/ofpFile.js`)** — on the METAR/TAF, NOTAM and
-  SIGMET tabs. Reads the company XmlOFP (ARINC 633 `.txt`/`.xml`) or the PFP
+- **OFP import (`BriefingModule.jsx` IMPORT OFP, `utils/ofpParse.js`,
+  `utils/pdfText.js`, `services/ofpFile.js`)** — on the Briefing tab. Reads the
+  company XmlOFP (ARINC 633 `.txt`/`.xml`) or the PFP
   PDF on the device (nothing is uploaded). Dep/arr, the two destination
   alternates (the filed `(FPL…)` line) and the enroute alternates (the
   `ENROUTE ALT` remark minus dep/arr/dest alts) come from text both formats
   share; route points come from the XML waypoints (arc-seconds, south/west
   negative) or the PFP navlog (two lines per row, stops at the arrival row).
-  A card asks "is this right?": Yes fills the boxes and opens Briefing, No fills
-  them and lets the pilot edit. Points ride in the route text as `NAME:lat:lon`
-  tokens, so caches, saves and the Copy button carry them with no extra
+  The loaded flight shows as a summary card (that is the "is this right?"
+  check): OPEN BRIEFING goes on, EDIT opens the manual form already filled in.
+  Opening a briefing also fills the METAR/TAF, NOTAM and SIGMET tabs
+  (`briefingSync.js`). Points ride in the route text as `NAME:lat:lon`
+  tokens, so saves and the setup cache carry them with no extra
   state; `parseRoute` returns them as `pts` and `lookupRoute` uses them with no
   autorouter call or fix limit (adding a plain fix to the text drops them).
+  The Briefing tab hides the app's floating Resume Briefing pill (its Saved
+  Briefings list does that job and the pill sat on its Open bar).
   pdfjs-dist is lazy-loaded; its 1.4 MB worker is precached. The pilot gets
   the OFP from cvr.batikair.com.my (flight → Flight Plan → XmlOFP/PFP →
   Download). That site is behind Cloudflare and a login, so the app cannot

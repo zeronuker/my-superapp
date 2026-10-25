@@ -22,7 +22,7 @@ function safeSet(key, value) {
 // the moment it is opened.
 export function syncModuleCaches({ route, weatherList, notamResult, resolvedFirs, scopedSigmets, hours, snapshotAt }) {
   const fetchedAt = Date.now()
-  const { dep, arr, routeText, destAlts, enrouteCount, enrouteAlts } = route
+  const { dep, arr, destAlts, enrouteCount, enrouteAlts } = route
 
   const results = {}
   for (const t of weatherList) {
@@ -34,17 +34,17 @@ export function syncModuleCaches({ route, weatherList, notamResult, resolvedFirs
       error: null,
     }
   }
-  safeSet(METAR_CACHE_KEY, { dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt, snapshotAt })
+  safeSet(METAR_CACHE_KEY, { dep, arr, destAlts, enrouteCount, enrouteAlts, hours, results, fetchedAt, snapshotAt })
 
   safeSet(NOTAM_CACHE_KEY, {
-    dep, arr, routeText, destAlts, enrouteCount, enrouteAlts,
+    dep, arr, destAlts, enrouteCount, enrouteAlts,
     extraChips: resolvedFirs.map(f => ({ icao: f.icao, name: f.name, type: 'fir' })),
     ...(snapshotAt ? { snapshot: { at: snapshotAt, notams: notamResult.notams } } : { rawPerIcao: notamResult.rawPerIcao }),
     fetchedAt,
   })
 
   safeSet(SIGMET_CACHE_KEY, {
-    dep, arr, routeText, destAlts, enrouteCount, enrouteAlts,
+    dep, arr, destAlts, enrouteCount, enrouteAlts,
     chips: resolvedFirs,
     sigmets: scopedSigmets,
     fetchedAt, snapshotAt,

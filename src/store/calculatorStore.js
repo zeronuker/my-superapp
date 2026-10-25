@@ -33,7 +33,7 @@ export const DEFAULT_SETTINGS = {
   hapticIntensity:'medium',   // 'light' | 'medium' | 'heavy' — global strength
   numberFormat:   'en',       // 'en' (1,000.00) | 'eu' (1.000,00)
   defaultHistory: 3,
-  tabOrder:       ['calculator', 'interpolation', 'b737perf', 'currency', 'metartaf', 'notam', 'ftl', 'dutylog', 'worldtime', 'prayer'],
+  tabOrder:       ['calculator', 'interpolation', 'b737perf', 'currency', 'briefing', 'metartaf', 'notam', 'ftl', 'dutylog', 'worldtime', 'prayer'],
   navStyle:       'launcher', // 'launcher' | 'tabs' | 'grouped'
   tabPosition:    'top',      // 'top' | 'bottom'  (only used when navStyle === 'tabs')
   notamSort:      'relevance',// 'relevance' | 'category'  (NOTAM sort within a location)

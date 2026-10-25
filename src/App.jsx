@@ -22,6 +22,7 @@ const CombinedCalculator      = lazy(() => import('./components/CombinedCalculat
 const InterpolationCalculator = lazy(() => import('./components/InterpolationCalculator'))
 const B737Performance         = lazy(() => import('./components/B737Performance'))
 const CurrencyCalculator      = lazy(() => import('./components/CurrencyCalculator'))
+const BriefingModule          = lazy(() => import('./components/BriefingModule'))
 const METARTAFCalculator      = lazy(() => import('./components/METARTAFCalculator'))
 const NotamViewer             = lazy(() => import('./components/NotamViewer'))
 const SigmetViewer            = lazy(() => import('./components/SigmetViewer'))
@@ -41,6 +42,7 @@ export const CALCULATORS = [
   { id: 'interpolation', icon: '📐',  name: 'Interpolation',  component: InterpolationCalculator },
   { id: 'b737perf',      icon: '✈️', name: 'B737 Performance', component: B737Performance },
   { id: 'currency',      icon: '💱',  name: 'Currency',       component: CurrencyCalculator },
+  { id: 'briefing',      icon: '🧭',  name: 'Briefing',       component: BriefingModule },
   { id: 'metartaf',      icon: '🌤️', name: 'METAR/TAF',      component: METARTAFCalculator },
   { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
   { id: 'sigmet',        icon: '⛈️',  name: 'SIGMET',         component: SigmetViewer },
@@ -154,7 +156,8 @@ export default function App() {
   // otherwise the pill ends up sitting on top of the last tile or button
   // once you've scrolled all the way down (only matters on narrow viewports
   // where content spans edge-to-edge instead of leaving margin beside it).
-  const showResumePill = !briefing.open && (briefing.data || briefing.saves.length > 0)
+  // Not on the Briefing tab: its Saved Briefings list does the same job and the pill would sit on its Open bar.
+  const showResumePill = !briefing.open && activeCalculator !== 'briefing' && (briefing.data || briefing.saves.length > 0)
   const resumePillBottomOffset = navStyle === 'tabs' && tabPosition === 'bottom' ? 74 : 16
   // The pill and the offline banner slide in and out instead of popping.
   const pillPresence = usePresence(!!showResumePill)

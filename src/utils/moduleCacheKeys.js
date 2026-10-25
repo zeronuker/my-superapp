@@ -4,3 +4,5 @@
 export const METAR_CACHE_KEY  = 'cb-metar-cache'
 export const NOTAM_CACHE_KEY  = 'cb-notam-cache'
 export const SIGMET_CACHE_KEY = 'cb-sigmet-cache'
+// The Briefing tab's own setup (the flight being prepared) — not one of the 3 lookup modules.
+export const BRIEFING_SETUP_CACHE_KEY = 'cb-briefing-setup'
