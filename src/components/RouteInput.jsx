@@ -40,7 +40,7 @@ export default function RouteInput({ value, onChange, onAirports, dep, arr, labe
         <div className="cp-input" style={{ ...mono, height: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, minHeight: 52 }}>
           <div style={{ minWidth: 0, overflowWrap: 'anywhere', fontSize: 12, lineHeight: 1.5 }}>
             <div>{label || `${parsed.dep} → ${parsed.arr}`}</div>
-            <div style={{ color: 'var(--cp-dim)', fontSize: 11, marginTop: 3 }}>OFP route · {parsed.pts.length} points</div>
+            {!label && <div style={{ color: 'var(--cp-dim)', fontSize: 11, marginTop: 3 }}>OFP route</div>}
           </div>
           <button className="cp-btn" onClick={() => onChange('')}
             style={{ padding: '6px 10px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em', flexShrink: 0 }}>CLEAR</button>

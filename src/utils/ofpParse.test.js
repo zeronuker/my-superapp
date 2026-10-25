@@ -13,7 +13,22 @@ const wp = (name, lat, lon) => `
         </Waypoint>`
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?>
-<FlightPlan flightPlanId="94452">
+<FlightPlan computedTime="2026-10-22T14:45:00Z" flightPlanId="94452">
+    <M633SupplementaryHeader>
+        <Flight flightOriginDate="2026-10-22" scheduledTimeOfDeparture="2026-10-22T18:15:00Z"></Flight>
+        <Aircraft aircraftRegistration="9M-LNQ">
+            <AircraftModel airlineSpecificSubType="B737 800WS CFM56-7B24"></AircraftModel>
+        </Aircraft>
+    </M633SupplementaryHeader>
+    <FlightPlanHeader>
+        <GroundDistance><Value unit="NM">1678</Value></GroundDistance>
+        <GreatCircleDistance><Value unit="NM">1579</Value></GreatCircleDistance>
+    </FlightPlanHeader>
+    <FlightPlanSummary>
+        <ScheduledTimeOfArrival>2026-10-22T22:30:00Z</ScheduledTimeOfArrival>
+        <BlockTime><EstimatedTime><Value>PT04H03M</Value></EstimatedTime></BlockTime>
+        <FlightTime><EstimatedTime><Value>PT03H53M</Value></EstimatedTime></FlightTime>
+    </FlightPlanSummary>
     <Remarks>
         <Remark remarkType="ATC">
             <Paragraph><Text>(FPL-MXD372-IS
@@ -42,6 +57,11 @@ MEL/CDL         :CDL 57-54-10 </Text></Paragraph>
 const PDF = [
   'Log Nr.: 94452',
   '| MXD372 | KUL/WMKK - DIL/WPDL | DEST ALTN:UPG/WAAA| DOF: 22OCT26 |',
+  '| WMKK/KUL | STD 18:15 +0800 | B737/9M-LNQ -PF/2.5 -IF/ 0.0 | RTE12 |',
+  '| WPDL/DIL | STA 22:30 +0900 | BLOCK TIME: 04:15 | TRIP TIME: 03:53 |',
+  'REF 94452 - COMPUTED AT 14.45Z FOR ETD 18.15Z 22/10/26',
+  'GCD : 1579 W/C : M005 TTL DIST : 1678 EET : 03:53',
+  '|AIRCRAFT : 9M-LNQ - B737-800WS/CFM56-7B24 |',
   '(FPL-MXD372-IS',
   '-B738/M-SDFGHIRWY/LB1',
   '-WMKK1815',
@@ -84,6 +104,14 @@ describe('parseOfpXml', () => {
     expect(r.route).toBe('WMKK MITOS1D MITOS M630 JUNHA M774 KEVOK A215 MKS W37 DIL DCT WPDL')
   })
 
+  it('reads what identifies the OFP, with the aircraft type written like the PFP does', () => {
+    expect(r.info).toEqual({
+      tail: '9M-LNQ', type: 'B737-800WS/CFM56-7B24', ofpNo: '94452',
+      std: '2026-10-22T18:15:00Z', sta: '2026-10-22T22:30:00Z', computed: '2026-10-22T14:45:00Z',
+      tripMin: 233, distNm: 1678,
+    })
+  })
+
   it('converts arc-seconds to degrees, south and west negative', () => {
     const kadar = r.points.find(p => p.name === 'KADAR')
     expect(kadar).toEqual({ name: 'KADAR', lat: -0.1133, lon: 107.7283 })
@@ -114,6 +142,15 @@ describe('parseOfpPdf', () => {
     expect(r.route).toBe('WMKK MITOS1D MITOS M630 DIL DCT WPDL')
   })
 
+  it('reads the same identifying details as the XmlOFP, dating the clock times from the filed plan', () => {
+    expect(r.info).toEqual(parseOfpXml(XML).info)
+  })
+
+  it('puts STA on the next day when its clock time is earlier than STD', () => {
+    const night = PDF.map(l => l.replace('-WMKK1815', '-WMKK2215').replace('STA 22:30', 'STA 02:30'))
+    expect(parseOfpPdf(night).info.sta).toBe('2026-10-23T02:30:00Z')
+  })
+
   it('reads positions from the two-line navlog rows and stops at the arrival row', () => {
     expect(r.points).toEqual([
       { name: '03N102', lat: 2.7783, lon: 101.7017 },
@@ -122,7 +159,7 @@ describe('parseOfpPdf', () => {
   })
 
   it('says so when the PDF has no navlog', () => {
-    expect(parseOfpPdf(PDF.slice(0, 11)).error).toMatch(/route points/)
+    expect(parseOfpPdf(PDF.slice(0, PDF.findIndex(l => l.startsWith('WPT LAT')))).error).toMatch(/route points/)
   })
 })
 

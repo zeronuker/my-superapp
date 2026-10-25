@@ -5,6 +5,8 @@ import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import { BRIEFING_SETUP_CACHE_KEY } from '../utils/moduleCacheKeys'
 import { parseRoute } from '../utils/routeParse'
 import { ofpToFields } from '../utils/ofpParse'
+import { utcParts, localParts, blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
+import { getRoleStyle } from '../utils/metarSeverity'
 import { readOfpFile } from '../services/ofpFile'
 import { icaoToFir } from '../data/firLookup'
 import ResetButton from './ResetButton'
@@ -37,15 +39,49 @@ const panel = { border: '1px solid var(--cp-border)', borderRadius: 10, backgrou
 const smallBtn = { padding: '8px 12px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em' }
 const accentBtn = { ...smallBtn, borderColor: 'var(--cp-acc)', color: 'var(--cp-acc)', background: 'var(--cp-accdim)' }
 
-function Chips({ list }) {
-  if (!list.length) return <span style={{ color: 'var(--cp-dim)' }}>none</span>
-  return list.map(c => (
-    <span key={c} style={{
+// An airport chip in the colour the weather cards and the map give its role
+// (destination alternate 1/2, enroute alternate 1…5). `role` null = the FIR colour.
+function Chip({ code, role }) {
+  const s = role ? getRoleStyle(role) : null
+  return (
+    <span style={{
       display: 'inline-block', padding: '3px 8px', marginRight: 6, borderRadius: 4,
-      border: '1px solid var(--cp-acc)', color: 'var(--cp-acc)', background: 'var(--cp-accdim)',
-      fontFamily: 'var(--cb-font-mono)', fontSize: 12,
-    }}>{c}</span>
-  ))
+      border: `1px solid ${s ? s.borderLatest : 'var(--cp-fir)'}`, color: s ? s.color : 'var(--cp-fir)',
+      background: s ? s.bgLatest : 'transparent', fontFamily: 'var(--cb-font-mono)', fontSize: 12,
+    }}>{code}</span>
+  )
+}
+
+const none = <span style={{ color: 'var(--cp-dim)', fontSize: 12 }}>none</span>
+
+function Field({ label, value, sub, flex = 1 }) {
+  return (
+    <div style={{ flex, minWidth: 0 }}>
+      <div className="cp-label" style={{ margin: '0 0 3px' }}>{label}</div>
+      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 14, letterSpacing: '0.04em' }}>{value ?? '—'}</div>
+      {sub && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 2, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{sub}</div>}
+    </div>
+  )
+}
+
+// STD or STA: the UTC time and date, then the local time (with offset) and date at that airport.
+function TimeCol({ label, iso, tz, align }) {
+  const u = iso && utcParts(iso)
+  const l = iso && localParts(iso, tz)
+  const small = { fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.06em' }
+  return (
+    <div style={{ textAlign: align }}>
+      <div className="cp-label" style={{ margin: 0 }}>{label}</div>
+      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 16 }}>{u ? u.time : '—'}</div>
+      {u && <div style={small}>{u.date} · UTC</div>}
+      {l && (
+        <>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, marginTop: 8 }}>{l.time} {l.offset}</div>
+          <div style={small}>{l.date} · LOCAL</div>
+        </>
+      )}
+    </div>
+  )
 }
 
 function Row({ label, children, stacked }) {
@@ -71,8 +107,8 @@ export default function BriefingModule() {
   })))
   const [cache] = useState(() => loadWithExpiry(CACHE_KEY))
   const [mode,         setMode]         = useState(cache?.mode || 'ofp')
-  const [flightNo,     setFlightNo]     = useState(cache?.flightNo ?? null)   // set when the flight came from an OFP
-  const [filedRoute,   setFiledRoute]   = useState(cache?.filedRoute || '')   // that OFP's route as filed, for display
+  // Set when the flight came from an OFP: { flight, info (tail, type, ofpNo, std, sta, computed, tripMin, distNm), filedRoute, depTz, arrTz }
+  const [ofp,          setOfp]          = useState(cache?.ofp ?? null)
   const [dep,          setDep]          = useState(cache?.dep || '')
   const [arr,          setArr]          = useState(cache?.arr || '')
   const [routeText,    setRouteText]    = useState(cache?.routeText || '')
@@ -88,11 +124,11 @@ export default function BriefingModule() {
   const fileRef = useRef(null)
 
   useEffect(() => {
-    saveCache({ mode, flightNo, filedRoute, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, fetchedAt: importedAt })
-  }, [mode, flightNo, filedRoute, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, importedAt])
+    saveCache({ mode, ofp, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, fetchedAt: importedAt })
+  }, [mode, ofp, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, importedAt])
 
   const handleReset = () => {
-    setMode('ofp'); setFlightNo(null); setFiledRoute('')
+    setMode('ofp'); setOfp(null)
     setDep(''); setArr(''); setRouteText('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(1); setEnrouteAlts(Array(ERA_MAX).fill(''))
@@ -114,8 +150,14 @@ export default function BriefingModule() {
     setDep(f.dep); setArr(f.arr); setRouteText(f.routeText)
     setDestAlts(f.destAlts); setEnrouteCount(f.enrouteCount); setEnrouteAlts(f.enrouteAlts)
     setFirs([])
-    setFlightNo(r.flight || 'OFP')
-    setFiledRoute(f.filedRoute)
+    // Airport time zones for the local times; loaded now so the airport list stays out of this tab's own chunk.
+    let depTz = null, arrTz = null
+    try {
+      const { lookupAirport } = await import('../data/airports')
+      depTz = lookupAirport(f.dep)?.tz ?? null
+      arrTz = lookupAirport(f.arr)?.tz ?? null
+    } catch (_) {}
+    setOfp({ flight: f.flight, info: f.info, filedRoute: f.filedRoute, depTz, arrTz })
     setImportedAt(Date.now())
     setMode('ofp')
   }
@@ -134,9 +176,13 @@ export default function BriefingModule() {
   const openIt = () => ready && openBriefing({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs })
 
   const parsed = useMemo(() => parseRoute(routeText), [routeText])
-  const destList = [destAlts.alt1, destAlts.alt2].filter(Boolean)
-  const enrouteList = enrouteAlts.slice(0, enrouteCount).filter(Boolean)
   const shown = showAll ? saves : saves.slice(0, SAVED_PREVIEW)
+
+  const info = ofp?.info
+  const warning = info ? ofpWarning(Date.now(), info) : null
+  const warnColor = warning?.level === 'past' ? 'var(--cp-red)' : 'var(--cp-yellow)'
+  const blockMin = info ? blockMinutes(info.std, info.sta) : null
+  const routeShown = parsed.pts ? ofp?.filedRoute : parsed.fixes.join(' ')
 
   const fileInput = (
     <input ref={fileRef} type="file" accept=".txt,.xml,.pdf,application/pdf,text/plain,text/xml"
@@ -151,7 +197,7 @@ export default function BriefingModule() {
       </div>
       {fileInput}
 
-      {mode === 'ofp' && !flightNo && (
+      {mode === 'ofp' && !ofp && (
         <div style={{ ...panel, textAlign: 'center', padding: '22px 14px' }}>
           <div style={{ fontSize: 30, lineHeight: 1 }} aria-hidden="true">📄</div>
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 14, margin: '10px 0 4px' }}>Import your OFP</div>
@@ -163,33 +209,64 @@ export default function BriefingModule() {
         </div>
       )}
 
-      {mode === 'ofp' && flightNo && (
+      {mode === 'ofp' && ofp && (
         <div style={panel}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="cp-label" style={{ margin: 0 }}>{flightNo} · FROM OFP</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <span className="cp-label" style={{ margin: 0, color: 'var(--cp-acc)' }}>FROM OFP</span>
             <span style={{ color: 'var(--cp-green)', fontSize: 16 }} aria-hidden="true">✓</span>
           </div>
-          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 20, letterSpacing: '0.06em', margin: '8px 0 6px' }}>
-            {dep || '----'} → {arr || '----'}
+          {warning && (
+            <div style={{
+              border: `1px solid ${warnColor}`, color: warnColor, borderRadius: 6, padding: '8px 10px', marginBottom: 10,
+              background: `color-mix(in srgb, ${warnColor} 10%, transparent)`, fontSize: 12, lineHeight: 1.5,
+            }}>{warning.text}</div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+            <Field label="FLIGHT" value={ofp.flight} />
+            <Field label="TAIL" value={info?.tail} sub={info?.type?.replace('/', '/​')} flex={1.7} />
+            <Field label="OFP NO." value={info?.ofpNo} />
           </div>
-          <Row label="DEST ALTS"><Chips list={destList} /></Row>
-          <Row label="ENROUTE"><Chips list={enrouteList} /></Row>
-          <Row label="ROUTE" stacked>
-            {parsed.pts || parsed.fixes.length ? (
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '2px 0 10px', fontFamily: 'var(--cb-font-mono)' }}>
+            <span style={{ fontSize: 22, letterSpacing: '0.06em' }}>{dep || '----'}</span>
+            <span style={{ flex: 1, borderTop: '1.5px dashed var(--cp-dim)' }} />
+            <span style={{ color: 'var(--cp-acc)', fontSize: 16, lineHeight: 1 }} aria-hidden="true">✈</span>
+            <span style={{ flex: 1, borderTop: '1.5px dashed var(--cp-dim)' }} />
+            <span style={{ fontSize: 22, letterSpacing: '0.06em' }}>{arr || '----'}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
+            <TimeCol label="STD" iso={info?.std} tz={ofp.depTz} align="left" />
+            <TimeCol label="STA" iso={info?.sta} tz={ofp.arrTz} align="right" />
+          </div>
+          <div style={{ display: 'flex', gap: 10, margin: '12px 0', padding: '10px 0', borderTop: '1px solid var(--cp-border3)', borderBottom: '1px solid var(--cp-border3)' }}>
+            <Field label="BLOCK" value={fmtHm(blockMin)} />
+            <Field label="TRIP" value={fmtHm(info?.tripMin)} />
+            <Field label="DISTANCE" value={info?.distNm != null ? `${info.distNm.toLocaleString('en-US')} NM` : null} />
+          </div>
+
+          <Row label="DEST ALTS">
+            {destAlts.alt1 || destAlts.alt2 ? (
               <>
-                {parsed.pts && filedRoute && (
-                  <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.6, overflowWrap: 'anywhere' }}>{filedRoute}</div>
-                )}
-                <div style={{ color: 'var(--cp-dim)', fontSize: 11, marginTop: 2 }}>
-                  {parsed.pts ? `${parsed.pts.length} points` : `${parsed.fixes.length} fixes`}
-                </div>
+                {destAlts.alt1 && <Chip code={destAlts.alt1} role="DESTINATION ALTERNATE 1" />}
+                {destAlts.alt2 && <Chip code={destAlts.alt2} role="DESTINATION ALTERNATE 2" />}
               </>
-            ) : <span style={{ color: 'var(--cp-dim)', fontSize: 12 }}>none</span>}
+            ) : none}
           </Row>
-          {firs.length > 0 && <Row label="FIRS"><Chips list={firs.map(f => f.icao)} /></Row>}
+          <Row label="ENROUTE">
+            {enrouteAlts.slice(0, enrouteCount).some(Boolean)
+              ? enrouteAlts.slice(0, enrouteCount).map((c, i) => c && <Chip key={i} code={c} role={`ENROUTE ALTERNATE ${i + 1}`} />)
+              : none}
+          </Row>
+          <Row label="ROUTE" stacked>
+            {routeShown
+              ? <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 12, lineHeight: 1.6, overflowWrap: 'anywhere' }}>{routeShown}</div>
+              : none}
+          </Row>
+          {firs.length > 0 && <Row label="FIRS">{firs.map(f => <Chip key={f.icao} code={f.icao} />)}</Row>}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button className="cp-btn" onClick={() => fileRef.current?.click()} disabled={busy} style={smallBtn}>{busy ? 'READING…' : 'REPLACE OFP'}</button>
-            <button className="cp-btn" onClick={() => setMode('manual')} style={smallBtn}>EDIT</button>
+            <button className="cp-btn" onClick={() => fileRef.current?.click()} disabled={busy} style={smallBtn}>{busy ? 'READING…' : 'CHANGE OFP'}</button>
+            <button className="cp-btn" onClick={() => setMode('manual')} style={smallBtn}>EDIT OFP</button>
           </div>
           {importError && <div style={{ fontSize: 12, marginTop: 10, color: 'var(--cp-yellow)' }}>{importError}</div>}
         </div>
@@ -214,7 +291,7 @@ export default function BriefingModule() {
             </div>
           </div>
 
-          <RouteInput value={routeText} onChange={setRouteText} onAirports={(d, a) => { setDep(d); setArr(a) }} dep={dep} arr={arr} label={filedRoute} />
+          <RouteInput value={routeText} onChange={setRouteText} onAirports={(d, a) => { setDep(d); setArr(a) }} dep={dep} arr={arr} label={ofp?.filedRoute} />
 
           <SectionHeader title="Destination Alternates" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>

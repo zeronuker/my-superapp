@@ -145,9 +145,19 @@ when asked. The service worker caches aggressively; users get an update prompt
   `ENROUTE ALT` remark minus dep/arr/dest alts) come from text both formats
   share; route points come from the XML waypoints (arc-seconds, south/west
   negative) or the PFP navlog (two lines per row, stops at the arrival row).
-  The loaded flight shows as a summary card (that is the "is this right?"
-  check, with the route as filed from the FPL line, shown only while the
-  imported points are present): OPEN BRIEFING goes on, EDIT opens the manual form already filled in.
+  The loaded flight shows as a boarding-pass summary card (that is the "is this
+  right?" check): flight (the filed callsign), tail with the aircraft type
+  (XmlOFP's "B737 800WS CFM56-7B24" is rewritten to the PFP's
+  "B737-800WS/CFM56-7B24"), OFP number, STD/STA in UTC and in local time with
+  offset (zone from `airports.json`, `utils/ofpTimes.js`; each time carries its
+  own date, flight date = the UTC date), BLOCK = STA − STD (NOT the XmlOFP's
+  `BlockTime`, which is trip + a placeholder taxi time), trip, distance, then
+  the alternates in the app's role colours (`ROLE_COLORS`) and the route as
+  filed (from the FPL line, shown only while the imported points are present).
+  A wrong-OFP warning shows when STD is more than 6 h from now: red "generated X
+  ago" (counted from the computed time) once STD is more than 6 h gone, yellow
+  "STD is X ahead" when it is more than 6 h away. OPEN BRIEFING goes on, EDIT OFP
+  opens the manual form already filled in.
   Opening a briefing also fills the METAR/TAF, NOTAM and SIGMET tabs
   (`briefingSync.js`). Points ride in the route text as `NAME:lat:lon`
   tokens, so saves and the setup cache carry them with no extra

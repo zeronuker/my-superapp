@@ -6,7 +6,8 @@
 //
 // parseOfpXml(text) / parseOfpPdf(lines) -> { ok: true, flight, dep, arr, route,
 //   destAlts, enrouteAlts, points: [{name, lat, lon}] } | { ok: false, error }
-// (`route` is the route as filed, for showing to the pilot; `points` are what the map draws.)
+// (`route` is the route as filed, for showing to the pilot; `points` are what the map draws;
+// `info` is what identifies the OFP: tail, type, OFP number, STD/STA/computed time, trip, distance.)
 // ofpToFields() shapes that for a tab's boxes; ofpRouteText() writes the points
 // into the route text as NAME:lat:lon tokens (parsed back by routeParse.js), so
 // they travel with the route text everywhere it already goes.
@@ -26,10 +27,13 @@ function readFlight(text) {
   // Route as filed ("WMKK MITOS1D MITOS M630 … DIL DCT WPDL"): field 15 without its leading speed/level group.
   const tokens = (fields[3] ?? '').trim().split(/\s+/).filter(Boolean)
   if (/^[NKM]\d{3,4}[FASM]\d{3,4}$/.test(tokens[0])) tokens.shift()
+  const dof = /DOF\/(\d{2})(\d{2})(\d{2})/.exec(m[1])   // date of flight (UTC), YYMMDD
   return {
     flight, dep, arr: arr[1],
     destAlts: alts ? alts.split(/\s+/).slice(0, 2) : [],
     route: [dep, ...tokens, arr[1]].join(' '),
+    dof: dof ? `20${dof[1]}-${dof[2]}-${dof[3]}` : null,
+    stdHm: /^[A-Z]{4}(\d{4})/.exec(fields[2])?.[1] ?? null,
   }
 }
 
@@ -79,7 +83,60 @@ function trimRoute(points, dep, arr) {
   return end >= 0 ? pts.slice(0, end) : pts
 }
 
-function finish(flight, text, rawPoints) {
+// ── Identity details, so the pilot can tell it is the right OFP ───────────────
+// info = { tail, type, ofpNo, std, sta, computed (ISO UTC strings), tripMin, distNm } — any may be null.
+
+const iso = ms => new Date(ms).toISOString().replace('.000Z', 'Z')
+const atUtc = (date, hh, mm) => Date.parse(`${date}T${hh}:${mm}:00Z`)
+const DAY_MS = 864e5
+
+// The XmlOFP writes the aircraft type with spaces ("B737 800WS CFM56-7B24"); the PFP prints
+// "B737-800WS/CFM56-7B24". First space to "-", second to "/" so both read alike.
+const normType = s => (s ? s.trim().replace(' ', '-').replace(' ', '/') : null)
+
+function xmlInfo(text) {
+  const attr = re => re.exec(text)?.[1] ?? null
+  const trip = /<FlightTime>\s*<EstimatedTime>\s*<Value>PT(\d+)H(\d+)M/.exec(text)
+  const dist = /<GroundDistance>\s*(?:<[^>]*>\s*)*([\d.]+)/.exec(text)?.[1]
+  return {
+    tail: attr(/aircraftRegistration="([^"]+)"/),
+    type: normType(attr(/airlineSpecificSubType="([^"]+)"/)),
+    ofpNo: attr(/flightPlanId="([^"]+)"/),
+    std: attr(/scheduledTimeOfDeparture="([^"]+)"/),
+    sta: attr(/<ScheduledTimeOfArrival>([^<]+)</),
+    computed: attr(/computedTime="([^"]+)"/),
+    tripMin: trip ? +trip[1] * 60 + +trip[2] : null,
+    distNm: dist ? Math.round(+dist) : null,
+  }
+}
+
+// The PFP prints only clock times ("STA 22:30", "COMPUTED AT 14.45Z"); the dates come from the
+// filed plan's DOF and STD. STA is the next 22:30 after STD; computed is the last 14:45 before it.
+function pdfInfo(text, f) {
+  const air = /AIRCRAFT\s*:\s*(\S+)\s+-\s+(\S+)/.exec(text)
+  const sta = /\bSTA\s+(\d{2}):(\d{2})/.exec(text)
+  const comp = /COMPUTED AT\s+(\d{2})[.:](\d{2})Z/.exec(text)
+  const trip = /TRIP TIME:\s*(\d{1,2}):(\d{2})/.exec(text)
+  const dist = /TTL DIST\s*:\s*(\d+)/.exec(text)?.[1]
+  let std = null, staMs = null, compMs = null
+  if (f?.dof && f.stdHm) {
+    std = atUtc(f.dof, f.stdHm.slice(0, 2), f.stdHm.slice(2))
+    if (sta) { staMs = atUtc(f.dof, sta[1], sta[2]); if (staMs <= std) staMs += DAY_MS }
+    if (comp) { compMs = atUtc(f.dof, comp[1], comp[2]); if (compMs > std) compMs -= DAY_MS }
+  }
+  return {
+    tail: air?.[1] ?? null,
+    type: air?.[2] ?? null,
+    ofpNo: /Log Nr\.?:?\s*(\d+)/.exec(text)?.[1] ?? null,
+    std: std != null ? iso(std) : null,
+    sta: staMs != null ? iso(staMs) : null,
+    computed: compMs != null ? iso(compMs) : null,
+    tripMin: trip ? +trip[1] * 60 + +trip[2] : null,
+    distNm: dist ? +dist : null,
+  }
+}
+
+function finish(flight, text, rawPoints, info) {
   if (!flight) return { ok: false, error: "Couldn't find the filed flight plan in this file." }
   const points = trimRoute(rawPoints, flight.dep, flight.arr)
   if (!points.length) return { ok: false, error: "Couldn't find the route points in this file." }
@@ -90,13 +147,18 @@ function finish(flight, text, rawPoints) {
     destAlts: flight.destAlts,
     enrouteAlts: readEnroute(text, [flight.dep, flight.arr, ...flight.destAlts]),
     points,
+    info,
   }
 }
 
-export const parseOfpXml = text => finish(readFlight(text), text, xmlPoints(text))
+export const parseOfpXml = text => finish(readFlight(text), text, xmlPoints(text), xmlInfo(text))
 
 /** @param {string[]} lines  the PFP's text, one string per line (pdfText.js) */
-export const parseOfpPdf = lines => finish(readFlight(lines.join('\n')), lines.join('\n'), pdfPoints(lines))
+export function parseOfpPdf(lines) {
+  const text = lines.join('\n')
+  const flight = readFlight(text)
+  return finish(flight, text, pdfPoints(lines), pdfInfo(text, flight))
+}
 
 /** "WMKK KK701:2.7933:101.6917 ... WPDL" — what routeParse.js reads back as positioned fixes. */
 export const ofpRouteText = r =>
@@ -110,6 +172,8 @@ export function ofpToFields(r, eraMax = 5) {
     arr: r.arr,
     routeText: ofpRouteText(r),
     filedRoute: r.route,
+    flight: r.flight,
+    info: r.info,
     destAlts: { alt1: r.destAlts[0] ?? '', alt2: r.destAlts[1] ?? '' },
     enrouteCount: enroute.length,
     enrouteAlts: Array.from({ length: eraMax }, (_, i) => enroute[i] ?? ''),
