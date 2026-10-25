@@ -394,7 +394,8 @@ export default function NotamViewer() {
       </div>
 
       <RouteInput value={routeText} onChange={setRouteText}
-        onAirports={(d, a) => { setDep(d); setArr(a) }} dep={dep} arr={arr} />
+        onAirports={(d, a) => { setDep(d); setArr(a) }} dep={dep} arr={arr}
+        onOfp={(f, go) => { applyCopiedAirports(f); if (go) openBriefing({ ...f, firs: [] }) }} />
 
       {/* ── DESTINATION ALTERNATES ── */}
       <SectionHeader title="Destination Alternates" />

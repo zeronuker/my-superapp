@@ -27,6 +27,7 @@ export async function fetchRouteFixes({ dep, arr, fixes }) {
 export async function lookupRoute(route) {
   const p = parseRoute(route?.routeText)
   if (!p.ok || !p.fixes.length || p.dep !== route.dep || p.arr !== route.arr) return {}
+  if (p.pts) return { routeFixes: p.pts }   // imported from an OFP: already positioned, nothing to look up
   try {
     return { routeFixes: await fetchRouteFixes(p) }
   } catch (e) {

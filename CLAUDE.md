@@ -133,6 +133,24 @@ when asked. The service worker caches aggressively; users get an update prompt
   function asks autorouter's flight-plan parser for each fix's position (parse
   only, never files), and the Dark map draws the line. Fixes autorouter lacks
   go in `src/data/fixOverrides.js`. SIDs/STARs and airway bends are not drawn.
+- **OFP import (`RouteInput.jsx` IMPORT OFP, `utils/ofpParse.js`,
+  `utils/pdfText.js`, `services/ofpFile.js`)** — on the METAR/TAF, NOTAM and
+  SIGMET tabs. Reads the company XmlOFP (ARINC 633 `.txt`/`.xml`) or the PFP
+  PDF on the device (nothing is uploaded). Dep/arr, the two destination
+  alternates (the filed `(FPL…)` line) and the enroute alternates (the
+  `ENROUTE ALT` remark minus dep/arr/dest alts) come from text both formats
+  share; route points come from the XML waypoints (arc-seconds, south/west
+  negative) or the PFP navlog (two lines per row, stops at the arrival row).
+  A card asks "is this right?": Yes fills the boxes and opens Briefing, No fills
+  them and lets the pilot edit. Points ride in the route text as `NAME:lat:lon`
+  tokens, so caches, saves and the Copy button carry them with no extra
+  state; `parseRoute` returns them as `pts` and `lookupRoute` uses them with no
+  autorouter call or fix limit (adding a plain fix to the text drops them).
+  pdfjs-dist is lazy-loaded; its 1.4 MB worker is precached. The pilot gets
+  the OFP from cvr.batikair.com.my (flight → Flight Plan → XmlOFP/PFP →
+  Download). That site is behind Cloudflare and a login, so the app cannot
+  fetch it itself; whether the OFP is there before departure is unconfirmed
+  (on 2026-10-25 it listed only flown flights).
 - **AeroDataBox (`api/aerodatabox.js`)** only does one thing now — airport
   runway data (`/airports/{icao}/runways`), used by METAR/TAF's wind-component
   calc. Requires `AERODATABOX_API_KEY` in Vercel env vars (X-RapidAPI-Key from

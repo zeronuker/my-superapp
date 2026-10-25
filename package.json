@@ -20,6 +20,7 @@
     "jsqr": "^1.4.0",
     "leaflet": "^1.4.0",
     "maplibre-gl": "^6.9.0",
+    "pdfjs-dist": "^4.10.38",
     "qrcode": "^1.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

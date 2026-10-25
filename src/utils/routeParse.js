@@ -8,13 +8,19 @@
 // The route function rejects more than this; keep in step with api/route.js.
 export const MAX_FIXES = 60
 
+// NAME:lat:lon, e.g. KADAR:-0.1133:107.7283 — a point whose position came with an OFP.
+const COORD_TOKEN = /^([A-Z0-9]{1,13}):(-?\d+(?:\.\d+)?):(-?\d+(?:\.\d+)?)$/
+
 /**
  * @param {string} text  pasted route
- * @returns {{ dep: string|null, arr: string|null, fixes: string[], ok: boolean, tooLong: boolean }}
+ * @returns {{ dep: string|null, arr: string|null, fixes: string[], pts: Array<{name,lat,lon}>|null, ok: boolean, tooLong: boolean }}
  *   `ok` means both airports were found and the route is not too long.
  *   Airways, SIDs/STARs, runway tokens and DCT are dropped: anything with a
  *   digit is not a fix, and sending only fixes is what keeps autorouter from
  *   mixing up names that exist in several places (see CLAUDE.md).
+ *   A route imported from an OFP is made of NAME:lat:lon tokens (ofpParse.js);
+ *   `pts` is then their positions, with no autorouter lookup and no length limit.
+ *   Mixed with plain fixes, the coordinate tokens are ignored like any other digit token.
  */
 export function parseRoute(text) {
   const tokens = String(text ?? '')
@@ -28,15 +34,20 @@ export function parseRoute(text) {
   const arr = tokens.length >= 2 && isAirport(tokens.at(-1)) ? tokens.at(-1) : null
 
   const middle = tokens.slice(dep ? 1 : 0, arr ? -1 : undefined)
-  const fixes = []
+  const plain = []
+  const coord = []
   for (const t of middle) {
+    const c = COORD_TOKEN.exec(t)
+    if (c) { coord.push({ name: c[1], lat: +c[2], lon: +c[3] }); continue }
     if (!/^[A-Z]{2,5}$/.test(t) || t === 'DCT') continue
-    if (fixes.at(-1) === t) continue
-    fixes.push(t)
+    if (plain.at(-1) === t) continue
+    plain.push(t)
   }
 
-  const tooLong = fixes.length > MAX_FIXES
-  return { dep, arr, fixes, ok: !!dep && !!arr && !tooLong, tooLong }
+  const pts = coord.length && !plain.length ? coord : null
+  const fixes = pts ? pts.map(p => p.name) : plain
+  const tooLong = !pts && fixes.length > MAX_FIXES
+  return { dep, arr, fixes, pts, ok: !!dep && !!arr && !tooLong, tooLong }
 }
 
 // Unknown names autorouter reported, e.g. "unknown identifier GORVU".
