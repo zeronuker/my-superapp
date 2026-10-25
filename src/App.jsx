@@ -99,12 +99,12 @@ export default function App() {
     activeCalculator, setActiveCalculator,
     darkMode, setDarkMode,
     settings, updateSettings,
-    briefing, resumeBriefing, openSavedBriefing,
+    briefing, resumeBriefing,
   } = useCalculatorStore(useShallow(s => ({
     activeCalculator: s.activeCalculator, setActiveCalculator: s.setActiveCalculator,
     darkMode: s.darkMode, setDarkMode: s.setDarkMode,
     settings: s.settings, updateSettings: s.updateSettings,
-    briefing: s.briefing, resumeBriefing: s.resumeBriefing, openSavedBriefing: s.openSavedBriefing,
+    briefing: s.briefing, resumeBriefing: s.resumeBriefing,
   })))
 
   const isOnline = useOnlineStatus()
@@ -156,9 +156,11 @@ export default function App() {
   // otherwise the pill ends up sitting on top of the last tile or button
   // once you've scrolled all the way down (only matters on narrow viewports
   // where content spans edge-to-edge instead of leaving margin beside it).
-  // Not on the Briefing tab: its Saved Briefings list does the same job and the pill would sit on its Open bar.
-  const showResumePill = !briefing.open && activeCalculator !== 'briefing' && (briefing.data || briefing.saves.length > 0)
-  const resumePillBottomOffset = navStyle === 'tabs' && tabPosition === 'bottom' ? 74 : 16
+  // Only for a PAUSED briefing (the NOTAM "view all" tab-jump hides it but keeps it alive, unsaved):
+  // saved briefings are reopened from the Briefing tab's list, so they do not get a pill.
+  const showResumePill = !briefing.open && !!briefing.data
+  // On the Briefing tab the Generate bar sits at the bottom, so the pill rides above it.
+  const resumePillBottomOffset = (navStyle === 'tabs' && tabPosition === 'bottom' ? 74 : 16) + (activeCalculator === 'briefing' ? 64 : 0)
   // The pill and the offline banner slide in and out instead of popping.
   const pillPresence = usePresence(!!showResumePill)
   const offlinePresence = usePresence(!isOnline)
@@ -524,14 +526,12 @@ export default function App() {
         </ErrorBoundary>
       )}
 
-      {/* ── Resume Briefing pill — shown when the overlay is closed but
-           there's something to bring back: a briefing paused mid-fetch (the
-           NOTAM "view all" tab-jump) takes priority since it's still live
-           in-progress work; otherwise it opens the most recently saved one. ── */}
+      {/* ── Resume Briefing pill — shown only while a briefing is paused (the
+           NOTAM "view all" tab-jump hid it but it is still live, possibly unsaved). ── */}
       {pillPresence.mounted && (
         <button
           className={`cp-pill-in${pillPresence.closing ? ' is-closing' : ''}`}
-          onClick={() => (briefing.data ? resumeBriefing() : openSavedBriefing(briefing.saves[0].id))}
+          onClick={resumeBriefing}
           style={{
             position: 'fixed', right: 16, zIndex: 95,
             bottom: `calc(${resumePillBottomOffset}px + env(safe-area-inset-bottom))`,

@@ -163,8 +163,10 @@ when asked. The service worker caches aggressively; users get an update prompt
   tokens, so saves and the setup cache carry them with no extra
   state; `parseRoute` returns them as `pts` and `lookupRoute` uses them with no
   autorouter call or fix limit (adding a plain fix to the text drops them).
-  The Briefing tab hides the app's floating Resume Briefing pill (its Saved
-  Briefings list does that job and the pill sat on its Open bar).
+  The floating Resume Briefing pill shows only for a briefing PAUSED by the
+  NOTAM "view all" tab-jump (still live, maybe unsaved); saved briefings are
+  reopened from the Briefing tab's Saved Briefings list. On the Briefing tab
+  the pill rides above the Generate bar.
   pdfjs-dist is lazy-loaded; its 1.4 MB worker is precached. The pilot gets
   the OFP from cvr.batikair.com.my (flight → Flight Plan → XmlOFP/PFP →
   Download). That site is behind Cloudflare and a login, so the app cannot
