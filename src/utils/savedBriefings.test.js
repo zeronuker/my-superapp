@@ -1,5 +1,36 @@
 import { describe, it, expect } from 'vitest'
-import { autoBriefingName, formatSnapshotStamp, savedRowInfo, sortByNewest, findOldest, isAtCap, pickNextAfterDelete, makeBriefingId } from './savedBriefings'
+import { autoBriefingName, formatSnapshotStamp, savedRowInfo, filterSaves, sortByNewest, findOldest, isAtCap, pickNextAfterDelete, makeBriefingId } from './savedBriefings'
+
+describe('filterSaves', () => {
+  const at = Date.UTC(2026, 8, 15, 13, 2)
+  const route = { dep: 'WMKK', arr: 'WSSS', flightDetails: { flight: 'MH2623', info: { tail: '9M-MXA', type: 'B737-800WS', ofpNo: '41' } } }
+  const manual = { dep: 'WMKK', arr: 'WBKK' }
+  const saves = [
+    { id: 'a', name: autoBriefingName(route, at), route, savedAt: at },
+    { id: 'b', name: 'KK charter check', route: manual, savedAt: at },
+  ]
+  const ids = q => filterSaves(saves, q).map(s => s.id)
+  it('returns everything for an empty or blank query', () => {
+    expect(ids('')).toEqual(['a', 'b'])
+    expect(ids('   ')).toEqual(['a', 'b'])
+    expect(filterSaves(saves, undefined)).toBe(saves)
+  })
+  it('matches flight, ICAO, tail, OFP number and the OFP / MANUAL tag, ignoring case', () => {
+    expect(ids('mh2623')).toEqual(['a'])
+    expect(ids('wbkk')).toEqual(['b'])
+    expect(ids('9m-mxa')).toEqual(['a'])
+    expect(ids('manual')).toEqual(['b'])
+    expect(ids('ofp')).toEqual(['a'])
+  })
+  it('matches a custom name but not an auto name', () => {
+    expect(ids('charter')).toEqual(['b'])
+    expect(ids('15 sep')).toEqual([])
+  })
+  it('needs every word to match', () => {
+    expect(ids('wmkk wsss')).toEqual(['a'])
+    expect(ids('wmkk nothing')).toEqual([])
+  })
+})
 
 describe('savedRowInfo', () => {
   const savedAt = Date.UTC(2026, 8, 15, 13, 2)

@@ -60,6 +60,19 @@ export function savedRowInfo(save) {
   }
 }
 
+// Search over what a row shows (custom name, flight, dep/arr, tail, type, OFP number, OFP/MANUAL tag).
+// Case-insensitive; every space-separated word must match, so "mh2623 wsss" narrows the list.
+export function filterSaves(saves, query) {
+  const terms = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+  if (!terms.length) return saves
+  return saves.filter(s => {
+    const r = savedRowInfo(s)
+    const text = [r.customName, r.flight, s.route?.dep, s.route?.arr, r.tail, r.type, r.ofpNo, r.isOfp ? 'OFP' : 'MANUAL']
+      .filter(Boolean).join(' ').toLowerCase()
+    return terms.every(t => text.includes(t))
+  })
+}
+
 export function sortByNewest(list) {
   return [...list].sort((a, b) => b.savedAt - a.savedAt)
 }

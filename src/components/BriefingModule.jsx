@@ -8,7 +8,7 @@ import { ofpToFields } from '../utils/ofpParse'
 import { blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
 import { readOfpFile } from '../services/ofpFile'
 import { icaoToFir } from '../data/firLookup'
-import { savedRowInfo, formatSnapshotStamp } from '../utils/savedBriefings'
+import { savedRowInfo, filterSaves, formatSnapshotStamp } from '../utils/savedBriefings'
 import { ROLE_COLORS } from '../utils/metarSeverity'
 import ResetButton from './ResetButton'
 import RouteInput from './RouteInput'
@@ -80,6 +80,7 @@ export default function BriefingModule() {
   const [busy,        setBusy]         = useState(false)
   const [importError,  setImportError]  = useState('')
   const [page,         setPage]         = useState(cache?.savedPage || 1)   // saved-list page, kept when you leave the tab
+  const [query,        setQuery]        = useState('')   // saved-list search, not kept
   const fileRef = useRef(null)
 
   useEffect(() => {
@@ -155,9 +156,10 @@ export default function BriefingModule() {
   const parsed = useMemo(() => parseRoute(routeText), [routeText])
   // The saves load from storage a moment after the tab opens, so `page` is only clamped when
   // drawing: deleting the last briefing on a page lands on the page before it.
-  const pages = Math.max(1, Math.ceil(saves.length / PAGE_SIZE))
+  const found = useMemo(() => filterSaves(saves, query), [saves, query])
+  const pages = Math.max(1, Math.ceil(found.length / PAGE_SIZE))
   const cur = Math.min(page, pages)
-  const shown = saves.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE)
+  const shown = found.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE)
 
   const info = ofp?.info
   const warning = info ? ofpWarning(Date.now(), info) : null
@@ -333,11 +335,20 @@ export default function BriefingModule() {
         </>
       )}
 
-      <SectionHeader title={`Saved Briefings${saves.length ? ` · ${saves.length}` : ''}`} />
+      <SectionHeader title={`Saved Briefings${saves.length ? ` · ${found.length === saves.length ? saves.length : `${found.length} of ${saves.length}`}` : ''}`} />
       {saves.length === 0 ? (
         <div style={{ fontSize: 12, color: 'var(--cp-dim)', marginBottom: 20 }}>No saved briefings yet.</div>
       ) : (
         <div style={{ marginBottom: 20 }}>
+          <div style={{ position: 'relative', marginBottom: 10 }}>
+            <input className="cp-input" style={{ width: '100%', boxSizing: 'border-box', paddingRight: 32 }} placeholder="Search flight, ICAO, tail, name…"
+              value={query} onChange={e => { setQuery(e.target.value); setPage(1) }} aria-label="Search saved briefings" />
+            {query && (
+              <button onClick={() => { setQuery(''); setPage(1) }} title="Clear search" aria-label="Clear search"
+                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 6px' }}>×</button>
+            )}
+          </div>
+          {found.length === 0 && <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No saved briefings match.</div>}
           {shown.map(b => {
             const r = savedRowInfo(b)
             const join = (...parts) => parts.filter(Boolean).join(' · ')
@@ -373,12 +384,12 @@ export default function BriefingModule() {
               </div>
             )
           })}
-          {saves.length > PAGE_SIZE && (
+          {found.length > PAGE_SIZE && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 12 }}>
               <button className="cp-btn" onClick={() => setPage(cur - 1)} disabled={cur === 1}
                 style={{ ...smallBtn, opacity: cur === 1 ? 0.4 : 1 }}>‹ PREV</button>
               <div style={{ textAlign: 'center', fontFamily: 'var(--cb-font-mono)' }}>
-                <div style={{ fontSize: 13 }}>{(cur - 1) * PAGE_SIZE + 1}–{Math.min(saves.length, cur * PAGE_SIZE)} of {saves.length}</div>
+                <div style={{ fontSize: 13 }}>{(cur - 1) * PAGE_SIZE + 1}–{Math.min(found.length, cur * PAGE_SIZE)} of {found.length}</div>
                 <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em' }}>PAGE {cur} OF {pages}</div>
               </div>
               <button className="cp-btn" onClick={() => setPage(cur + 1)} disabled={cur === pages}
