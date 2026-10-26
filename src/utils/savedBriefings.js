@@ -2,6 +2,9 @@
 // manually-managed list of named briefing snapshots, distinct from a
 // module's own 12h-expiring cache.
 
+import { parseRoute } from './routeParse'
+import { utcParts } from './ofpTimes'
+
 const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID()
   : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
@@ -31,6 +34,30 @@ export function formatSnapshotStamp(timestamp) {
   const hh = String(d.getUTCHours()).padStart(2, '0')
   const mm = String(d.getUTCMinutes()).padStart(2, '0')
   return `${d.getUTCDate()} ${month} ${hh}:${mm}Z`
+}
+
+// What one row of the Saved Briefings list shows. An OFP save carries route.flightDetails
+// (flight + info: tail, type, ofpNo, std, sta); a manual save only has the route. customName is
+// null while the name is still the auto one, since the row already shows that information.
+export function savedRowInfo(save) {
+  const { route, savedAt, name } = save
+  const fd = route?.flightDetails
+  const info = fd?.info
+  const std = info?.std ? utcParts(info.std) : null
+  const sta = info?.sta ? utcParts(info.sta) : null
+  const parsed = parseRoute(route?.routeText)
+  return {
+    isOfp: !!fd,
+    customName: name && name !== autoBriefingName(route, savedAt) ? name : null,
+    flight: fd?.flight || null,
+    tail: info?.tail || null,
+    type: info?.type || null,
+    ofpNo: info?.ofpNo || null,
+    std: std?.time || null,
+    sta: sta?.time || null,
+    stdDate: std ? formatSnapshotStamp(Date.parse(info.std)).split(' ').slice(0, 2).join(' ') : null,
+    routePoints: (parsed.pts || parsed.fixes).length,
+  }
 }
 
 export function sortByNewest(list) {

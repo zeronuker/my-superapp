@@ -8,6 +8,8 @@ import { ofpToFields } from '../utils/ofpParse'
 import { blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
 import { readOfpFile } from '../services/ofpFile'
 import { icaoToFir } from '../data/firLookup'
+import { savedRowInfo, formatSnapshotStamp } from '../utils/savedBriefings'
+import { ROLE_COLORS } from '../utils/metarSeverity'
 import ResetButton from './ResetButton'
 import RouteInput from './RouteInput'
 import EnrouteAlternates from './EnrouteAlternates'
@@ -53,8 +55,6 @@ function Row({ label, children, stacked }) {
     </div>
   )
 }
-
-const shortDate = ms => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 
 export default function BriefingModule() {
   const { saves, openBriefing, openSavedBriefing, deleteSavedBriefing } = useCalculatorStore(useShallow(s => ({
@@ -338,18 +338,41 @@ export default function BriefingModule() {
         <div style={{ fontSize: 12, color: 'var(--cp-dim)', marginBottom: 20 }}>No saved briefings yet.</div>
       ) : (
         <div style={{ marginBottom: 20 }}>
-          {shown.map(b => (
-            <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 0', borderBottom: '1px solid var(--cp-border3)' }}>
-              <button onClick={() => openSavedBriefing(b.id)} style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}>
-                <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, color: 'var(--cp-txt)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.name}</div>
-                <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 2 }}>
-                  {b.route?.dep} → {b.route?.arr} · {shortDate(b.savedAt)}
-                </div>
-              </button>
-              <button onClick={() => deleteSavedBriefing(b.id)} title="Delete" aria-label={`Delete ${b.name}`}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
-            </div>
-          ))}
+          {shown.map(b => {
+            const r = savedRowInfo(b)
+            const join = (...parts) => parts.filter(Boolean).join(' · ')
+            const times = [r.std && `STD ${r.std}`, r.sta && `STA ${r.sta}`].filter(Boolean).join(' → ')
+            const mono = { fontFamily: 'var(--cb-font-mono)' }
+            const detail = { ...mono, fontSize: 12, color: 'var(--cp-dim)', marginTop: 3 }
+            return (
+              <div key={b.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', marginBottom: 8, border: '1px solid var(--cp-border)', borderRadius: 10, background: 'var(--cp-bg2)' }}>
+                <button onClick={() => openSavedBriefing(b.id)} style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}>
+                  {r.customName && <div style={{ ...mono, fontSize: 13, color: 'var(--cp-txt)', marginBottom: 3 }}>{r.customName}</div>}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {r.flight && <span style={{ ...mono, fontSize: 15, color: 'var(--cp-txt)' }}>{r.flight}</span>}
+                    <span style={{ ...mono, fontSize: 14 }}>
+                      <span style={{ color: ROLE_COLORS['DEPARTURE'] }}>{b.route?.dep}</span> → <span style={{ color: ROLE_COLORS['ARRIVAL'] }}>{b.route?.arr}</span>
+                    </span>
+                    <span style={{ ...mono, fontSize: 10, letterSpacing: '0.12em', padding: '1px 6px', borderRadius: 4,
+                      ...(r.isOfp ? { background: 'var(--cp-accdim)', color: 'var(--cp-acc)' } : { border: '1px solid var(--cp-border)', color: 'var(--cp-dim)' }) }}>
+                      {r.isOfp ? 'OFP' : 'MANUAL'}
+                    </span>
+                  </div>
+                  {r.isOfp ? (
+                    <>
+                      <div style={detail}>{join(r.tail, r.type, r.ofpNo && `OFP ${r.ofpNo}`)}</div>
+                      <div style={{ ...detail, marginTop: 2 }}>{join(times, r.stdDate)}</div>
+                    </>
+                  ) : (
+                    <div style={detail}>{r.routePoints ? `Route drawn · ${r.routePoints} points` : 'No route'}</div>
+                  )}
+                  <div style={{ ...mono, fontSize: 11, color: 'var(--cp-dim)', marginTop: 4 }}>saved {formatSnapshotStamp(b.savedAt)}</div>
+                </button>
+                <button onClick={() => deleteSavedBriefing(b.id)} title="Delete" aria-label={`Delete ${b.name}`}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
+              </div>
+            )
+          })}
           {saves.length > PAGE_SIZE && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 12 }}>
               <button className="cp-btn" onClick={() => setPage(cur - 1)} disabled={cur === 1}

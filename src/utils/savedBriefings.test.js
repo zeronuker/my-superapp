@@ -1,5 +1,31 @@
 import { describe, it, expect } from 'vitest'
-import { autoBriefingName, formatSnapshotStamp, sortByNewest, findOldest, isAtCap, pickNextAfterDelete, makeBriefingId } from './savedBriefings'
+import { autoBriefingName, formatSnapshotStamp, savedRowInfo, sortByNewest, findOldest, isAtCap, pickNextAfterDelete, makeBriefingId } from './savedBriefings'
+
+describe('savedRowInfo', () => {
+  const savedAt = Date.UTC(2026, 8, 15, 13, 2)
+  const ofpRoute = {
+    dep: 'WMKK', arr: 'WSSS',
+    routeText: 'WMKK ABC:3.1:101.7 DEF:2.5:102.0 WSSS',
+    flightDetails: { flight: 'MH2623', info: { tail: '9M-MXA', type: 'B737-800WS/CFM56-7B24', ofpNo: '41', std: '2026-09-15T14:20:00Z', sta: '2026-09-15T16:05:00Z' } },
+  }
+  it('reads an OFP save: flight, tail, type, OFP number, UTC times and date', () => {
+    const r = savedRowInfo({ name: autoBriefingName(ofpRoute, savedAt), route: ofpRoute, savedAt })
+    expect(r).toMatchObject({ isOfp: true, flight: 'MH2623', tail: '9M-MXA', type: 'B737-800WS/CFM56-7B24', ofpNo: '41', std: '14:20Z', sta: '16:05Z', stdDate: '15 Sep', routePoints: 2 })
+  })
+  it('reads a manual save: no flight details, counts plain fixes', () => {
+    const route = { dep: 'WMKK', arr: 'WBKK', routeText: 'WMKK KANKA VPL WBKK' }
+    const r = savedRowInfo({ name: autoBriefingName(route, savedAt), route, savedAt })
+    expect(r).toMatchObject({ isOfp: false, flight: null, tail: null, std: null, stdDate: null, routePoints: 2 })
+  })
+  it('counts no route points when there is no route text', () => {
+    expect(savedRowInfo({ name: 'x', route: { dep: 'WMKK', arr: 'WMKJ' }, savedAt }).routePoints).toBe(0)
+  })
+  it('gives customName only when the name was changed from the auto one', () => {
+    const route = { dep: 'WMKK', arr: 'WMKJ' }
+    expect(savedRowInfo({ name: autoBriefingName(route, savedAt), route, savedAt }).customName).toBeNull()
+    expect(savedRowInfo({ name: 'KK charter check', route, savedAt }).customName).toBe('KK charter check')
+  })
+})
 
 describe('autoBriefingName', () => {
   it('formats dep + arr + date + time', () => {
