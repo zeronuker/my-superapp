@@ -18,6 +18,8 @@ import { useOnlineStatus } from '../utils/useOnlineStatus'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { syncBriefingsNow } from '../services/briefingCloud'
 import { CloudView, BriefingRowText } from './SavedBriefingsCloud'
+import { ModuleHeader, InfoBanner } from './ModuleChrome'
+import { useTransitionAnim } from '../useTransitionAnim'
 import { SyncStatus, SyncBar, rowSyncing } from './SyncStatus'
 
 // The front door for a flight: import the OFP (or type the flight in), check
@@ -85,6 +87,9 @@ export default function BriefingModule() {
   const [importError,  setImportError]  = useState('')
   const [page,         setPage]         = useState(cache?.savedPage || 1)   // saved-list page, kept when you leave the tab
   const [query,        setQuery]        = useState('')   // saved-list search, not kept
+  const [screen,       setScreen]       = useState('list')   // 'list' (saved briefings) | 'new' (set a flight up)
+  const animStyle = useCalculatorStore(s => s.settings.animStyle)
+  const screenAnim = useTransitionAnim(screen, ['list', 'new'], animStyle)
   const fileRef = useRef(null)
   const syncCode = useDutyLogStore(s => s.syncCode)
   const [syncBusy, setSyncBusy] = useState(false)
@@ -186,9 +191,15 @@ export default function BriefingModule() {
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+      {/* Two pages, like the Duty Log: the saved list, and the page + NEW opens to set a flight up. */}
+      <div key={screen} className={screenAnim.className} style={screenAnim.style}>
+      {screen === 'new' ? (
+      <>
+      <ModuleHeader title="NEW BRIEFING" subtitle="FLIGHT BRIEFING PACK"
+        back={<button onClick={() => setScreen('list')} className="cp-btn" style={{ fontSize: 10, padding: '4px 9px', marginBottom: 8, letterSpacing: '0.1em' }}>‹ BACK</button>}
+        action={<ResetButton onReset={handleReset} />} />
+      <div style={{ marginBottom: 14 }}>
         <Seg value={mode} onChange={setMode} options={[{ value: 'ofp', label: 'FROM OFP' }, { value: 'manual', label: 'MANUAL' }]} />
-        <ResetButton onReset={handleReset} />
       </div>
       {fileInput}
 
@@ -347,12 +358,29 @@ export default function BriefingModule() {
         </>
       )}
 
-      <SectionHeader title={`Saved Briefings${saves.length ? ` · ${found.length === saves.length ? saves.length : `${found.length} of ${saves.length}`}` : ''}`} />
-      {saves.length === 0 ? (
-        <div style={{ fontSize: 12, color: 'var(--cp-dim)', marginBottom: 20 }}>No saved briefings yet.</div>
+      <div style={{ position: 'sticky', bottom: 0, background: 'var(--cp-bg)', borderTop: '1px solid var(--cp-border3)', padding: '10px 0', marginTop: 8 }}>
+        <button className="cp-btn" onClick={openIt} disabled={!ready}
+          style={{
+            width: '100%', opacity: ready ? 1 : 0.4, padding: '14px 10px', fontSize: 11, borderRadius: 6, letterSpacing: '0.16em',
+            border: '2px solid var(--cp-green)', color: 'var(--cp-green)',
+            background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
+          }}>{isOnline ? 'GENERATE BRIEFING' : 'OFFLINE — CONNECT TO GENERATE'}</button>
+      </div>
+      </>
       ) : (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ position: 'relative', marginBottom: 10 }}>
+      <>
+      <ModuleHeader title="BRIEFING" subtitle="FLIGHT BRIEFING PACK" action={
+        <button onClick={() => setScreen('new')} className="cp-btn" style={{
+          color: 'var(--cp-acc)', borderColor: 'var(--cp-acc)', background: 'var(--cp-accdim)',
+          display: 'inline-flex', alignItems: 'center', gap: 5, letterSpacing: '0.1em',
+        }}>+ NEW</button>
+      } />
+
+      <InfoBanner>Saved briefings are stored locally on this device. Use Cloud Sync in Settings for an optional online sync.</InfoBanner>
+
+      {saves.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ position: 'relative' }}>
             <input className="cp-input" style={{ width: '100%', boxSizing: 'border-box', paddingRight: 32 }} placeholder="Search flight, ICAO, tail, name…"
               value={query} onChange={e => { setQuery(e.target.value); setPage(1) }} aria-label="Search saved briefings" />
             {query && (
@@ -360,6 +388,21 @@ export default function BriefingModule() {
                 style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 6px' }}>×</button>
             )}
           </div>
+          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.6, marginTop: 6 }}>
+            Search by flight no, route, tail, aircraft type or OFP number.
+          </div>
+        </div>
+      )}
+
+      <div className="cp-label" style={{ marginBottom: 10 }}>
+        Saved · offline{query.trim() ? ` · ${found.length} of ${saves.length} match${found.length === 1 ? '' : 'es'}` : ''}
+      </div>
+      {saves.length === 0 ? (
+        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', letterSpacing: '0.08em', textAlign: 'center', padding: '32px 0' }}>
+          NO SAVED BRIEFINGS YET — TAP NEW TO START
+        </div>
+      ) : (
+        <div style={{ marginBottom: 20 }}>
           {found.length === 0 && <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No saved briefings match.</div>}
           {shown.map(b => {
             const synced = cloud.synced[b.id] === b.name
@@ -367,11 +410,12 @@ export default function BriefingModule() {
             return (
               <div key={b.id} style={{ position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', marginBottom: 8, border: `1px solid ${syncing ? 'var(--cp-acc)' : 'var(--cp-border)'}`, borderRadius: 10, background: 'var(--cp-bg2)' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                <button onClick={() => openSavedBriefing(b.id)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}>
-                  <BriefingRowText r={briefingRow(b)} />
-                </button>
-                <div style={{ marginTop: 6 }}>
-                  <SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={syncNow} />
+                {/* A div, not a button: the sync status inside it can be a button. */}
+                <div role="button" tabIndex={0} onClick={() => openSavedBriefing(b.id)}
+                  onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openSavedBriefing(b.id) } }}
+                  style={{ width: '100%', textAlign: 'left', cursor: 'pointer', color: 'inherit' }}>
+                  <BriefingRowText r={briefingRow(b)}
+                    status={<SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={syncNow} />} />
                 </div>
                 </div>
                 <button onClick={() => deleteSavedBriefing(b.id)} title="Delete" aria-label={`Delete ${b.name}`}
@@ -396,15 +440,11 @@ export default function BriefingModule() {
         </div>
       )}
 
-      <CloudView />
+      <div className="cp-divider" style={{ margin: '18px 0' }} />
 
-      <div style={{ position: 'sticky', bottom: 0, background: 'var(--cp-bg)', borderTop: '1px solid var(--cp-border3)', padding: '10px 0', marginTop: 8 }}>
-        <button className="cp-btn" onClick={openIt} disabled={!ready}
-          style={{
-            width: '100%', opacity: ready ? 1 : 0.4, padding: '14px 10px', fontSize: 11, borderRadius: 6, letterSpacing: '0.16em',
-            border: '2px solid var(--cp-green)', color: 'var(--cp-green)',
-            background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
-          }}>{isOnline ? 'GENERATE BRIEFING' : 'OFFLINE — CONNECT TO GENERATE'}</button>
+      <CloudView />
+      </>
+      )}
       </div>
     </div>
   )

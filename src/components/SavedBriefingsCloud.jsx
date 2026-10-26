@@ -5,6 +5,8 @@ import { viewBriefings, importBriefings, openCloudBriefing } from '../services/b
 import { ROLE_COLORS } from '../utils/metarSeverity'
 import { formatSnapshotStamp } from '../utils/savedBriefings'
 import ScanViewfinderLoader from '../modules/dutylog/components/ScanViewfinderLoader'
+import QrScanner from '../modules/dutylog/components/QrScanner'
+import { usePresence } from '../useTransitionAnim'
 import Collapse from './Collapse'
 import { Dots } from './SyncStatus'
 
@@ -12,7 +14,8 @@ const mono = 'var(--cb-font-mono)'
 const hint = { fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.5 }
 
 // What a Saved Briefings row shows, from briefingRow(): used by the saved list and the cloud list.
-export function BriefingRowText({ r }) {
+// `status` (the sync badge) sits at the right end of the "saved" line.
+export function BriefingRowText({ r, status }) {
   const join = (...parts) => parts.filter(Boolean).join(' · ')
   const times = [r.std && `STD ${r.std}`, r.sta && `STA ${r.sta}`].filter(Boolean).join(' → ')
   const detail = { fontFamily: mono, fontSize: 12, color: 'var(--cp-dim)', marginTop: 3 }
@@ -35,29 +38,47 @@ export function BriefingRowText({ r }) {
           <div style={{ ...detail, marginTop: 2 }}>{join(times, r.stdDate)}</div>
         </>
       )}
-      <div style={{ fontFamily: mono, fontSize: 11, color: 'var(--cp-dim)', marginTop: 4 }}>saved {formatSnapshotStamp(r.savedAt)}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 4 }}>
+        <span style={{ fontFamily: mono, fontSize: 11, color: 'var(--cp-dim)' }}>saved {formatSnapshotStamp(r.savedAt)}</span>
+        {status}
+      </div>
     </>
   )
 }
 
-// "Have a code? View it here" — read-only look at the saved briefings behind a sync code, then
-// optionally import them (replaces the list on this device, like the Duty Log's import).
-// The code is the Duty Log's: importing makes it this device's code.
+// "Have a code? Enter here to view it" — laid out like the Duty Log's: read-only look at the saved
+// briefings behind a sync code (typed, picked from the recent codes, or scanned), then optionally
+// import them (replaces the list on this device). The code is the Duty Log's, and so is the list
+// of recent codes: importing makes the code this device's code.
 export function CloudView() {
   const deviceCode = useDutyLogStore(s => s.syncCode)
-  const [input, setInput] = useState(deviceCode || '')
+  const viewCodeHistory = useDutyLogStore(s => s.viewCodeHistory)
+  const addViewCode = useDutyLogStore(s => s.addViewCode)
+  const removeViewCode = useDutyLogStore(s => s.removeViewCode)
+  const [input, setInput] = useState('')
   const [viewed, setViewed] = useState(null)   // { code, items }
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [confirm, setConfirm] = useState(false)
   const [viewing, setViewing] = useState('')   // the code being looked up, while the list loads
+  const [scanning, setScanning] = useState(false)
+  const scanPresence = usePresence(scanning)
 
-  const view = async () => {
-    const code = input.trim().toUpperCase()
+  const view = async (typed) => {
+    const code = (typed ?? input).trim().toUpperCase()
     if (!CODE_RE.test(code)) { setError('Code must look like XXXX-XXXX-XXXX'); return }
     setError(''); setViewing(code); setConfirm(false)
-    try { setViewed({ code, items: await viewBriefings(code) }) } catch (e) { setError(e.message) }
+    try { setViewed({ code, items: await viewBriefings(code) }); addViewCode(code) } catch (e) { setError(e.message) }
     setViewing('')
+  }
+
+  // A scanned code that has the shape of a sync code is looked up straight away; anything else
+  // just fills the box.
+  const handleScan = (data) => {
+    setScanning(false)
+    const code = (data || '').trim().toUpperCase()
+    setInput(code)
+    if (CODE_RE.test(code)) view(code)
   }
 
   const doImport = async () => {
@@ -78,15 +99,39 @@ export function CloudView() {
   return (
     <div style={{ marginBottom: 20 }}>
       <div className="cp-label" style={{ marginBottom: 6 }}>Have a code? Enter here to view it</div>
-      <div style={{ ...hint, marginBottom: 8 }}>
+      <div style={{ ...hint, fontSize: 8, marginBottom: 8 }}>
         View the saved briefings behind a sync code without changing anything on this device. You can choose to import them below.
       </div>
+      <button onClick={() => setScanning(true)} className="cp-btn" style={{ width: '100%', padding: '8px 10px', marginBottom: 8 }}>TAP TO SCAN</button>
       <div style={{ display: 'flex', gap: 8 }}>
         <input value={input} onChange={e => setInput(e.target.value)} placeholder="XXXX-XXXX-XXXX" className="cp-input" style={{ flex: 1 }}
           aria-label="Sync code" />
-        <button onClick={view} disabled={!!viewing || busy || !input.trim()} className="cp-btn" style={{ padding: '8px 10px' }}>{viewing ? <Dots>VIEW</Dots> : 'VIEW'}</button>
+        <button onClick={() => view()} disabled={!!viewing || busy || !input.trim()} className="cp-btn" style={{ padding: '8px 10px' }}>{viewing ? <Dots>VIEW</Dots> : 'VIEW'}</button>
       </div>
-      {error && <div style={{ ...hint, color: 'var(--cp-red)', marginTop: 6 }}>{error}</div>}
+
+      {viewCodeHistory.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          {viewCodeHistory.map((code) => (
+            <span key={code} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontFamily: mono, fontSize: 9, letterSpacing: '0.06em', color: 'var(--cp-txt)',
+              background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 4,
+              padding: '4px 4px 4px 8px',
+            }}>
+              <button onClick={() => { setInput(code); view(code) }} disabled={!!viewing}
+                style={{ background: 'none', border: 'none', color: 'inherit', fontFamily: 'inherit', fontSize: 'inherit', letterSpacing: 'inherit', cursor: 'pointer', padding: 0 }}>{code}</button>
+              <button onClick={() => removeViewCode(code)} aria-label={`remove ${code}`}
+                style={{ background: 'none', border: 'none', color: 'var(--cp-dim)', cursor: 'pointer', padding: '0 2px', fontSize: 11, lineHeight: 1 }}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {error && <div style={{ ...hint, fontSize: 8, color: 'var(--cp-red)', marginTop: 6 }}>{error}</div>}
+
+      {scanPresence.mounted && (
+        <QrScanner onResult={handleScan} onClose={() => setScanning(false)} closing={scanPresence.closing} />
+      )}
 
       {/* Same loader as the Duty Log's code lookup. */}
       <Collapse open={!!viewing}>

@@ -4,6 +4,7 @@ import Collapse from '../../../components/Collapse'
 import QrScanner from '../components/QrScanner'
 import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
 import { Dots, SyncStatus, SyncBar, rowSyncing } from '../../../components/SyncStatus'
+import { ModuleHeader, InfoBanner } from '../../../components/ModuleChrome'
 import { CODE_RE } from '../services/sync'
 import { sectorStripeColors, aircraftStripeColors, logSegmentColors } from '../utils/sectorColors'
 import { formatHHMM } from '../utils/formatHHMM'
@@ -577,37 +578,14 @@ export default function LogList({
 
   return (
     <div>
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        borderBottom: '1px solid var(--cp-border)', paddingBottom: 10, marginBottom: 14,
-      }}>
-        <div>
-          <div style={{ fontFamily: mono, fontSize: 13, fontWeight: 500, letterSpacing: '0.12em', color: 'var(--cp-txt)' }}>DUTY LOG</div>
-          <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', color: 'var(--cp-acc)' }}>FLIGHT DUTY RECORD</div>
-        </div>
+      <ModuleHeader title="DUTY LOG" subtitle="FLIGHT DUTY RECORD" action={
         <button onClick={onNew} className="cp-btn" style={{
           color: 'var(--cp-acc)', borderColor: 'var(--cp-acc)', background: 'var(--cp-accdim)',
           display: 'inline-flex', alignItems: 'center', gap: 5, letterSpacing: '0.1em',
         }}>+ NEW</button>
-      </div>
+      } />
 
-      <div style={{
-        background: 'rgba(59,141,255,0.06)',
-        border: '1px solid rgba(59,141,255,0.2)',
-        borderLeft: '3px solid var(--cb-blue)',
-        borderRadius: 4,
-        padding: '10px 14px',
-        fontFamily: mono,
-        fontSize: 11,
-        letterSpacing: '0.08em',
-        lineHeight: 1.7,
-        color: 'var(--cp-dim)',
-        textAlign: 'justify',
-        marginBottom: 14,
-      }}>
-        <span style={{ color: 'var(--cb-blue)', fontWeight: 700, letterSpacing: '0.15em' }}>ℹ INFO · </span>
-        Duty logs are stored locally on this device. Use Cloud Sync in Settings for an optional online sync.
-      </div>
+      <InfoBanner>Duty logs are stored locally on this device. Use Cloud Sync in Settings for an optional online sync.</InfoBanner>
 
       <Collapse open={!!promptLog}>
         {promptLog && (

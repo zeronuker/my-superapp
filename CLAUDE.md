@@ -41,8 +41,11 @@ src/
   App.jsx                     # shell: header, tab bar, settings, theme/zoom.
                               #   CALCULATORS array = the tab registry — add new tabs here.
   components/                 # one file per calculator tab (+ shared UI)
-    BriefingModule.jsx        #   Briefing tab: the front door for a flight (import
-                              #   the OFP or type it in, saved briefings (5 per page), GENERATE BRIEFING)
+    BriefingModule.jsx        #   Briefing tab, laid out like the Duty Log (ModuleChrome.jsx
+                              #   header + info banner shared with it): a list page (saved
+                              #   briefings, 5 per page, "Have a code?" box with shared recent
+                              #   codes) and a New page opened by + NEW (import the OFP or type
+                              #   it in, GENERATE BRIEFING)
     METARTAFCalculator.jsx    #   METAR/TAF tab.  NotamViewer.jsx = own NOTAM tab
     B737Performance.jsx, FTLCalculator.jsx, InterpolationCalculator.jsx,
     CurrencyCalculator.jsx, CombinedCalculator.jsx (basic+scientific),
