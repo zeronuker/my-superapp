@@ -5,9 +5,10 @@ import { getRoleStyle } from '../utils/metarSeverity'
 import { useCalculatorStore } from '../store/calculatorStore'
 import ResetButton from './ResetButton'
 
-// Airline logos — same public, CORS-open, key-less endpoint Malaysia
+// Airline logos and names — same public, CORS-open, key-less endpoint Malaysia
 // Airports' own site calls client-side. Cached at module scope so the list
 // (108 airlines, ~30KB) is fetched once per app session, not per tab visit.
+// The names name the codeshare partners of Melbourne/Sydney flights.
 let airlineLogosCache = null
 async function loadAirlineLogos() {
   if (airlineLogosCache) return airlineLogosCache
@@ -21,7 +22,7 @@ async function loadAirlineLogos() {
       signal: AbortSignal.timeout(8000),
     })
     const data = await r.json()
-    airlineLogosCache = Object.fromEntries(data.map(a => [a.airlineCode, a.airlineImage]))
+    airlineLogosCache = Object.fromEntries(data.map(a => [a.airlineCode, { image: a.airlineImage, name: a.airlineName }]))
   } catch {
     airlineLogosCache = {}
   }
@@ -35,6 +36,8 @@ const AIRPORTS = [
   { label: 'KCH — Kuching',         value: 'KCH' },
   { label: 'LGK — Langkawi',        value: 'LGK' },
   { label: 'PEN — Penang',          value: 'PEN' },
+  { label: 'MEL — Melbourne',       value: 'MEL' },
+  { label: 'SYD — Sydney',          value: 'SYD' },
 ]
 
 const DAYS = [
@@ -70,7 +73,7 @@ function statusColor(status, leg) {
   if (/DELAY|CANCEL/.test(s)) return 'var(--cp-red)'
   if (/RETIME/.test(s)) return 'var(--cp-orange)'
   if (/BOARD|FINAL CALL/.test(s)) return 'var(--cp-yellow)'
-  if (/DEPART/.test(s)) return 'var(--cp-green)'
+  if (/DEPART|LANDED|ARRIVED/.test(s)) return 'var(--cp-green)'
   if (leg === 'A') {
     if (/LAST BAG|^CLOSED$/.test(s)) return 'var(--cp-green)'
     if (/OPEN|FIRST BAG/.test(s)) return 'var(--cp-acc2)'
@@ -101,7 +104,8 @@ const CATEGORY = {
 
 const hm = (t) => (t ? t.slice(11, 16) : '—')
 
-function FlightCard({ f, logo }) {
+function FlightCard({ f, airlines }) {
+  const logo = airlines[f.aircraftOperator]?.image
   const color = statusColor(f.status, f.leg)
   const gateColor = gateStatusColor(f.gate?.status)
   const place = f.leg === 'A' ? f.origin : f.destination
@@ -164,7 +168,7 @@ function FlightCard({ f, logo }) {
             }}>
               {codeshares.map(cs => (
                 <div key={cs.afsKey} style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-txt)' }}>
-                  {cs.flightNumber} <span style={{ color: 'var(--cp-dim)' }}>{cs.airline?.name}</span>
+                  {cs.flightNumber} <span style={{ color: 'var(--cp-dim)' }}>{cs.airline?.name || airlines[cs.airlineCode]?.name?.toUpperCase()}</span>
                 </div>
               ))}
             </div>
@@ -189,6 +193,7 @@ function FlightCard({ f, logo }) {
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 5, fontFamily: 'var(--cb-font-mono)', fontSize: 11 }}>
           <div><span style={{ color: 'var(--cp-dim)' }}>SCHED </span><span style={{ color: 'var(--cp-txt)', fontWeight: 700 }}>{hm(f.scheduledTime)}</span></div>
           <div><span style={{ color: 'var(--cp-dim)' }}>CHECK-IN </span><span style={{ color: 'var(--cp-txt)' }}>{f.checkIn?.counters || '—'}</span></div>
+          {f.terminal && <div><span style={{ color: 'var(--cp-dim)' }}>TERMINAL </span><span style={{ color: 'var(--cp-txt)' }}>{f.terminal}</span></div>}
         </div>
       </div>
     </div>
@@ -204,9 +209,9 @@ export default function MalaysiaAirports() {
   const [manualFetch, setManualFetch] = useState(false)
   const [scanTarget, setScanTarget]   = useState('')
   const [error, setError]             = useState(null)
-  const [logos, setLogos]             = useState({})
+  const [airlines, setAirlines]       = useState({})
 
-  useEffect(() => { loadAirlineLogos().then(setLogos) }, [])
+  useEffect(() => { loadAirlineLogos().then(setAirlines) }, [])
 
   const search = async () => {
     if (criteria !== 'all' && !query.trim()) {
@@ -335,7 +340,7 @@ export default function MalaysiaAirports() {
               No flights found.
             </div>
           ) : (
-            results.map(f => <FlightCard key={f.afsKey} f={f} logo={logos[f.aircraftOperator]} />)
+            results.map(f => <FlightCard key={f.afsKey} f={f} airlines={airlines} />)
           )}
         </div>
       )}

@@ -190,6 +190,20 @@ when asked. The service worker caches aggressively; users get an update prompt
   lookup here or anywhere else in the app — Malaysia Airports' gate finder
   (`api/gatefinder.js`) uses Malaysia Airports' own public API directly, not
   AeroDataBox or SkyLink.
+- **Melbourne and Sydney in the Malaysia Airports tab** (`api/_airports.js`,
+  answered by the same `api/gatefinder.js`, because the project is at Vercel's
+  12-function cap) — read from the airports' own website endpoints, keyless and
+  undocumented, so they can change or block us: Melbourne
+  `/api/data/search` (gate in the list), Sydney `/_a/flights` (list only; the gate
+  is in one `/_a/flights/<no>/<id>/departing|picking-up` call per flight, made
+  only for the up-to-25 flights returned and skipped for finished ones). Both are
+  translated into the Malaysia flight shape. Codeshare names: from that day's
+  flights, then the Malaysia airline list in `MalaysiaAirports.jsx`, else the
+  bare flight number. Times are airport-local; today starts an hour ago.
+  Brisbane and Perth were checked and left out: their sites sit behind bot
+  checks (Cloudflare / "Client Challenge") that block server requests, and
+  getting past those is not on. `vercel dev` cannot serve the Vite app here;
+  verify the UI with `npm run dev` plus the handler run directly in node.
 - **CARTO basemaps (`CartoRouteMap.jsx`)** — the briefing's Dark/Vector map
   tabs load vector styles directly from `basemaps.cartocdn.com` (client-side,
   no proxy). CARTO now requires an API key on every basemap request (this
