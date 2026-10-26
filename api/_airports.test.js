@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { dayWindow, fromMelbourne, fromSydney, pick, fetchMelbourne, fetchSydney } from './_airports.js'
+import { dayWindow, fromMelbourne, fromSydney, pick, fetchMelbourne, fetchSydney, fromAviationstack, fetchAviationstack, fetchAuAirport } from './_airports.js'
 
 // Trimmed copies of real replies (26 Oct 2026).
 const melHit = (o = {}) => ({
@@ -150,5 +150,98 @@ describe('fetchMelbourne / fetchSydney', () => {
   it('Sydney: an unreadable list is an error', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => reply(null, false)))
     await expect(fetchSydney({ code: 'A', dayKey: 0, key: 'all', value: '', now })).rejects.toThrow('Sydney Airport data unavailable')
+  })
+})
+
+// Real aviationstack records (26 Oct 2026), trimmed. Times are Perth wall clock labelled +00:00.
+const avs = (o = {}) => ({
+  flight_date: '2026-10-26', flight_status: 'active',
+  flight: { number: '556', iata: 'VA556', codeshared: null }, airline: { name: 'Virgin Australia' },
+  departure: { airport: 'Perth International', iata: 'PER', terminal: '1', gate: '43', scheduled: '2026-10-26T10:10:00+00:00' },
+  arrival: { airport: 'Sydney Kingsford Smith Airport', iata: 'SYD', terminal: '2', gate: '39', scheduled: '2026-10-26T17:25:00+00:00' },
+  ...o,
+})
+const avsCs = (iata, airline) => avs({
+  flight: { number: iata.slice(2), iata, codeshared: { airline_name: 'virgin australia', flight_iata: 'va556' } }, airline: { name: airline },
+})
+// 12:00 Perth on the 26th.
+const perthNoon = Date.parse('2026-10-26T04:00:00Z')
+
+describe('fromAviationstack', () => {
+  const rows = [avs(), avsCs('SQ6879', 'Singapore Airlines'), avsCs('QR8484', 'Qatar Airways'),
+    avs({ flight_date: '2026-10-25', departure: { ...avs().departure, scheduled: '2026-10-25T10:10:00+00:00', gate: '46' } })]
+  const out = fromAviationstack(rows, 'PER', 'D', perthNoon)
+
+  it('folds the partner records into the operating flight and drops yesterday', () => {
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({
+      flightNumber: 'VA 556', name: 'VIRGIN AUSTRALIA', aircraftOperator: 'VA', status: 'AIRBORNE', leg: 'D',
+      terminal: '1', gate: { name: '43', status: '' }, scheduledTime: '2026-10-26T10:10:00',
+      destination: { city: 'SYDNEY KINGSFORD SMITH(SYD)' },
+    })
+    expect(out[0].codeShareFlights.map(c => [c.flightNumber, c.airline.name])).toEqual([['SQ 6879', 'SINGAPORE AIRLINES'], ['QR 8484', 'QATAR AIRWAYS']])
+  })
+  it('a search by a partner number still shows the operating flight', () => {
+    const [f] = fromAviationstack([avsCs('SQ6879', 'Singapore Airlines')], 'PER', 'D', perthNoon)
+    expect(f.flightNumber).toBe('VA 556')
+    expect(f.name).toBe('VIRGIN AUSTRALIA')
+    expect(f.codeShareFlights.map(c => c.flightNumber)).toEqual(['SQ 6879'])
+  })
+  it('arrivals read the arrival side, and Brisbane terminals get their words', () => {
+    const bne = avs({
+      flight: { number: '938', iata: 'QF938', codeshared: null }, airline: { name: 'Qantas' },
+      departure: { airport: 'Perth International', iata: 'PER', terminal: '4', gate: '14', scheduled: '2026-10-26T12:15:00+00:00' },
+      arrival: { airport: 'Brisbane International', iata: 'BNE', terminal: 'D', gate: null, scheduled: '2026-10-26T20:50:00+00:00' },
+    })
+    const [a] = fromAviationstack([bne], 'BNE', 'A', Date.parse('2026-10-26T04:00:00Z'))
+    expect(a).toMatchObject({ leg: 'A', terminal: 'Domestic', gate: { name: '' }, origin: { city: 'PERTH(PER)' }, scheduledTime: '2026-10-26T20:50:00' })
+    expect(fromAviationstack([bne], 'PER', 'A', perthNoon)).toEqual([]) // wrong side
+  })
+})
+
+describe('fetchAviationstack', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const args = (o = {}) => ({ terminal: 'PER', code: 'D', dayKey: 0, key: 'flight', value: 'va 556', now: perthNoon, apiKey: 'K', ...o })
+  const stub = (body) => { const f = vi.fn(async () => reply(body)); vi.stubGlobal('fetch', f); return f }
+
+  it('sends one request with the airport and flight, and reuses the answer for ten minutes', async () => {
+    const f = stub({ data: [avs()] })
+    expect(await fetchAviationstack(args())).toHaveLength(1)
+    const url = new URL(f.mock.calls[0][0])
+    expect(Object.fromEntries(url.searchParams)).toEqual({ access_key: 'K', flight_iata: 'VA556', dep_iata: 'PER' })
+    await fetchAviationstack(args({ now: perthNoon + 9 * 60_000 }))
+    expect(f).toHaveBeenCalledTimes(1)
+    await fetchAviationstack(args({ now: perthNoon + 11 * 60_000 }))
+    expect(f).toHaveBeenCalledTimes(2)
+  })
+  it('arrival searches filter on arr_iata', async () => {
+    const f = stub({ data: [] })
+    await fetchAviationstack(args({ terminal: 'BNE', code: 'A', value: 'QF861' }))
+    expect(new URL(f.mock.calls[0][0]).searchParams.get('arr_iata')).toBe('BNE')
+  })
+  it('an unknown flight is an empty list, not an error', async () => {
+    stub({ data: [] })
+    expect(await fetchAviationstack(args({ value: 'ZZ999' }))).toEqual([])
+  })
+  it('refuses anything but a flight number for today, before spending a request', async () => {
+    const f = stub({ data: [] })
+    for (const o of [{ value: '' }, { value: 'Singapore' }, { key: 'city' }, { dayKey: 1 }, { dayKey: -1 }]) {
+      await expect(fetchAviationstack(args({ value: 'XX1', ...o }))).rejects.toMatchObject({ status: 400 })
+    }
+    expect(f).not.toHaveBeenCalled()
+  })
+  it('missing key is a 503; a used-up plan is a 429; a restricted call or junk is a 502', async () => {
+    stub({ data: [] })
+    await expect(fetchAviationstack(args({ value: 'AB1', apiKey: undefined }))).rejects.toMatchObject({ status: 503 })
+    stub({ error: { code: 'usage_limit_reached' } })
+    await expect(fetchAviationstack(args({ value: 'AB2' }))).rejects.toMatchObject({ status: 429 })
+    stub({ error: { code: 'function_access_restricted' } })
+    await expect(fetchAviationstack(args({ value: 'AB3' }))).rejects.toMatchObject({ status: 502 })
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => { throw new Error('html') } })))
+    await expect(fetchAviationstack(args({ value: 'AB4' }))).rejects.toMatchObject({ status: 502 })
+  })
+  it('fetchAuAirport sends PER and BNE here', async () => {
+    stub({ data: [avs()] })
+    expect(await fetchAuAirport(args({ value: 'va556', now: perthNoon + 99 * 60_000 }))).toHaveLength(1)
   })
 })

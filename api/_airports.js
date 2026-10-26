@@ -1,16 +1,26 @@
-// Melbourne and Sydney flight boards, translated into the same flight shape
+// Melbourne, Sydney, Perth and Brisbane, translated into the same flight shape
 // api/gatefinder.js returns for Malaysia Airports, so one FlightCard shows all
-// of them. Both are the keyless endpoints the airports' own websites call (no
-// docs, no promises): Melbourne's list carries the gate, Sydney's does not, so
-// Sydney gates come from one detail call per flight we actually return.
+// of them. Melbourne and Sydney are the keyless endpoints their own websites
+// call (no docs, no promises): Melbourne's list carries the gate, Sydney's does
+// not, so Sydney gates come from one detail call per flight we actually return.
+// Perth and Brisbane block server requests, so they come from aviationstack's
+// free plan instead: one request per flight number, today only, ~100 a month.
 
 const MEL_URL = 'https://www.melbourneairport.com.au/api/data/search'
 const SYD_URL = 'https://www.sydneyairport.com.au/_a/flights'
-const TZ = { MEL: 'Australia/Melbourne', SYD: 'Australia/Sydney' }
+const AVS_URL = 'https://api.aviationstack.com/v1/flights'
+const TZ = {
+  MEL: 'Australia/Melbourne', SYD: 'Australia/Sydney',
+  PER: 'Australia/Perth', BNE: 'Australia/Brisbane',
+}
 const TAKE = 25
 const FINISHED = /^(departed|arrived|landed|cancelled)$/i
-
-export const AUS_AIRPORTS = new Set(Object.keys(TZ))
+const AVS_STATUS = {
+  scheduled: 'SCHEDULED', active: 'AIRBORNE', landed: 'LANDED',
+  cancelled: 'CANCELLED', incident: 'INCIDENT', diverted: 'DIVERTED',
+}
+const AVS_TERMINAL = { BNE: { D: 'Domestic', I: 'International' } }
+const AVS_CACHE_MS = 10 * 60_000
 
 const squash = (s) => String(s ?? '').replace(/\s+/g, '').toUpperCase()
 const spaced = (n) => String(n ?? '').replace(/^([A-Z0-9]{2})(\d)/, '$1 $2')
@@ -144,3 +154,66 @@ export async function fetchSydney({ code, dayKey, key, value, now = Date.now() }
     return fromSydney(i, names, detail)
   }))
 }
+
+// aviationstack lists every codeshare partner as its own record next to the
+// operating flight's, all with the same gate; fold them back into one flight.
+// Its times are airport-local wall clock labelled "+00:00", so the label is
+// dropped. `airport` is the one we asked about, `code` D or A picks its side.
+export function fromAviationstack(records, airport, code, now = Date.now()) {
+  const side = code === 'A' ? 'arrival' : 'departure'
+  const other = code === 'A' ? 'departure' : 'arrival'
+  const today = dayWindow(TZ[airport], 0, now).date
+  const groups = new Map()
+  for (const r of records) {
+    if (r[side]?.iata !== airport || r[side].scheduled?.slice(0, 10) !== today) continue
+    const main = (r.flight.codeshared?.flight_iata ?? r.flight.iata).toUpperCase()
+    const k = `${main}|${r[side].scheduled}`
+    groups.set(k, [...(groups.get(k) ?? []), { r, main }])
+  }
+  return [...groups].map(([k, rs]) => {
+    const op = rs.find(x => !x.r.flight.codeshared)?.r
+    const { r, main } = rs[0]
+    const s = r[side]
+    const o = r[other]
+    return {
+      afsKey: k, flightNumber: spaced(main), status: AVS_STATUS[r.flight_status] ?? String(r.flight_status ?? '').toUpperCase(),
+      leg: code === 'A' ? 'A' : 'D',
+      name: String(op ? op.airline?.name : r.flight.codeshared.airline_name).toUpperCase(),
+      aircraftOperator: codeOf(main),
+      [other === 'arrival' ? 'destination' : 'origin']: { city: `${String(o.airport ?? '').replace(/\s*(international\s+)?airport$|\s+international$/i, '').toUpperCase()}(${o.iata})` },
+      terminal: AVS_TERMINAL[airport]?.[s.terminal] ?? s.terminal ?? '',
+      gate: { name: s.gate ?? '', status: '' }, checkIn: { counters: '' },
+      scheduledTime: s.scheduled.slice(0, 19),
+      codeShareFlights: rs.filter(x => x.r.flight.codeshared).map(x => codeshare(x.r.flight.iata.toUpperCase(), { [codeOf(x.r.flight.iata.toUpperCase())]: String(x.r.airline?.name ?? '').toUpperCase() })),
+    }
+  })
+}
+
+const fail = (status, message) => Object.assign(new Error(message), { status })
+const avsCache = new Map()
+
+// Flight-number search only: that is what costs one of the plan's ~100
+// monthly requests. Identical searches within ten minutes reuse the answer.
+export async function fetchAviationstack({ terminal, code, dayKey, key, value, now = Date.now(), apiKey = process.env.AVIATIONSTACK_API_KEY }) {
+  const flight = squash(value)
+  if (key !== 'flight' || !/^[A-Z0-9]{2}\d{1,4}[A-Z]?$/.test(flight)) throw fail(400, 'Enter a flight number, e.g. VA556')
+  if (Number(dayKey) !== 0) throw fail(400, 'Perth and Brisbane only show today')
+  const cacheKey = `${terminal}|${code}|${flight}|${dayWindow(TZ[terminal], 0, now).date}`
+  const hit = avsCache.get(cacheKey)
+  if (hit && now - hit.at < AVS_CACHE_MS) return hit.flights
+  if (!apiKey) throw fail(503, 'Perth and Brisbane lookups are not set up')
+
+  const params = new URLSearchParams({ access_key: apiKey, flight_iata: flight, [code === 'A' ? 'arr_iata' : 'dep_iata']: terminal })
+  const { body } = await getJson(`${AVS_URL}?${params}`, 8000)
+  if (/^(usage|rate)_limit_reached$/.test(body?.error?.code)) throw fail(429, 'Monthly Perth/Brisbane lookup limit reached')
+  if (!Array.isArray(body?.data)) throw fail(502, 'Perth/Brisbane data unavailable')
+
+  const flights = fromAviationstack(body.data, terminal, code, now)
+  if (avsCache.size > 200) avsCache.clear()
+  avsCache.set(cacheKey, { at: now, flights })
+  return flights
+}
+
+const BOARDS = { MEL: fetchMelbourne, SYD: fetchSydney, PER: fetchAviationstack, BNE: fetchAviationstack }
+export const AU_AIRPORTS = new Set(Object.keys(BOARDS))
+export const fetchAuAirport = (args) => BOARDS[args.terminal](args)

@@ -1,5 +1,5 @@
 import { rateLimited } from './_rateLimit.js'
-import { AUS_AIRPORTS, fetchMelbourne, fetchSydney } from './_airports.js'
+import { AU_AIRPORTS, fetchAuAirport } from './_airports.js'
 
 // Malaysia Airports flight-status search — same endpoint their own
 // flight-information pages call from the browser. The API key below is the
@@ -10,10 +10,10 @@ import { AUS_AIRPORTS, fetchMelbourne, fetchSydney } from './_airports.js'
 const BASE = 'https://api.myairports.com.my/passenger-fids/api'
 const API_KEY = process.env.GATEFINDER_API_KEY || 'f02f252a781a4db584d1ae9fce22bed1'
 
-// MEL and SYD are not Malaysia Airports' own: they are answered from those
-// airports' websites (api/_airports.js) in the same flight shape. One function
-// for all of them, because the project is at Vercel's function cap.
-const TERMINALS = new Set(['KLIA', 'KLIA2', 'BKI', 'KCH', 'LGK', 'PEN', ...AUS_AIRPORTS])
+// MEL, SYD, PER and BNE are not Malaysia Airports' own: api/_airports.js answers
+// them in the same flight shape (airport websites, or aviationstack for PER and
+// BNE). One function for all of them, because the project is at Vercel's cap.
+const TERMINALS = new Set(['KLIA', 'KLIA2', 'BKI', 'KCH', 'LGK', 'PEN', ...AU_AIRPORTS])
 const CRITERIA = new Set(['all', 'flight', 'city', 'airline'])
 
 export default async function handler(req, res) {
@@ -40,9 +40,8 @@ export default async function handler(req, res) {
   })
 
   try {
-    if (AUS_AIRPORTS.has(terminal)) {
-      const fetchBoard = terminal === 'MEL' ? fetchMelbourne : fetchSydney
-      const flightStatuses = await fetchBoard({ code, dayKey: Number(dayKey), key, value: String(value) })
+    if (AU_AIRPORTS.has(terminal)) {
+      const flightStatuses = await fetchAuAirport({ terminal, code, dayKey: Number(dayKey), key, value: String(value) })
       res.setHeader('Cache-Control', 'no-store, no-cache')
       return res.status(200).json({ flightStatuses })
     }
@@ -55,6 +54,6 @@ export default async function handler(req, res) {
     res.status(upstream.ok ? 200 : 502).json(data)
   } catch (e) {
     const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
-    res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'Gate Finder API timed out' : (e?.message || String(e)) })
+    res.status(e?.status || (isTimeout ? 504 : 502)).json({ error: isTimeout ? 'Gate Finder API timed out' : (e?.message || String(e)) })
   }
 }

@@ -38,7 +38,12 @@ const AIRPORTS = [
   { label: 'PEN — Penang',          value: 'PEN' },
   { label: 'MEL — Melbourne',       value: 'MEL' },
   { label: 'SYD — Sydney',          value: 'SYD' },
+  { label: 'PER — Perth',           value: 'PER' },
+  { label: 'BNE — Brisbane',        value: 'BNE' },
 ]
+
+// Perth and Brisbane come from a metered plan: flight number, today only.
+const FLIGHT_ONLY = new Set(['PER', 'BNE'])
 
 const DAYS = [
   { label: 'Yesterday', value: -1 },
@@ -73,7 +78,7 @@ function statusColor(status, leg) {
   if (/DELAY|CANCEL/.test(s)) return 'var(--cp-red)'
   if (/RETIME/.test(s)) return 'var(--cp-orange)'
   if (/BOARD|FINAL CALL/.test(s)) return 'var(--cp-yellow)'
-  if (/DEPART|LANDED|ARRIVED/.test(s)) return 'var(--cp-green)'
+  if (/DEPART|LANDED|ARRIVED|AIRBORNE/.test(s)) return 'var(--cp-green)'
   if (leg === 'A') {
     if (/LAST BAG|^CLOSED$/.test(s)) return 'var(--cp-green)'
     if (/OPEN|FIRST BAG/.test(s)) return 'var(--cp-acc2)'
@@ -183,7 +188,7 @@ function FlightCard({ f, airlines }) {
           alignItems: 'center', justifyContent: 'center', minWidth: 84,
         }}>
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em', color: gateColor, opacity: 0.9 }}>
-            GATE · {f.gate?.status || 'TBA'}
+            GATE{f.gate?.status ? ` · ${f.gate.status}` : f.gate?.name ? '' : ' · TBA'}
           </div>
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 24, fontWeight: 700, color: gateColor, lineHeight: 1.15 }}>
             {f.gate?.name || '—'}
@@ -204,6 +209,8 @@ export default function MalaysiaAirports() {
   const { direction, terminal, dayKey, criteria, query, results } = useCalculatorStore(s => s.gatefinder)
   const setField = useCalculatorStore(s => s.setGatefinderField)
   const resetGatefinder = useCalculatorStore(s => s.resetGatefinder)
+
+  const flightOnly = FLIGHT_ONLY.has(terminal)
 
   const [loading, setLoading]         = useState(false)
   const [manualFetch, setManualFetch] = useState(false)
@@ -292,7 +299,10 @@ export default function MalaysiaAirports() {
 
       <div style={{ marginBottom: 10 }}>
         <div style={label}>Airport</div>
-        <select style={sel} value={terminal} onChange={e => setField({ terminal: e.target.value })}>
+        <select style={sel} value={terminal} onChange={e => {
+          const t = e.target.value
+          setField({ terminal: t, ...(FLIGHT_ONLY.has(t) && { criteria: 'flight', dayKey: 0 }) })
+        }}>
           {AIRPORTS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
         </select>
       </div>
@@ -301,16 +311,22 @@ export default function MalaysiaAirports() {
         <div style={{ flex: 1 }}>
           <div style={label}>Date</div>
           <select style={sel} value={dayKey} onChange={e => setField({ dayKey: Number(e.target.value) })}>
-            {DAYS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+            {DAYS.map(d => <option key={d.value} value={d.value} disabled={flightOnly && d.value !== 0}>{d.label}</option>)}
           </select>
         </div>
         <div style={{ flex: 1 }}>
           <div style={label}>Search by</div>
           <select style={sel} value={criteria} onChange={e => setField({ criteria: e.target.value })}>
-            {CRITERIA.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            {CRITERIA.map(c => <option key={c.value} value={c.value} disabled={flightOnly && c.value !== 'flight'}>{c.label}</option>)}
           </select>
         </div>
       </div>
+
+      {flightOnly && (
+        <div style={{ ...label, textTransform: 'none', letterSpacing: 0, marginBottom: 10 }}>
+          Perth and Brisbane: flight number only, today only (limited monthly lookups).
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input

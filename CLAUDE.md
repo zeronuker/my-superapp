@@ -200,10 +200,21 @@ when asked. The service worker caches aggressively; users get an update prompt
   translated into the Malaysia flight shape. Codeshare names: from that day's
   flights, then the Malaysia airline list in `MalaysiaAirports.jsx`, else the
   bare flight number. Times are airport-local; today starts an hour ago.
-  Brisbane and Perth were checked and left out: their sites sit behind bot
-  checks (Cloudflare / "Client Challenge") that block server requests, and
-  getting past those is not on. `vercel dev` cannot serve the Vite app here;
-  verify the UI with `npm run dev` plus the handler run directly in node.
+  `vercel dev` cannot serve the Vite app here; verify the UI with `npm run dev`
+  plus the handler run directly in node.
+- **Perth and Brisbane (aviationstack)** — their own sites sit behind bot checks
+  (Cloudflare / "Client Challenge") that block server requests, and getting past
+  those is not on, so they use aviationstack's FREE plan (`/v1/flights`, needs
+  `AVIATIONSTACK_API_KEY` in Vercel env vars; without it the tab says "not set
+  up"). The plan is ~100 requests a month and non-commercial, today only (any
+  other date is `function_access_restricted`), so the UI limits these two to
+  flight-number search, today, and `fetchAviationstack` does one
+  `flight_iata` + `dep_iata`/`arr_iata` request per search (identical searches
+  within 10 min reuse the answer, in memory only). Each codeshare partner comes
+  back as its own record beside the operating flight; `fromAviationstack` folds
+  them. Times are airport-local labelled "+00:00". Gates matched the airports'
+  own sites on 9 of 10 checked flights (small regional flights can lack one, e.g.
+  WO342); there is no gate-open/boarding status, so the gate box stays grey.
 - **CARTO basemaps (`CartoRouteMap.jsx`)** — the briefing's Dark/Vector map
   tabs load vector styles directly from `basemaps.cartocdn.com` (client-side,
   no proxy). CARTO now requires an API key on every basemap request (this
