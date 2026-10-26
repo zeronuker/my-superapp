@@ -368,11 +368,11 @@ const BASEMAP_TABS = [
 // `saved`: a saved briefing is a frozen snapshot — it shows the map picture
 // taken when it was saved (or, if none was captured, the bundled offline map)
 // and never loads the live CARTO or Windy maps, online or offline.
-const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, saved, sigmets, routeFixes, routeError }, ref) {
+const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, saved, sigmets, routeFixes, routeError, fixNamesOn }, ref) {
   const [tab, setTab] = useState('static')
   // The Static map follows the app theme: dark map in dark mode, light in light.
   const styleKey = useCalculatorStore(s => s.darkMode) ? 'dark' : 'light'
-  const [showFixNames, setShowFixNames] = useState(false)
+  const [showFixNames, setShowFixNames] = useState(!!fixNamesOn)
   const cartoRef = useRef(null)
   // Fade (not slide) when switching Static ↔ Live — the map is swapped
   // in place, so it is animated through the element rather than remounted.
@@ -1074,7 +1074,7 @@ export default function BriefingView() {
                 {fetchedAt && ` · FETCHED ${new Date(fetchedAt).toUTCString().toUpperCase()}`}
               </div>
 
-              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} saved={isSaved} sigmets={sigmets} routeFixes={data?.routeFixes} routeError={data?.routeError} />
+              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} saved={isSaved} sigmets={sigmets} routeFixes={data?.routeFixes} routeError={data?.routeError} fixNamesOn={!!flightDetails && data?.routeFixes?.length > 0} />
 
               <BriefingTabBar
                 tabs={tabs}
