@@ -369,13 +369,11 @@ export default function BriefingModule() {
                       {r.isOfp ? 'OFP' : 'MANUAL'}
                     </span>
                   </div>
-                  {r.isOfp ? (
+                  {r.isOfp && (
                     <>
                       <div style={detail}>{join(r.tail, r.type, r.ofpNo && `OFP ${r.ofpNo}`)}</div>
                       <div style={{ ...detail, marginTop: 2 }}>{join(times, r.stdDate)}</div>
                     </>
-                  ) : (
-                    <div style={detail}>{r.routePoints ? `Route drawn · ${r.routePoints} points` : 'No route'}</div>
                   )}
                   <div style={{ ...mono, fontSize: 11, color: 'var(--cp-dim)', marginTop: 4 }}>saved {formatSnapshotStamp(b.savedAt)}</div>
                 </button>

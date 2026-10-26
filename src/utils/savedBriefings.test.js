@@ -41,15 +41,12 @@ describe('savedRowInfo', () => {
   }
   it('reads an OFP save: flight, tail, type, OFP number, UTC times and date', () => {
     const r = savedRowInfo({ name: autoBriefingName(ofpRoute, savedAt), route: ofpRoute, savedAt })
-    expect(r).toMatchObject({ isOfp: true, flight: 'MH2623', tail: '9M-MXA', type: 'B737-800WS/CFM56-7B24', ofpNo: '41', std: '14:20Z', sta: '16:05Z', stdDate: '15 Sep', routePoints: 2 })
+    expect(r).toMatchObject({ isOfp: true, flight: 'MH2623', tail: '9M-MXA', type: 'B737-800WS/CFM56-7B24', ofpNo: '41', std: '14:20Z', sta: '16:05Z', stdDate: '15 Sep' })
   })
-  it('reads a manual save: no flight details, counts plain fixes', () => {
+  it('reads a manual save: no flight details', () => {
     const route = { dep: 'WMKK', arr: 'WBKK', routeText: 'WMKK KANKA VPL WBKK' }
     const r = savedRowInfo({ name: autoBriefingName(route, savedAt), route, savedAt })
-    expect(r).toMatchObject({ isOfp: false, flight: null, tail: null, std: null, stdDate: null, routePoints: 2 })
-  })
-  it('counts no route points when there is no route text', () => {
-    expect(savedRowInfo({ name: 'x', route: { dep: 'WMKK', arr: 'WMKJ' }, savedAt }).routePoints).toBe(0)
+    expect(r).toMatchObject({ isOfp: false, flight: null, tail: null, std: null, stdDate: null })
   })
   it('gives customName only when the name was changed from the auto one', () => {
     const route = { dep: 'WMKK', arr: 'WMKJ' }

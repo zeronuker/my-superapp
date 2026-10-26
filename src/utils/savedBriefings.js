@@ -2,7 +2,6 @@
 // manually-managed list of named briefing snapshots, distinct from a
 // module's own 12h-expiring cache.
 
-import { parseRoute } from './routeParse'
 import { utcParts } from './ofpTimes'
 
 const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID()
@@ -45,7 +44,6 @@ export function savedRowInfo(save) {
   const info = fd?.info
   const std = info?.std ? utcParts(info.std) : null
   const sta = info?.sta ? utcParts(info.sta) : null
-  const parsed = parseRoute(route?.routeText)
   return {
     isOfp: !!fd,
     customName: name && name !== autoBriefingName(route, savedAt) ? name : null,
@@ -56,7 +54,6 @@ export function savedRowInfo(save) {
     std: std?.time || null,
     sta: sta?.time || null,
     stdDate: std ? formatSnapshotStamp(Date.parse(info.std)).split(' ').slice(0, 2).join(' ') : null,
-    routePoints: (parsed.pts || parsed.fixes).length,
   }
 }
 
