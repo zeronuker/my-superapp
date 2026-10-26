@@ -15,10 +15,10 @@
  * Saved briefings share the same code, owner and device id. They are far bigger than a
  * duty log (and Vercel rejects request bodies over ~4.5 MB), so each one is its own
  * document under dutylogs/<code>/briefings/<id>, sent one request at a time (&kind=briefing):
- * GET  ...&kind=briefing            -> { items: [{ id, name, savedAt, mapParts }] }       list, no ownership check
+ * GET  ...&kind=briefing            -> { items: [{ id, name, savedAt, mapParts, row }] }  list, no ownership check
  * GET  ...&kind=briefing&id=ID      -> { entry, mapParts }                               one briefing (without its map picture)
  * GET  ...&kind=briefing&id=ID&part=N -> { data }                                        piece N of its map picture
- * PUT  ...&kind=briefing&id=ID      body: { entry, mapParts, deviceId }                  owner-only
+ * PUT  ...&kind=briefing&id=ID      body: { entry, mapParts, row, deviceId }             owner-only
  * PUT  ...&kind=briefing&id=ID&part=N body: { data, deviceId }                           owner-only
  * DELETE ...&kind=briefing&id=ID&deviceId=DEV                                            owner-only, with its map pieces
  * POST ...&kind=briefing            body: { deviceId }                                   claim ownership -> { items }
@@ -67,7 +67,7 @@ async function handleBriefing(req, res, ref) {
   const briefings = ref.collection('briefings')
   const partDoc = (n) => briefings.doc(id).collection('parts').doc(String(n))
   const listItems = async () => {
-    const list = await briefings.select('name', 'savedAt', 'mapParts').get()
+    const list = await briefings.select('name', 'savedAt', 'mapParts', 'row').get()
     return list.docs.map(d => ({ id: d.id, ...d.data() }))
   }
 
@@ -131,7 +131,12 @@ async function handleBriefing(req, res, ref) {
       } else {
         const mapParts = Number(req.body.mapParts) || 0
         if (mapParts < 0 || mapParts > MAX_MAP_PARTS) return res.status(400).json({ error: 'bad mapParts' })
-        await briefings.doc(id).set({ name: String(entry.name ?? ''), savedAt: Number(entry.savedAt) || 0, json: payload, mapParts })
+        // `row`: the few plain values the VIEW list draws a row from, so the list needs no download.
+        const row = req.body.row ?? null
+        if (row !== null && (typeof row !== 'object' || Array.isArray(row) || JSON.stringify(row).length > 2000)) {
+          return res.status(400).json({ error: 'bad row' })
+        }
+        await briefings.doc(id).set({ name: String(entry.name ?? ''), savedAt: Number(entry.savedAt) || 0, json: payload, mapParts, row })
       }
       return res.status(200).json({ ok: true })
     }

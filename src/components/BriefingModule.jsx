@@ -8,8 +8,7 @@ import { ofpToFields } from '../utils/ofpParse'
 import { blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
 import { readOfpFile } from '../services/ofpFile'
 import { icaoToFir } from '../data/firLookup'
-import { savedRowInfo, filterSaves, formatSnapshotStamp } from '../utils/savedBriefings'
-import { ROLE_COLORS } from '../utils/metarSeverity'
+import { briefingRow, filterSaves } from '../utils/savedBriefings'
 import ResetButton from './ResetButton'
 import RouteInput from './RouteInput'
 import EnrouteAlternates from './EnrouteAlternates'
@@ -18,7 +17,7 @@ import { Field, TimeCol, Chip } from './OfpBits'
 import { useOnlineStatus } from '../utils/useOnlineStatus'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { syncBriefingsNow } from '../services/briefingCloud'
-import { SyncBadge, CloudView } from './SavedBriefingsCloud'
+import { SyncBadge, CloudView, BriefingRowText } from './SavedBriefingsCloud'
 
 // The front door for a flight: import the OFP (or type the flight in), check
 // the summary, open the Briefing. Opening it also fills the METAR/TAF, NOTAM
@@ -362,33 +361,11 @@ export default function BriefingModule() {
           </div>
           {found.length === 0 && <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No saved briefings match.</div>}
           {shown.map(b => {
-            const r = savedRowInfo(b)
-            const join = (...parts) => parts.filter(Boolean).join(' · ')
-            const times = [r.std && `STD ${r.std}`, r.sta && `STA ${r.sta}`].filter(Boolean).join(' → ')
-            const mono = { fontFamily: 'var(--cb-font-mono)' }
-            const detail = { ...mono, fontSize: 12, color: 'var(--cp-dim)', marginTop: 3 }
             return (
               <div key={b.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', marginBottom: 8, border: '1px solid var(--cp-border)', borderRadius: 10, background: 'var(--cp-bg2)' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                 <button onClick={() => openSavedBriefing(b.id)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}>
-                  {r.customName && <div style={{ ...mono, fontSize: 13, color: 'var(--cp-txt)', marginBottom: 3 }}>{r.customName}</div>}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    {r.flight && <span style={{ ...mono, fontSize: 15, color: 'var(--cp-txt)' }}>{r.flight}</span>}
-                    <span style={{ ...mono, fontSize: 14 }}>
-                      <span style={{ color: ROLE_COLORS['DEPARTURE'] }}>{b.route?.dep}</span> → <span style={{ color: ROLE_COLORS['ARRIVAL'] }}>{b.route?.arr}</span>
-                    </span>
-                    <span style={{ ...mono, fontSize: 10, letterSpacing: '0.12em', padding: '1px 6px', borderRadius: 4,
-                      ...(r.isOfp ? { background: 'var(--cp-accdim)', color: 'var(--cp-acc)' } : { border: '1px solid var(--cp-border)', color: 'var(--cp-dim)' }) }}>
-                      {r.isOfp ? 'OFP' : 'MANUAL'}
-                    </span>
-                  </div>
-                  {r.isOfp && (
-                    <>
-                      <div style={detail}>{join(r.tail, r.type, r.ofpNo && `OFP ${r.ofpNo}`)}</div>
-                      <div style={{ ...detail, marginTop: 2 }}>{join(times, r.stdDate)}</div>
-                    </>
-                  )}
-                  <div style={{ ...mono, fontSize: 11, color: 'var(--cp-dim)', marginTop: 4 }}>saved {formatSnapshotStamp(b.savedAt)}</div>
+                  <BriefingRowText r={briefingRow(b)} />
                 </button>
                 <div style={{ marginTop: 6 }}>
                   <SyncBadge syncCode={syncCode} synced={cloud.synced[b.id] === b.name} onSync={syncNow} busy={syncBusy} />

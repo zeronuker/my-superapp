@@ -15,7 +15,7 @@ const fb = vi.hoisted(() => {
       get: async () => ({
         docs: [...docs.entries()]
           .filter(([p]) => p.startsWith(`${path}/`) && !p.slice(path.length + 1).includes('/'))
-          .map(([p, v]) => ({ id: p.split('/').pop(), data: () => ({ name: v.name, savedAt: v.savedAt, mapParts: v.mapParts }) })),
+          .map(([p, v]) => ({ id: p.split('/').pop(), data: () => ({ name: v.name, savedAt: v.savedAt, mapParts: v.mapParts, row: v.row }) })),
       }),
     }),
   })
@@ -42,7 +42,7 @@ describe('briefing endpoints', () => {
     expect((await call('PUT', { query: { id: 'a' }, body: { deviceId: 'dev1', entry: entry('a', 'Alpha') } })).code).toBe(200)
     expect(fb.docs.get(`dutylogs/${CODE}`).ownerDeviceId).toBe('dev1')
 
-    expect((await call('GET')).body).toEqual({ items: [{ id: 'a', name: 'Alpha', savedAt: 5, mapParts: 0 }] })
+    expect((await call('GET')).body).toEqual({ items: [{ id: 'a', name: 'Alpha', savedAt: 5, mapParts: 0, row: null }] })
     expect((await call('GET', { query: { id: 'a' } })).body.entry).toEqual(entry('a', 'Alpha'))
   })
 
@@ -76,7 +76,7 @@ describe('briefing endpoints', () => {
     }
     await call('PUT', { query: { id: 'a' }, body: { deviceId: 'dev1', mapParts: 3, entry: { ...entry('a'), mapSnapshot: null } } })
 
-    expect((await call('GET')).body.items).toEqual([{ id: 'a', name: 'a', savedAt: 5, mapParts: 3 }])
+    expect((await call('GET')).body.items).toEqual([{ id: 'a', name: 'a', savedAt: 5, mapParts: 3, row: null }])
     const got = (await call('GET', { query: { id: 'a' } })).body
     expect(got.mapParts).toBe(3)
     const back = []
@@ -93,6 +93,14 @@ describe('briefing endpoints', () => {
 
     await call('DELETE', { query: { id: 'a', deviceId: 'dev1' } })
     expect([...fb.docs.keys()].filter(k => k.includes('/briefings/'))).toEqual([])
+  })
+
+  it('lists the row summary stored with each briefing, and refuses a bad one', async () => {
+    const row = { flight: 'MH1', dep: 'WMKK', arr: 'WSSS', isOfp: true }
+    await call('PUT', { query: { id: 'a' }, body: { deviceId: 'dev1', mapParts: 0, row, entry: entry('a', 'Alpha') } })
+    expect((await call('GET')).body.items[0].row).toEqual(row)
+    expect((await call('PUT', { query: { id: 'b' }, body: { deviceId: 'dev1', row: [1], entry: entry('b') } })).code).toBe(400)
+    expect((await call('PUT', { query: { id: 'b' }, body: { deviceId: 'dev1', row: { x: 'y'.repeat(2500) }, entry: entry('b') } })).code).toBe(400)
   })
 
   it('rejects a mismatched entry, a bad id, an oversize briefing and an unknown code', async () => {

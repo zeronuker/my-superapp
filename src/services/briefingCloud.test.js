@@ -6,7 +6,7 @@ vi.mock('../modules/dutylog/store/dutylogStore', () => ({ default: { getState: (
 
 import { planSync, splitMap, syncSaves, fetchOne, fetchAll, MAP_PIECE_CHARS } from './briefingCloud'
 
-const save = (id, name, mapSnapshot = 'img') => ({ id, name, savedAt: 1, route: {}, data: {}, mapSnapshot })
+const save = (id, name, mapSnapshot = 'img') => ({ id, name, savedAt: 1, route: { dep: 'WMKK', arr: 'WSSS' }, data: {}, mapSnapshot })
 
 // A fake cloud: items are what list() returns; sent records everything uploaded, in order.
 function fakeApi({ items = [], entries = {}, pieces = {}, listError = null } = {}) {
@@ -16,7 +16,7 @@ function fakeApi({ items = [], entries = {}, pieces = {}, listError = null } = {
     list: async () => { if (listError) throw listError; return items },
     get: async (_c, id) => entries[id],
     getPart: async (_c, id, n) => pieces[id][n],
-    put: async (_c, _d, e, mapParts) => { sent.push(['put', e.id, mapParts, e.mapSnapshot]) },
+    put: async (_c, _d, e, mapParts, row) => { sent.push(['put', e.id, mapParts, e.mapSnapshot, row?.dep]) },
     putPart: async (_c, _d, id, n, data) => { sent.push(['part', id, n, data]) },
     remove: async (_c, _d, id) => { sent.push(['remove', id]) },
     claim: async () => items,
@@ -26,14 +26,18 @@ function fakeApi({ items = [], entries = {}, pieces = {}, listError = null } = {
 describe('planSync', () => {
   it('pushes new saves and renamed ones, removes cloud copies that are gone', () => {
     const saves = [save('a', 'A'), save('b', 'B2'), save('c', 'C')]
-    const cloud = [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }, { id: 'gone', name: 'X' }]
+    const cloud = [{ id: 'a', name: 'A', row: {} }, { id: 'b', name: 'B', row: {} }, { id: 'gone', name: 'X', row: {} }]
     const { push, remove } = planSync(saves, cloud)
     expect(push.map(s => s.id)).toEqual(['b', 'c'])
     expect(remove).toEqual(['gone'])
   })
 
   it('does nothing when the cloud already matches', () => {
-    expect(planSync([save('a', 'A')], [{ id: 'a', name: 'A' }])).toEqual({ push: [], remove: [] })
+    expect(planSync([save('a', 'A')], [{ id: 'a', name: 'A', row: {} }])).toEqual({ push: [], remove: [] })
+  })
+
+  it('re-sends a briefing the cloud holds without its row summary (uploaded before rows existed)', () => {
+    expect(planSync([save('a', 'A')], [{ id: 'a', name: 'A', mapParts: 1 }]).push.map(s => s.id)).toEqual(['a'])
   })
 })
 
@@ -55,7 +59,7 @@ describe('syncSaves', () => {
   it('sends the map pieces, then the briefing without its map, then the deletes', async () => {
     const api = fakeApi({ items: [{ id: 'old', name: 'Old', mapParts: 0 }] })
     const synced = await syncSaves('CODE', 'dev', [save('a', 'A')], api)
-    expect(api.sent).toEqual([['part', 'a', 0, 'img'], ['put', 'a', 1, null], ['remove', 'old']])
+    expect(api.sent).toEqual([['part', 'a', 0, 'img'], ['put', 'a', 1, null, 'WMKK'], ['remove', 'old']])
     expect(synced).toEqual({ a: 'A' })
   })
 
@@ -64,19 +68,19 @@ describe('syncSaves', () => {
     const api = fakeApi()
     await syncSaves('CODE', 'dev', [save('a', 'A', map)], api)
     expect(api.sent.filter(s => s[0] === 'part').map(s => s[3]).join('')).toBe(map)
-    expect(api.sent.at(-1)).toEqual(['put', 'a', 3, null])
+    expect(api.sent.at(-1)).toEqual(['put', 'a', 3, null, 'WMKK'])
   })
 
   it('a briefing without a map sends just the briefing', async () => {
     const api = fakeApi()
     await syncSaves('CODE', 'dev', [save('a', 'A', null)], api)
-    expect(api.sent).toEqual([['put', 'a', 0, null]])
+    expect(api.sent).toEqual([['put', 'a', 0, null, 'WMKK']])
   })
 
   it('a rename does not send the map again', async () => {
-    const api = fakeApi({ items: [{ id: 'a', name: 'Old name', mapParts: 1 }] })
+    const api = fakeApi({ items: [{ id: 'a', name: 'Old name', mapParts: 1, row: {} }] })
     await syncSaves('CODE', 'dev', [save('a', 'New name')], api)
-    expect(api.sent).toEqual([['put', 'a', 1, null]])
+    expect(api.sent).toEqual([['put', 'a', 1, null, 'WMKK']])
   })
 
   it('treats a code with no backup yet as empty', async () => {

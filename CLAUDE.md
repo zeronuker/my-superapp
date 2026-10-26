@@ -214,7 +214,11 @@ when asked. The service worker caches aggressively; users get an update prompt
   doc) sent BEFORE the briefing, so a briefing in the cloud always has its whole
   map; a rename does not resend it. "Synced" per row = `briefing.cloud.synced[id] ===
   name` (localStorage `cb-briefing-cloud`). The "Have a code?" box on the Saved
-  Briefings list VIEWs read-only (tap a name: `openViewedBriefing` opens that one
+  Briefings list VIEWs read-only, as rows in the Saved Briefings style
+  (`BriefingRowText`, drawn from a small `row` summary — `briefingRow()` — stored
+  beside each cloud briefing so the list needs no download; a briefing uploaded
+  without one is re-sent by the next SYNC, map not resent; tapping shows
+  `Dots`/`.cp-row-bar` loading) (tap a row: `openViewedBriefing` opens that one
   briefing as a "Cloud copy · read-only" overlay, `briefing.viewed`, nothing stored
   or claimed), IMPORT replaces the device's saves and makes the
   code this device's code. Tested against a fake Firestore only.

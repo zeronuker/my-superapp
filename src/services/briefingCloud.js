@@ -7,6 +7,7 @@
 // The owner device is the source of truth: a briefing deleted here is deleted in the cloud
 // on the next sync.
 
+import { briefingRow } from '../utils/savedBriefings'
 import { useCalculatorStore } from '../store/calculatorStore'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 
@@ -38,19 +39,20 @@ export const cloudApi = {
   list:   (code) => call(code, 'GET').then(d => d.items),
   get:    (code, id) => call(code, 'GET', { id }),                       // { entry, mapParts }
   getPart: (code, id, part) => call(code, 'GET', { id, part }).then(d => d.data),
-  put:    (code, deviceId, entry, mapParts) => call(code, 'PUT', { id: entry.id, body: { entry, mapParts, deviceId } }),
+  put:    (code, deviceId, entry, mapParts, row) => call(code, 'PUT', { id: entry.id, body: { entry, mapParts, row, deviceId } }),
   putPart: (code, deviceId, id, part, data) => call(code, 'PUT', { id, part, body: { data, deviceId } }),
   remove: (code, deviceId, id) => call(code, 'DELETE', { id, deviceId }),
   claim:  (code, deviceId) => call(code, 'POST', { body: { deviceId } }).then(d => d.items),
 }
 
-// What a sync has to do: push saves the cloud lacks (or holds under another name — a rename),
-// delete cloud copies of saves that are gone from this device.
+// What a sync has to do: push saves the cloud lacks, holds under another name (a rename) or holds
+// without its row summary (uploaded before the VIEW list drew rows); delete cloud copies of saves
+// that are gone from this device.
 export function planSync(saves, cloudItems) {
-  const cloudNames = new Map(cloudItems.map(i => [i.id, i.name]))
+  const cloud = new Map(cloudItems.map(i => [i.id, i]))
   const local = new Set(saves.map(s => s.id))
   return {
-    push: saves.filter(s => cloudNames.get(s.id) !== s.name),
+    push: saves.filter(s => { const c = cloud.get(s.id); return !c || c.name !== s.name || !c.row }),
     remove: cloudItems.filter(i => !local.has(i.id)).map(i => i.id),
   }
 }
@@ -75,7 +77,7 @@ export async function syncSaves(code, deviceId, saves, api = cloudApi) {
     if (cloudById.get(s.id)?.mapParts !== pieces.length) {
       for (let n = 0; n < pieces.length; n++) await api.putPart(code, deviceId, s.id, n, pieces[n])
     }
-    await api.put(code, deviceId, { ...s, mapSnapshot: null }, pieces.length)
+    await api.put(code, deviceId, { ...s, mapSnapshot: null }, pieces.length, briefingRow(s))
   }
   for (const id of remove) await api.remove(code, deviceId, id)
   return syncedMap(saves)

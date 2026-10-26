@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { autoBriefingName, formatSnapshotStamp, savedRowInfo, filterSaves, sortByNewest, findOldest, isAtCap, pickNextAfterDelete, makeBriefingId } from './savedBriefings'
+import { briefingRow, autoBriefingName, formatSnapshotStamp, savedRowInfo, filterSaves, sortByNewest, findOldest, isAtCap, pickNextAfterDelete, makeBriefingId } from './savedBriefings'
 
 describe('filterSaves', () => {
   const at = Date.UTC(2026, 8, 15, 13, 2)
@@ -133,5 +133,19 @@ describe('makeBriefingId', () => {
     const b = makeBriefingId()
     expect(a).toBeTruthy()
     expect(a).not.toBe(b)
+  })
+})
+
+describe('briefingRow', () => {
+  const at = Date.UTC(2026, 8, 15, 13, 2)
+  it('adds route and save time to the row info, and survives JSON (it is sent to the cloud)', () => {
+    const route = { dep: 'WMKK', arr: 'WSSS', flightDetails: { flight: 'MH2623', info: { tail: '9M-MXA', ofpNo: '41' } } }
+    const row = briefingRow({ id: 'a', name: 'x', route, savedAt: at })
+    expect(row).toMatchObject({ dep: 'WMKK', arr: 'WSSS', savedAt: at, isOfp: true, flight: 'MH2623', tail: '9M-MXA' })
+    expect(JSON.parse(JSON.stringify(row))).toEqual(row)
+  })
+  it('a manual save has no flight details', () => {
+    expect(briefingRow({ id: 'b', name: 'Mine', route: { dep: 'WMKK', arr: 'VHHH' }, savedAt: at }))
+      .toMatchObject({ isOfp: false, flight: null, dep: 'WMKK', arr: 'VHHH', customName: 'Mine' })
   })
 })

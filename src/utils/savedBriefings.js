@@ -57,6 +57,12 @@ export function savedRowInfo(save) {
   }
 }
 
+// savedRowInfo plus the route and save time: everything a list row shows, as small plain values.
+// The cloud keeps this beside each briefing so the VIEW list can draw rows without downloading them.
+export function briefingRow(save) {
+  return { ...savedRowInfo(save), dep: save.route?.dep ?? null, arr: save.route?.arr ?? null, savedAt: save.savedAt }
+}
+
 // Search over what a row shows (custom name, flight, dep/arr, tail, type, OFP number, OFP/MANUAL tag).
 // Case-insensitive; every space-separated word must match, so "mh2623 wsss" narrows the list.
 export function filterSaves(saves, query) {

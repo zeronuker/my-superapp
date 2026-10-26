@@ -2,9 +2,45 @@ import { useState } from 'react'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { CODE_RE } from '../modules/dutylog/services/sync'
 import { viewBriefings, importBriefings, openCloudBriefing } from '../services/briefingCloud'
+import { ROLE_COLORS } from '../utils/metarSeverity'
+import { formatSnapshotStamp } from '../utils/savedBriefings'
 
 const mono = 'var(--cb-font-mono)'
 const hint = { fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.5 }
+
+// Loading text: "OPENING" with three dots lighting in turn.
+export function Dots({ children }) {
+  return <span>{children}<span className="cp-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span></span>
+}
+
+// What a Saved Briefings row shows, from briefingRow(): used by the saved list and the cloud list.
+export function BriefingRowText({ r }) {
+  const join = (...parts) => parts.filter(Boolean).join(' · ')
+  const times = [r.std && `STD ${r.std}`, r.sta && `STA ${r.sta}`].filter(Boolean).join(' → ')
+  const detail = { fontFamily: mono, fontSize: 12, color: 'var(--cp-dim)', marginTop: 3 }
+  return (
+    <>
+      {r.customName && <div style={{ fontFamily: mono, fontSize: 13, color: 'var(--cp-txt)', marginBottom: 3 }}>{r.customName}</div>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {r.flight && <span style={{ fontFamily: mono, fontSize: 15, color: 'var(--cp-txt)' }}>{r.flight}</span>}
+        <span style={{ fontFamily: mono, fontSize: 14 }}>
+          <span style={{ color: ROLE_COLORS['DEPARTURE'] }}>{r.dep}</span> → <span style={{ color: ROLE_COLORS['ARRIVAL'] }}>{r.arr}</span>
+        </span>
+        <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.12em', padding: '1px 6px', borderRadius: 4,
+          ...(r.isOfp ? { background: 'var(--cp-accdim)', color: 'var(--cp-acc)' } : { border: '1px solid var(--cp-border)', color: 'var(--cp-dim)' }) }}>
+          {r.isOfp ? 'OFP' : 'MANUAL'}
+        </span>
+      </div>
+      {r.isOfp && (
+        <>
+          <div style={detail}>{join(r.tail, r.type, r.ofpNo && `OFP ${r.ofpNo}`)}</div>
+          <div style={{ ...detail, marginTop: 2 }}>{join(times, r.stdDate)}</div>
+        </>
+      )}
+      <div style={{ fontFamily: mono, fontSize: 11, color: 'var(--cp-dim)', marginTop: 4 }}>saved {formatSnapshotStamp(r.savedAt)}</div>
+    </>
+  )
+}
 
 // Per-row backup status, like the Duty Log's: SYNCED once the cloud holds this save under
 // its current name, otherwise a SYNC button (or "NOT BACKED UP" while the device has no code).
@@ -64,7 +100,7 @@ export function CloudView() {
       <div style={{ display: 'flex', gap: 8 }}>
         <input value={input} onChange={e => setInput(e.target.value)} placeholder="XXXX-XXXX-XXXX" className="cp-input" style={{ flex: 1 }}
           aria-label="Sync code" />
-        <button onClick={view} disabled={busy || !input.trim()} className="cp-btn" style={{ padding: '8px 10px' }}>{busy && !viewed ? '…' : 'VIEW'}</button>
+        <button onClick={view} disabled={busy || !input.trim()} className="cp-btn" style={{ padding: '8px 10px' }}>{busy && !viewed ? <Dots>VIEW</Dots> : 'VIEW'}</button>
       </div>
       {error && <div style={{ ...hint, color: 'var(--cp-red)', marginTop: 6 }}>{error}</div>}
 
@@ -78,13 +114,25 @@ export function CloudView() {
             <div style={hint}>NO SAVED BRIEFINGS FOUND FOR THIS CODE</div>
           ) : (
             <>
-              <div style={{ ...hint, marginBottom: 6 }}>Tap one to open it read-only.</div>
-              <div style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 10 }}>
+              <div style={{ ...hint, marginBottom: 6 }}>
+                Tap one to open it read-only. {viewed.items.length} briefing{viewed.items.length === 1 ? '' : 's'}
+              </div>
+              <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--cp-border)', borderRadius: 8, padding: 8, marginBottom: 10 }}>
                 {[...viewed.items].sort((a, b) => b.savedAt - a.savedAt).map(i => (
-                  <button key={i.id} onClick={() => openOne(i.id)} disabled={!!opening}
-                    style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--cp-border3)',
-                      cursor: 'pointer', color: 'inherit', fontFamily: mono, fontSize: 12, padding: '8px 0' }}>
-                    {opening === i.id ? 'OPENING…' : i.name}
+                  <button key={i.id} onClick={() => openOne(i.id)} disabled={!!opening} aria-busy={opening === i.id}
+                    style={{
+                      position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                      padding: '10px 12px', marginBottom: 8, borderRadius: 10, cursor: 'pointer', color: 'inherit', background: 'var(--cp-bg2)',
+                      border: `1px solid ${opening === i.id ? 'var(--cp-acc)' : 'var(--cp-border)'}`,
+                    }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Briefings uploaded before rows existed have only a name until the next SYNC. */}
+                      {i.row ? <BriefingRowText r={i.row} /> : <div style={{ fontFamily: mono, fontSize: 13 }}>{i.name}</div>}
+                    </div>
+                    {opening === i.id
+                      ? <span style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.14em', color: 'var(--cp-acc)', flexShrink: 0 }}><Dots>OPENING</Dots></span>
+                      : <span style={{ color: 'var(--cp-dim)', fontSize: 18, flexShrink: 0 }} aria-hidden="true">›</span>}
+                    {opening === i.id && <span className="cp-row-bar" />}
                   </button>
                 ))}
               </div>
@@ -95,7 +143,7 @@ export function CloudView() {
                 </div>
               )}
               <button onClick={doImport} disabled={busy} className="cp-btn" style={{ width: '100%', padding: '8px 10px' }}>
-                {busy ? 'IMPORTING…' : confirm ? 'TAP AGAIN TO CONFIRM' : `IMPORT ${viewed.items.length} BRIEFING${viewed.items.length === 1 ? '' : 'S'}`}
+                {busy ? <Dots>IMPORTING</Dots> : confirm ? 'TAP AGAIN TO CONFIRM' : `IMPORT ${viewed.items.length} BRIEFING${viewed.items.length === 1 ? '' : 'S'}`}
               </button>
             </>
           )}
