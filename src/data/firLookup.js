@@ -123,6 +123,7 @@ export const FIR_BY_PREFIX = {
   UR: { fir: 'URRV', name: 'Rostov FIR' },
   US: { fir: 'USSS', name: 'Yekaterinburg FIR' },
   UT: { fir: 'UTDD', name: 'Tashkent FIR' },
+  UZ: { fir: 'UZTR', name: 'Tashkent FIR' },   // Uzbekistan's new prefix since Oct 2025 (was UT)
   UU: { fir: 'UUUU', name: 'Moscow FIR' },
   UW: { fir: 'UWKD', name: 'Kazan FIR' },
   UK: { fir: 'UKBV', name: 'Kyiv FIR' },

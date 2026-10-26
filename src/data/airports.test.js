@@ -20,6 +20,37 @@ describe('airports database', () => {
     }
   })
 
+  // Uzbekistan moved its airport codes from UT.. to UZ.. in October 2025. The
+  // exact new codes come from OurAirports' icao_code column (Andijan and
+  // Fergana are not a plain UT→UZ swap). Old codes stay so saved briefings work.
+  describe('Uzbekistan new UZ codes', () => {
+    const RENAMED = {
+      UTFN: 'UZFN', UTKA: 'UZFA', UTKF: 'UZFF', UTNN: 'UZNN', UTNU: 'UZNU', UTSA: 'UZSA',
+      UTSB: 'UZSB', UTSS: 'UZSS', UTST: 'UZST', UTTP: 'UZTP', UTTT: 'UZTT', UTTZ: 'UZTZ',
+    }
+    it('finds Tashkent under UZTT, with the same position as UTTT', () => {
+      const tas = lookupAirport('UZTT')
+      expect(tas?.name).toBe('Tashkent International Airport')
+      expect(tas?.country).toBe('Uzbekistan')
+      expect(tas).toEqual(lookupAirport('UTTT'))
+    })
+    it('every renamed Uzbek airport resolves under its new code and its old one', () => {
+      for (const [oldCode, newCode] of Object.entries(RENAMED)) {
+        expect(lookupAirport(newCode), newCode).toBeTruthy()
+        expect(lookupAirport(newCode), newCode).toEqual(lookupAirport(oldCode))
+        expect(lookupAirport(newCode).country, newCode).toBe('Uzbekistan')
+      }
+    })
+    it('finds the alternates on the OFP in use: Namangan and Samarkand', () => {
+      expect(lookupAirport('UZFN').city).toBe('Namangan')
+      expect(lookupAirport('UZSS').city).toBe('Samarkand')
+    })
+    it('does not touch the other UT.. countries', () => {
+      expect(lookupAirport('UTDD').country).toBe('Tajikistan')
+      expect(lookupAirport('UTAA').country).toBe('Turkmenistan')
+    })
+  })
+
   it('returns null for unknown or too-short codes', () => {
     expect(lookupAirport('ZZZ')).toBeNull()
     expect(lookupAirport('')).toBeNull()

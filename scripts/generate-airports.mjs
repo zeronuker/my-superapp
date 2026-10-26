@@ -89,6 +89,10 @@ for (const a of airports) {
     lng:     Math.round(lng * 1e4) / 1e4,
     ...(tzByIcao[icao] ? { tz: tzByIcao[icao] } : {}),
   }
+  // OurAirports keeps the old code in `ident` and the current one in `icao_code`
+  // (e.g. Tashkent UTTT → UZTT since Oct 2025). Keep both so either one resolves.
+  const current = (a.icao_code || '').toUpperCase()
+  if (current !== icao && ICAO_RE.test(current)) out[current] = { ...out[icao] }
   kept++
 }
 
