@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { CODE_RE } from '../modules/dutylog/services/sync'
-import { viewBriefings, importBriefings } from '../services/briefingCloud'
+import { viewBriefings, importBriefings, openCloudBriefing } from '../services/briefingCloud'
 
 const mono = 'var(--cb-font-mono)'
 const hint = { fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.5 }
@@ -47,6 +47,13 @@ export function CloudView() {
     setBusy(false)
   }
 
+  const [opening, setOpening] = useState(null)   // id being downloaded
+  const openOne = async (id) => {
+    setError(''); setOpening(id)
+    try { await openCloudBriefing(viewed.code, id) } catch (e) { setError(e.message) }
+    setOpening(null)
+  }
+
   const switches = viewed && deviceCode && viewed.code !== deviceCode
   return (
     <div style={{ marginBottom: 20 }}>
@@ -71,9 +78,14 @@ export function CloudView() {
             <div style={hint}>NO SAVED BRIEFINGS FOUND FOR THIS CODE</div>
           ) : (
             <>
+              <div style={{ ...hint, marginBottom: 6 }}>Tap one to open it read-only.</div>
               <div style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 10 }}>
                 {[...viewed.items].sort((a, b) => b.savedAt - a.savedAt).map(i => (
-                  <div key={i.id} style={{ fontFamily: mono, fontSize: 12, padding: '4px 0', borderBottom: '1px solid var(--cp-border3)' }}>{i.name}</div>
+                  <button key={i.id} onClick={() => openOne(i.id)} disabled={!!opening}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid var(--cp-border3)',
+                      cursor: 'pointer', color: 'inherit', fontFamily: mono, fontSize: 12, padding: '8px 0' }}>
+                    {opening === i.id ? 'OPENING…' : i.name}
+                  </button>
                 ))}
               </div>
               {confirm && (

@@ -619,7 +619,10 @@ export default function BriefingView() {
   const deleteSavedBriefing = useCalculatorStore(s => s.deleteSavedBriefing)
   const { route, data, savedId, saves } = briefing
   const isSaved = !!savedId
-  const savedEntry = isSaved ? saves.find(b => b.id === savedId) : null
+  // A briefing opened from the cloud's VIEW list is not in `saves` — shown like a save, but read-only.
+  const localEntry = isSaved ? saves.find(b => b.id === savedId) : null
+  const viewOnly = isSaved && !localEntry && briefing.viewed?.id === savedId
+  const savedEntry = localEntry ?? (viewOnly ? briefing.viewed : null)
   // A fresh fetch that's never been saved — closing it prompts to save first;
   // an already-saved entry (or nothing fetched yet) just closes.
   const hasUnsaved = !isSaved && !!data
@@ -912,22 +915,22 @@ export default function BriefingView() {
               />
             ) : displayTitle && (
               <button
-                onClick={() => setEditingTitle(true)}
-                title="Rename"
+                onClick={() => !viewOnly && setEditingTitle(true)}
+                title={viewOnly ? undefined : 'Rename'}
                 style={{
                   marginTop: 4, display: 'flex', alignItems: 'center', gap: 6,
-                  background: 'none', border: 'none', cursor: 'pointer', padding: 0, maxWidth: '100%',
+                  background: 'none', border: 'none', cursor: viewOnly ? 'default' : 'pointer', padding: 0, maxWidth: '100%',
                 }}
               >
                 <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--cp-txt)',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayTitle}</span>
-                <span style={{ color: 'var(--cp-dim)', fontSize: 12, flexShrink: 0 }}>✎</span>
+                {!viewOnly && <span style={{ color: 'var(--cp-dim)', fontSize: 12, flexShrink: 0 }}>✎</span>}
               </button>
             )}
             {isSaved && data && (
               <div style={{ marginTop: 3, fontFamily: 'var(--cb-font-mono)', fontSize: 9.5, fontWeight: 700,
                 letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cp-yellow)' }}>
-                Saved snapshot{formatSnapshotStamp(fetchedAt || savedEntry?.savedAt) && ` · data as of ${formatSnapshotStamp(fetchedAt || savedEntry?.savedAt)}`}
+                {viewOnly ? 'Cloud copy · read-only' : 'Saved snapshot'}{formatSnapshotStamp(fetchedAt || savedEntry?.savedAt) && ` · data as of ${formatSnapshotStamp(fetchedAt || savedEntry?.savedAt)}`}
               </div>
             )}
           </div>

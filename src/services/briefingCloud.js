@@ -81,16 +81,19 @@ export async function syncSaves(code, deviceId, saves, api = cloudApi) {
   return syncedMap(saves)
 }
 
+// One briefing with its map put back together.
+export async function fetchOne(code, id, api = cloudApi) {
+  const { entry, mapParts } = await api.get(code, id)
+  const pieces = []
+  for (let n = 0; n < mapParts; n++) pieces.push(await api.getPart(code, id, n))
+  return { ...entry, mapSnapshot: pieces.length ? pieces.join('') : null }
+}
+
 // Claims the code for this device (like the Duty Log's import) and downloads every briefing.
 export async function fetchAll(code, deviceId, api = cloudApi) {
   const items = await api.claim(code, deviceId)
   const entries = []
-  for (const i of items) {
-    const { entry, mapParts } = await api.get(code, i.id)
-    const pieces = []
-    for (let n = 0; n < mapParts; n++) pieces.push(await api.getPart(code, i.id, n))
-    entries.push({ ...entry, mapSnapshot: pieces.length ? pieces.join('') : null })
-  }
+  for (const i of items) entries.push(await fetchOne(code, i.id, api))
   return entries
 }
 
@@ -107,6 +110,11 @@ export async function syncBriefingsNow() {
 
 // VIEW: read-only list of what the code holds.
 export const viewBriefings = (code) => cloudApi.list(code)
+
+// Tap a name in the VIEW list: opens that one briefing read-only, nothing is saved or claimed.
+export async function openCloudBriefing(code, id) {
+  useCalculatorStore.getState().openViewedBriefing(await fetchOne(code, id))
+}
 
 // IMPORT: the saved list here becomes what the cloud holds. The code becomes this device's code.
 export async function importBriefings(code) {

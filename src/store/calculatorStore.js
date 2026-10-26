@@ -183,6 +183,7 @@ export const useCalculatorStore = create((set, get) => ({
   // the store is created (bottom of this file).
   briefing: {
     open: false, route: null, data: null, savedId: null,
+    viewed: null,   // a cloud briefing open read-only (openViewedBriefing), not one of `saves`
     saves: [],
     // Cloud backup state { at, synced: { [id]: name } } — see briefingCloud.js.
     cloud: loadCloudState(),
@@ -260,6 +261,12 @@ export const useCalculatorStore = create((set, get) => ({
     // Fill METAR/TAF, NOTAM and SIGMET with this save (flagged as a snapshot).
     syncSnapshotCaches(entry.route, entry.data)
     return { briefing: { ...s.briefing, open: true, route: entry.route, data: entry.data, savedId: id } }
+  }),
+  // A briefing read from the cloud's VIEW list: shown like a save (snapshot, never refreshed) but
+  // not in `saves`, so it is read-only — nothing is stored on this device. `viewed` holds it.
+  openViewedBriefing: (entry)    => set(s => {
+    syncSnapshotCaches(entry.route, entry.data)
+    return { briefing: { ...s.briefing, open: true, route: entry.route, data: entry.data, savedId: entry.id, viewed: entry } }
   }),
   // Loads the saved list from IndexedDB (migrating the old localStorage list
   // on first run). Merges rather than replaces, so a save made before the
@@ -350,7 +357,7 @@ export const useCalculatorStore = create((set, get) => ({
   // Real close — ✕/Escape/tap-outside. BriefingView shows a "save first?"
   // prompt before calling this when the session is a fresh, unsaved fetch;
   // a currently-open saved entry is simply closed, never altered.
-  closeBriefing:    ()           => set(s => ({ briefing: { ...s.briefing, open: false, route: null, data: null, savedId: null } })),
+  closeBriefing:    ()           => set(s => ({ briefing: { ...s.briefing, open: false, route: null, data: null, savedId: null, viewed: null } })),
   // Reset button path (all 3 modules) — discards an open, unsaved briefing
   // immediately, no prompt. No-ops if the open briefing is already a saved
   // entry, or if nothing has been fetched yet.

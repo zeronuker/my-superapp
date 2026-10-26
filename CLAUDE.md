@@ -214,7 +214,9 @@ when asked. The service worker caches aggressively; users get an update prompt
   doc) sent BEFORE the briefing, so a briefing in the cloud always has its whole
   map; a rename does not resend it. "Synced" per row = `briefing.cloud.synced[id] ===
   name` (localStorage `cb-briefing-cloud`). The "Have a code?" box on the Saved
-  Briefings list VIEWs read-only, IMPORT replaces the device's saves and makes the
+  Briefings list VIEWs read-only (tap a name: `openViewedBriefing` opens that one
+  briefing as a "Cloud copy · read-only" overlay, `briefing.viewed`, nothing stored
+  or claimed), IMPORT replaces the device's saves and makes the
   code this device's code. Tested against a fake Firestore only.
 - **Offline briefings** — all four briefing buttons (Briefing, METAR/TAF,
   NOTAM, SIGMET tabs) are disabled offline; there is no offline reuse of a saved

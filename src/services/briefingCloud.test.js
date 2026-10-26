@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest'
 vi.mock('../store/calculatorStore', () => ({ useCalculatorStore: { getState: () => ({}) } }))
 vi.mock('../modules/dutylog/store/dutylogStore', () => ({ default: { getState: () => ({}) } }))
 
-import { planSync, splitMap, syncSaves, fetchAll, MAP_PIECE_CHARS } from './briefingCloud'
+import { planSync, splitMap, syncSaves, fetchOne, fetchAll, MAP_PIECE_CHARS } from './briefingCloud'
 
 const save = (id, name, mapSnapshot = 'img') => ({ id, name, savedAt: 1, route: {}, data: {}, mapSnapshot })
 
@@ -88,6 +88,14 @@ describe('syncSaves', () => {
   it('lets other errors (e.g. 403 not the owner) through', async () => {
     const api = fakeApi({ listError: Object.assign(new Error('owned'), { status: 403 }) })
     await expect(syncSaves('CODE', 'dev', [], api)).rejects.toThrow('owned')
+  })
+})
+
+describe('fetchOne', () => {
+  it('gets just that briefing, map joined, without claiming the code', async () => {
+    const api = fakeApi({ entries: { a: { entry: save('a', 'A', null), mapParts: 2 } }, pieces: { a: ['x', 'y'] } })
+    api.claim = async () => { throw new Error('must not claim') }
+    expect((await fetchOne('CODE', 'a', api)).mapSnapshot).toBe('xy')
   })
 })
 
