@@ -49,7 +49,8 @@ src/
     NotamViewer.jsx, SigmetViewer.jsx  #   SIGMET tab (own SigmetCard.jsx,
                               #   services/sigmetAPI.js, utils/sigmet.js, api/isigmet.js)
     Navigation.jsx (launcher/tabs/grouped chrome)
-    BriefingView.jsx          #   ✈ Briefing overlay (METAR/TAF+NOTAM+SIGMET
+    BriefingView.jsx          #   ✈ Briefing overlay (Flight Details when from an
+                              #   OFP + METAR/TAF+NOTAM+SIGMET
                               #   combined) — saved briefings live in
                               #   store/calculatorStore.js's `briefing.saves`,
                               #   persisted to IndexedDB by services/briefingStorage.js
@@ -183,6 +184,25 @@ when asked. The service worker caches aggressively; users get an update prompt
   Download). That site is behind Cloudflare and a login, so the app cannot
   fetch it itself; whether the OFP is there before departure is unconfirmed
   (on 2026-10-25 it listed only flown flights).
+- **Flight Details tab (`FlightDetailsTab.jsx`, `utils/ofpDetails.js`,
+  `utils/flightDetailsCalc.js`)** — the briefing overlay's first tab, only for a
+  briefing started from an imported OFP (`route.flightDetails`, built in
+  `BriefingModule.jsx` and dropped if dep/arr were edited after the import;
+  saved briefings keep it). `ofpDetails.js` reads the same figures from the
+  XmlOFP and the PFP/PFB text into one shape: cost index, fuel, weights with
+  their operational limits, each destination alternate's routing, remarks, the
+  route as the OFP prints it, and FIR entry times (from the filed `EET/`, the
+  departure FIR at 0:00). Each section fails soft to null, so an odd OFP still
+  imports. Choices to keep: block fuel = T/O fuel + taxi (the PDFs leave it
+  blank); arrival fuel = the PDF's "LDW FUEL", which the XmlOFP only gives as
+  `ArrivalFuel` with the contingency still in it (so minus contingency);
+  anything the named fuel lines don't cover shows as "Extra" so the bar adds up.
+  Weight bars: share of the OPERATIONAL limit, green up to 70%, amber to 80%,
+  red above. Only one format prints some items: MORA, pax/cargo, take-off
+  alternate and EDTO status (PDF); commercial flight number (XmlOFP).
+- **Offline briefings** — all four briefing buttons (Briefing, METAR/TAF,
+  NOTAM, SIGMET tabs) are disabled offline; there is no offline reuse of a saved
+  briefing in `openBriefing` (reopen saves from the Saved Briefings list).
 - **AeroDataBox (`api/aerodatabox.js`)** only does one thing now — airport
   runway data (`/airports/{icao}/runways`), used by METAR/TAF's wind-component
   calc. Requires `AERODATABOX_API_KEY` in Vercel env vars (X-RapidAPI-Key from
