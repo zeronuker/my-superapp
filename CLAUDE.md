@@ -210,7 +210,10 @@ when asked. The service worker caches aggressively; users get an update prompt
   other date is `function_access_restricted`), so the UI limits these two to
   flight-number search, today, and `fetchAviationstack` does one
   `flight_iata` + `dep_iata`/`arr_iata` request per search (identical searches
-  within 10 min reuse the answer, in memory only). Each codeshare partner comes
+  within 10 min reuse the answer, in memory only). Limit errors come back as 429
+  `usage_limit_reached` / `daily_usage_limit_reached` / `fair_use_limit_reached`
+  (allowance used up) or `rate_limit_reached` (short throttle); the quota's reset
+  date is not documented anywhere reachable, so read it off the dashboard. Each codeshare partner comes
   back as its own record beside the operating flight; `fromAviationstack` folds
   them. Times are airport-local labelled "+00:00". Gates matched the airports'
   own sites on 9 of 10 checked flights (small regional flights can lack one, e.g.

@@ -230,11 +230,15 @@ describe('fetchAviationstack', () => {
     }
     expect(f).not.toHaveBeenCalled()
   })
-  it('missing key is a 503; a used-up plan is a 429; a restricted call or junk is a 502', async () => {
+  it('missing key is a 503; a used-up plan or a throttle is a 429 (worded differently); a restricted call or junk is a 502', async () => {
     stub({ data: [] })
     await expect(fetchAviationstack(args({ value: 'AB1', apiKey: undefined }))).rejects.toMatchObject({ status: 503 })
-    stub({ error: { code: 'usage_limit_reached' } })
-    await expect(fetchAviationstack(args({ value: 'AB2' }))).rejects.toMatchObject({ status: 429 })
+    for (const c of ['usage_limit_reached', 'daily_usage_limit_reached', 'fair_use_limit_reached']) {
+      stub({ error: { code: c } })
+      await expect(fetchAviationstack(args({ value: 'AB2' }))).rejects.toMatchObject({ status: 429, message: expect.stringContaining('limit reached') })
+    }
+    stub({ error: { code: 'rate_limit_reached' } })
+    await expect(fetchAviationstack(args({ value: 'AB2' }))).rejects.toMatchObject({ status: 429, message: expect.stringContaining('try again in a minute') })
     stub({ error: { code: 'function_access_restricted' } })
     await expect(fetchAviationstack(args({ value: 'AB3' }))).rejects.toMatchObject({ status: 502 })
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => { throw new Error('html') } })))

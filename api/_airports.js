@@ -205,7 +205,10 @@ export async function fetchAviationstack({ terminal, code, dayKey, key, value, n
 
   const params = new URLSearchParams({ access_key: apiKey, flight_iata: flight, [code === 'A' ? 'arr_iata' : 'dep_iata']: terminal })
   const { body } = await getJson(`${AVS_URL}?${params}`, 8000)
-  if (/^(usage|rate)_limit_reached$/.test(body?.error?.code)) throw fail(429, 'Monthly Perth/Brisbane lookup limit reached')
+  // rate_limit_reached is a short throttle; the others mean the plan's allowance is used up.
+  const errCode = body?.error?.code
+  if (errCode === 'rate_limit_reached') throw fail(429, 'Too many lookups just now, try again in a minute')
+  if (/^(usage|daily_usage|fair_use)_limit_reached$/.test(errCode)) throw fail(429, 'Perth/Brisbane lookup limit reached, try again later')
   if (!Array.isArray(body?.data)) throw fail(502, 'Perth/Brisbane data unavailable')
 
   const flights = fromAviationstack(body.data, terminal, code, now)
