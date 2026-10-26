@@ -193,7 +193,7 @@ function finish(flight, text, rawPoints, info, xmlAirspaces = [], readDetails = 
     info,
     firs,
     // What the Flight Details tab shows beyond `info`; `dep`/`arr` say which flight it describes.
-    details: { dep: flight.dep, arr: flight.arr, route: flight.route, enrouteAlts, firs: firsWithTimes(firs, flight.eet), ...readDetails(text) },
+    details: { dep: flight.dep, arr: flight.arr, route: flight.route, destAlts: flight.destAlts, enrouteAlts, firs: firsWithTimes(firs, flight.eet), ...readDetails(text) },
   }
 }
 

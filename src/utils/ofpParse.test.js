@@ -246,6 +246,7 @@ describe('details for the Flight Details tab', () => {
     const d = parseOfpPdf(PDF).details
     expect(d).toMatchObject({ dep: 'WMKK', arr: 'WPDL', route: 'WMKK MITOS1D MITOS M630 DIL DCT WPDL' })
     expect(d.enrouteAlts).toEqual(['WIII', 'WADD'])
+    expect(d.destAlts).toEqual(['WAAA', 'WATT'])
   })
   it('gives each FIR its first entry time, and 0 for the one the flight starts in', () => {
     const { firs } = parseOfpPdf(PDF).details

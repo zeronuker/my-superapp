@@ -174,10 +174,17 @@ function AlternatesCard({ d }) {
     ['DIST', a.distNm != null && `${a.distNm} NM`], ['LEVEL', a.fl != null && `FL${a.fl}`], ['W/C', a.wc != null && `${fmtWc(a.wc)} kt`],
     ['TIME', fmtHm(a.min)], ['FUEL', a.fuel != null && kg(a.fuel)], ['MORA', a.mora != null && `${kg(a.mora)} ft`],
   ].filter(([, v]) => v)
-  const notes = [d.takeoffAlt && `Take-off alternate: ${d.takeoffAlt}.`, d.edto && `EDTO/ETP: ${d.edto}.`].filter(Boolean)
+  // The OFP can plan more alternates than the flight plan files (it lists four, the FPL names two): show the filed ones.
+  const filed = d.destAlts ?? d.alternates.slice(0, 2).map(a => a.icao)
+  const shown = d.alternates.filter(a => filed.includes(a.icao))
+  const unfiled = d.alternates.filter(a => !filed.includes(a.icao))
+  const notes = [
+    unfiled.length > 0 && `The OFP lists ${unfiled.length} more: ${unfiled.map(a => a.icao).join(', ')}.`,
+    d.takeoffAlt && `Take-off alternate: ${d.takeoffAlt}.`, d.edto && `EDTO/ETP: ${d.edto}.`,
+  ].filter(Boolean)
   return (
     <Card title="ALTERNATES">
-      {d.alternates.map((a, i) => (
+      {shown.map((a, i) => (
         <div key={a.icao} style={{ borderTop: i ? '1px solid var(--cp-border3)' : 'none', paddingTop: i ? 12 : 0, marginBottom: 12 }}>
           <div><Chip code={a.icao} role={`DESTINATION ALTERNATE ${i + 1}`} /><span style={{ fontSize: 11, ...dim }}>ALT {i + 1}{lookupAirport(a.icao)?.name && ` · ${lookupAirport(a.icao).name}`}</span></div>
           <div style={{ ...mono, fontSize: 12, lineHeight: 1.7, marginTop: 6, overflowWrap: 'anywhere' }}>{a.route}</div>
@@ -187,7 +194,7 @@ function AlternatesCard({ d }) {
         </div>
       ))}
       {d.enrouteAlts.length > 0 && (
-        <div style={{ borderTop: d.alternates.length ? '1px solid var(--cp-border3)' : 'none', paddingTop: d.alternates.length ? 10 : 0 }}>
+        <div style={{ borderTop: shown.length ? '1px solid var(--cp-border3)' : 'none', paddingTop: shown.length ? 10 : 0 }}>
           <div className="cp-label" style={{ margin: '0 0 6px' }}>ENROUTE</div>
           {d.enrouteAlts.map((c, i) => <Chip key={c} code={c} role={`ENROUTE ALTERNATE ${i + 1}`} />)}
         </div>
