@@ -263,11 +263,12 @@ export const useCalculatorStore = create((set, get) => ({
     return { briefing: { ...s.briefing, open: true, route: entry.route, data: entry.data, savedId: id } }
   }),
   // A briefing read from the cloud's VIEW list: shown like a save (snapshot, never refreshed) but
-  // not in `saves`, so it is read-only — nothing is stored on this device. `viewed` holds it.
-  openViewedBriefing: (entry)    => set(s => {
-    syncSnapshotCaches(entry.route, entry.data)
-    return { briefing: { ...s.briefing, open: true, route: entry.route, data: entry.data, savedId: entry.id, viewed: entry } }
-  }),
+  // not in `saves`, so it is read-only — nothing is stored on this device, and the METAR/TAF, NOTAM
+  // and SIGMET tabs are left alone (pauseBriefing fills them only if its NOTAM link is used).
+  // `viewed` holds it.
+  openViewedBriefing: (entry)    => set(s => (
+    { briefing: { ...s.briefing, open: true, route: entry.route, data: entry.data, savedId: entry.id, viewed: entry } }
+  )),
   // Loads the saved list from IndexedDB (migrating the old localStorage list
   // on first run). Merges rather than replaces, so a save made before the
   // load finished is never dropped.
@@ -352,7 +353,12 @@ export const useCalculatorStore = create((set, get) => ({
   // caller (useViewAllNotams in BriefingView.jsx). Distinct from
   // closeBriefing: route/data/savedId are left exactly as they were, so
   // resumeBriefing brings back the same in-progress session (saved or not).
-  pauseBriefing:    ()           => set(s => ({ briefing: { ...s.briefing, open: false } })),
+  // A cloud copy (`viewed`) did not fill the tabs when it opened, so the jump fills them now.
+  pauseBriefing:    ()           => set(s => {
+    const { viewed } = s.briefing
+    if (viewed) syncSnapshotCaches(viewed.route, viewed.data)
+    return { briefing: { ...s.briefing, open: false } }
+  }),
   resumeBriefing:   ()           => set(s => ({ briefing: { ...s.briefing, open: true } })),
   // Real close — ✕/Escape/tap-outside. BriefingView shows a "save first?"
   // prompt before calling this when the session is a fresh, unsaved fetch;

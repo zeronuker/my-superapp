@@ -220,7 +220,8 @@ when asked. The service worker caches aggressively; users get an update prompt
   without one is re-sent by the next SYNC, map not resent; tapping shows
   `Dots`/`.cp-row-bar` loading) (tap a row: `openViewedBriefing` opens that one
   briefing as a "Cloud copy · read-only" overlay, `briefing.viewed`, nothing stored
-  or claimed), IMPORT replaces the device's saves and makes the
+  or claimed, and the METAR/TAF, NOTAM and SIGMET tabs are left alone until its
+  "view all NOTAMs" link pauses it), IMPORT replaces the device's saves and makes the
   code this device's code. Tested against a fake Firestore only.
 - **Offline briefings** — all four briefing buttons (Briefing, METAR/TAF,
   NOTAM, SIGMET tabs) are disabled offline; there is no offline reuse of a saved
