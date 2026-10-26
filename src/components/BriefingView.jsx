@@ -22,6 +22,7 @@ import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import WindyRouteMap, { hasWindyLoadedBefore } from './WindyRouteMap'
 import CartoRouteMap, { hasCartoLoadedBefore } from './CartoRouteMap'
 import OfflineCoastlineMap from './OfflineCoastlineMap'
+import FlightDetailsTab from './FlightDetailsTab'
 import Seg from './Seg'
 import ChamferFrame from '@brand/ChamferFrame'
 
@@ -59,24 +60,25 @@ function Section({ title, color, children }) {
   )
 }
 
-// Top-level sections (METAR/TAF, NOTAMs, SIGMETs) as tabs instead of one
+// Top-level sections (Flight Details when the briefing came from an OFP, METAR/TAF, NOTAMs, SIGMETs) as tabs instead of one
 // long stacked scroll. Styled as folder tabs (eLogbook's tab bar) rather
 // than the calculator's gradient-topbar .cp-tab style: the active tab's
 // own -1px bottom margin bleeds over the row's divider line instead of
 // just hiding its own border, which is what a border-only fix can't do —
 // the row's divider is a separate element sitting right where the active
 // tab ends, so removing the tab's own border still leaves that line exposed.
+const FLIGHT_TAB = { id: 'flight', label: 'Flight Details' }
 const BRIEFING_TABS = [
   { id: 'metar', label: 'METAR/TAF' },
   { id: 'notam', label: 'NOTAMs' },
   { id: 'sigmet', label: 'SIGMETs' },
 ]
 
-function BriefingTabBar({ active, onSelect, counts }) {
+function BriefingTabBar({ tabs, active, onSelect, counts }) {
   return (
     <div style={{ overflowX: 'auto', overflowY: 'hidden' }}>
       <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', borderBottom: '1px solid var(--cp-border2)', marginBottom: 16 }}>
-        {BRIEFING_TABS.map(tab => {
+        {tabs.map(tab => {
           const isActive = active === tab.id
           return (
             <button
@@ -97,11 +99,11 @@ function BriefingTabBar({ active, onSelect, counts }) {
               }}
             >
               {tab.label}
-              <span style={{
+              {counts[tab.id] != null && <span style={{
                 fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 8,
                 background: isActive ? 'var(--cp-bg2)' : 'var(--cp-bg3)',
                 color: isActive ? 'var(--cp-txt)' : 'var(--cp-dim)',
-              }}>{counts[tab.id]}</span>
+              }}>{counts[tab.id]}</span>}
             </button>
           )
         })}
@@ -697,9 +699,14 @@ export default function BriefingView() {
   const [error, setError] = useState('')
   const [now, setNow] = useState(Date.now())
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
-  const [activeTab, setActiveTab] = useState('metar')
+  // The Flight Details tab exists only for a briefing started from an imported OFP, and opens first.
+  const flightDetails = route.flightDetails ?? null
+  const tabs = flightDetails ? [FLIGHT_TAB, ...BRIEFING_TABS] : BRIEFING_TABS
+  const [pickedTab, setActiveTab] = useState(() => tabs[0].id)
+  // Switching to a saved briefing without an OFP while Flight Details was showing falls back to the first tab.
+  const activeTab = tabs.some(t => t.id === pickedTab) ? pickedTab : tabs[0].id
   const animStyle = useCalculatorStore(s => s.settings.animStyle)
-  const tabAnim = useTransitionAnim(activeTab, ['metar', 'notam', 'sigmet'], animStyle)
+  const tabAnim = useTransitionAnim(activeTab, tabs.map(t => t.id), animStyle)
   const [savedListOpen, setSavedListOpen] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(null)
@@ -1070,12 +1077,14 @@ export default function BriefingView() {
               <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} saved={isSaved} sigmets={sigmets} routeFixes={data?.routeFixes} routeError={data?.routeError} />
 
               <BriefingTabBar
+                tabs={tabs}
                 active={activeTab}
                 onSelect={setActiveTab}
                 counts={{ metar: airports.length, notam: notamCount, sigmet: sigmets.length }}
               />
 
               <div key={activeTab} className={tabAnim.className} style={tabAnim.style}>
+              {activeTab === 'flight' && <FlightDetailsTab d={flightDetails} />}
               {activeTab === 'metar' && (
                 <>
                   {/* ── Departure / Arrival ── */}

@@ -240,3 +240,26 @@ describe('ofpToFields', () => {
     expect(f.destAlts).toEqual({ alt1: 'WAAA', alt2: '' })
   })
 })
+
+describe('details for the Flight Details tab', () => {
+  it('rides along with the flight, naming which flight it describes', () => {
+    const d = parseOfpPdf(PDF).details
+    expect(d).toMatchObject({ dep: 'WMKK', arr: 'WPDL', route: 'WMKK MITOS1D MITOS M630 DIL DCT WPDL' })
+    expect(d.enrouteAlts).toEqual(['WIII', 'WADD'])
+  })
+  it('gives each FIR its first entry time, and 0 for the one the flight starts in', () => {
+    const { firs } = parseOfpPdf(PDF).details
+    expect(firs.map(f => [f.icao, f.min])).toEqual([['WMFC', 0], ['WIIF', 23], ['WAAF', 94]])
+  })
+  it('still imports the flight when the plan prints none of the fuel, weights or alternates', () => {
+    for (const r of [parseOfpXml(XML), parseOfpPdf(PDF)]) {
+      expect(r.ok).toBe(true)
+      expect(r.details.fuel).toBeNull()
+      expect(r.details.weights).toBeNull()
+      expect(r.details.alternates).toEqual([])
+    }
+  })
+  it('is passed on by ofpToFields', () => {
+    expect(ofpToFields(parseOfpPdf(PDF)).details.arr).toBe('WPDL')
+  })
+})

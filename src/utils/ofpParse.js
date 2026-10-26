@@ -8,12 +8,15 @@
 //   destAlts, enrouteAlts, points: [{name, lat, lon}] } | { ok: false, error }
 // (`route` is the route as filed, for showing to the pilot; `points` are what the map draws;
 // `info` is what identifies the OFP: tail, type, OFP number, STD/STA/computed time, trip, distance;
-// `firs` is [{icao, name}] for the FIRs flown through, in order, each once.)
+// `firs` is [{icao, name}] for the FIRs flown through, in order, each once;
+// `details` is what the Flight Details tab shows beyond that — fuel, weights, alternates'
+// routing, remarks (read by ofpDetails.js).)
 // ofpToFields() shapes that for a tab's boxes; ofpRouteText() writes the points
 // into the route text as NAME:lat:lon tokens (parsed back by routeParse.js), so
 // they travel with the route text everywhere it already goes.
 
 import { icaoToFir, FIR_BY_PREFIX } from '../data/firLookup.js'
+import { xmlDetails, pdfDetails } from './ofpDetails.js'
 
 // Filed ICAO flight plan, e.g.
 //   (FPL-MXD372-IS / -B738/M-SDF / -WMKK1815 / -N0461F350 ... / -WPDL0353 WAAA WATT / -PBN/...)
@@ -40,7 +43,7 @@ function readFlight(text) {
     route: [dep, ...tokens, arr[1]].join(' '),
     dof: dof ? `20${dof[1]}-${dof[2]}-${dof[3]}` : null,
     stdHm: /^[A-Z]{4}(\d{4})/.exec(fields[2])?.[1] ?? null,
-    eetFirs: eet ? [...eet[1].matchAll(/\b([A-Z]{4})\d{4}\b/g)].map(x => x[1]) : [],
+    eet: eet ? [...eet[1].matchAll(/\b([A-Z]{4})(\d{2})(\d{2})\b/g)].map(x => ({ icao: x[1], min: +x[2] * 60 + +x[3] })) : [],
   }
 }
 
@@ -159,7 +162,7 @@ function listFirs(fromXml, flight) {
   let list = fromXml
   if (!list.length) {
     const dep = icaoToFir(flight.dep)
-    list = [...(dep ? [dep] : []), ...flight.eetFirs.map(code => {
+    list = [...(dep ? [dep] : []), ...flight.eet.map(({ icao: code }) => {
       const known = Object.values(FIR_BY_PREFIX).find(f => f.fir === code)
       return { icao: code, name: known ? known.name : code }
     })]
@@ -168,29 +171,39 @@ function listFirs(fromXml, flight) {
   return list.filter(f => !seen.has(f.icao) && seen.add(f.icao))
 }
 
-function finish(flight, text, rawPoints, info, xmlAirspaces = []) {
+// Minutes into the flight when each FIR is first entered, from the filed plan's EET list.
+// The first FIR is the one the flight starts in, which the list does not print: 0.
+function firsWithTimes(firs, eet) {
+  return firs.map((f, i) => ({ ...f, min: eet.find(e => e.icao === f.icao)?.min ?? (i === 0 ? 0 : null) }))
+}
+
+function finish(flight, text, rawPoints, info, xmlAirspaces = [], readDetails = null) {
   if (!flight) return { ok: false, error: "Couldn't find the filed flight plan in this file." }
   const points = trimRoute(rawPoints, flight.dep, flight.arr)
   if (!points.length) return { ok: false, error: "Couldn't find the route points in this file." }
+  const enrouteAlts = readEnroute(text, [flight.dep, flight.arr, ...flight.destAlts])
+  const firs = listFirs(xmlAirspaces, flight)
   return {
     ok: true,
     flight: flight.flight, dep: flight.dep, arr: flight.arr,
     route: flight.route,
     destAlts: flight.destAlts,
-    enrouteAlts: readEnroute(text, [flight.dep, flight.arr, ...flight.destAlts]),
+    enrouteAlts,
     points,
     info,
-    firs: listFirs(xmlAirspaces, flight),
+    firs,
+    // What the Flight Details tab shows beyond `info`; `dep`/`arr` say which flight it describes.
+    details: { dep: flight.dep, arr: flight.arr, route: flight.route, enrouteAlts, firs: firsWithTimes(firs, flight.eet), ...readDetails(text) },
   }
 }
 
-export const parseOfpXml = text => finish(readFlight(text), text, xmlPoints(text), xmlInfo(text), xmlFirs(text))
+export const parseOfpXml = text => finish(readFlight(text), text, xmlPoints(text), xmlInfo(text), xmlFirs(text), xmlDetails)
 
 /** @param {string[]} lines  the PFP's text, one string per line (pdfText.js) */
 export function parseOfpPdf(lines) {
   const text = lines.join('\n')
   const flight = readFlight(text)
-  return finish(flight, text, pdfPoints(lines), pdfInfo(text, flight))
+  return finish(flight, text, pdfPoints(lines), pdfInfo(text, flight), [], pdfDetails)
 }
 
 /** "WMKK KK701:2.7933:101.6917 ... WPDL" — what routeParse.js reads back as positioned fixes. */
@@ -207,6 +220,7 @@ export function ofpToFields(r, eraMax = 5) {
     filedRoute: r.route,
     flight: r.flight,
     info: r.info,
+    details: r.details,
     firs: r.firs,
     destAlts: { alt1: r.destAlts[0] ?? '', alt2: r.destAlts[1] ?? '' },
     enrouteCount: enroute.length,

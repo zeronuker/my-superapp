@@ -341,9 +341,9 @@ export default function METARTAFCalculator() {
           }}>
           {loading ? 'FETCHING…' : '⟳  FETCH WEATHER'}
         </button>
-        <button className="cp-btn" onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts })} disabled={!hasInput}
+        <button className="cp-btn" onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts })} disabled={!hasInput || isOffline} title={isOffline ? 'Offline — connect to generate a briefing' : undefined}
           style={{
-            opacity: hasInput ? 1 : 0.4,
+            opacity: hasInput && !isOffline ? 1 : 0.4,
             padding: '12px 10px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em',
             border: '2px solid var(--cp-green)', color: 'var(--cp-green)',
             background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',

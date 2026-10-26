@@ -291,11 +291,11 @@ export default function SigmetViewer() {
           {loading ? '⊙ FETCHING SIGMETs…' : '⊕ FETCH SIGMETs'}
         </button>
         <button onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts, firs: chips })}
-          disabled={!chips.length} style={{
+          disabled={!chips.length || !isOnline} title={!isOnline ? 'Offline — connect to generate a briefing' : undefined} style={{
           padding: '12px 16px', background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
           border: '2px solid var(--cp-green)',
-          borderRadius: 6, cursor: chips.length ? 'pointer' : 'default', fontFamily: 'var(--cb-font-mono)',
-          fontSize: 10, letterSpacing: '0.16em', color: 'var(--cp-green)', opacity: chips.length ? 1 : 0.5 }}>
+          borderRadius: 6, cursor: chips.length && isOnline ? 'pointer' : 'default', fontFamily: 'var(--cb-font-mono)',
+          fontSize: 10, letterSpacing: '0.16em', color: 'var(--cp-green)', opacity: chips.length && isOnline ? 1 : 0.5 }}>
           ✈ BRIEFING
         </button>
       </div>

@@ -2,8 +2,6 @@ import { create } from 'zustand'
 import { makeBriefingId, autoBriefingName, sortByNewest, pickNextAfterDelete } from '../utils/savedBriefings'
 import { loadSaves, idbBackend, isQuotaError } from '../services/briefingStorage'
 import { syncSnapshotCaches } from '../services/briefingSync'
-import { parseRoute } from '../utils/routeParse'
-import { activeEnroute } from '../utils/enrouteAlts'
 
 // Named, manually-managed saves (unlike every cb-*-cache key, which is a
 // single slot with a 12h auto-expiry) — never expires, capped, only changed
@@ -13,18 +11,6 @@ export const BRIEFING_SAVES_CAP = 100
 // discarded, not migrated, the first time this loads post-update.
 const LEGACY_BRIEFING_CACHE_KEY = 'cb-briefing-cache'
 try { localStorage.removeItem(LEGACY_BRIEFING_CACHE_KEY) } catch (_) {}
-// Same route input (dep/arr/destAlts/enrouteAlts + the pasted route's fixes) —
-// ignores derived fields like firs, which differ by which module opened Briefing.
-const routeFixesKey = (r) => parseRoute(r?.routeText).fixes.join(',')
-function routesMatch(a, b) {
-  if (!a || !b) return false
-  return (a.dep || '') === (b.dep || '') && (a.arr || '') === (b.arr || '')
-    && routeFixesKey(a) === routeFixesKey(b)
-    && (a.destAlts?.alt1 || '') === (b.destAlts?.alt1 || '')
-    && (a.destAlts?.alt2 || '') === (b.destAlts?.alt2 || '')
-    // only the alternates actually entered: an empty field and no field are the same route
-    && activeEnroute(a.enrouteCount, a.enrouteAlts).join(',') === activeEnroute(b.enrouteCount, b.enrouteAlts).join(',')
-}
 
 export const DEFAULT_SETTINGS = {
   fontScale:      'normal',   // 'compact' | 'normal' | 'large' | 'cockpit'
@@ -260,18 +246,10 @@ export const useCalculatorStore = create((set, get) => ({
   setActiveCalculator: (id)      => set({ activeCalculator: id }),
   setNotamFocus:     (icao)      => set({ notamFocus: icao }),
 
-  // route: { dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs }. Starts a
-  // fresh, unsaved session — data:null tells BriefingView to fetch — except
-  // offline with a SAVED entry for this exact route already on hand, where
-  // refetching can only fail: open that save immediately instead.
-  openBriefing:     (route)      => set(s => {
-    const offline = typeof navigator !== 'undefined' && navigator.onLine === false
-    if (offline) {
-      const match = s.briefing.saves.find(b => routesMatch(b.route, route))
-      if (match) return { briefing: { ...s.briefing, open: true, route: match.route, data: match.data, savedId: match.id } }
-    }
-    return { briefing: { ...s.briefing, open: true, route, data: null, savedId: null } }
-  }),
+  // route: { dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, flightDetails? }. Starts a
+  // fresh, unsaved session — data:null tells BriefingView to fetch. The buttons that call this are
+  // disabled offline; a saved briefing is reopened from the Saved Briefings list (openSavedBriefing).
+  openBriefing:     (route)      => set(s => ({ briefing: { ...s.briefing, open: true, route, data: null, savedId: null } })),
   setBriefingData:  (data)       => set(s => ({ briefing: { ...s.briefing, data } })),
   // Opens an existing save, read-only (Option A — never auto-refreshed).
   openSavedBriefing: (id)        => set(s => {

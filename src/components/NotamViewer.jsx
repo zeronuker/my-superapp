@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
 import { haptic } from '../utils/haptic'
+import { useOnlineStatus } from '../utils/useOnlineStatus'
 import ResetButton from './ResetButton'
 import SnapshotBanner from './SnapshotBanner'
 import CopyAirportsButton from './CopyAirportsButton'
@@ -147,6 +148,7 @@ export default function NotamViewer() {
   const notamFocus = useCalculatorStore(s => s.notamFocus)
   const setNotamFocus = useCalculatorStore(s => s.setNotamFocus)
 
+  const isOnline       = useOnlineStatus()
   const [cache]        = useState(() => loadWithExpiry(CACHE_KEY))
   // Inputs (mirror METAR/TAF)
   const [dep,          setDep]          = useState(cache?.dep          || '')
@@ -465,11 +467,11 @@ export default function NotamViewer() {
           {loading ? '⊙ FETCHING NOTAMs…' : '⊕ FETCH NOTAMs'}
         </button>
         <button onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts, firs: extraChips.filter(c => c.type === 'fir') })}
-          disabled={!targets.length} style={{
+          disabled={!targets.length || !isOnline} title={!isOnline ? 'Offline — connect to generate a briefing' : undefined} style={{
           padding: '12px 16px', background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
           border: '2px solid var(--cp-green)',
-          borderRadius: 6, cursor: targets.length ? 'pointer' : 'default', fontFamily: T.mono,
-          fontSize: 10, letterSpacing: '0.16em', color: 'var(--cp-green)', opacity: targets.length ? 1 : 0.5 }}>
+          borderRadius: 6, cursor: targets.length && isOnline ? 'pointer' : 'default', fontFamily: T.mono,
+          fontSize: 10, letterSpacing: '0.16em', color: 'var(--cp-green)', opacity: targets.length && isOnline ? 1 : 0.5 }}>
           ✈ BRIEFING
         </button>
       </div>

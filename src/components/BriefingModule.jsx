@@ -5,14 +5,15 @@ import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import { BRIEFING_SETUP_CACHE_KEY } from '../utils/moduleCacheKeys'
 import { parseRoute } from '../utils/routeParse'
 import { ofpToFields } from '../utils/ofpParse'
-import { utcParts, localParts, blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
-import { getRoleStyle } from '../utils/metarSeverity'
+import { blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
 import { readOfpFile } from '../services/ofpFile'
 import { icaoToFir } from '../data/firLookup'
 import ResetButton from './ResetButton'
 import RouteInput from './RouteInput'
 import EnrouteAlternates from './EnrouteAlternates'
 import Seg from './Seg'
+import { Field, TimeCol, Chip } from './OfpBits'
+import { useOnlineStatus } from '../utils/useOnlineStatus'
 
 // The front door for a flight: import the OFP (or type the flight in), check
 // the summary, open the Briefing. Opening it also fills the METAR/TAF, NOTAM
@@ -39,50 +40,7 @@ const panel = { border: '1px solid var(--cp-border)', borderRadius: 10, backgrou
 const smallBtn = { padding: '8px 12px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em' }
 const accentBtn = { ...smallBtn, borderColor: 'var(--cp-acc)', color: 'var(--cp-acc)', background: 'var(--cp-accdim)' }
 
-// An airport chip in the colour the weather cards and the map give its role
-// (destination alternate 1/2, enroute alternate 1…5). `role` null = the FIR colour.
-function Chip({ code, role }) {
-  const s = role ? getRoleStyle(role) : null
-  return (
-    <span style={{
-      display: 'inline-block', padding: '3px 8px', marginRight: 6, borderRadius: 4,
-      border: `1px solid ${s ? s.borderLatest : 'var(--cp-fir)'}`, color: s ? s.color : 'var(--cp-fir)',
-      background: s ? s.bgLatest : 'transparent', fontFamily: 'var(--cb-font-mono)', fontSize: 12,
-    }}>{code}</span>
-  )
-}
-
 const none = <span style={{ color: 'var(--cp-dim)', fontSize: 12 }}>none</span>
-
-function Field({ label, value, sub, flex = 1 }) {
-  return (
-    <div style={{ flex, minWidth: 0 }}>
-      <div className="cp-label" style={{ margin: '0 0 3px' }}>{label}</div>
-      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 14, letterSpacing: '0.04em' }}>{value ?? '—'}</div>
-      {sub && <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)', marginTop: 2, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{sub}</div>}
-    </div>
-  )
-}
-
-// STD or STA: the UTC time and date, then the local time (with offset) and date at that airport.
-function TimeCol({ label, iso, tz, align }) {
-  const u = iso && utcParts(iso)
-  const l = iso && localParts(iso, tz)
-  const small = { fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.06em' }
-  return (
-    <div style={{ textAlign: align }}>
-      <div className="cp-label" style={{ margin: 0 }}>{label}</div>
-      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 16 }}>{u ? u.time : '—'}</div>
-      {u && <div style={small}>{u.date} · UTC</div>}
-      {l && (
-        <>
-          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, marginTop: 8 }}>{l.time} {l.offset}</div>
-          <div style={small}>{l.date} · LOCAL</div>
-        </>
-      )}
-    </div>
-  )
-}
 
 function Row({ label, children, stacked }) {
   return (
@@ -107,7 +65,7 @@ export default function BriefingModule() {
   })))
   const [cache] = useState(() => loadWithExpiry(CACHE_KEY))
   const [mode,         setMode]         = useState(cache?.mode || 'ofp')
-  // Set when the flight came from an OFP: { flight, info (tail, type, ofpNo, std, sta, computed, tripMin, distNm), filedRoute, depTz, arrTz }
+  // Set when the flight came from an OFP: { flight, info (tail, type, ofpNo, std, sta, computed, tripMin, distNm), details (ofpDetails.js), filedRoute, depTz, arrTz }
   const [ofp,          setOfp]          = useState(cache?.ofp ?? null)
   const [dep,          setDep]          = useState(cache?.dep || '')
   const [arr,          setArr]          = useState(cache?.arr || '')
@@ -158,7 +116,7 @@ export default function BriefingModule() {
       depTz = lookupAirport(f.dep)?.tz ?? null
       arrTz = lookupAirport(f.arr)?.tz ?? null
     } catch (_) {}
-    setOfp({ flight: f.flight, info: f.info, filedRoute: f.filedRoute, depTz, arrTz })
+    setOfp({ flight: f.flight, info: f.info, details: f.details, filedRoute: f.filedRoute, depTz, arrTz })
     setImportedAt(Date.now())
     setMode('ofp')
   }
@@ -186,8 +144,13 @@ export default function BriefingModule() {
     setDetecting(false)
   }
 
-  const ready = dep.length === 4 && arr.length === 4
-  const openIt =() => ready && openBriefing({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs })
+  const isOnline = useOnlineStatus()
+  const ready = dep.length === 4 && arr.length === 4 && isOnline
+  // The Flight Details tab only for a flight that still is the imported OFP's (EDIT OFP can change dep/arr).
+  const flightDetails = ofp?.details && ofp.details.dep === dep && ofp.details.arr === arr
+    ? { ...ofp.details, flight: ofp.flight, info: ofp.info, depTz: ofp.depTz, arrTz: ofp.arrTz }
+    : null
+  const openIt = () => ready && openBriefing({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, flightDetails })
 
   const parsed = useMemo(() => parseRoute(routeText), [routeText])
   // The saves load from storage a moment after the tab opens, so `page` is only clamped when
@@ -408,7 +371,7 @@ export default function BriefingModule() {
             width: '100%', opacity: ready ? 1 : 0.4, padding: '14px 10px', fontSize: 11, borderRadius: 6, letterSpacing: '0.16em',
             border: '2px solid var(--cp-green)', color: 'var(--cp-green)',
             background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
-          }}>GENERATE BRIEFING</button>
+          }}>{isOnline ? 'GENERATE BRIEFING' : 'OFFLINE — CONNECT TO GENERATE'}</button>
       </div>
     </div>
   )

@@ -10,6 +10,7 @@ import SplashScreen from '@brand/SplashScreen'
 import UpdatePrompt from '@brand/UpdatePrompt'
 import { useUpdate } from '@brand/useUpdate'
 import { METAR_CACHE_KEY } from './utils/moduleCacheKeys'
+import { useOnlineStatus } from './utils/useOnlineStatus'
 import TabLoading from './components/TabLoading'
 import DashboardHome from './components/DashboardHome'
 import SettingsPanel from './components/settings/SettingsPanel'
@@ -61,18 +62,6 @@ const LEGACY_ID_MAP = {
 }
 
 const FONT_SCALES = { compact: 0.88, normal: 1, large: 1.13, cockpit: 1.26 }
-
-function useOnlineStatus() {
-  const [online, setOnline] = React.useState(() => navigator.onLine)
-  React.useEffect(() => {
-    const on  = () => setOnline(true)
-    const off = () => setOnline(false)
-    window.addEventListener('online',  on)
-    window.addEventListener('offline', off)
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
-  }, [])
-  return online
-}
 
 // Sets the PWA home-screen badge when METAR data is stale (>30 min).
 // Clears it when fresh. No-ops silently on browsers without the Badge API.
