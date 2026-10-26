@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import useDutyLogStore from './store/dutylogStore'
 import LogList from './pages/LogList'
@@ -7,6 +7,7 @@ import { generateSyncCode, pushLogs, viewLogs, claimAndRestore } from './service
 import { relativeTimeFromNow } from './utils/relativeTime'
 import { useCalculatorStore } from '../../store/calculatorStore'
 import { syncBriefingsNow } from '../../services/briefingCloud'
+import { Dots, SyncBar } from '../../components/SyncStatus'
 import { useTransitionAnim } from '../../useTransitionAnim'
 
 const mono = 'var(--cb-font-mono)'
@@ -133,6 +134,11 @@ export function DutyLogBackupSync() {
 
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [phase, setPhase] = useState('')           // while syncing: 'logs' | 'briefings'
+  const [progress, setProgress] = useState(null)   // { done, total } of the briefings being sent
+  const [justDone, setJustDone] = useState(false)  // the button says DONE for a moment after a sync
+  const doneTimer = useRef(null)
+  useEffect(() => () => clearTimeout(doneTimer.current), [])
   const [error, setError] = useState('')
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [now, setNow] = useState(() => Date.now())
@@ -152,19 +158,25 @@ export function DutyLogBackupSync() {
   const runBackup = async () => {
     setError('')
     setBusy(true)
+    setPhase('logs')
     try {
       const code = syncCode || generateSyncCode()
       const deviceId = ensureDeviceId()
       await pushLogs(code, logs, deviceId)
       markSynced(code)
       // Saved briefings share this code and this button.
-      await syncBriefingsNow()
+      setPhase('briefings'); setProgress(null)
+      await syncBriefingsNow((done, total) => setProgress({ done, total }))
+      setJustDone(true)
+      clearTimeout(doneTimer.current)
+      doneTimer.current = setTimeout(() => setJustDone(false), 2200)
     } catch (e) {
       setError(e.status === 403
         ? 'This device no longer owns this code — ownership was transferred to another device.'
         : e.message)
     } finally {
       setBusy(false)
+      setPhase('')
     }
   }
 
@@ -181,17 +193,20 @@ export function DutyLogBackupSync() {
     <div>
       {/* Status card */}
       <div style={{
+        position: 'relative', overflow: 'hidden',
         display: 'flex', alignItems: 'center', gap: 10,
-        background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)',
+        background: 'var(--cp-bg3)', border: `1px solid ${busy ? 'var(--cp-acc)' : 'var(--cp-border)'}`,
         borderRadius: 6, padding: '10px 12px', marginBottom: 14,
       }}>
-        <div style={{
+        <div className={busy ? 'cp-pulse' : undefined} style={{
           width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-          background: syncCode ? 'var(--cp-green)' : 'var(--cp-dim)',
+          background: busy ? 'var(--cp-acc)' : syncCode ? 'var(--cp-green)' : 'var(--cp-dim)',
         }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.06em', color: 'var(--cp-txt)' }}>
-            {syncCode ? (relTime ? `LAST SYNCED · ${relTime}` : 'CLOUD SYNC READY') : 'NO CLOUD SYNC CODE DETECTED FOR THIS DEVICE'}
+            {phase === 'logs' ? 'SYNCING DUTY LOGS'
+              : phase === 'briefings' ? `SYNCING SAVED BRIEFINGS${progress?.total ? ` · ${progress.done} OF ${progress.total}` : ''}`
+              : syncCode ? (relTime ? `LAST SYNCED · ${relTime}` : 'CLOUD SYNC READY') : 'NO CLOUD SYNC CODE DETECTED FOR THIS DEVICE'}
           </div>
           {syncCode && (
             <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em', marginTop: 2 }}>
@@ -209,9 +224,11 @@ export function DutyLogBackupSync() {
             onClick={runBackup}
             disabled={busy}
             className="cp-btn"
-            style={{ padding: '6px 10px', fontSize: 9, flexShrink: 0 }}
-          >{busy ? '…' : 'SYNC'}</button>
+            style={{ padding: '6px 10px', fontSize: 9, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >{busy ? <><span className="cp-spinner" aria-hidden="true" /><Dots>SYNCING</Dots></>
+            : justDone ? <span className="cp-pop" style={{ color: 'var(--cp-green)' }}>✓ DONE</span> : 'SYNC'}</button>
         )}
+        <SyncBar active={busy} />
       </div>
 
       {syncCode ? (
@@ -246,7 +263,7 @@ export function DutyLogBackupSync() {
             disabled={busy}
             className="cp-btn"
             style={{ width: '100%', padding: '8px 10px' }}
-          >{busy ? 'CREATING…' : 'CREATE CLOUD SYNC CODE'}</button>
+          >{busy ? <Dots>CREATING</Dots> : 'CREATE CLOUD SYNC CODE'}</button>
         </div>
       )}
 

@@ -83,6 +83,13 @@ describe('syncSaves', () => {
     expect(api.sent).toEqual([['put', 'a', 1, null, 'WMKK']])
   })
 
+  it('reports progress: before the first send, then after each one', async () => {
+    const api = fakeApi({ items: [{ id: 'old', name: 'Old', row: {} }] })
+    const seen = []
+    await syncSaves('CODE', 'dev', [save('a', 'A'), save('b', 'B')], api, (done, total) => seen.push([done, total]))
+    expect(seen).toEqual([[0, 3], [1, 3], [2, 3], [3, 3]])
+  })
+
   it('treats a code with no backup yet as empty', async () => {
     const api = fakeApi({ listError: Object.assign(new Error('none'), { status: 404 }) })
     await syncSaves('CODE', 'dev', [save('a', 'A')], api)

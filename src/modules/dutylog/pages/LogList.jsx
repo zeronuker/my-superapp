@@ -3,6 +3,7 @@ import { usePresence, useTransitionAnim } from '../../../useTransitionAnim'
 import Collapse from '../../../components/Collapse'
 import QrScanner from '../components/QrScanner'
 import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
+import { Dots, SyncStatus, SyncBar, rowSyncing } from '../../../components/SyncStatus'
 import { CODE_RE } from '../services/sync'
 import { sectorStripeColors, aircraftStripeColors, logSegmentColors } from '../utils/sectorColors'
 import { formatHHMM } from '../utils/formatHHMM'
@@ -109,34 +110,15 @@ function groupLogs(logs) {
 // Per-entry sync status — derived from existing store fields, no new per-log
 // data needed: a log counts as synced once the store's lastSyncedAt (set by
 // any successful push) is at or after that log's own updatedAt.
-function SyncBadge({ log, syncCode, lastSyncedAt, onSyncNow, syncBusy }) {
-  if (!syncCode) {
-    return <span style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.06em', flexShrink: 0 }}>NOT BACKED UP</span>
-  }
-  const synced = lastSyncedAt && log.updatedAt <= lastSyncedAt
-  if (synced) {
-    return (
-      <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cp-green)' }} />
-        <span style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-green)', letterSpacing: '0.06em' }}>SYNCED</span>
-      </span>
-    )
-  }
-  return (
-    <button
-      onClick={(e) => { e.stopPropagation(); onSyncNow?.() }}
-      disabled={syncBusy}
-      className="cp-btn"
-      style={{ fontSize: 8, padding: '4px 8px', flexShrink: 0 }}
-    >{syncBusy ? '…' : '○ SYNC'}</button>
-  )
-}
+const isLogSynced = (log, lastSyncedAt) => !!lastSyncedAt && log.updatedAt <= lastSyncedAt
 
 function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syncBusy, query, matchField }) {
   const n = log.sectors.length
+  const synced = isLogSynced(log, lastSyncedAt)
+  const syncing = !!syncCode && rowSyncing(syncBusy, synced)
   return (
     <div onClick={() => onOpen(log.id)} style={{
-      display: 'flex', background: 'var(--cp-bg2)', border: '1px solid var(--cp-border2)', borderRadius: 6,
+      display: 'flex', background: 'var(--cp-bg2)', border: `1px solid ${syncing ? 'var(--cp-acc)' : 'var(--cp-border2)'}`, borderRadius: 6,
       marginBottom: 9, cursor: 'pointer', position: 'relative', overflow: 'hidden',
     }}>
       <div style={{ width: 3, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
@@ -170,10 +152,11 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <MatchChip field={matchField} />
-            <SyncBadge log={log} syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy} />
+            <SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={onSyncNow} />
           </span>
         </div>
       </div>
+      <SyncBar active={syncing} />
     </div>
   )
 }
@@ -631,11 +614,12 @@ export default function LogList({
           syncCode ? (
             <SyncToast actions={<>
               <button
-                onClick={() => { onSyncNow(); onDismissSyncPrompt() }}
+                // The toast stays until the sync is done, so its spinner is seen.
+                onClick={async () => { await onSyncNow(); onDismissSyncPrompt() }}
                 disabled={syncBusy}
                 className="cp-btn"
-                style={{ fontSize: 9, padding: '5px 10px' }}
-              >{syncBusy ? '…' : 'SYNC NOW'}</button>
+                style={{ fontSize: 9, padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >{syncBusy ? <><span className="cp-spinner" aria-hidden="true" /><Dots>SYNCING</Dots></> : 'SYNC NOW'}</button>
               <button onClick={onDismissSyncPrompt} className="cp-btn" style={{ fontSize: 9, padding: '5px 10px' }}>LATER</button>
             </>}>
               New duty log saved locally. Sync it to the cloud now?

@@ -65,12 +65,16 @@ export function splitMap(map) {
 
 const syncedMap = (saves) => Object.fromEntries(saves.map(s => [s.id, s.name]))
 
-// Resolves the { id: name } map of what the cloud now holds.
-export async function syncSaves(code, deviceId, saves, api = cloudApi) {
+// Resolves the { id: name } map of what the cloud now holds. `onProgress(done, total)` is called
+// before the first send and after each briefing sent or deleted.
+export async function syncSaves(code, deviceId, saves, api = cloudApi, onProgress) {
   // 404 = the code has no backup yet; the first PUT creates it.
   const items = await api.list(code).catch(e => { if (e.status === 404) return []; throw e })
   const { push, remove } = planSync(saves, items)
   const cloudById = new Map(items.map(i => [i.id, i]))
+  const total = push.length + remove.length
+  let done = 0
+  onProgress?.(done, total)
   for (const s of push) {
     const pieces = splitMap(s.mapSnapshot)
     // A map never changes after saving, so a rename only needs the briefing sent again.
@@ -78,8 +82,9 @@ export async function syncSaves(code, deviceId, saves, api = cloudApi) {
       for (let n = 0; n < pieces.length; n++) await api.putPart(code, deviceId, s.id, n, pieces[n])
     }
     await api.put(code, deviceId, { ...s, mapSnapshot: null }, pieces.length, briefingRow(s))
+    onProgress?.(++done, total)
   }
-  for (const id of remove) await api.remove(code, deviceId, id)
+  for (const id of remove) { await api.remove(code, deviceId, id); onProgress?.(++done, total) }
   return syncedMap(saves)
 }
 
@@ -102,11 +107,11 @@ export async function fetchAll(code, deviceId, api = cloudApi) {
 // ── Calls from the UI ──────────────────────────────────────────────────────
 
 // SYNC: this device's saves up to the cloud, under the Duty Log's sync code.
-export async function syncBriefingsNow() {
+export async function syncBriefingsNow(onProgress) {
   const { syncCode, ensureDeviceId } = useDutyLogStore.getState()
   if (!syncCode) throw new Error('Create a cloud sync code in Settings first.')
   const { briefing, setBriefingCloud } = useCalculatorStore.getState()
-  const synced = await syncSaves(syncCode, ensureDeviceId(), briefing.saves)
+  const synced = await syncSaves(syncCode, ensureDeviceId(), briefing.saves, cloudApi, onProgress)
   setBriefingCloud({ at: Date.now(), synced })
 }
 

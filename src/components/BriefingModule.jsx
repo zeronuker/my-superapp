@@ -17,7 +17,8 @@ import { Field, TimeCol, Chip } from './OfpBits'
 import { useOnlineStatus } from '../utils/useOnlineStatus'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { syncBriefingsNow } from '../services/briefingCloud'
-import { SyncBadge, CloudView, BriefingRowText } from './SavedBriefingsCloud'
+import { CloudView, BriefingRowText } from './SavedBriefingsCloud'
+import { SyncStatus, SyncBar, rowSyncing } from './SyncStatus'
 
 // The front door for a flight: import the OFP (or type the flight in), check
 // the summary, open the Briefing. Opening it also fills the METAR/TAF, NOTAM
@@ -361,18 +362,21 @@ export default function BriefingModule() {
           </div>
           {found.length === 0 && <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No saved briefings match.</div>}
           {shown.map(b => {
+            const synced = cloud.synced[b.id] === b.name
+            const syncing = rowSyncing(syncBusy, synced)
             return (
-              <div key={b.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', marginBottom: 8, border: '1px solid var(--cp-border)', borderRadius: 10, background: 'var(--cp-bg2)' }}>
+              <div key={b.id} style={{ position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', marginBottom: 8, border: `1px solid ${syncing ? 'var(--cp-acc)' : 'var(--cp-border)'}`, borderRadius: 10, background: 'var(--cp-bg2)' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                 <button onClick={() => openSavedBriefing(b.id)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}>
                   <BriefingRowText r={briefingRow(b)} />
                 </button>
                 <div style={{ marginTop: 6 }}>
-                  <SyncBadge syncCode={syncCode} synced={cloud.synced[b.id] === b.name} onSync={syncNow} busy={syncBusy} />
+                  <SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={syncNow} />
                 </div>
                 </div>
                 <button onClick={() => deleteSavedBriefing(b.id)} title="Delete" aria-label={`Delete ${b.name}`}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
+                <SyncBar active={syncing} />
               </div>
             )
           })}

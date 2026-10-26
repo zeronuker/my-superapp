@@ -218,7 +218,10 @@ when asked. The service worker caches aggressively; users get an update prompt
   (`BriefingRowText`, drawn from a small `row` summary — `briefingRow()` — stored
   beside each cloud briefing so the list needs no download; a briefing uploaded
   without one is re-sent by the next SYNC, map not resent; tapping shows
-  `Dots`/`.cp-row-bar` loading) (tap a row: `openViewedBriefing` opens that one
+  `Dots`/`.cp-row-bar` loading; looking a code up shows the Duty Log's
+  `ScanViewfinderLoader`; `components/SyncStatus.jsx` is the per-row sync
+  status shared with the Duty Log list: spinner + SYNCING, then a SYNCED pop;
+  the Settings card shows progress via `syncSaves`' `onProgress`) (tap a row: `openViewedBriefing` opens that one
   briefing as a "Cloud copy · read-only" overlay, `briefing.viewed`, nothing stored
   or claimed, and the METAR/TAF, NOTAM and SIGMET tabs are left alone until its
   "view all NOTAMs" link pauses it), IMPORT replaces the device's saves and makes the
