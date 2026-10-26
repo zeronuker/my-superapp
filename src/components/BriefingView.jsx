@@ -525,71 +525,6 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
   )
 })
 
-// ── Saved briefings dropdown — read-only browse/open/delete list ──
-function SavedList({ saves, savedId, onOpen, onDelete, closing }) {
-  return (
-    <div className={`cp-drop-in${closing ? ' is-closing' : ''}`} style={{
-      position: 'absolute', top: 66, right: 60, width: 280, maxHeight: 360, overflowY: 'auto',
-      background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 10,
-      boxShadow: '0 16px 40px rgba(0,0,0,0.5)', zIndex: 10,
-    }}>
-      <div style={{
-        padding: '9px 12px', fontFamily: 'var(--cb-font-mono)', fontSize: 9.5,
-        letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--cp-dim)',
-        borderBottom: '1px solid var(--cp-border3)',
-      }}>
-        Saved Briefings · {saves.length}/{BRIEFING_SAVES_CAP}
-      </div>
-      {saves.length === 0 ? (
-        <div style={{ padding: '14px 12px', fontSize: 11, color: 'var(--cp-dim)' }}>No saved briefings yet.</div>
-      ) : (
-        <div style={{ padding: 4 }}>
-          {saves.map((b, i) => {
-            const isOpen = b.id === savedId
-            return (
-              <div key={b.id} style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '8px 8px', borderRadius: 6,
-                borderLeft: isOpen ? '3px solid var(--cp-acc2)' : '3px solid transparent',
-                background: isOpen ? 'var(--cp-bg3)' : 'transparent',
-              }}>
-                <button onClick={() => onOpen(b.id)} style={{
-                  flex: '1 1 auto', minWidth: 0, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{
-                      fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 600, color: 'var(--cp-txt)',
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>{b.name}</span>
-                    {i === 0 && (
-                      <span style={{
-                        fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--cp-acc)',
-                        background: 'var(--cp-bg)', padding: '1px 5px', borderRadius: 4, flexShrink: 0,
-                      }}>LATEST</span>
-                    )}
-                    {isOpen && (
-                      <span style={{
-                        fontSize: 8, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--cp-acc2)',
-                        background: 'var(--cp-bg)', padding: '1px 5px', borderRadius: 4, flexShrink: 0,
-                      }}>ACTIVE</span>
-                    )}
-                  </div>
-                  <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)', marginTop: 2 }}>
-                    {b.route?.dep} → {b.route?.arr}
-                  </div>
-                </button>
-                <button onClick={() => onDelete(b.id)} title="Delete" style={{
-                  background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)',
-                  fontSize: 16, lineHeight: 1, padding: '0 4px', flexShrink: 0,
-                }}>×</button>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Shared small confirm-modal shell for the two briefing prompts below ──
 function BriefingPromptModal({ onDismiss, closing, children }) {
   return (
@@ -679,7 +614,6 @@ export default function BriefingView() {
   const setBriefingData = useCalculatorStore(s => s.setBriefingData)
   const closeBriefing = useCalculatorStore(s => s.closeBriefing)
   const pauseBriefing = useCalculatorStore(s => s.pauseBriefing)
-  const openSavedBriefing = useCalculatorStore(s => s.openSavedBriefing)
   const saveBriefing = useCalculatorStore(s => s.saveBriefing)
   const renameSavedBriefing = useCalculatorStore(s => s.renameSavedBriefing)
   const deleteSavedBriefing = useCalculatorStore(s => s.deleteSavedBriefing)
@@ -707,7 +641,6 @@ export default function BriefingView() {
   const activeTab = tabs.some(t => t.id === pickedTab) ? pickedTab : tabs[0].id
   const animStyle = useCalculatorStore(s => s.settings.animStyle)
   const tabAnim = useTransitionAnim(activeTab, tabs.map(t => t.id), animStyle)
-  const [savedListOpen, setSavedListOpen] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(null)
   const [showSavePrompt, setShowSavePrompt] = useState(false)
@@ -744,18 +677,8 @@ export default function BriefingView() {
     closeTimer.current = setTimeout(done, ms)
   }
   const pauseAnimated = () => closeAnimated(pauseBriefing)
-  // Deleting the open briefing when it is the last one closes the overlay (see
-  // deleteSavedBriefing) — fade it out first, and un-fade if the delete failed.
-  const deleteSaved = (id) => {
-    if (id !== savedId || saves.length !== 1) { deleteSavedBriefing(id); return }
-    closeAnimated(async () => {
-      const res = await deleteSavedBriefing(id)
-      if (!res.ok) setClosing(false)
-    })
-  }
   const capPresence = usePresence(showCapPrompt)
   const savePresence = usePresence(showSavePrompt)
-  const savedListPresence = usePresence(savedListOpen)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -1014,20 +937,6 @@ export default function BriefingView() {
                 {saving ? 'SAVING…' : 'SAVE'}
               </button>
             )}
-            <button
-              onClick={() => setSavedListOpen(v => !v)}
-              className="cp-btn"
-              style={{
-                fontSize: 10, letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 6,
-                color: savedListOpen ? 'var(--cp-acc)' : undefined, borderColor: savedListOpen ? 'var(--cp-acc)' : undefined,
-              }}
-            >
-              SAVED
-              <span style={{
-                fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 8,
-                background: 'var(--cp-bg3)', color: 'var(--cp-txt)',
-              }}>{saves.length}</span>
-            </button>
             <button onClick={requestClose} className="cp-btn" style={{ width: 28, height: 28, padding: 0 }}>✕</button>
           </div>
         </div>
@@ -1035,16 +944,6 @@ export default function BriefingView() {
         {saveError && (
           <div style={{ color: 'var(--cp-red)', fontFamily: 'var(--cb-font-mono)', fontSize: 11,
             letterSpacing: '0.06em', padding: '6px 20px 0' }}>{saveError}</div>
-        )}
-
-        {savedListPresence.mounted && (
-          <SavedList
-            closing={savedListPresence.closing}
-            saves={saves}
-            savedId={savedId}
-            onOpen={(id) => { openSavedBriefing(id); setSavedListOpen(false) }}
-            onDelete={deleteSaved}
-          />
         )}
 
         <div className={revealOnLoad && !loading && !error ? 'cp-reveal-in' : undefined} style={{ padding: '18px 20px 24px' }}>
