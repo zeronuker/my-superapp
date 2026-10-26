@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { makeBriefingId, autoBriefingName, sortByNewest, pickNextAfterDelete } from '../utils/savedBriefings'
-import { loadSaves, idbBackend, isQuotaError } from '../services/briefingStorage'
+import { loadSaves, idbBackend, isQuotaError, loadCloudState, saveCloudState } from '../services/briefingStorage'
 import { syncSnapshotCaches } from '../services/briefingSync'
 
 // Named, manually-managed saves (unlike every cb-*-cache key, which is a
@@ -184,6 +184,8 @@ export const useCalculatorStore = create((set, get) => ({
   briefing: {
     open: false, route: null, data: null, savedId: null,
     saves: [],
+    // Cloud backup state { at, synced: { [id]: name } } — see briefingCloud.js.
+    cloud: loadCloudState(),
   },
 
   // ── Actions ─────────────────────────────────────────────────────────────
@@ -296,6 +298,21 @@ export const useCalculatorStore = create((set, get) => ({
         savedId: s.briefing.data === data ? entry.id : s.briefing.savedId,
       },
     }))
+    return { ok: true }
+  },
+  setBriefingCloud: (cloud) => {
+    saveCloudState(cloud)
+    set(s => ({ briefing: { ...s.briefing, cloud } }))
+  },
+  // Cloud import: the saved list becomes exactly `entries` (same replace-all as the Duty Log's
+  // import). Resolves { ok: true } or { ok: false, reason: 'full' | 'error' }.
+  replaceSavedBriefings: async (entries) => {
+    const keep = new Set(entries.map(e => e.id))
+    try {
+      for (const e of entries) await idbBackend.put(e)
+      for (const old of get().briefing.saves) if (!keep.has(old.id)) await idbBackend.remove(old.id)
+    } catch (err) { return { ok: false, reason: isQuotaError(err) ? 'full' : 'error' } }
+    set(s => ({ briefing: { ...s.briefing, saves: sortByNewest(entries) } }))
     return { ok: true }
   },
   renameSavedBriefing: async (id, name) => {

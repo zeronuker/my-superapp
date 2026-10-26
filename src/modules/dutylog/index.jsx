@@ -5,6 +5,8 @@ import LogList from './pages/LogList'
 import LogEditor from './pages/LogEditor'
 import { generateSyncCode, pushLogs, viewLogs, claimAndRestore } from './services/sync'
 import { relativeTimeFromNow } from './utils/relativeTime'
+import { useCalculatorStore } from '../../store/calculatorStore'
+import { syncBriefingsNow } from '../../services/briefingCloud'
 import { useTransitionAnim } from '../../useTransitionAnim'
 
 const mono = 'var(--cb-font-mono)'
@@ -125,6 +127,9 @@ export function DutyLogBackupSync() {
   const lastSyncedAt = useDutyLogStore(s => s.lastSyncedAt)
   const markSynced = useDutyLogStore(s => s.markSynced)
   const ensureDeviceId = useDutyLogStore(s => s.ensureDeviceId)
+  const briefingSaves = useCalculatorStore(s => s.briefing.saves)
+  const briefingCloud = useCalculatorStore(s => s.briefing.cloud)
+  const briefingsBackedUp = briefingSaves.filter(b => briefingCloud.synced[b.id] === b.name).length
 
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -152,6 +157,8 @@ export function DutyLogBackupSync() {
       const deviceId = ensureDeviceId()
       await pushLogs(code, logs, deviceId)
       markSynced(code)
+      // Saved briefings share this code and this button.
+      await syncBriefingsNow()
     } catch (e) {
       setError(e.status === 403
         ? 'This device no longer owns this code — ownership was transferred to another device.'
@@ -191,6 +198,11 @@ export function DutyLogBackupSync() {
               {syncCode}
             </div>
           )}
+          {syncCode && (
+            <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em', marginTop: 2 }}>
+              SAVED BRIEFINGS · {briefingsBackedUp} OF {briefingSaves.length} BACKED UP
+            </div>
+          )}
         </div>
         {syncCode && (
           <button
@@ -227,7 +239,7 @@ export function DutyLogBackupSync() {
             fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.06em',
             lineHeight: 1.6, marginBottom: 10,
           }}>
-            Create a cloud sync code to copy your logs to the cloud, then enter it on another device to load them there.
+            Create a cloud sync code to copy your logs and saved briefings to the cloud, then enter it on another device to load them there.
           </div>
           <button
             onClick={runBackup}

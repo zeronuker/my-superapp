@@ -16,6 +16,9 @@ import EnrouteAlternates from './EnrouteAlternates'
 import Seg from './Seg'
 import { Field, TimeCol, Chip } from './OfpBits'
 import { useOnlineStatus } from '../utils/useOnlineStatus'
+import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
+import { syncBriefingsNow } from '../services/briefingCloud'
+import { SyncBadge, CloudView } from './SavedBriefingsCloud'
 
 // The front door for a flight: import the OFP (or type the flight in), check
 // the summary, open the Briefing. Opening it also fills the METAR/TAF, NOTAM
@@ -57,8 +60,9 @@ function Row({ label, children, stacked }) {
 }
 
 export default function BriefingModule() {
-  const { saves, openBriefing, openSavedBriefing, deleteSavedBriefing } = useCalculatorStore(useShallow(s => ({
+  const { saves, cloud, openBriefing, openSavedBriefing, deleteSavedBriefing } = useCalculatorStore(useShallow(s => ({
     saves: s.briefing.saves,
+    cloud: s.briefing.cloud,
     openBriefing: s.openBriefing,
     openSavedBriefing: s.openSavedBriefing,
     deleteSavedBriefing: s.deleteSavedBriefing,
@@ -82,6 +86,14 @@ export default function BriefingModule() {
   const [page,         setPage]         = useState(cache?.savedPage || 1)   // saved-list page, kept when you leave the tab
   const [query,        setQuery]        = useState('')   // saved-list search, not kept
   const fileRef = useRef(null)
+  const syncCode = useDutyLogStore(s => s.syncCode)
+  const [syncBusy, setSyncBusy] = useState(false)
+  const [syncError, setSyncError] = useState('')
+  const syncNow = async () => {
+    setSyncError(''); setSyncBusy(true)
+    try { await syncBriefingsNow() } catch (e) { setSyncError(e.message) }
+    setSyncBusy(false)
+  }
 
   useEffect(() => {
     saveCache({ mode, ofp, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, savedPage: page, fetchedAt: importedAt })
@@ -357,7 +369,8 @@ export default function BriefingModule() {
             const detail = { ...mono, fontSize: 12, color: 'var(--cp-dim)', marginTop: 3 }
             return (
               <div key={b.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', marginBottom: 8, border: '1px solid var(--cp-border)', borderRadius: 10, background: 'var(--cp-bg2)' }}>
-                <button onClick={() => openSavedBriefing(b.id)} style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                <button onClick={() => openSavedBriefing(b.id)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}>
                   {r.customName && <div style={{ ...mono, fontSize: 13, color: 'var(--cp-txt)', marginBottom: 3 }}>{r.customName}</div>}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     {r.flight && <span style={{ ...mono, fontSize: 15, color: 'var(--cp-txt)' }}>{r.flight}</span>}
@@ -377,6 +390,10 @@ export default function BriefingModule() {
                   )}
                   <div style={{ ...mono, fontSize: 11, color: 'var(--cp-dim)', marginTop: 4 }}>saved {formatSnapshotStamp(b.savedAt)}</div>
                 </button>
+                <div style={{ marginTop: 6 }}>
+                  <SyncBadge syncCode={syncCode} synced={cloud.synced[b.id] === b.name} onSync={syncNow} busy={syncBusy} />
+                </div>
+                </div>
                 <button onClick={() => deleteSavedBriefing(b.id)} title="Delete" aria-label={`Delete ${b.name}`}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
               </div>
@@ -394,8 +411,11 @@ export default function BriefingModule() {
                 style={{ ...smallBtn, opacity: cur === pages ? 0.4 : 1 }}>NEXT ›</button>
             </div>
           )}
+          {syncError && <div style={{ fontSize: 12, marginTop: 10, color: 'var(--cp-red)' }}>{syncError}</div>}
         </div>
       )}
+
+      <CloudView />
 
       <div style={{ position: 'sticky', bottom: 0, background: 'var(--cp-bg)', borderTop: '1px solid var(--cp-border3)', padding: '10px 0', marginTop: 8 }}>
         <button className="cp-btn" onClick={openIt} disabled={!ready}

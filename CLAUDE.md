@@ -200,6 +200,22 @@ when asked. The service worker caches aggressively; users get an update prompt
   Weight bars: share of the OPERATIONAL limit, green up to 70%, amber to 80%,
   red above. Only one format prints some items: MORA, pax/cargo, take-off
   alternate and EDTO status (PDF); commercial flight number (XmlOFP).
+- **Saved Briefings cloud backup (`services/briefingCloud.js`,
+  `components/SavedBriefingsCloud.jsx`, `api/dutylog-sync.js` `&kind=briefing`)** —
+  works like the Duty Log's backup and shares its sync code, owner device and
+  function (Vercel is at the 12-function cap). Settings → Cloud Sync's one SYNC
+  button pushes the duty logs, then the saves. Each briefing is its own Firestore
+  doc `dutylogs/<code>/briefings/<id>` (entry stored as a JSON string: Firestore
+  refuses nested arrays) sent in its own request, since Vercel rejects bodies over
+  ~4.5 MB. A sync lists the cloud, pushes saves that are missing or renamed, and
+  deletes cloud copies of saves gone from the device (owner device is the source
+  of truth, no tombstones). The map picture is never left off: it is cut into
+  700 000-character pieces (`parts` subcollection, `mapParts` count on the briefing
+  doc) sent BEFORE the briefing, so a briefing in the cloud always has its whole
+  map; a rename does not resend it. "Synced" per row = `briefing.cloud.synced[id] ===
+  name` (localStorage `cb-briefing-cloud`). The "Have a code?" box on the Saved
+  Briefings list VIEWs read-only, IMPORT replaces the device's saves and makes the
+  code this device's code. Tested against a fake Firestore only.
 - **Offline briefings** — all four briefing buttons (Briefing, METAR/TAF,
   NOTAM, SIGMET tabs) are disabled offline; there is no offline reuse of a saved
   briefing in `openBriefing` (reopen saves from the Saved Briefings list).

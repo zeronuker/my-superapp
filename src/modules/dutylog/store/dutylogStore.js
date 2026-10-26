@@ -57,6 +57,9 @@ const useDutyLogStore = create(persist(
 
     markSynced: (code) => set({ syncCode: code, lastSyncedAt: Date.now() }),
 
+    // Used by the Saved Briefings import: the code is shared with the briefings.
+    setSyncCode: (code) => set({ syncCode: code }),
+
     addViewCode: (code) =>
       set((s) => ({ viewCodeHistory: [code, ...s.viewCodeHistory.filter(c => c !== code)].slice(0, 5) })),
 

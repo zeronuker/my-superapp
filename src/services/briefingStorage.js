@@ -50,6 +50,22 @@ export function isQuotaError(err) {
     || err.name === 'NS_ERROR_DOM_QUOTA_REACHED')
 }
 
+// Cloud backup bookkeeping (briefingCloud.js): which saves the cloud holds and under
+// what name, and when the last sync finished. Small, so localStorage is fine.
+const CLOUD_KEY = 'cb-briefing-cloud'
+
+export function loadCloudState(storage = globalThis.localStorage) {
+  try {
+    const parsed = JSON.parse(storage.getItem(CLOUD_KEY))
+    if (parsed && typeof parsed.synced === 'object' && parsed.synced) return { at: parsed.at ?? null, synced: parsed.synced }
+  } catch (_) {}
+  return { at: null, synced: {} }
+}
+
+export function saveCloudState(state, storage = globalThis.localStorage) {
+  try { storage.setItem(CLOUD_KEY, JSON.stringify(state)) } catch (_) {}
+}
+
 function readLegacy(storage) {
   try {
     const raw = storage.getItem(LEGACY_KEY)
