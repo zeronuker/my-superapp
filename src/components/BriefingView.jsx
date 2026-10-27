@@ -30,6 +30,8 @@ import { resolveLinks, rankSectors, NO_LINK } from '../utils/briefingLink'
 import LinkPicker from './LinkPicker'
 import { LinkChip, LinkLine } from './LinkChips'
 import { sectorItem, briefingName, linkedSectorName } from './linkItems'
+import ExportBriefingModal from './ExportBriefingModal'
+import { pdfSections, buildPdfModel } from '../utils/briefingPdf'
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -656,6 +658,7 @@ export default function BriefingView() {
   const setFocusSectorId = useDutyLogStore(s => s.setFocusSectorId)
   const links = useMemo(() => resolveLinks(dutyLogs, saves), [dutyLogs, saves])
   const [pickOpen, setPickOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(null)
   const [showSavePrompt, setShowSavePrompt] = useState(false)
@@ -844,6 +847,15 @@ export default function BriefingView() {
   // live preview of the auto-generated name once there's data to name.
   const displayTitle = titleDraft ?? savedEntry?.name ?? (data ? autoBriefingName(route, fetchedAt || Date.now()) : '')
 
+  // Export PDF — this device's saved briefings only (a cloud copy is read-only). The linked duty log
+  // sector, if any, goes in with it.
+  const dutyLog = link ? dutyLogs.find(l => l.id === link.logId) : null
+  const dutySector = dutyLog?.sectors.find(s => s.id === link.sectorId)
+  const exportInput = localEntry && data
+    ? { route, data, name: displayTitle, savedAt: localEntry.savedAt, mapSnapshot: localEntry.mapSnapshot ?? null, duty: dutySector ? { log: dutyLog, sector: dutySector, how: link.how } : null }
+    : null
+  const exportSections = exportInput ? pdfSections(exportInput) : []
+
   const commitTitle = (value) => {
     const trimmed = (value || '').trim()
     setEditingTitle(false)
@@ -963,9 +975,17 @@ export default function BriefingView() {
               </button>
             )}
             {isSaved && data && (
-              <div style={{ marginTop: 3, fontFamily: 'var(--cb-font-mono)', fontSize: 9.5, fontWeight: 700,
+              <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 10px', fontFamily: 'var(--cb-font-mono)', fontSize: 9.5, fontWeight: 700,
                 letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cp-yellow)' }}>
-                {viewOnly ? 'Cloud copy · read-only' : 'Saved snapshot'}{formatSnapshotStamp(fetchedAt || savedEntry?.savedAt) && ` · data as of ${formatSnapshotStamp(fetchedAt || savedEntry?.savedAt)}`}
+                <span>{viewOnly ? 'Cloud copy · read-only' : 'Saved snapshot'}{formatSnapshotStamp(fetchedAt || savedEntry?.savedAt) && ` · data as of ${formatSnapshotStamp(fetchedAt || savedEntry?.savedAt)}`}</span>
+                {exportSections.length > 0 && (
+                  <button onClick={() => setExportOpen(true)} className="cp-btn" aria-label="Export PDF" title="Export PDF"
+                    style={{ width: 24, height: 22, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--cp-acc)' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 4v11" /><path d="M7 11l5 5 5-5" /><path d="M5 20h14" />
+                    </svg>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1131,6 +1151,15 @@ export default function BriefingView() {
       <LinkPicker open={pickOpen} title="LINK DUTY LOG" subtitle={briefingName(localEntry)}
         searchHint="Search date, flight, route, tail…" allLabel="SHOW ALL LOGS"
         items={pickItems} onPick={pickSector} onCancel={() => setPickOpen(false)} />
+    )}
+    {exportInput && (
+      <ExportBriefingModal open={exportOpen} title={displayTitle} sections={exportSections}
+        onExport={async (selection, opts) => {
+          // jsPDF and the fonts load only now, so the briefing itself stays light.
+          const { exportBriefingPdf } = await import('../services/briefingPdfRender')
+          await exportBriefingPdf(buildPdfModel(exportInput, selection), opts)
+        }}
+        onCancel={() => setExportOpen(false)} />
     )}
     </PauseBriefingContext.Provider>
   )

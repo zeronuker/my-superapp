@@ -412,6 +412,7 @@ export const CHANGELOG = [
       "IMP: Enroute Alternates on METAR/TAF, NOTAM and SIGMET no longer use a dropdown. The tab opens with one empty field, '+ ADD' adds another (up to 5) and the red × in a field removes it.",
       "IMP: Briefing now fetches NOTAMs for all its airports in one request and shares one autorouter login, instead of one login per airport. This avoids the autorouter limit of 20 active logins, which could stop NOTAMs loading after a few briefings in an hour.",
       "IMP: Settings, the Briefing and every dialog now share one look: a double-line border with cut corners that follows your accent colour.",
+      "NEW: A saved briefing has an export button (the download arrow beside 'Saved snapshot') that makes a printable A4 PDF laid out like the briefing: route map, Flight Details, the linked Duty log and crew, METAR/TAF, SIGMETs and every active NOTAM in full. Tick the sections and NOTAM locations you want, pick portrait or landscape and a dark or light page. It works offline.",
     ],
   },
 ]

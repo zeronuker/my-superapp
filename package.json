@@ -17,6 +17,7 @@
     "adhan": "^4.4.3",
     "country-flag-icons": "^1.6.18",
     "firebase-admin": "^14.0.0",
+    "jspdf": "4.2.1",
     "jsqr": "^1.4.0",
     "leaflet": "^1.4.0",
     "maplibre-gl": "^6.9.0",
