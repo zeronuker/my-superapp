@@ -385,14 +385,15 @@ export async function renderBriefingPdf(model, { orientation = 'portrait', theme
 
   // ── page-level blocks ────────────────────────────────────────────────────
   const blocks = []
-  const add = (unit, o = {}) => blocks.push({ ...unit, gap: o.gap ?? 4, sec: o.sec, keep: o.keep, x: o.x ?? M })
-  const heading = (text, count) => add({ h: 8, draw: (x, y) => {
+  const add = (unit, o = {}) => blocks.push({ ...unit, gap: o.gap ?? 4, sec: o.sec, keep: o.keep, newPage: o.newPage, x: o.x ?? M })
+  // `newPage`: the heading starts a fresh page (unless the page holds nothing but the title block).
+  const heading = (text, count, newPage = false) => add({ h: 8, draw: (x, y) => {
     hline(x, y + 6.6, x + CW, line2, 0.25)
     const lw = tw(text.toUpperCase(), { size: 6.4, cs: 0.4 })
     fill(P.acc); doc.rect(x, y + 6.4, lw + (count != null ? 12 : 4) + 3, 0.5, 'F')
     T(text.toUpperCase(), x + 2, y + 4.6, { size: 6.4, color: P.acc, cs: 0.4 })
     if (count != null) { const cx = x + 2 + lw + 3; rr(cx, y + 1.6, 7.5, 4, 2, P.box); T(String(count), cx + 3.75, y + 4.5, { size: 5.4, bold: true, align: 'center' }) }
-  } }, { keep: true, gap: 3 })
+  } }, { keep: true, gap: 3, newPage })
   const pair = (u1, u2) => { const hh = Math.max(u1.h, u2.h); return { h: hh, draw: (x, y) => { u1.draw(x, y, hh); u2.draw(x + (CW + 3) / 2, y, hh) } } }
   const SP = 4, TITLE = 8
   // A tinted section holding a grid of cards.
@@ -453,20 +454,20 @@ export async function renderBriefingPdf(model, { orientation = 'portrait', theme
   // 5 ── METAR/TAF
   const wx = model.weather
   if (wx) {
-    heading('METAR/TAF', wx.depArr.length + wx.destAlt.length + wx.era.length)
+    heading('METAR/TAF', wx.depArr.length + wx.destAlt.length + wx.era.length, true)
     section('Departure & Arrival', SEC.depArr, wx.depArr, weatherCard, 2)
     section('Destination Alternates', SEC.destAlt, wx.destAlt, weatherCard, 2)
     section('Enroute Alternates', SEC.era, wx.era, weatherCard, landscape ? 3 : 2)
   }
   // 6 ── SIGMETs
   if (model.sigmets) {
-    heading('SIGMETs', model.sigmets.length)
+    heading('SIGMETs', model.sigmets.length, true)
     section('Sigmets — Route Firs', SEC.sigmet, model.sigmets, sigmetCard, 1)
   }
   // 7 ── NOTAMs
   const nt = model.notams
   if (nt) {
-    heading('NOTAMs', nt.total)
+    heading('NOTAMs', nt.total, true)
     const groups = ls => ls.map(l => ({ head: w => notamHeader(w, l), entries: l.notams.map(n => w => notamEntries(w, n)) }))
     if (nt.airports.length) stack('Notams — Airports', SEC.notam, groups(nt.airports))
     if (nt.firs.length) stack('Notams — Route Firs', SEC.notam, groups(nt.firs))
@@ -479,7 +480,8 @@ export async function renderBriefingPdf(model, { orientation = 'portrait', theme
     const newSeg = b.sec && (!prev || prev !== b.sec)
     const next = blocks[i + 1]
     const need = b.h + (newSeg ? SP + TITLE : 0) + (b.sec ? SP : 0) + (b.keep && next ? next.h + (next.sec && next.sec !== b.sec ? SP + TITLE + SP : 0) + 3 : 0)
-    if (y + need > BOT && y > TOP) { pages.push([]); y = TOP }
+    const breakNow = y + need > BOT || (b.newPage && pages.at(-1).some(it => it.b !== blocks[0]))
+    if (breakNow && y > TOP) { pages.push([]); y = TOP }
     const last = pages.at(-1).at(-1), segStart = !!b.sec && (!last || last.sec !== b.sec)
     const by = y + (segStart ? SP + TITLE : 0)
     pages.at(-1).push({ b, y: by, sec: b.sec, segStart })

@@ -64,6 +64,18 @@ describe('renderBriefingPdf', () => {
     expect(pageCount(long)).toBeGreaterThan(pageCount(short))
   })
 
+  it('starts METAR/TAF, SIGMETs and NOTAMs each on a page of its own', async () => {
+    const small = i => {
+      i.mapSnapshot = null; i.route.flightDetails = null; i.duty = null
+      i.data.airports = i.data.airports.slice(0, 1); i.data.firsUsed = []; i.data.notamsByIcao = { YMML: [notam('H1', 'AERODROME', 2)] }
+    }
+    expect(pageCount(await renderBriefingPdf(model(small), {}, fonts))).toBe(3)
+    // Only one of them ticked: it shares the first page with the title instead of leaving it empty.
+    const i = input(); small(i)
+    const sel = defaultSelection(pdfSections(i)); sel.sections.delete('sigmet'); sel.sections.delete('notam')
+    expect(pageCount(await renderBriefingPdf(buildPdfModel(i, sel), {}, fonts))).toBe(1)
+  })
+
   it('draws nothing for sections that are unticked', async () => {
     const i = input(), sel = defaultSelection(pdfSections(i)); sel.sections.delete('notam')
     const without = await renderBriefingPdf(buildPdfModel(i, sel), {}, fonts)
