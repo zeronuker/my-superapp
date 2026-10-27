@@ -8,10 +8,14 @@ const TAG = {
   best:   { color: 'var(--cp-acc)', background: 'var(--cp-accdim)' },
   ofp:    { color: 'var(--cp-acc)', border: '1px solid var(--cp-border)' },
   manual: { color: 'var(--cp-yellow)', border: '1px solid var(--cp-border)' },
-  taken:  { color: 'var(--cp-dim)', border: '1px solid var(--cp-border)' },
+  taken:  { color: 'var(--cp-green)', border: '1px solid var(--cp-green)' },
 }
 
-const linkBtn = { fontFamily: mono, fontSize: 10, letterSpacing: '0.06em', color: 'var(--cp-dim)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }
+const Tag = ({ t }) => (
+  <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap', ...TAG[t.kind] }}>{t.text}</span>
+)
+
+const linkBtn ={ fontFamily: mono, fontSize: 10, letterSpacing: '0.06em', color: 'var(--cp-dim)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }
 
 // The list a sector or a briefing is linked from (Duty Log ↔ Saved Briefings). items: [{ key, title, sub,
 // tags: [{ text, kind }], best, near, takenBy, search }] already best-first. Items outside `near` stay
@@ -79,11 +83,13 @@ export default function LinkPicker({ open, title, subtitle, searchHint, allLabel
                     <span style={{ display: 'block', fontFamily: mono, fontSize: 12, color: 'var(--cp-txt)' }}>{item.title}</span>
                     <span style={{ display: 'block', fontFamily: mono, fontSize: 10, color: 'var(--cp-dim)', marginTop: 2 }}>{item.sub}</span>
                   </span>
-                  <span style={{ display: 'flex', gap: 5, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {[...(item.best ? [{ text: 'BEST GUESS', kind: 'best' }] : []), ...item.tags,
-                      ...(item.takenBy ? [{ text: `LINKED TO ${item.takenBy}`, kind: 'taken' }] : [])].map(t => (
-                      <span key={t.text} style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap', ...TAG[t.kind] }}>{t.text}</span>
-                    ))}
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
+                    {(item.best || item.tags.length > 0) && (
+                      <span style={{ display: 'flex', gap: 5 }}>
+                        {[...(item.best ? [{ text: 'BEST GUESS', kind: 'best' }] : []), ...item.tags].map(t => <Tag key={t.text} t={t} />)}
+                      </span>
+                    )}
+                    {item.takenBy && <Tag t={{ text: `LINKED TO ${item.takenBy}`, kind: 'taken' }} />}
                   </span>
                 </button>
               ))}
