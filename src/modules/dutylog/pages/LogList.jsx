@@ -113,7 +113,7 @@ function groupLogs(logs) {
 // Per-entry sync status — derived from existing store fields, no new per-log
 // data needed: a log counts as synced once the store's lastSyncedAt (set by
 // any successful push) is at or after that log's own updatedAt.
-const isLogSynced = (log, lastSyncedAt) => !!lastSyncedAt && log.updatedAt <= lastSyncedAt
+export const isLogSynced = (log, lastSyncedAt) => !!lastSyncedAt && log.updatedAt <= lastSyncedAt
 
 function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syncBusy, query, matchField, briefings }) {
   const n = log.sectors.length

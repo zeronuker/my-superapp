@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import useDutyLogStore from './store/dutylogStore'
-import LogList from './pages/LogList'
+import LogList, { isLogSynced } from './pages/LogList'
 import LogEditor from './pages/LogEditor'
 import { generateSyncCode, pushLogs, viewLogs, claimAndRestore } from './services/sync'
 import { relativeTimeFromNow } from './utils/relativeTime'
@@ -137,6 +137,7 @@ export function DutyLogBackupSync() {
   const briefingSaves = useCalculatorStore(s => s.briefing.saves)
   const briefingCloud = useCalculatorStore(s => s.briefing.cloud)
   const briefingsBackedUp = briefingSaves.filter(b => briefingCloud.synced[b.id] === b.name).length
+  const logsBackedUp = logs.filter(l => isLogSynced(l, lastSyncedAt)).length
 
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -217,6 +218,11 @@ export function DutyLogBackupSync() {
           {syncCode && (
             <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em', marginTop: 2 }}>
               {syncCode}
+            </div>
+          )}
+          {syncCode && (
+            <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em', marginTop: 2 }}>
+              DUTY LOGS · {logsBackedUp} OF {logs.length} BACKED UP
             </div>
           )}
           {syncCode && (
