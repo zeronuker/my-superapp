@@ -1,10 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 
 // The two stores are only used by the UI-facing calls; these tests cover the pure parts.
+const duty = vi.hoisted(() => ({ state: {}, pushLogs: vi.fn() }))
 vi.mock('../store/calculatorStore', () => ({ useCalculatorStore: { getState: () => ({}) } }))
-vi.mock('../modules/dutylog/store/dutylogStore', () => ({ default: { getState: () => ({}) } }))
+vi.mock('../modules/dutylog/store/dutylogStore', () => ({ default: { getState: () => duty.state } }))
+vi.mock('../modules/dutylog/services/sync', () => ({ pushLogs: duty.pushLogs }))
 
-import { planSync, splitMap, syncSaves, fetchOne, fetchAll, MAP_PIECE_CHARS } from './briefingCloud'
+import { planSync, splitMap, syncSaves, pushSaves, syncLogsNow, fetchOne, fetchAll, MAP_PIECE_CHARS } from './briefingCloud'
 
 const save = (id, name, mapSnapshot = 'img') => ({ id, name, savedAt: 1, route: { dep: 'WMKK', arr: 'WSSS' }, data: {}, mapSnapshot })
 
@@ -99,6 +101,56 @@ describe('syncSaves', () => {
   it('lets other errors (e.g. 403 not the owner) through', async () => {
     const api = fakeApi({ listError: Object.assign(new Error('owned'), { status: 403 }) })
     await expect(syncSaves('CODE', 'dev', [], api)).rejects.toThrow('owned')
+  })
+})
+
+describe('pushSaves', () => {
+  it('sends just the given briefings, even if the cloud already has them, and deletes nothing', async () => {
+    const api = fakeApi({ items: [{ id: 'a', name: 'A', mapParts: 1, row: {} }, { id: 'other', name: 'Other', mapParts: 0, row: {} }] })
+    const sent = await pushSaves('CODE', 'dev', [save('a', 'A')], api)
+    expect(api.sent).toEqual([['put', 'a', 1, null, 'WMKK']])
+    expect(sent).toEqual({ a: 'A' })
+  })
+
+  it('sends the map pieces first when the cloud lacks the map', async () => {
+    const api = fakeApi()
+    await pushSaves('CODE', 'dev', [save('a', 'A')], api)
+    expect(api.sent).toEqual([['part', 'a', 0, 'img'], ['put', 'a', 1, null, 'WMKK']])
+  })
+
+  it('does nothing, not even asking the cloud, when there are no briefings', async () => {
+    const api = fakeApi()
+    api.list = async () => { throw new Error('must not list') }
+    expect(await pushSaves('CODE', 'dev', [], api)).toEqual({})
+  })
+
+  it('lets errors (e.g. 403 not the owner) through', async () => {
+    const api = fakeApi({ listError: Object.assign(new Error('owned'), { status: 403 }) })
+    await expect(pushSaves('CODE', 'dev', [save('a', 'A')], api)).rejects.toThrow('owned')
+  })
+})
+
+describe('syncLogsNow', () => {
+  it('sends all the duty logs under the sync code, then marks them synced', async () => {
+    const markSynced = vi.fn()
+    duty.state = { syncCode: 'CODE', logs: [{ id: 'L1' }, { id: 'L2' }], ensureDeviceId: () => 'dev', markSynced }
+    duty.pushLogs.mockResolvedValue()
+    await syncLogsNow()
+    expect(duty.pushLogs).toHaveBeenCalledWith('CODE', [{ id: 'L1' }, { id: 'L2' }], 'dev')
+    expect(markSynced).toHaveBeenCalledWith('CODE')
+  })
+
+  it('does not mark them synced when the upload fails', async () => {
+    const markSynced = vi.fn()
+    duty.state = { syncCode: 'CODE', logs: [], ensureDeviceId: () => 'dev', markSynced }
+    duty.pushLogs.mockRejectedValue(new Error('offline'))
+    await expect(syncLogsNow()).rejects.toThrow('offline')
+    expect(markSynced).not.toHaveBeenCalled()
+  })
+
+  it('asks for a sync code first when there is none', async () => {
+    duty.state = { syncCode: null, logs: [], ensureDeviceId: () => 'dev', markSynced: vi.fn() }
+    await expect(syncLogsNow()).rejects.toThrow('sync code')
   })
 })
 

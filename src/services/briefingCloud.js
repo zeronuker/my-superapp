@@ -10,6 +10,7 @@
 import { briefingRow } from '../utils/savedBriefings'
 import { useCalculatorStore } from '../store/calculatorStore'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
+import { pushLogs } from '../modules/dutylog/services/sync'
 
 // The server refuses a document over 900 000 bytes; a data URL is plain ASCII.
 export const MAP_PIECE_CHARS = 700_000
@@ -65,26 +66,42 @@ export function splitMap(map) {
 
 const syncedMap = (saves) => Object.fromEntries(saves.map(s => [s.id, s.name]))
 
+// 404 = the code has no backup yet; the first PUT creates it.
+const listCloud = (api, code) => api.list(code).catch(e => { if (e.status === 404) return []; throw e })
+
+// One briefing up: its map pieces first (a map never changes after saving, so only when the cloud's
+// count differs), then the briefing itself without the map.
+async function pushOne(api, code, deviceId, s, cloudItem) {
+  const pieces = splitMap(s.mapSnapshot)
+  if (cloudItem?.mapParts !== pieces.length) {
+    for (let n = 0; n < pieces.length; n++) await api.putPart(code, deviceId, s.id, n, pieces[n])
+  }
+  await api.put(code, deviceId, { ...s, mapSnapshot: null }, pieces.length, briefingRow(s))
+}
+
 // Resolves the { id: name } map of what the cloud now holds. `onProgress(done, total)` is called
 // before the first send and after each briefing sent or deleted.
 export async function syncSaves(code, deviceId, saves, api = cloudApi, onProgress) {
-  // 404 = the code has no backup yet; the first PUT creates it.
-  const items = await api.list(code).catch(e => { if (e.status === 404) return []; throw e })
+  const items = await listCloud(api, code)
   const { push, remove } = planSync(saves, items)
   const cloudById = new Map(items.map(i => [i.id, i]))
   const total = push.length + remove.length
   let done = 0
   onProgress?.(done, total)
   for (const s of push) {
-    const pieces = splitMap(s.mapSnapshot)
-    // A map never changes after saving, so a rename only needs the briefing sent again.
-    if (cloudById.get(s.id)?.mapParts !== pieces.length) {
-      for (let n = 0; n < pieces.length; n++) await api.putPart(code, deviceId, s.id, n, pieces[n])
-    }
-    await api.put(code, deviceId, { ...s, mapSnapshot: null }, pieces.length, briefingRow(s))
+    await pushOne(api, code, deviceId, s, cloudById.get(s.id))
     onProgress?.(++done, total)
   }
   for (const id of remove) { await api.remove(code, deviceId, id); onProgress?.(++done, total) }
+  return syncedMap(saves)
+}
+
+// Sends just these briefings, always (so a changed link goes up too), and deletes nothing in the cloud.
+// Resolves the { id: name } map of the ones sent.
+export async function pushSaves(code, deviceId, saves, api = cloudApi) {
+  if (!saves.length) return {}
+  const cloudById = new Map((await listCloud(api, code)).map(i => [i.id, i]))
+  for (const s of saves) await pushOne(api, code, deviceId, s, cloudById.get(s.id))
   return syncedMap(saves)
 }
 
@@ -113,6 +130,24 @@ export async function syncBriefingsNow(onProgress) {
   const { briefing, setBriefingCloud } = useCalculatorStore.getState()
   const synced = await syncSaves(syncCode, ensureDeviceId(), briefing.saves, cloudApi, onProgress)
   setBriefingCloud({ at: Date.now(), synced })
+}
+
+// A saved briefing's SYNC when it is linked to a duty log: the duty logs go up too (they always go as a set).
+export async function syncLogsNow() {
+  const { syncCode, logs, ensureDeviceId, markSynced } = useDutyLogStore.getState()
+  if (!syncCode) throw new Error('Create a cloud sync code in Settings first.')
+  await pushLogs(syncCode, logs, ensureDeviceId())
+  markSynced(syncCode)
+}
+
+// A Duty Log card's SYNC: just the briefings linked to that log go up, the others are left alone.
+export async function syncLinkedBriefings(saveIds) {
+  const { syncCode, ensureDeviceId } = useDutyLogStore.getState()
+  const { briefing, setBriefingCloud } = useCalculatorStore.getState()
+  const saves = briefing.saves.filter(b => saveIds.includes(b.id))
+  if (!saves.length) return
+  const sent = await pushSaves(syncCode, ensureDeviceId(), saves)
+  setBriefingCloud({ at: Date.now(), synced: { ...briefing.cloud.synced, ...sent } })
 }
 
 // VIEW: read-only list of what the code holds.

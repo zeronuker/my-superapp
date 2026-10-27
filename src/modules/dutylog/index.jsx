@@ -6,7 +6,8 @@ import LogEditor from './pages/LogEditor'
 import { generateSyncCode, pushLogs, viewLogs, claimAndRestore } from './services/sync'
 import { relativeTimeFromNow } from './utils/relativeTime'
 import { useCalculatorStore } from '../../store/calculatorStore'
-import { syncBriefingsNow } from '../../services/briefingCloud'
+import { syncBriefingsNow, syncLinkedBriefings } from '../../services/briefingCloud'
+import { resolveLinks } from '../../utils/briefingLink'
 import { Dots, SyncBar } from '../../components/SyncStatus'
 import { useTransitionAnim } from '../../useTransitionAnim'
 
@@ -59,7 +60,8 @@ export default function DutyLogModule({ onOpenSettings, animStyle }) {
     if (id === syncPromptId) setSyncPromptId(null)
   }
 
-  const handleSyncNow = async () => {
+  // A log card's SYNC: all the duty logs go up, then the briefings linked to the card's log (if any).
+  const handleSyncNow = async (logId) => {
     if (!syncCode) return
     setSyncError('')
     setSyncBusy(true)
@@ -67,6 +69,9 @@ export default function DutyLogModule({ onOpenSettings, animStyle }) {
       const deviceId = ensureDeviceId()
       await pushLogs(syncCode, logs, deviceId)
       markSynced(syncCode)
+      const { bySector } = resolveLinks(logs, useCalculatorStore.getState().briefing.saves)
+      const linked = (logs.find(l => l.id === logId)?.sectors ?? []).map(s => bySector.get(s.id)?.saveId).filter(Boolean)
+      await syncLinkedBriefings(linked)
     } catch (e) {
       setSyncError(e.status === 403
         ? 'This device no longer owns this code — ownership was transferred to another device.'

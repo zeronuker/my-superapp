@@ -159,7 +159,7 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
               ...(briefings ? { color: 'var(--cp-yellow)', border: '1px solid var(--cp-yellow)' } : { color: 'var(--cp-dim)', border: '1px solid var(--cp-border2)' }),
             }}>{briefings ? `${briefings} BRIEFING${briefings === 1 ? '' : 'S'}` : 'NO BRIEFING'}</span>
             <MatchChip field={matchField} />
-            <SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={onSyncNow} />
+            <SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={() => onSyncNow(log.id)} />
           </span>
         </div>
       </div>

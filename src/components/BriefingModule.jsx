@@ -17,7 +17,7 @@ import Seg from './Seg'
 import { Field, TimeCol, Chip } from './OfpBits'
 import { useOnlineStatus } from '../utils/useOnlineStatus'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
-import { syncBriefingsNow } from '../services/briefingCloud'
+import { syncBriefingsNow, syncLogsNow } from '../services/briefingCloud'
 import { CloudView, BriefingRowText } from './SavedBriefingsCloud'
 import { ModuleHeader, InfoBanner } from './ModuleChrome'
 import { useTransitionAnim } from '../useTransitionAnim'
@@ -97,9 +97,13 @@ export default function BriefingModule() {
   const syncCode = useDutyLogStore(s => s.syncCode)
   const [syncBusy, setSyncBusy] = useState(false)
   const [syncError, setSyncError] = useState('')
-  const syncNow = async () => {
+  // A row's SYNC: the saved briefings go up, then the duty logs too if that briefing is linked to one.
+  const syncNow = async (saveId) => {
     setSyncError(''); setSyncBusy(true)
-    try { await syncBriefingsNow() } catch (e) { setSyncError(e.message) }
+    try {
+      await syncBriefingsNow()
+      if (links.bySave.has(saveId)) await syncLogsNow()
+    } catch (e) { setSyncError(e.message) }
     setSyncBusy(false)
   }
 
@@ -418,7 +422,7 @@ export default function BriefingModule() {
                   onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openSavedBriefing(b.id) } }}
                   style={{ width: '100%', textAlign: 'left', cursor: 'pointer', color: 'inherit' }}>
                   <BriefingRowText r={briefingRow(b)} logged={links.bySave.has(b.id)}
-                    status={<SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={syncNow} />} />
+                    status={<SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={() => syncNow(b.id)} />} />
                 </div>
                 </div>
                 <button onClick={() => deleteSavedBriefing(b.id)} title="Delete" aria-label={`Delete ${b.name}`}
