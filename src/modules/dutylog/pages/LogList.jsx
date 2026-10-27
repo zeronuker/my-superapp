@@ -3,7 +3,7 @@ import { usePresence, useTransitionAnim } from '../../../useTransitionAnim'
 import Collapse from '../../../components/Collapse'
 import QrScanner from '../components/QrScanner'
 import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
-import { Dots, SyncStatus, SyncBar, rowSyncing } from '../../../components/SyncStatus'
+import { SyncStatus, SyncBar, rowSyncing } from '../../../components/SyncStatus'
 import { ModuleHeader, InfoBanner } from '../../../components/ModuleChrome'
 import { CODE_RE } from '../services/sync'
 import { sectorStripeColors, aircraftStripeColors, logSegmentColors } from '../utils/sectorColors'
@@ -598,31 +598,16 @@ export default function LogList({
 
       <Collapse open={!!promptLog}>
         {promptLog && (
-          syncCode ? (
-            <SyncToast actions={<>
-              <button
-                // The toast stays until the sync is done, so its spinner is seen.
-                onClick={async () => { await onSyncNow(); onDismissSyncPrompt() }}
-                disabled={syncBusy}
-                className="cp-btn"
-                style={{ fontSize: 9, padding: '5px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >{syncBusy ? <><span className="cp-spinner" aria-hidden="true" /><Dots>SYNCING</Dots></> : 'SYNC NOW'}</button>
-              <button onClick={onDismissSyncPrompt} className="cp-btn" style={{ fontSize: 9, padding: '5px 10px' }}>LATER</button>
-            </>}>
-              New duty log saved locally. Sync it to the cloud now?
-            </SyncToast>
-          ) : (
-            <SyncToast actions={<>
-              <button
-                onClick={() => { onOpenSettings(); onDismissSyncPrompt() }}
-                className="cp-btn"
-                style={{ fontSize: 9, padding: '5px 10px' }}
-              >GO TO SETTINGS</button>
-              <button onClick={onDismissSyncPrompt} className="cp-btn" style={{ fontSize: 9, padding: '5px 10px' }}>LATER</button>
-            </>}>
-              New duty log saved locally. Set up a cloud sync code in Settings to sync it.
-            </SyncToast>
-          )
+          <SyncToast actions={<>
+            <button
+              onClick={() => { onOpenSettings(); onDismissSyncPrompt() }}
+              className="cp-btn"
+              style={{ fontSize: 9, padding: '5px 10px' }}
+            >GO TO SETTINGS</button>
+            <button onClick={onDismissSyncPrompt} className="cp-btn" style={{ fontSize: 9, padding: '5px 10px' }}>LATER</button>
+          </>}>
+            New duty log saved locally. Set up a cloud sync code in Settings to sync it.
+          </SyncToast>
         )}
       </Collapse>
 

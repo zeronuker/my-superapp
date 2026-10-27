@@ -31,12 +31,6 @@ export function BriefingRowText({ r, status, logged }) {
           ...(r.isOfp ? { background: 'var(--cp-accdim)', color: 'var(--cp-acc)' } : { border: '1px solid var(--cp-border)', color: 'var(--cp-dim)' }) }}>
           {r.isOfp ? 'OFP' : 'MANUAL'}
         </span>
-        {logged != null && (
-          <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.12em', padding: '1px 6px', borderRadius: 4,
-            ...(logged ? { border: '1px solid var(--cp-green)', color: 'var(--cp-green)' } : { border: '1px solid var(--cp-border)', color: 'var(--cp-dim)' }) }}>
-            {logged ? 'LOGGED' : 'NOT LOGGED'}
-          </span>
-        )}
       </div>
       {r.isOfp && (
         <>
@@ -46,7 +40,15 @@ export function BriefingRowText({ r, status, logged }) {
       )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 4 }}>
         <span style={{ fontFamily: mono, fontSize: 11, color: 'var(--cp-dim)' }}>saved {formatSnapshotStamp(r.savedAt)}</span>
-        {status}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {logged != null && (
+            <span style={{
+              fontFamily: mono, fontSize: 8, letterSpacing: '0.08em', borderRadius: 4, padding: '2px 6px',
+              ...(logged ? { color: 'var(--cp-green)', border: '1px solid var(--cp-green)' } : { color: 'var(--cp-dim)', border: '1px solid var(--cp-border2)' }),
+            }}>{logged ? 'LOGGED' : 'NOT LOGGED'}</span>
+          )}
+          {status}
+        </span>
       </div>
     </>
   )

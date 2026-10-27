@@ -2,7 +2,7 @@
 // `pdfSections` lists what this briefing can export (the picker's rows), `buildPdfModel` turns the
 // saved briefing plus the picker's choices into the plain data services/briefingPdfRender.js draws.
 //
-// input     = { route, data, name, savedAt, mapSnapshot, duty: { log, sector, how } | null }
+// input     = { route, data, name, savedAt, mapSnapshot, duty: { log, sector } | null }
 // selection = { sections: Set<id>, notams: Set<icao> }   ids: map flight duty crew weather sigmet notam
 // The sections are listed in the order the PDF draws them.
 
@@ -55,10 +55,9 @@ function blockTime(off, on) {
   return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`
 }
 
-function dutyModel({ log, sector, how }) {
+function dutyModel({ log, sector }) {
   const ac = sectorAircraft(log, sector)
   return {
-    how,
     fltNo: sector.fltNo, date: fmtLogDate(log.date), aircraft: [ac.reg, ac.type].filter(Boolean).join('  '),
     from: sector.from, dest: sector.dest,
     offBlk: formatHHMM(sector.offBlk), takeoff: formatHHMM(sector.takeoff), ldg: formatHHMM(sector.ldg), onBlk: formatHHMM(sector.onBlk),

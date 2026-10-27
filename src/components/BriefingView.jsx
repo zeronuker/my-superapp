@@ -26,7 +26,8 @@ import FlightDetailsTab from './FlightDetailsTab'
 import Seg from './Seg'
 import ChamferFrame from '@brand/ChamferFrame'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
-import { resolveLinks, rankSectors, NO_LINK } from '../utils/briefingLink'
+import { resolveLinks, rankSectors } from '../utils/briefingLink'
+import { writeLink, clearLink } from '../services/linkSave'
 import LinkPicker from './LinkPicker'
 import { LinkChip, LinkLine } from './LinkChips'
 import { sectorItem, briefingName, linkedSectorName } from './linkItems'
@@ -653,7 +654,6 @@ export default function BriefingView() {
   const tabAnim = useTransitionAnim(activeTab, tabs.map(t => t.id), animStyle)
   const setActiveCalculator = useCalculatorStore(s => s.setActiveCalculator)
   const dutyLogs = useDutyLogStore(s => s.logs)
-  const updateSector = useDutyLogStore(s => s.updateSector)
   const setEditingId = useDutyLogStore(s => s.setEditingId)
   const setFocusSectorId = useDutyLogStore(s => s.setFocusSectorId)
   const links = useMemo(() => resolveLinks(dutyLogs, saves), [dutyLogs, saves])
@@ -712,12 +712,10 @@ export default function BriefingView() {
   const pickSector = (sectorId) => {
     const chosen = rankSectors(dutyLogs, localEntry).find(r => r.sector.id === sectorId)
     if (!chosen) return
-    // A hand-picked link of this briefing elsewhere gives way; an automatic one just stops matching.
-    if (link && link.how === 'manual' && link.sectorId !== sectorId) updateSector(link.logId, link.sectorId, { briefingLink: '' })
-    updateSector(chosen.log.id, sectorId, { briefingLink: localEntry.id })
+    writeLink(chosen.log.id, sectorId, localEntry.id)
     setPickOpen(false)
   }
-  const unlink = () => updateSector(link.logId, link.sectorId, { briefingLink: NO_LINK })
+  const unlink = () => clearLink(link.logId, link.sectorId)
   const capPresence = usePresence(showCapPrompt)
   const savePresence = usePresence(showSavePrompt)
 
@@ -852,7 +850,7 @@ export default function BriefingView() {
   const dutyLog = link ? dutyLogs.find(l => l.id === link.logId) : null
   const dutySector = dutyLog?.sectors.find(s => s.id === link.sectorId)
   const exportInput = localEntry && data
-    ? { route, data, name: displayTitle, savedAt: localEntry.savedAt, mapSnapshot: localEntry.mapSnapshot ?? null, duty: dutySector ? { log: dutyLog, sector: dutySector, how: link.how } : null }
+    ? { route, data, name: displayTitle, savedAt: localEntry.savedAt, mapSnapshot: localEntry.mapSnapshot ?? null, duty: dutySector ? { log: dutyLog, sector: dutySector } : null }
     : null
   const exportSections = exportInput ? pdfSections(exportInput) : []
 
@@ -1005,7 +1003,7 @@ export default function BriefingView() {
 
         {localEntry && link && (
           <LinkLine style={{ padding: '6px 18px 0' }}
-            text={`Duty log ${link.how === 'manual' ? 'linked by you' : 'matched automatically'} · ${linkedSectorName(dutyLogs, link)}`}
+            text={`Duty log linked by you · ${linkedSectorName(dutyLogs, link)}`}
             onChange={() => setPickOpen(true)} onUnlink={unlink} />
         )}
 

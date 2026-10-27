@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from './store/calculatorStore'
 import { loadLastPosition } from './modules/prayer/services/geolocation'
 import ErrorBoundary from './components/ErrorBoundary'
+import { guardLeave } from './utils/leaveGuard'
 import { TabBar, GroupedNav, LauncherGrid, LauncherBackBar } from './components/Navigation'
 import BrandBanner from '@brand/BrandBanner'
 import SettingsIcon from '@brand/SettingsIcon'
@@ -107,10 +108,14 @@ export default function App() {
   }
 
   // Wraps setActiveCalculator to persist the last-used tab
+  // Leaving a screen that has a guard (the Duty Log's edit page) asks it first; the same tab never does.
   const handleSelectCalculator = React.useCallback((id) => {
-    setActiveCalculator(id)
-    if (id && settings.rememberLastTab) { try { localStorage.setItem('cb-lasttab', id) } catch (_) {} }
-  }, [setActiveCalculator, settings.rememberLastTab])
+    const go = () => {
+      setActiveCalculator(id)
+      if (id && settings.rememberLastTab) { try { localStorage.setItem('cb-lasttab', id) } catch (_) {} }
+    }
+    if (id === activeCalculator) go(); else guardLeave(go)
+  }, [setActiveCalculator, settings.rememberLastTab, activeCalculator])
 
   const [showSplash, setShowSplash] = useState(true)
   const onSplashFinish = React.useCallback(() => setShowSplash(false), [])
@@ -376,7 +381,7 @@ export default function App() {
             onSelect={handleSelectCalculator} />
         )}
         {navStyle === 'launcher' && !isLauncherHome && (
-          <LauncherBackBar calc={currentCalc} onHome={() => setActiveCalculator(null)} />
+          <LauncherBackBar calc={currentCalc} onHome={() => guardLeave(() => setActiveCalculator(null))} />
         )}
 
         {/* ── Main content ─────────────────────────────────────────────── */}

@@ -49,7 +49,7 @@ export default function DutyLogModule({ onOpenSettings, animStyle }) {
   const handleBackFromEditor = () => {
     setEditingId(null)
     if (justCreatedId) {
-      setSyncPromptId(justCreatedId)
+      if (!syncCode) setSyncPromptId(justCreatedId)
       setJustCreatedId(null)
     }
   }
@@ -90,6 +90,7 @@ export default function DutyLogModule({ onOpenSettings, animStyle }) {
       <div key={editing ? 'editor' : 'list'} className={pageAnim.className} style={pageAnim.style}>
       {editing ? (
         <LogEditor
+          key={editing.id}
           log={editing}
           actions={actions}
           onBack={handleBackFromEditor}

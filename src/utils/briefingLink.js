@@ -1,11 +1,12 @@
 // Links duty log sectors to saved briefings. Pure — no React, no stores.
 //
-// A sector's `briefingLink` is empty/missing (let the app match), 'none' (the pilot unlinked it, so the
-// app must not match it again) or a saved briefing's id (picked by hand). One briefing belongs to
-// one sector, one sector has at most one briefing; a log with several sectors can have several.
+// Links are made by hand only. A sector's `briefingLink` is a saved briefing's id, or empty/missing when
+// unlinked; the briefing keeps its own copy (`dutyLink`, see services/linkSave.js). A link stays until it
+// is changed or unlinked, whatever the log says later. One briefing belongs to one sector, one sector has
+// at most one briefing; a log with several sectors can have several. The pickers below only rank the
+// choices — a best guess is a suggestion, never a link.
 
 const DAY_MS = 86400000
-export const NO_LINK = 'none'
 
 const norm = (s) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 // The trailing digits of a flight number: MH2623, "mh 2623" and the callsign MXD2623 all give 2623.
@@ -24,8 +25,8 @@ function sectorReg(log, sector) {
   return (list.find(a => a.id === sector.aircraftId) ?? list[0])?.reg
 }
 
-// How well a sector fits a briefing. `auto` = good enough to link on its own: an OFP briefing within a
-// day of the log date whose flight number matches or whose airports both match.
+// How well a sector fits a briefing. `auto` = a likely fit (the picker's BEST GUESS): an OFP briefing
+// within a day of the log date whose flight number matches or whose airports both match.
 export function pairScore(log, sector, save) {
   const ld = logDay(log), sd = saveDay(save)
   const dayDiff = ld == null || sd == null ? Infinity : Math.abs(ld - sd)
@@ -38,32 +39,17 @@ export function pairScore(log, sector, save) {
   return { score, dayDiff, auto: isOfp(save) && dayDiff <= 1 && (flight || (from && dest)) }
 }
 
-// Every link at once, so both screens agree: { bySector: Map(sectorId → {saveId, how}),
-// bySave: Map(saveId → {logId, sectorId, how}) }. Hand-picked links first (a deleted briefing's link is
-// ignored), then the app's matches best-first, each briefing and sector used once.
+// Every link at once, so both screens agree: { bySector: Map(sectorId → {saveId}),
+// bySave: Map(saveId → {logId, sectorId}) }. A link to a deleted briefing is ignored, and the first
+// sector wins if two claim the same briefing.
 export function resolveLinks(logs, saves) {
   const bySector = new Map(), bySave = new Map()
   const known = new Set(saves.map(s => s.id))
-  const link = (log, sector, saveId, how) => {
-    bySector.set(sector.id, { saveId, how })
-    bySave.set(saveId, { logId: log.id, sectorId: sector.id, how })
-  }
   for (const log of logs) for (const sector of log.sectors) {
     const id = sector.briefingLink
-    if (id && id !== NO_LINK && known.has(id) && !bySave.has(id)) link(log, sector, id, 'manual')
-  }
-  const pairs = []
-  for (const log of logs) for (const sector of log.sectors) {
-    if (sector.briefingLink || bySector.has(sector.id)) continue
-    for (const save of saves) {
-      if (bySave.has(save.id)) continue
-      const p = pairScore(log, sector, save)
-      if (p.auto) pairs.push({ log, sector, save, score: p.score })
-    }
-  }
-  pairs.sort((a, b) => b.score - a.score)
-  for (const { log, sector, save } of pairs) {
-    if (!bySector.has(sector.id) && !bySave.has(save.id)) link(log, sector, save.id, 'auto')
+    if (!id || !known.has(id) || bySave.has(id)) continue
+    bySector.set(sector.id, { saveId: id })
+    bySave.set(id, { logId: log.id, sectorId: sector.id })
   }
   return { bySector, bySave }
 }

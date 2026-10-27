@@ -332,6 +332,17 @@ export const useCalculatorStore = create((set, get) => ({
     set(s => ({ briefing: { ...s.briefing, saves: s.briefing.saves.map(b => (b.id === id ? renamed : b)) } }))
     return { ok: true }
   },
+  // The save's own copy of a hand-made duty log link: { logId, sectorId }, or null to drop it. The
+  // sector keeps the other copy (`briefingLink`), written by the same handler.
+  setSavedBriefingLink: async (id, dutyLink) => {
+    const current = get().briefing.saves.find(b => b.id === id)
+    if (!current) return { ok: false }
+    const { dutyLink: _old, ...rest } = current
+    const next = dutyLink ? { ...rest, dutyLink } : rest
+    try { await idbBackend.put(next) } catch (_) { return { ok: false } }
+    set(s => ({ briefing: { ...s.briefing, saves: s.briefing.saves.map(b => (b.id === id ? next : b)) } }))
+    return { ok: true }
+  },
   // Manual delete only — saves never auto-expire. Deleting the entry
   // currently open switches the view to the next one in the list, or
   // closes the overlay if none are left. The list only changes once the

@@ -367,7 +367,7 @@ export async function renderBriefingPdf(model, { orientation = 'portrait', theme
     return cardUnit(w, 6 + 4 + rows * 11.2 + (remark.length ? 5 + remark.length * 3.4 : 0) + 3, (x, y) => {
       const ix = x + 4, iw = w - 8
       sectionTitle(ix, y + 6, 'DUTY LOG · LINKED SECTOR')
-      T(u.how === 'manual' ? 'linked by you' : 'matched automatically', x + w - 4, y + 6, { font: 'sans', size: 5.8, color: P.dim, align: 'right' })
+      T('linked by you', x + w - 4, y + 6, { font: 'sans', size: 5.8, color: P.dim, align: 'right' })
       items.forEach(([k, v], i) => field(ix + (iw / cols) * (i % cols), y + 12 + Math.floor(i / cols) * 11.2, k, v || '—', null, { size: 8.4, maxW: iw / cols - 2 }))
       if (remark.length) { const ry = y + 12 + rows * 11.2; label('REMARK', ix, ry); TL(remark, ix, ry + 4.4, 3.4, { font: 'sans', size: 7, color: P.ink2 }) }
     })

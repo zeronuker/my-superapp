@@ -36,7 +36,6 @@ const input = () => ({
     sigmets: [{ hazard: 'TS', qualifier: 'FRQ', firName: 'YBBB BRISBANE', validFrom: '2026-10-27T06:00:00Z', validTo: '2026-10-27T07:30:00Z', top: 43000, dir: 'E', spd: 15, raw: 'WSAU21 YBRF 270552\nYBBB SIGMET P02 VALID 270600/270730' }],
   },
   duty: {
-    how: 'auto',
     log: { date: '2026-08-30', aircraft: [{ id: 'a1', reg: '9M-LRW', type: 'B737-8' }], crew: [{ name: 'Aiman Hafiz', position: 'CAPT' }, { name: 'Siti', position: 'FO' }] },
     sector: { aircraftId: 'a1', fltNo: 'OD178', from: 'YMML', dest: 'WADD', offBlk: '2108', takeoff: '2119', ldg: '0305', onBlk: '0314', fuelOff: '17330', fuelOn: '3150', pax: '168', remark: 'Delayed push 8 min.' },
   },

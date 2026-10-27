@@ -28,7 +28,6 @@ const base = () => ({
     ],
   },
   duty: {
-    how: 'auto',
     log: {
       date: '2026-08-30', aircraft: [{ id: 'a1', reg: '9M-LRW', type: 'B737-8' }],
       crew: [{ name: 'Aiman', position: 'CAPT' }, { name: '', position: '' }, { name: 'Siti', position: '' }],

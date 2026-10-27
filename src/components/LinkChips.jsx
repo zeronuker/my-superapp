@@ -18,7 +18,7 @@ export function LinkChip({ linked, tone, label, emptyLabel, onClick }) {
 
 const lineBtn = { fontFamily: mono, fontSize: 9, letterSpacing: '0.06em', color: 'var(--cp-acc)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: '0 2px' }
 
-// "Briefing matched automatically · MH2623 · CHANGE · UNLINK" under a linked sector or in the briefing header.
+// "Briefing linked by you · MH2623 · CHANGE · UNLINK" under a linked sector or in the briefing header.
 export function LinkLine({ text, onChange, onUnlink, style }) {
   return (
     <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.04em', color: 'var(--cp-dim)', ...style }}>

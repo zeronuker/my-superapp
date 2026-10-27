@@ -6,8 +6,12 @@ import Collapse from '../../../components/Collapse'
 import ChamferFrame from '@brand/ChamferFrame'
 import useDutyLogStore from '../store/dutylogStore'
 import { useCalculatorStore } from '../../../store/calculatorStore'
-import { resolveLinks, rankBriefings, NO_LINK } from '../../../utils/briefingLink'
+import { resolveLinks, rankBriefings } from '../../../utils/briefingLink'
+import { editedParts, linksToAsk } from '../../../utils/logEdits'
+import { setLeaveGuard } from '../../../utils/leaveGuard'
+import { writeLink, clearLink, takeSnapshot, restoreSnapshot } from '../../../services/linkSave'
 import LinkPicker from '../../../components/LinkPicker'
+import LinkKeepPrompt from '../../../components/LinkKeepPrompt'
 import { LinkChip, LinkLine } from '../../../components/LinkChips'
 import { briefingItem, briefingName, linkedSectorName } from '../../../components/linkItems'
 
@@ -188,7 +192,7 @@ function Sector({ logId, sector, index, total, actions, onRemarks, aircraftList,
 
       {link && (
         <LinkLine style={{ marginTop: 8, textAlign: 'center' }}
-          text={`Briefing ${link.how === 'manual' ? 'linked by you' : 'matched automatically'} · ${link.name}`}
+          text={`Briefing linked by you · ${link.name}`}
           onChange={() => onPickLink(sector.id)} onUnlink={() => onUnlink(sector.id)} />
       )}
     </div>
@@ -311,14 +315,54 @@ export default function LogEditor({ log, actions, onBack }) {
         return briefingItem(r, taken && taken.sectorId !== pickSector.id ? linkedSectorName(allLogs, taken) : null)
       })
     : []
-  const pickBriefing = (saveId) => {
-    const taken = links.bySave.get(saveId)
-    // A hand-picked link elsewhere gives way; an automatic one just stops matching once this is picked.
-    if (taken && taken.how === 'manual' && taken.sectorId !== pickSid) actions.updateSector(taken.logId, taken.sectorId, { briefingLink: '' })
-    actions.updateSector(log.id, pickSid, { briefingLink: saveId })
-    setPickOpen(false)
+  const pickBriefing = (saveId) => { writeLink(log.id, pickSid, saveId); setPickOpen(false) }
+  const unlink = (sid) => clearLink(log.id, sid)
+
+  // Leaving after an edit asks, for each link the log had when opened, whether to keep it. The snapshot is
+  // what UNDO CHANGES puts back: the log, and every link field in the app.
+  const opened = useRef(null)
+  if (!opened.current) opened.current = takeSnapshot(log.id)
+  const [ask, setAsk] = useState(null)
+  // `proceed` is where the pilot was heading: the list (←), or HOME / another tab (via the leave guard).
+  const leave = (proceed = onBack) => {
+    const was = opened.current
+    const asked = linksToAsk(was.log, log, was.links, links.bySector).filter(l => saves.some(b => b.id === l.saveId))
+    if (!asked.length) { proceed(); return }
+    const { sectorIds, other } = editedParts(was.log, log)
+    const num = (id) => log.sectors.findIndex(s => s.id === id) + 1
+    const andList = (a) => (a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`)
+    const nums = asked.map(l => `#${num(l.sectorId)}`)
+    setAsk({
+      proceed,
+      links: asked,
+      title: other.length ? 'LOG EDITED' : `SECTOR${nums.length > 1 ? 'S' : ''} ${andList(nums).toUpperCase()} EDITED`,
+      subtitle: other.length
+        ? `You changed ${andList([...other, ...sectorIds.map(id => `sector #${num(id)}`)])}. This can affect every link in this log. Choose for each one.`
+        : nums.length > 1 ? 'These sectors are linked to briefings. Choose for each one.' : 'This sector is linked to a briefing. Keep the link or discard it?',
+      rows: asked.map(l => {
+        const s = log.sectors.find(x => x.id === l.sectorId)
+        return {
+          key: l.sectorId,
+          title: `SECTOR #${num(l.sectorId)} · ${s.fltNo || '—'} · ${s.from || '—'} → ${s.dest || '—'}`,
+          sub: `Briefing ${briefingName(saves.find(b => b.id === l.saveId))}`,
+        }
+      }),
+    })
   }
-  const unlink = (sid) => actions.updateSector(log.id, sid, { briefingLink: NO_LINK })
+  const confirmLeave = (choices) => {
+    for (const l of ask.links) if (choices[l.sectorId] === 'discard') clearLink(log.id, l.sectorId)
+    const { proceed } = ask
+    setAsk(null)
+    proceed()
+  }
+  const undoEdits = () => { restoreSnapshot(opened.current); setAsk(null) }
+  // The tab bar and HOME ask the same question before they leave this page.
+  const leaveRef = useRef(leave)
+  leaveRef.current = leave
+  useEffect(() => {
+    setLeaveGuard((go) => leaveRef.current(go))
+    return () => setLeaveGuard(null)
+  }, [])
 
   // Arriving from a briefing: scroll to the sector it belongs to, once.
   const focusSectorId = useDutyLogStore(s => s.focusSectorId)
@@ -352,7 +396,7 @@ export default function LogEditor({ log, actions, onBack }) {
         borderBottom: '1px solid var(--cp-border)', paddingBottom: 10, marginBottom: 14,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={onBack} className="cp-btn" aria-label="back" style={{ padding: '4px 9px' }}>←</button>
+          <button onClick={() => leave()} className="cp-btn" aria-label="back" style={{ padding: '4px 9px' }}>←</button>
           <div>
             <div style={{ fontFamily: mono, fontSize: 13, fontWeight: 500, letterSpacing: '0.12em', color: 'var(--cp-txt)' }}>EDIT LOG</div>
             <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.16em', color: 'var(--cp-acc)' }}>{saveState}</div>
@@ -451,6 +495,9 @@ export default function LogEditor({ log, actions, onBack }) {
         subtitle={pickSector ? `SECTOR #${log.sectors.indexOf(pickSector) + 1} · ${pickSector.fltNo || '—'} · ${log.date || 'UNDATED'}` : ''}
         searchHint="Search flight, route, tail…" allLabel="SHOW ALL BRIEFINGS"
         items={pickItems} onPick={pickBriefing} onCancel={() => setPickOpen(false)} />
+
+      <LinkKeepPrompt open={!!ask} title={ask?.title} subtitle={ask?.subtitle} rows={ask?.rows ?? []}
+        onConfirm={confirmLeave} onUndo={undoEdits} />
 
       {remarkPresence.mounted && shownRemark && (
         <RemarksModal
