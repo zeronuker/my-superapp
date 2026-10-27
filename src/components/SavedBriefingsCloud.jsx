@@ -15,7 +15,7 @@ const hint = { fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpac
 
 // What a Saved Briefings row shows, from briefingRow(): used by the saved list and the cloud list.
 // `status` (the sync badge) sits at the right end of the "saved" line.
-export function BriefingRowText({ r, status }) {
+export function BriefingRowText({ r, status, logged }) {
   const join = (...parts) => parts.filter(Boolean).join(' · ')
   const times = [r.std && `STD ${r.std}`, r.sta && `STA ${r.sta}`].filter(Boolean).join(' → ')
   const detail = { fontFamily: mono, fontSize: 12, color: 'var(--cp-dim)', marginTop: 3 }
@@ -31,6 +31,12 @@ export function BriefingRowText({ r, status }) {
           ...(r.isOfp ? { background: 'var(--cp-accdim)', color: 'var(--cp-acc)' } : { border: '1px solid var(--cp-border)', color: 'var(--cp-dim)' }) }}>
           {r.isOfp ? 'OFP' : 'MANUAL'}
         </span>
+        {logged != null && (
+          <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.12em', padding: '1px 6px', borderRadius: 4,
+            ...(logged ? { border: '1px solid var(--cp-green)', color: 'var(--cp-green)' } : { border: '1px solid var(--cp-border)', color: 'var(--cp-dim)' }) }}>
+            {logged ? 'LOGGED' : 'NOT LOGGED'}
+          </span>
+        )}
       </div>
       {r.isOfp && (
         <>

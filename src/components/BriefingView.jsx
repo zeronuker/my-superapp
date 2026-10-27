@@ -25,6 +25,11 @@ import OfflineCoastlineMap from './OfflineCoastlineMap'
 import FlightDetailsTab from './FlightDetailsTab'
 import Seg from './Seg'
 import ChamferFrame from '@brand/ChamferFrame'
+import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
+import { resolveLinks, rankSectors, NO_LINK } from '../utils/briefingLink'
+import LinkPicker from './LinkPicker'
+import { LinkChip, LinkLine } from './LinkChips'
+import { sectorItem, briefingName, linkedSectorName } from './linkItems'
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -644,6 +649,13 @@ export default function BriefingView() {
   const activeTab = tabs.some(t => t.id === pickedTab) ? pickedTab : tabs[0].id
   const animStyle = useCalculatorStore(s => s.settings.animStyle)
   const tabAnim = useTransitionAnim(activeTab, tabs.map(t => t.id), animStyle)
+  const setActiveCalculator = useCalculatorStore(s => s.setActiveCalculator)
+  const dutyLogs = useDutyLogStore(s => s.logs)
+  const updateSector = useDutyLogStore(s => s.updateSector)
+  const setEditingId = useDutyLogStore(s => s.setEditingId)
+  const setFocusSectorId = useDutyLogStore(s => s.setFocusSectorId)
+  const links = useMemo(() => resolveLinks(dutyLogs, saves), [dutyLogs, saves])
+  const [pickOpen, setPickOpen] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(null)
   const [showSavePrompt, setShowSavePrompt] = useState(false)
@@ -680,6 +692,29 @@ export default function BriefingView() {
     closeTimer.current = setTimeout(done, ms)
   }
   const pauseAnimated = () => closeAnimated(pauseBriefing)
+
+  // Duty log link — only for this device's own saved briefings (a cloud copy is read-only).
+  const link = localEntry ? links.bySave.get(localEntry.id) : null
+  const pickItems = localEntry
+    ? rankSectors(dutyLogs, localEntry).map(r => {
+        const taken = links.bySector.get(r.sector.id)
+        const other = taken && taken.saveId !== localEntry.id ? saves.find(b => b.id === taken.saveId) : null
+        return sectorItem(r, other ? briefingName(other) : null)
+      })
+    : []
+  const openLog = () => closeAnimated(() => {
+    closeBriefing()
+    setEditingId(link.logId); setFocusSectorId(link.sectorId); setActiveCalculator('dutylog')
+  })
+  const pickSector = (sectorId) => {
+    const chosen = rankSectors(dutyLogs, localEntry).find(r => r.sector.id === sectorId)
+    if (!chosen) return
+    // A hand-picked link of this briefing elsewhere gives way; an automatic one just stops matching.
+    if (link && link.how === 'manual' && link.sectorId !== sectorId) updateSector(link.logId, link.sectorId, { briefingLink: '' })
+    updateSector(chosen.log.id, sectorId, { briefingLink: localEntry.id })
+    setPickOpen(false)
+  }
+  const unlink = () => updateSector(link.logId, link.sectorId, { briefingLink: NO_LINK })
   const capPresence = usePresence(showCapPrompt)
   const savePresence = usePresence(showSavePrompt)
 
@@ -935,6 +970,10 @@ export default function BriefingView() {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: 2 }}>
+            {localEntry && (
+              <LinkChip linked={!!link} tone="mint" label="DUTY LOG" emptyLabel="LINK DUTY LOG"
+                onClick={() => (link ? openLog() : setPickOpen(true))} />
+            )}
             {!isSaved && data && (
               <button onClick={attemptSave} disabled={saving} className="cp-btn" style={{ fontSize: 10, letterSpacing: '0.1em' }}>
                 {saving ? 'SAVING…' : 'SAVE'}
@@ -943,6 +982,12 @@ export default function BriefingView() {
             <button onClick={requestClose} className="cp-btn" style={{ width: 28, height: 28, padding: 0 }}>✕</button>
           </div>
         </div>
+
+        {localEntry && link && (
+          <LinkLine style={{ padding: '6px 18px 0' }}
+            text={`Duty log ${link.how === 'manual' ? 'linked by you' : 'matched automatically'} · ${linkedSectorName(dutyLogs, link)}`}
+            onChange={() => setPickOpen(true)} onUnlink={unlink} />
+        )}
 
         {saveError && (
           <div style={{ color: 'var(--cp-red)', fontFamily: 'var(--cb-font-mono)', fontSize: 11,
@@ -1081,6 +1126,11 @@ export default function BriefingView() {
         onDiscard={handleDiscardAndClose}
         onCancel={() => setShowSavePrompt(false)}
       />
+    )}
+    {localEntry && (
+      <LinkPicker open={pickOpen} title="LINK DUTY LOG" subtitle={briefingName(localEntry)}
+        searchHint="Search date, flight, route, tail…" allLabel="SHOW ALL LOGS"
+        items={pickItems} onPick={pickSector} onCancel={() => setPickOpen(false)} />
     )}
     </PauseBriefingContext.Provider>
   )

@@ -53,6 +53,10 @@ const useDutyLogStore = create(persist(
 
     setEditingId: (id) => set({ editingId: id }),
 
+    // Set when a briefing opens a log: the editor scrolls to this sector once, then clears it.
+    focusSectorId: null,
+    setFocusSectorId: (id) => set({ focusSectorId: id }),
+
     clearAll: () => set({ logs: [], editingId: null }),
 
     markSynced: (code) => set({ syncCode: code, lastSyncedAt: Date.now() }),

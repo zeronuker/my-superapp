@@ -9,6 +9,8 @@ import { CODE_RE } from '../services/sync'
 import { sectorStripeColors, aircraftStripeColors, logSegmentColors } from '../utils/sectorColors'
 import { formatHHMM } from '../utils/formatHHMM'
 import { matchField } from '../utils/searchLogs'
+import { useCalculatorStore } from '../../../store/calculatorStore'
+import { resolveLinks, briefingCount } from '../../../utils/briefingLink'
 
 // Saved duty logs — newest first. Tap to open, trash to delete, NEW to create.
 const mono = 'var(--cb-font-mono)'
@@ -113,7 +115,7 @@ function groupLogs(logs) {
 // any successful push) is at or after that log's own updatedAt.
 const isLogSynced = (log, lastSyncedAt) => !!lastSyncedAt && log.updatedAt <= lastSyncedAt
 
-function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syncBusy, query, matchField }) {
+function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syncBusy, query, matchField, briefings }) {
   const n = log.sectors.length
   const synced = isLogSynced(log, lastSyncedAt)
   const syncing = !!syncCode && rowSyncing(syncBusy, synced)
@@ -152,6 +154,10 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
             {n} SECTOR{n === 1 ? '' : 'S'} · {log.aircraft?.[0]?.type || '—'}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              fontFamily: mono, fontSize: 8, letterSpacing: '0.08em', borderRadius: 4, padding: '2px 6px',
+              ...(briefings ? { color: 'var(--cp-yellow)', border: '1px solid var(--cp-yellow)' } : { color: 'var(--cp-dim)', border: '1px solid var(--cp-border2)' }),
+            }}>{briefings ? `${briefings} BRIEFING${briefings === 1 ? '' : 'S'}` : 'NO BRIEFING'}</span>
             <MatchChip field={matchField} />
             <SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={onSyncNow} />
           </span>
@@ -554,6 +560,9 @@ export default function LogList({
 
   const promptLog = syncPromptId ? logs.find(l => l.id === syncPromptId) : null
 
+  const saves = useCalculatorStore(s => s.briefing.saves)
+  const links = useMemo(() => resolveLinks(logs, saves), [logs, saves])
+
   const mineMatches = useMemo(() => {
     if (!q) return null
     const map = new Map()
@@ -686,7 +695,7 @@ export default function LogList({
         renderLog={(log) => (
           <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete}
             syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy}
-            query={q} matchField={mineMatches?.get(log.id)} />
+            query={q} matchField={mineMatches?.get(log.id)} briefings={briefingCount(log, links)} />
         )}
       />
 

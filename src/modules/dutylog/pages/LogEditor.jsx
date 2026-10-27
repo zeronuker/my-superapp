@@ -1,9 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { sectorStripeColors, aircraftStripeColors } from '../utils/sectorColors'
 import { formatHHMM } from '../utils/formatHHMM'
 import { usePresence, animDurationMs } from '../../../useTransitionAnim'
 import Collapse from '../../../components/Collapse'
 import ChamferFrame from '@brand/ChamferFrame'
+import useDutyLogStore from '../store/dutylogStore'
+import { useCalculatorStore } from '../../../store/calculatorStore'
+import { resolveLinks, rankBriefings, NO_LINK } from '../../../utils/briefingLink'
+import LinkPicker from '../../../components/LinkPicker'
+import { LinkChip, LinkLine } from '../../../components/LinkChips'
+import { briefingItem, briefingName, linkedSectorName } from '../../../components/linkItems'
 
 const mono = 'var(--cb-font-mono)'
 
@@ -103,7 +109,7 @@ function Aircraft({ logId, aircraft, index, total, actions }) {
   )
 }
 
-function Sector({ logId, sector, index, total, actions, onRemarks, aircraftList }) {
+function Sector({ logId, sector, index, total, actions, onRemarks, aircraftList, link, onOpenLink, onPickLink, onUnlink }) {
   const set = (patch) => actions.updateSector(logId, sector.id, patch)
   const f = (key) => (v) => set({ [key]: v })
   const hasRemark = (sector.remark || '').trim().length > 0
@@ -117,7 +123,7 @@ function Sector({ logId, sector, index, total, actions, onRemarks, aircraftList 
   const acftColor = aircraftStripeColors[selIndex % aircraftStripeColors.length]
 
   return (
-    <div style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
+    <div data-sector-id={sector.id} style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)',
@@ -137,6 +143,8 @@ function Sector({ logId, sector, index, total, actions, onRemarks, aircraftList 
               <span style={{ opacity: 0.6 }}>⇄</span>
             </button>
           )}
+          <LinkChip linked={!!link} tone="amber" label="BRIEFING" emptyLabel="LINK BRIEFING"
+            onClick={() => (link ? onOpenLink(link.saveId) : onPickLink(sector.id))} />
         </div>
         {total > 1 && (
           <button onClick={() => actions.removeSector(logId, sector.id)} aria-label="remove sector"
@@ -177,6 +185,12 @@ function Sector({ logId, sector, index, total, actions, onRemarks, aircraftList 
       }}>
         {hasRemark ? 'REMARKS' : '+ ADD REMARKS'}
       </button>
+
+      {link && (
+        <LinkLine style={{ marginTop: 8, textAlign: 'center' }}
+          text={`Briefing ${link.how === 'manual' ? 'linked by you' : 'matched automatically'} · ${link.name}`}
+          onChange={() => onPickLink(sector.id)} onUnlink={() => onUnlink(sector.id)} />
+      )}
     </div>
   )
 }
@@ -276,6 +290,45 @@ export default function LogEditor({ log, actions, onBack }) {
 
   const set = (patch) => actions.updateLog(log.id, patch)
   const f = (key) => (v) => set({ [key]: v })
+
+  // Briefing links. The picker keeps its sector id after closing so it can finish its exit animation.
+  const allLogs = useDutyLogStore(s => s.logs)
+  const saves = useCalculatorStore(s => s.briefing.saves)
+  const openSavedBriefing = useCalculatorStore(s => s.openSavedBriefing)
+  const links = useMemo(() => resolveLinks(allLogs, saves), [allLogs, saves])
+  const [pickSid, setPickSid] = useState(null)
+  const [pickOpen, setPickOpen] = useState(false)
+  const pickSector = log.sectors.find(s => s.id === pickSid)
+  const linkOf = (s) => {
+    const l = links.bySector.get(s.id)
+    const save = l && saves.find(b => b.id === l.saveId)
+    return save ? { ...l, name: briefingName(save) } : null
+  }
+  const startPick = (sid) => { setPickSid(sid); setPickOpen(true) }
+  const pickItems = pickSector
+    ? rankBriefings(log, pickSector, saves).map(r => {
+        const taken = links.bySave.get(r.save.id)
+        return briefingItem(r, taken && taken.sectorId !== pickSector.id ? linkedSectorName(allLogs, taken) : null)
+      })
+    : []
+  const pickBriefing = (saveId) => {
+    const taken = links.bySave.get(saveId)
+    // A hand-picked link elsewhere gives way; an automatic one just stops matching once this is picked.
+    if (taken && taken.how === 'manual' && taken.sectorId !== pickSid) actions.updateSector(taken.logId, taken.sectorId, { briefingLink: '' })
+    actions.updateSector(log.id, pickSid, { briefingLink: saveId })
+    setPickOpen(false)
+  }
+  const unlink = (sid) => actions.updateSector(log.id, sid, { briefingLink: NO_LINK })
+
+  // Arriving from a briefing: scroll to the sector it belongs to, once.
+  const focusSectorId = useDutyLogStore(s => s.focusSectorId)
+  const setFocusSectorId = useDutyLogStore(s => s.setFocusSectorId)
+  useEffect(() => {
+    if (!focusSectorId) return
+    document.querySelector(`[data-sector-id="${focusSectorId}"]`)?.scrollIntoView({ block: 'center' })
+    setFocusSectorId(null)
+  }, [focusSectorId, setFocusSectorId])
+
   const remarkSector = log.sectors.find(s => s.id === remarkSid)
   const remarkIndex = log.sectors.findIndex(s => s.id === remarkSid)
   // Keep the last sector so the modal can finish its exit animation after the
@@ -359,7 +412,8 @@ export default function LogEditor({ log, actions, onBack }) {
       <div className="dutylog-sector-list" style={{ marginBottom: 9 }}>
         {log.sectors.map((s, i) => (
           <Sector key={s.id} logId={log.id} sector={s} index={i} total={log.sectors.length}
-            actions={actions} onRemarks={setRemarkSid} aircraftList={log.aircraft || []} />
+            actions={actions} onRemarks={setRemarkSid} aircraftList={log.aircraft || []}
+            link={linkOf(s)} onOpenLink={openSavedBriefing} onPickLink={startPick} onUnlink={unlink} />
         ))}
       </div>
 
@@ -392,6 +446,11 @@ export default function LogEditor({ log, actions, onBack }) {
           </div>
         ))}
       </div>
+
+      <LinkPicker open={pickOpen && !!pickSector} title="LINK BRIEFING"
+        subtitle={pickSector ? `SECTOR #${log.sectors.indexOf(pickSector) + 1} · ${pickSector.fltNo || '—'} · ${log.date || 'UNDATED'}` : ''}
+        searchHint="Search flight, route, tail…" allLabel="SHOW ALL BRIEFINGS"
+        items={pickItems} onPick={pickBriefing} onCancel={() => setPickOpen(false)} />
 
       {remarkPresence.mounted && shownRemark && (
         <RemarksModal

@@ -9,6 +9,7 @@ import { blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
 import { readOfpFile } from '../services/ofpFile'
 import { icaoToFir } from '../data/firLookup'
 import { briefingRow, filterSaves } from '../utils/savedBriefings'
+import { resolveLinks } from '../utils/briefingLink'
 import ResetButton from './ResetButton'
 import RouteInput from './RouteInput'
 import EnrouteAlternates from './EnrouteAlternates'
@@ -89,6 +90,8 @@ export default function BriefingModule() {
   const [query,        setQuery]        = useState('')   // saved-list search, not kept
   const [screen,       setScreen]       = useState('list')   // 'list' (saved briefings) | 'new' (set a flight up)
   const animStyle = useCalculatorStore(s => s.settings.animStyle)
+  const dutyLogs = useDutyLogStore(s => s.logs)
+  const links = useMemo(() => resolveLinks(dutyLogs, saves), [dutyLogs, saves])
   const screenAnim = useTransitionAnim(screen, ['list', 'new'], animStyle)
   const fileRef = useRef(null)
   const syncCode = useDutyLogStore(s => s.syncCode)
@@ -414,7 +417,7 @@ export default function BriefingModule() {
                 <div role="button" tabIndex={0} onClick={() => openSavedBriefing(b.id)}
                   onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openSavedBriefing(b.id) } }}
                   style={{ width: '100%', textAlign: 'left', cursor: 'pointer', color: 'inherit' }}>
-                  <BriefingRowText r={briefingRow(b)}
+                  <BriefingRowText r={briefingRow(b)} logged={links.bySave.has(b.id)}
                     status={<SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={syncNow} />} />
                 </div>
                 </div>
