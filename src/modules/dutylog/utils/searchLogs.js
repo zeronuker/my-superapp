@@ -1,25 +1,12 @@
-const MONTH_NAMES = [
-  'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
-  'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
-]
-
-// Extra searchable text for a date when "match month names" is on, e.g.
-// "18 SEP 2026 SEPTEMBER 2026" — lets a query like "sep" or "18 sep" hit a
-// date stored as plain ISO (YYYY-MM-DD) internally.
-export function altDateText(log) {
-  if (!log.date) return ''
-  const [y, m, d] = log.date.split('-').map(Number)
-  if (!y || !m) return ''
-  const monFull = MONTH_NAMES[m - 1] || ''
-  return `${String(d).padStart(2, '0')} ${monFull.slice(0, 3)} ${y} ${monFull} ${y}`
-}
+import { altDateText } from '../../../utils/dateSearch'
 
 // Returns the name of the first field in `log` containing `query`
 // (case-insensitive), or null. Field order doubles as match priority.
-export function matchField(log, query, monthMode) {
+// The date matches as ISO (2026-09-18) and as text ("sep", "18 sep").
+export function matchField(log, query) {
   const q = query.toLowerCase()
   if (!q) return null
-  const dateHay = log.date + (monthMode ? ' ' + altDateText(log) : '')
+  const dateHay = `${log.date} ${altDateText(log.date)}`
   if (dateHay.toLowerCase().includes(q)) return 'date'
   for (const s of log.sectors || []) {
     if ((s.from || '').toLowerCase().includes(q) || (s.dest || '').toLowerCase().includes(q)) return 'route'

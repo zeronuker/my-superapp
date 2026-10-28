@@ -3,6 +3,7 @@
 // module's own 12h-expiring cache.
 
 import { utcParts } from './ofpTimes'
+import { altDateText } from './dateSearch'
 
 const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID()
   : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -63,14 +64,25 @@ export function briefingRow(save) {
   return { ...savedRowInfo(save), dep: save.route?.dep ?? null, arr: save.route?.arr ?? null, savedAt: save.savedAt }
 }
 
-// Search over what a row shows (custom name, flight, dep/arr, tail, type, OFP number, OFP/MANUAL tag).
+// A UTC timestamp as "2026-09-18 18 SEP 2026 SEPTEMBER 2026" so it matches as ISO and as text.
+// Empty for a missing or unparseable timestamp.
+function dateText(ts) {
+  const t = typeof ts === 'number' ? ts : Date.parse(ts)
+  if (!Number.isFinite(t)) return ''
+  const iso = new Date(t).toISOString().slice(0, 10)
+  return `${iso} ${altDateText(iso)}`
+}
+
+// Search over what a row shows (custom name, flight, dep/arr, tail, type, OFP number, OFP/MANUAL tag,
+// the flight date (OFP only) and the saved date).
 // Case-insensitive; every space-separated word must match, so "mh2623 wsss" narrows the list.
 export function filterSaves(saves, query) {
   const terms = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
   if (!terms.length) return saves
   return saves.filter(s => {
     const r = savedRowInfo(s)
-    const text = [r.customName, r.flight, s.route?.dep, s.route?.arr, r.tail, r.type, r.ofpNo, r.isOfp ? 'OFP' : 'MANUAL']
+    const text = [r.customName, r.flight, s.route?.dep, s.route?.arr, r.tail, r.type, r.ofpNo, r.isOfp ? 'OFP' : 'MANUAL',
+      dateText(s.route?.flightDetails?.info?.std), dateText(s.savedAt)]
       .filter(Boolean).join(' ').toLowerCase()
     return terms.every(t => text.includes(t))
   })

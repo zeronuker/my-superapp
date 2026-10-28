@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import ChamferFrame from '@brand/ChamferFrame'
 import { usePresence } from '../useTransitionAnim'
 
@@ -22,7 +23,8 @@ export default function LinkKeepPrompt({ open, title, subtitle, rows, onConfirm,
   if (!presence.mounted) return null
   const shown = last.current
 
-  return (
+  // Portalled to <body>: inside the page, a transformed ancestor made `fixed` centre on the page, not the screen.
+  return createPortal(
     <div className={`cp-backdrop-in${presence.closing ? ' is-closing' : ''}`} style={{
       position: 'fixed', inset: 0, zIndex: 450, background: 'rgba(0,0,0,0.72)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
@@ -57,6 +59,7 @@ export default function LinkKeepPrompt({ open, title, subtitle, rows, onConfirm,
             style={{ fontSize: 11, color: 'var(--cp-acc)', borderColor: 'var(--cp-acc)', background: 'var(--cp-accdim)' }}>CONFIRM</button>
         </div>
       </ChamferFrame>
-    </div>
+    </div>,
+    document.body
   )
 }

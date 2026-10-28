@@ -22,9 +22,20 @@ describe('filterSaves', () => {
     expect(ids('manual')).toEqual(['b'])
     expect(ids('ofp')).toEqual(['a'])
   })
-  it('matches a custom name but not an auto name', () => {
+  it('matches a custom name', () => {
     expect(ids('charter')).toEqual(['b'])
-    expect(ids('15 sep')).toEqual([])
+  })
+  it('matches the saved date as text and as ISO', () => {
+    expect(ids('sep')).toEqual(['a', 'b'])
+    expect(ids('15 sep')).toEqual(['a', 'b'])
+    expect(ids('2026-09-15')).toEqual(['a', 'b'])
+    expect(ids('2026-09')).toEqual(['a', 'b'])
+    expect(ids('oct')).toEqual([])
+  })
+  it('matches the flight date of an OFP save', () => {
+    const ofp = { id: 'c', name: 'x', savedAt: at, route: { dep: 'WMKK', arr: 'WSSS', flightDetails: { flight: 'MH1', info: { std: '2026-10-02T01:30:00Z' } } } }
+    expect(filterSaves([ofp], 'oct').map(s => s.id)).toEqual(['c'])
+    expect(filterSaves([ofp], '2026-10-02').map(s => s.id)).toEqual(['c'])
   })
   it('needs every word to match', () => {
     expect(ids('wmkk wsss')).toEqual(['a'])

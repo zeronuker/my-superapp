@@ -280,7 +280,7 @@ export default function MalaysiaAirports() {
       </div>
 
       <div className="cp-section-header">
-        <span className="cp-section-title">Malaysia Airports</span>
+        <span className="cp-section-title">Aerodromes</span>
         <div className="cp-divider" />
       </div>
 

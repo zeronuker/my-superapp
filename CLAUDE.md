@@ -239,7 +239,7 @@ when asked. The service worker caches aggressively; users get an update prompt
   lookup here or anywhere else in the app — Malaysia Airports' gate finder
   (`api/gatefinder.js`) uses Malaysia Airports' own public API directly, not
   AeroDataBox or SkyLink.
-- **Melbourne and Sydney in the Malaysia Airports tab** (`api/_airports.js`,
+- **Melbourne and Sydney in the Aerodromes tab** (`api/_airports.js`,
   answered by the same `api/gatefinder.js`, because the project is at Vercel's
   12-function cap) — read from the airports' own website endpoints, keyless and
   undocumented, so they can change or block us: Melbourne

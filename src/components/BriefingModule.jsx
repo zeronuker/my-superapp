@@ -22,6 +22,7 @@ import { CloudView, BriefingRowText } from './SavedBriefingsCloud'
 import { ModuleHeader, InfoBanner } from './ModuleChrome'
 import { useTransitionAnim } from '../useTransitionAnim'
 import { SyncStatus, SyncBar, rowSyncing } from './SyncStatus'
+import ConfirmDeleteModal from './ConfirmDeleteModal'
 
 // The front door for a flight: import the OFP (or type the flight in), check
 // the summary, open the Briefing. Opening it also fills the METAR/TAF, NOTAM
@@ -97,6 +98,7 @@ export default function BriefingModule() {
   const syncCode = useDutyLogStore(s => s.syncCode)
   const [syncBusy, setSyncBusy] = useState(false)
   const [syncError, setSyncError] = useState('')
+  const [deletingId, setDeletingId] = useState(null)   // saved briefing awaiting delete confirmation
   // A row's SYNC: the saved briefings go up, then the duty logs too if that briefing is linked to one.
   const syncNow = async (saveId) => {
     setSyncError(''); setSyncBusy(true)
@@ -388,7 +390,7 @@ export default function BriefingModule() {
       {saves.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ position: 'relative' }}>
-            <input className="cp-input" style={{ width: '100%', boxSizing: 'border-box', paddingRight: 32 }} placeholder="Search flight, ICAO, tail, name…"
+            <input className="cp-input" style={{ width: '100%', boxSizing: 'border-box', paddingRight: 32 }} placeholder="Search flight, ICAO, tail, name, date…"
               value={query} onChange={e => { setQuery(e.target.value); setPage(1) }} aria-label="Search saved briefings" />
             {query && (
               <button onClick={() => { setQuery(''); setPage(1) }} title="Clear search" aria-label="Clear search"
@@ -425,8 +427,10 @@ export default function BriefingModule() {
                     status={<SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={() => syncNow(b.id)} />} />
                 </div>
                 </div>
-                <button onClick={() => deleteSavedBriefing(b.id)} title="Delete" aria-label={`Delete ${b.name}`}
+                <button onClick={() => setDeletingId(b.id)} title="Delete" aria-label={`Delete ${b.name}`}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
+                <ConfirmDeleteModal open={deletingId === b.id} what="briefing" name={b.name}
+                  onConfirm={() => { setDeletingId(null); deleteSavedBriefing(b.id) }} onCancel={() => setDeletingId(null)} />
                 <SyncBar active={syncing} />
               </div>
             )

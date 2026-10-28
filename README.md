@@ -51,7 +51,7 @@ Flight sector logger with offline persistence.
 - Add/delete crew rows, edit inline
 - Optional cloud sync via a pairing code (Firebase-backed) to carry logs across devices
 
-### 🛬 Malaysia Airports
+### 🛬 Aerodromes
 Live flight/gate status board, via Malaysia Airports' own public API.
 
 ### 🧮 Calculator

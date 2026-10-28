@@ -11,6 +11,7 @@ import { formatHHMM } from '../utils/formatHHMM'
 import { matchField } from '../utils/searchLogs'
 import { useCalculatorStore } from '../../../store/calculatorStore'
 import { resolveLinks, briefingCount } from '../../../utils/briefingLink'
+import ConfirmDeleteModal from '../../../components/ConfirmDeleteModal'
 
 // Saved duty logs — newest first. Tap to open, trash to delete, NEW to create.
 const mono = 'var(--cb-font-mono)'
@@ -116,6 +117,7 @@ function groupLogs(logs) {
 export const isLogSynced = (log, lastSyncedAt) => !!lastSyncedAt && log.updatedAt <= lastSyncedAt
 
 function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syncBusy, query, matchField, briefings }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const n = log.sectors.length
   const synced = isLogSynced(log, lastSyncedAt)
   const syncing = !!syncCode && rowSyncing(syncBusy, synced)
@@ -139,11 +141,16 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
               <Highlight text={(log.aircraft || []).map((a, i) => a.reg || `ACFT ${i + 1}`).join(' / ') || '—'} query={query} />
             </span>
             <button
-              onClick={(e) => { e.stopPropagation(); if (window.confirm('Delete this log? This cannot be undone.')) onDelete(log.id) }}
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
               aria-label="delete log"
               className="cp-btn"
               style={{ padding: '2px 6px', color: 'var(--cp-red)', borderColor: 'var(--cp-border)' }}
             >✕</button>
+            {/* Portalled, but React still bubbles its clicks to the card, so stop them. */}
+            <span onClick={e => e.stopPropagation()}>
+              <ConfirmDeleteModal open={confirmDelete} what="log" name={[log.date, routeOf(log)].filter(Boolean).join(' · ')}
+                onConfirm={() => { setConfirmDelete(false); onDelete(log.id) }} onCancel={() => setConfirmDelete(false)} />
+            </span>
           </span>
         </div>
         <div style={{ fontFamily: mono, fontSize: 11, color: 'var(--cp-muted)', letterSpacing: '0.08em' }}>
@@ -479,7 +486,6 @@ export default function LogList({
   })
 
   const [query, setQuery] = useState('')
-  const [monthMode, setMonthMode] = useState(true)
   const q = query.trim()
 
   const [viewInput, setViewInput] = useState(() => viewCodeHistory[0] ?? '')
@@ -566,17 +572,17 @@ export default function LogList({
   const mineMatches = useMemo(() => {
     if (!q) return null
     const map = new Map()
-    logs.forEach(l => { const f = matchField(l, q, monthMode); if (f) map.set(l.id, f) })
+    logs.forEach(l => { const f = matchField(l, q); if (f) map.set(l.id, f) })
     return map
-  }, [logs, q, monthMode])
+  }, [logs, q])
   const filteredLogs = mineMatches ? logs.filter(l => mineMatches.has(l.id)) : logs
 
   const viewedMatches = useMemo(() => {
     if (!q) return null
     const map = new Map()
-    viewedLogs.forEach(l => { const f = matchField(l, q, monthMode); if (f) map.set(l.id, f) })
+    viewedLogs.forEach(l => { const f = matchField(l, q); if (f) map.set(l.id, f) })
     return map
-  }, [viewedLogs, q, monthMode])
+  }, [viewedLogs, q])
   const filteredViewedLogs = viewedMatches ? viewedLogs.filter(l => viewedMatches.has(l.id)) : viewedLogs
 
   const { undated, flat, pastMonthsArr, pastYearsArr } = useMemo(() => groupLogs(filteredLogs), [filteredLogs])
@@ -643,12 +649,8 @@ export default function LogList({
             )}
           </div>
           <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.6, marginTop: 6 }}>
-            Search a date as YYYY-MM-DD for one day, YYYY-MM for a month, or YYYY for a year.
+            Search a date as YYYY-MM-DD for one day, YYYY-MM for a month, or YYYY for a year — or as text, e.g. "SEP", "18 SEP".
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 7, fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em', cursor: 'pointer' }}>
-            <input type="checkbox" checked={monthMode} onChange={(e) => setMonthMode(e.target.checked)} />
-            Also match month names &amp; day/month text (e.g. "SEP", "18 SEP")
-          </label>
         </div>
       )}
 
