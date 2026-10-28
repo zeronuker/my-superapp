@@ -21,6 +21,9 @@ import { useTransitionAnim, usePresence, ANIM_SPEED_MS } from './useTransitionAn
 // Each tab is code-split into its own chunk, loaded on demand when first opened.
 // vite-plugin-pwa precaches every emitted chunk, so offline still works.
 const CombinedCalculator      = lazy(() => import('./components/CombinedCalculator'))
+// One component, two tabs: it shows only the modes it is given.
+const CalculatorTab = (p) => <CombinedCalculator {...p} modes={['basic', 'scientific', 'time']} />
+const ConvertTab    = (p) => <CombinedCalculator {...p} modes={['convert']} />
 const InterpolationCalculator = lazy(() => import('./components/InterpolationCalculator'))
 const B737Performance         = lazy(() => import('./components/B737Performance'))
 const CurrencyCalculator      = lazy(() => import('./components/CurrencyCalculator'))
@@ -40,7 +43,8 @@ const DutyLogModule           = lazy(() => import('./modules/dutylog'))
 const PrayerBackgroundSync = lazy(() => import('./modules/prayer/PrayerBackgroundSync'))
 
 export const CALCULATORS = [
-  { id: 'calculator',    icon: '🧮',  name: 'Calculator',     component: CombinedCalculator },
+  { id: 'calculator',    icon: '🧮',  name: 'Calculator',     component: CalculatorTab },
+  { id: 'convert',       icon: '🔄',  name: 'Convert',        component: ConvertTab },
   { id: 'interpolation', icon: '📐',  name: 'Interpolation',  component: InterpolationCalculator },
   { id: 'b737perf',      icon: '✈️', name: 'B737 Performance', component: B737Performance },
   { id: 'currency',      icon: '💱',  name: 'Currency',       component: CurrencyCalculator },
@@ -165,7 +169,7 @@ export default function App() {
   // CombinedCalculator.jsx) instead of being sized by its content, so its
   // button grid can flex-fill both width and height with no empty margins
   // and no scroll — every other tab keeps today's normal scrolling page.
-  const isCalcFullScreen = activeCalculator === 'calculator'
+  const isCalcFullScreen = ['calculator', 'convert'].includes(activeCalculator)
 
   // ── Migrate legacy tab IDs + choose the initial view ──────────────────
   React.useEffect(() => {

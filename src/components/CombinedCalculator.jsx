@@ -15,17 +15,21 @@ const MODES = [
   { id: 'convert',    label: 'CONVERT',    icon: '🔄' },
 ]
 
-export default function CombinedCalculator({ animStyle }) {
-  const [mode, setMode] = useState('basic')
-  const modeAnim = useTransitionAnim(mode, MODES.map(m => m.id), animStyle)
+// `modes` picks which of the four this tab shows: with more than one it gets the switch, with one
+// it is that calculator alone.
+export default function CombinedCalculator({ animStyle, modes = MODES.map(m => m.id) }) {
+  const shown = MODES.filter(m => modes.includes(m.id))
+  const [mode, setMode] = useState(shown[0].id)
+  const modeAnim = useTransitionAnim(mode, shown.map(m => m.id), animStyle)
   const setNormal = useCalculatorStore(s => s.setNormal)
   const setScientificDisplay = useCalculatorStore(s => s.setScientificDisplay)
   const setTime = useCalculatorStore(s => s.setTime)
 
+  const resettable = modes.some(m => m !== 'convert')   // the converter keeps nothing to clear
   const handleReset = () => {
-    setNormal({ display: '0', previousValue: 0, operation: null, expression: '', clearNext: false })
-    setScientificDisplay('0')
-    setTime({
+    if (modes.includes('basic')) setNormal({ display: '0', previousValue: 0, operation: null, expression: '', clearNext: false })
+    if (modes.includes('scientific')) setScientificDisplay('0')
+    if (modes.includes('time')) setTime({
       digits: '', multiplier: '', prevMinutes: null, operation: null,
       isMultiplierMode: false, expression: '', result: null, justCalculated: false,
     })
@@ -33,9 +37,10 @@ export default function CombinedCalculator({ animStyle }) {
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      <div className="cp-mode-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8, flexShrink: 0 }}>
+      {(shown.length > 1 || resettable) && (
+      <div className="cp-mode-head" style={{ display: 'flex', alignItems: 'center', justifyContent: shown.length > 1 ? 'space-between' : 'flex-end', gap: 10, marginBottom: 8, flexShrink: 0 }}>
         {/* ── Mode toggle ───────────────────────────────────────────────── */}
-        <div className="cp-mode-strip" style={{
+        {shown.length > 1 && <div className="cp-mode-strip" style={{
           display: 'inline-flex',
           background: 'var(--cp-bg3)',
           border: '1px solid var(--cp-border)',
@@ -45,7 +50,7 @@ export default function CombinedCalculator({ animStyle }) {
           maxWidth: '100%',
           overflowX: 'auto',
         }}>
-          {MODES.map(({ id, label, icon }) => (
+          {shown.map(({ id, label, icon }) => (
             <button
               key={id}
               className="cp-mode-btn"
@@ -73,10 +78,11 @@ export default function CombinedCalculator({ animStyle }) {
               {label}
             </button>
           ))}
-        </div>
+        </div>}
 
-        <ResetButton onReset={handleReset} />
+        {resettable && <ResetButton onReset={handleReset} />}
       </div>
+      )}
 
       {/* ── Active calculator — fills all remaining space ────────────────── */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
