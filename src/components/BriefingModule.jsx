@@ -19,7 +19,7 @@ import { useOnlineStatus } from '../utils/useOnlineStatus'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { syncBriefingsNow, syncLogsNow } from '../services/briefingCloud'
 import { CloudView, BriefingRowText } from './SavedBriefingsCloud'
-import { ModuleHeader, InfoBanner } from './ModuleChrome'
+import { ModuleHeader } from './ModuleChrome'
 import { useTransitionAnim } from '../useTransitionAnim'
 import { SyncStatus, SyncBar, rowSyncing } from './SyncStatus'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
@@ -379,24 +379,6 @@ export default function BriefingModule() {
         }}>+ NEW</button>
       } />
 
-      <InfoBanner>Saved briefings are stored locally on this device. Use Cloud Sync in Settings for an optional online sync.</InfoBanner>
-
-      {saves.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ position: 'relative' }}>
-            <input className="cp-input" style={{ width: '100%', boxSizing: 'border-box', paddingRight: 32 }} placeholder="Search flight, ICAO, tail, name, date…"
-              value={query} onChange={e => setQuery(e.target.value)} aria-label="Search saved briefings" />
-            {query && (
-              <button onClick={() => setQuery('')} title="Clear search" aria-label="Clear search"
-                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 6px' }}>×</button>
-            )}
-          </div>
-          <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.6, marginTop: 6 }}>
-            Search by flight no, route, tail, aircraft type or OFP number.
-          </div>
-        </div>
-      )}
-
       <div className="cp-label" style={{ marginBottom: 10 }}>
         Saved · offline{query.trim() ? ` · ${found.length} of ${saves.length} match${found.length === 1 ? '' : 'es'}` : ''}
       </div>
@@ -406,8 +388,18 @@ export default function BriefingModule() {
         </div>
       ) : (
         <div style={{ marginBottom: 20 }}>
-          {found.length === 0 ? <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No saved briefings match.</div> : (
-          <MonthBrowser items={found} getYM={saveYM} searching={!!query.trim()} noun="BRIEFING" renderItem={b => {
+          <MonthBrowser items={found} getYM={saveYM} searching={!!query.trim()} noun="BRIEFING"
+            search={
+              <div style={{ position: 'relative' }}>
+                <input className="cp-input" style={{ width: '100%', boxSizing: 'border-box', paddingRight: 32 }} placeholder="Search flight, ICAO, tail, name, date…"
+                  value={query} onChange={e => setQuery(e.target.value)} aria-label="Search saved briefings" />
+                {query && (
+                  <button onClick={() => setQuery('')} title="Clear search" aria-label="Clear search"
+                    style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 6px' }}>×</button>
+                )}
+              </div>
+            }
+            renderItem={b => {
             const synced = cloud.synced[b.id] === b.name
             const syncing = rowSyncing(syncBusy, synced)
             return (
@@ -429,7 +421,6 @@ export default function BriefingModule() {
               </div>
             )
           }} />
-          )}
           {syncError && <div style={{ fontSize: 12, marginTop: 10, color: 'var(--cp-red)' }}>{syncError}</div>}
         </div>
       )}

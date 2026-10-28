@@ -42,7 +42,7 @@ src/
                               #   CALCULATORS array = the tab registry — add new tabs here.
   components/                 # one file per calculator tab (+ shared UI)
     BriefingModule.jsx        #   Briefing tab, laid out like the Duty Log (ModuleChrome.jsx
-                              #   header + info banner shared with it): a list page (saved
+                              #   header shared with it): a list page (saved
                               #   briefings shown by month through MonthBrowser.jsx like the Duty Log, 5 per page, "Have a code?" box with shared recent
                               #   codes) and a New page opened by + NEW (import the OFP or type
                               #   it in, GENERATE BRIEFING)

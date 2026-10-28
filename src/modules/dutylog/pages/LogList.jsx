@@ -4,7 +4,7 @@ import Collapse from '../../../components/Collapse'
 import QrScanner from '../components/QrScanner'
 import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
 import { SyncStatus, SyncBar, rowSyncing } from '../../../components/SyncStatus'
-import { ModuleHeader, InfoBanner } from '../../../components/ModuleChrome'
+import { ModuleHeader } from '../../../components/ModuleChrome'
 import { CODE_RE } from '../services/sync'
 import { sectorStripeColors, aircraftStripeColors, logSegmentColors } from '../utils/sectorColors'
 import { formatHHMM } from '../utils/formatHHMM'
@@ -460,8 +460,6 @@ export default function LogList({
         }}>+ NEW</button>
       } />
 
-      <InfoBanner>Duty logs are stored locally on this device. Use Cloud Sync in Settings for an optional online sync.</InfoBanner>
-
       <Collapse open={!!promptLog}>
         {promptLog && (
           <SyncToast actions={<>
@@ -485,35 +483,6 @@ export default function LogList({
         )}
       </Collapse>
 
-      {logs.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ position: 'relative' }}>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search date, route, flight no, reg, crew, notes…"
-              className="cp-input"
-              style={{ width: '100%', paddingRight: query ? 30 : 10 }}
-            />
-            {query && (
-              <button
-                onClick={() => setQuery('')}
-                aria-label="clear search"
-                style={{
-                  position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-                  background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', color: 'var(--cp-dim)',
-                  width: 18, height: 18, borderRadius: '50%', fontSize: 10, lineHeight: 1, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-                }}
-              >×</button>
-            )}
-          </div>
-          <div style={{ fontFamily: mono, fontSize: 8, color: 'var(--cp-dim)', letterSpacing: '0.04em', lineHeight: 1.6, marginTop: 6 }}>
-            Search a date as YYYY-MM-DD for one day, YYYY-MM for a month, or YYYY for a year — or as text, e.g. "SEP", "18 SEP".
-          </div>
-        </div>
-      )}
-
       <div className="cp-label" style={{ marginBottom: 10 }}>
         Saved · offline{q ? ` · ${filteredLogs.length} of ${logs.length} match${filteredLogs.length === 1 ? '' : 'es'}` : ''}
       </div>
@@ -527,24 +496,38 @@ export default function LogList({
         </div>
       )}
 
-      {logs.length > 0 && q && filteredLogs.length === 0 && (
-        <div style={{
-          fontFamily: mono, fontSize: 11, color: 'var(--cp-dim)', letterSpacing: '0.08em',
-          textAlign: 'center', padding: '32px 0',
-        }}>
-          NO LOGS MATCH "{q}"
-        </div>
-      )}
-
-      {undated.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', color: 'var(--cp-dim)', marginBottom: 8 }}>UNDATED · {undated.length}</div>
-          {undated.map(renderLog)}
-        </div>
-      )}
-      {logs.length > 0 && !(q && filteredLogs.length === 0) && (
+      {logs.length > 0 && (
         <MonthBrowser items={filteredLogs.filter(l => q || parseLogYM(l))} getYM={parseLogYM} renderItem={renderLog}
-          searching={!!q} noun="LOG" />
+          searching={!!q} noun="LOG"
+          search={
+            <div style={{ position: 'relative' }}>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search date, route, flight no, reg, crew, notes…"
+                className="cp-input"
+                style={{ width: '100%', paddingRight: query ? 30 : 10 }}
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery('')}
+                  aria-label="clear search"
+                  style={{
+                    position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                    background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', color: 'var(--cp-dim)',
+                    width: 18, height: 18, borderRadius: '50%', fontSize: 10, lineHeight: 1, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                  }}
+                >×</button>
+              )}
+            </div>
+          }
+          pinned={undated.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', color: 'var(--cp-dim)', marginBottom: 8 }}>UNDATED · {undated.length}</div>
+              {undated.map(renderLog)}
+            </div>
+          )} />
       )}
 
       <div className="cp-divider" style={{ margin: '18px 0' }} />

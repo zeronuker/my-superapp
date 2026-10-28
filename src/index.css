@@ -534,18 +534,27 @@ html[data-hico="true"] .cp-input:focus {
 }
 
 /* ── Duty log responsive layout ── */
-.dutylog-shell { max-width: 480px; margin: 0 auto; }
+.dutylog-shell { max-width: 860px; margin: 0 auto; }
 .dutylog-aircraft-list, .dutylog-sector-list { display: flex; flex-direction: column; gap: 9px; }
 
+/* Aircraft cards: 2 per row in landscape. Sector cards also in a wide portrait screen (tablet). */
 @media (orientation: landscape) {
-  .dutylog-shell { max-width: 900px; }
-  .dutylog-aircraft-list, .dutylog-sector-list {
+  .dutylog-aircraft-list {
+    display: grid; grid-template-columns: 1fr 1fr; align-items: start;
+  }
+  .dutylog-aircraft-list > div:only-child,
+  .dutylog-aircraft-list > div:nth-child(odd):last-child {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc(50% - 4.5px);
+  }
+}
+@media (orientation: landscape), (min-width: 640px) {
+  .dutylog-sector-list {
     display: grid; grid-template-columns: 1fr 1fr; align-items: start;
   }
   /* Odd count — lone last card spans both columns, centered at half-width
      instead of sticking to column 1 with dead space beside it. */
-  .dutylog-aircraft-list > div:only-child,
-  .dutylog-aircraft-list > div:nth-child(odd):last-child,
   .dutylog-sector-list > div:only-child,
   .dutylog-sector-list > div:nth-child(odd):last-child {
     grid-column: 1 / -1;
