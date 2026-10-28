@@ -75,7 +75,7 @@ export default function MonthBrowser({ items, getYM, renderItem, searching, noun
               return (
                 <button key={name} className="cp-btn" aria-pressed={on} onClick={() => pick(year, i + 1)}
                   style={{
-                    flex: '0 0 62px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 0',
+                    flex: '1 0 62px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '6px 0',
                     fontSize: 11, letterSpacing: '0.08em', ...(on ? ACTIVE : {}), ...(counts[i] || on ? {} : { opacity: 0.45 }),
                   }}>
                   {name.slice(0, 3)}
