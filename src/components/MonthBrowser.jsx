@@ -28,8 +28,10 @@ export default function MonthBrowser({ items, getYM, renderItem, searching, noun
   const list = searching ? items : itemsInMonth(items, getYM, year, month)
   const { shown, pages, cur } = paginate(list, page, pageSize)
   const animStyle = useCalculatorStore(s => s.settings.animStyle)
-  // Changing year, month or page slides the list; typing in the search box does not.
-  const anim = useTransitionAnim(searching ? cur : year * 10000 + month * 100 + cur, BY_VALUE, animStyle)
+  // Changing year, month or page slides the list; typing in the search box does not. The key
+  // remounts the list so a click made while the last slide is still marked on replays it.
+  const animKey = searching ? cur : year * 10000 + month * 100 + cur
+  const anim = useTransitionAnim(animKey, BY_VALUE, animStyle)
 
   useEffect(() => { setPage(1) }, [searching])
 
@@ -87,7 +89,7 @@ export default function MonthBrowser({ items, getYM, renderItem, searching, noun
         </>
       )}
 
-      <div className={anim.className} style={anim.style}>
+      <div key={animKey} className={anim.className} style={anim.style}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', color: 'var(--cp-dim)', marginBottom: 8 }}>
         <span>{searching ? 'ALL YEARS' : `${MONTH_NAMES[month - 1]} ${year}`}</span>
         <span>{list.length} {label}</span>
