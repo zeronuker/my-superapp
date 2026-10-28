@@ -563,6 +563,95 @@ html[data-hico="true"] .cp-input:focus {
   }
 }
 
+/* ── Currency: one column on phones, two from 768px (inputs + rate source left, list right) ── */
+.currency-shell { max-width: 440px; margin: 0 auto; display: grid; gap: 20px; }
+.currency-inputs { display: flex; flex-direction: column; gap: 20px; }
+.currency-list { display: flex; flex-direction: column; gap: 20px; }
+@media (min-width: 768px) {
+  .currency-shell {
+    max-width: 860px; align-items: start; column-gap: 28px;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "reset reset" "inputs list" "source list";
+    grid-template-rows: auto auto 1fr;
+  }
+  .currency-reset { grid-area: reset; }
+  .currency-inputs { grid-area: inputs; }
+  .currency-list { grid-area: list; }
+  .currency-source { grid-area: source; }
+  .currency-divider { display: none; }
+}
+
+/* ── World Time: one column on phones; from 768px the saved clocks go 2-up under the full-width top band ── */
+.worldtime-shell { max-width: 600px; margin: 0 auto; }
+.worldtime-clocks { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+@media (min-width: 768px) {
+  .worldtime-shell { max-width: 860px; }
+  .worldtime-clocks { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+}
+
+/* ── Converter: wider shell from 768px ── */
+.converter-shell { max-width: 700px; }
+@media (min-width: 768px) {
+  .converter-shell { max-width: 860px; }
+}
+
+/* ── Prayer: 480px on phones; from 768px the shell widens and the Times page goes 2 columns
+   (location, days, next prayer | prayer rows). Flight stays 480px, Qibla is centred. ── */
+.prayer-shell { max-width: 480px; margin: 0 auto; }
+/* Flight: the form alone stays 480px centred; once results exist it goes form | results. */
+.flight-page { max-width: 480px; margin: 0 auto; }
+.flight-form, .flight-results, .flight-bottom { display: flex; flex-direction: column; }
+.flight-tl-h, .flight-note-side { display: none; }
+@media (min-width: 768px) {
+  .flight-note-side { display: block; }
+  .flight-note-bottom { display: none; }
+  .flight-page.has-result .flight-bottom { grid-column: 1 / -1; }
+  .flight-tl-v { display: none; }
+  .flight-tl-h { display: block; }
+  .prayer-shell { max-width: 860px; }
+  .flight-page.has-result {
+    max-width: none; display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: start;
+  }
+  .prayer-times.has-times {
+    display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: start;
+  }
+}
+
+/* ── B737 Performance sub-modes: one column on phones; from 768px the inputs sit left, results right ── */
+.b737-shell, .b737-inputs { display: flex; flex-direction: column; gap: 24px; }
+.b737-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (min-width: 768px) {
+  .b737-shell {
+    display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; row-gap: 24px; align-items: start;
+  }
+  .b737-banner { grid-column: 1 / -1; }
+  .b737-cards { grid-template-columns: 1fr; }
+}
+
+/* ── Aerodromes: flight cards one per row on phones, two per row from 768px ── */
+.aero-results { display: flex; flex-direction: column; gap: 8px; }
+@media (min-width: 768px) {
+  .aero-results { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 8px 12px; }
+}
+
+/* ── METAR/TAF airport cards: METAR (+ runways) then TAF stacked on phones; side by side from 768px ── */
+@media (min-width: 768px) {
+  .metar-cols { display: grid; grid-template-columns: 2fr 1fr; column-gap: 20px; align-items: start; }
+  .metar-col { min-width: 0; }
+}
+
+/* ── NOTAM: an expanded location lists its NOTAMs in two columns from 768px ── */
+@media (min-width: 768px) {
+  .notam-list { column-count: 2; column-gap: 28px; }
+  .notam-entry { break-inside: avoid; }
+}
+
+/* ── SIGMET: cards one per row on phones, two per row from 768px ── */
+.sigmet-list { display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 768px) {
+  .sigmet-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+}
+
 /* Phone landscape (short viewport height) — tighten card spacing so 2 aircraft
    + 2 sectors have a better chance of fitting without scrolling. */
 @media (orientation: landscape) and (max-height: 500px) {

@@ -99,7 +99,8 @@ export default function PrayerTimesPage({
   const denied = permissionState === 'denied'
 
   return (
-    <div>
+    <div className={`prayer-times${times ? ' has-times' : ''}`}>
+      <div className="prayer-times-left">
       <Header
         location={location}
         gpsStatus={gpsStatus}
@@ -186,6 +187,12 @@ export default function PrayerTimesPage({
           <DayStrip selected={dayOffset} onChange={setDayOffset} />
           {isToday && <NextPrayerCard times={displayTimes} />}
           <OfflinePill source={source} />
+        </>
+      )}
+      </div>
+
+      {times && (
+        <div className="prayer-times-right">
           <div style={{ margin: '8px 0' }}>
             {rows.map(row => <PrayerRow key={row.name} {...row} />)}
           </div>
@@ -198,7 +205,7 @@ export default function PrayerTimesPage({
               {source === 'api' ? 'ALADHAN API' : 'LOCAL CALCULATION'}
             </span>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

@@ -116,7 +116,7 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
   const sel = {
     background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)',
     borderRadius: 4, color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)',
-    fontSize: 12, padding: '7px 10px', outline: 'none', cursor: 'pointer', width: '100%',
+    fontSize: 13, padding: '8px 10px', outline: 'none', cursor: 'pointer', width: '100%',
   }
 
   const ChoiceBtn = ({ active, onClick, children, accentColor }) => (
@@ -147,9 +147,9 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
   const stepConditions = step++
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="b737-shell">
 
-      <div style={{
+      <div className="b737-banner" style={{
         background: 'rgba(59,141,255,0.06)',
         border: '1px solid rgba(59,141,255,0.2)',
         borderLeft: '3px solid var(--cb-blue)',
@@ -167,6 +167,7 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
         Compliance with all applicable regulations remains the sole responsibility of the user.
       </div>
 
+      <div className="b737-inputs">
       <div>
         <SectionHeader title={`Step ${stepAircraft} — Aircraft`} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -208,7 +209,7 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
         <>
           <div>
             <SectionHeader title={`Step ${stepConditions} — Conditions`} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16, alignItems: 'end' }}>
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>Aircraft Weight</div>
                 <input
@@ -323,8 +324,12 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
               </div>
             )}
           </div>
+        </>
+      )}
+      </div>
 
-          <div>
+      {tables && (
+          <div className="b737-results">
             <SectionHeader title="Results" />
             {!inputsComplete ? (
               <div className="cp-card-bg3" style={{
@@ -337,7 +342,7 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
               }}>
-                ↑ Enter weight, OAT, pressure altitude and speed to calculate the cooling schedule
+                Enter weight, OAT, pressure altitude and speed to calculate the cooling schedule
               </div>
             ) : !r || r.outOfRange ? (
               <div className="cp-card-bg3" style={{
@@ -450,7 +455,6 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
               </div>
             )}
           </div>
-        </>
       )}
     </div>
   )

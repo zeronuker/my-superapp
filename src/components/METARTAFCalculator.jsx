@@ -595,7 +595,8 @@ function AirportCard({ data, now }) {
           ERROR · {error}
         </div>
       ) : (
-        <>
+        <div className="metar-cols">
+          <div className="metar-col">
           {/* ── METAR ── */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -664,7 +665,9 @@ function AirportCard({ data, now }) {
           <RunwaysSection icao={icao} role={role}
             windDirDeg={typeof latestMetar?.wdir === 'number' ? latestMetar.wdir : null}
             windSpeedKt={typeof latestMetar?.wspd === 'number' ? latestMetar.wspd : null} />
+          </div>
 
+          <div className="metar-col">
           {/* ── TAF ── */}
           <div style={{ marginBottom: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -753,7 +756,8 @@ function AirportCard({ data, now }) {
               })()}
             </Collapse>
           </div>
-        </>
+          </div>
+        </div>
       )}
     </div>
   )

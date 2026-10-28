@@ -179,6 +179,170 @@ function TimelinePrayerRow({ name, dayIndex, time, elapsedHours, position, done,
   )
 }
 
+// Wide-screen timeline: a bar from departure to arrival with each prayer at its
+// real elapsed-time position. Every event gets a one-line card in a row above or
+// below the bar (alternating), kept tight to the bar to save height. Cards are
+// spread left to right in the SAME ORDER as their markers, and each marker's
+// leader line (short riser, then a diagonal) ends at its card's edge. Same order
+// on both ends means leader lines can never cross each other, and they never
+// touch a card. Phone keeps the vertical timeline (CSS shows one or the other,
+// see .flight-tl-*).
+const HCARD_W = 150
+const HCARD_H = 24
+const HGAP = 8
+const HMARKER = 10
+const HEND = 110   // room for the departure / arrival labels either side of the bar
+const HRISE = 12   // vertical part of a leader
+const HROW = 33    // bar centre to the near edge of a card row
+const HSIDE = HROW + HCARD_H + 4   // band height on a side that has cards
+const HBARE = 22                   // ... and on a side that has none (clears the end labels)
+
+// Spread card centres so neighbours are at least `min` apart, keeping order and
+// staying inside [lo, hi]; clusters open up evenly around where they started.
+function spreadCards(desired, min, lo, hi) {
+  const n = desired.length
+  if (n === 0) return []
+  if (n > 1 && (n - 1) * min > hi - lo) min = (hi - lo) / (n - 1)
+  const pos = desired.map(d => Math.min(hi, Math.max(lo, d)))
+  for (let iter = 0; iter < 80; iter++) {
+    let moved = false
+    for (let i = 0; i < n - 1; i++) {
+      const gap = pos[i + 1] - pos[i]
+      if (gap < min - 0.01) { const d = (min - gap) / 2; pos[i] -= d; pos[i + 1] += d; moved = true }
+    }
+    for (let i = 0; i < n; i++) pos[i] = Math.min(hi, Math.max(lo, pos[i]))
+    if (!moved) break
+  }
+  return pos
+}
+
+function HorizontalTimeline({ dep, dest, depClock, arrClock, rows, totalHours, elapsedHours }) {
+  const boxRef = useRef(null)
+  const [w, setW] = useState(0)
+  useLayoutEffect(() => {
+    const el = boxRef.current
+    if (!el) return undefined
+    const ro = new ResizeObserver(([e]) => setW(e.contentRect.width))
+    ro.observe(el)
+    setW(el.getBoundingClientRect().width)
+    return () => ro.disconnect()
+  }, [])
+
+  const pctOf = h => Math.min(100, Math.max(0, (h / totalHours) * 100))
+  const span = w - 2 * HEND
+  const xOf = h => HEND + (pctOf(h) / 100) * span
+
+  // Alternating sides: the first event goes above, the second below, ...
+  const cy = rows.length > 0 ? HSIDE : HBARE
+  const height = cy + (rows.length > 1 ? HSIDE : HBARE)
+
+  const items = useMemo(() => {
+    if (span <= 0) return []
+    const list = [...rows]
+      .sort((p, q) => p.elapsedHours - q.elapsedHours)
+      .map((row, i) => ({ row, mx: xOf(row.elapsedHours), above: i % 2 === 0 }))
+    // Visual only: events minutes apart (Imsak / Fajr) get distinct markers.
+    const mxs = spreadCards(list.map(it => it.mx), HMARKER + 6, HEND + HMARKER + 4, w - HEND - HMARKER - 4)
+    list.forEach((it, k) => { it.mx = mxs[k] })
+    for (const above of [true, false]) {
+      const side = list.filter(it => it.above === above)
+      const cxs = spreadCards(side.map(it => it.mx), HCARD_W + HGAP, HCARD_W / 2, w - HCARD_W / 2)
+      side.forEach((it, k) => { it.cx = cxs[k] })
+    }
+    return list
+  }, [rows, totalHours, w]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const ring = (x, color, dashed) => ({
+    position: 'absolute', left: x, top: cy, width: HMARKER, height: HMARKER, borderRadius: '50%',
+    transform: 'translate(-50%, -50%)', background: T.bg1, boxSizing: 'border-box',
+    border: `2px ${dashed ? 'dashed' : 'solid'} ${color}`,
+  })
+  const endLabel = (label, sub, side) => (
+    <div style={{
+      position: 'absolute', top: cy, transform: 'translateY(-50%)', width: 96,
+      ...(side === 'left' ? { left: 0, textAlign: 'right' } : { right: 0, textAlign: 'left' }),
+      fontFamily: T.sans, color: T.ink,
+    }}>
+      <div style={{ fontSize: 13 }}>{label}</div>
+      <div style={{ fontFamily: T.mono, fontSize: 10, color: T.dim, marginTop: 2 }}>{sub}</div>
+    </div>
+  )
+
+  return (
+    <div ref={boxRef} style={{ position: 'relative', height }}>
+      {span > 0 && (
+        <>
+          {endLabel(dep, depClock ? `departed ${depClock}` : '', 'left')}
+          {endLabel(dest, arrClock ? `arrives ${arrClock}` : '', 'right')}
+          <div style={{ position: 'absolute', left: HEND, right: HEND, top: cy - 1, height: 2, borderRadius: 1, background: T.bord2 }} />
+          <div style={{ position: 'absolute', left: HEND, width: (pctOf(elapsedHours) / 100) * span, top: cy - 1, height: 2, borderRadius: 1, background: 'var(--cp-acc)' }} />
+          <span style={{ ...ring(HEND, T.ink, false), opacity: 0.6 }} />
+          <span style={ring(w - HEND, T.border, true)} />
+
+          <svg width={w} height={height} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none', overflow: 'visible' }}>
+            {items.map(({ mx, cx, above }, i) => {
+              const sign = above ? -1 : 1
+              return (
+                <polyline key={i} fill="none" strokeWidth={1}
+                  style={{ stroke: T.dim, opacity: 0.55 }}
+                  points={`${mx},${cy + sign * (HMARKER / 2 + 1)} ${mx},${cy + sign * HRISE} ${cx},${cy + sign * HROW}`} />
+              )
+            })}
+          </svg>
+
+          {items.map(({ row, mx, cx, above }, i) => (
+            <div key={`${row.name}-${i}`}>
+              <span style={ring(mx, row.isNext ? 'var(--cp-acc)' : T.dim, false)} />
+              <div style={{
+                position: 'absolute', left: cx - HCARD_W / 2, width: HCARD_W, height: HCARD_H, boxSizing: 'border-box',
+                top: above ? cy - HROW - HCARD_H : cy + HROW,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, whiteSpace: 'nowrap',
+                opacity: row.isSunrise ? 0.55 : row.done ? 0.38 : 1,
+                ...(row.isNext ? {
+                  background: 'rgba(var(--cp-acc-rgb,63,224,197),0.07)',
+                  border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.25)',
+                  borderRadius: 6,
+                } : {}),
+              }}>
+                <span style={{ fontFamily: T.sans, fontSize: 13, color: row.isNext ? 'var(--cp-acc)' : T.ink }}>
+                  {row.name}
+                  {row.dayIndex > 1 && <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, marginLeft: 5 }}>DAY {row.dayIndex}</span>}
+                </span>
+                <span style={{ fontFamily: T.mono, fontSize: 13, color: row.isNext ? 'var(--cp-acc)' : T.ink2 }}>{row.time}</span>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
+// Dead-reckoning disclaimer. Rendered twice (under Current Position and at the
+// bottom); CSS shows one, see .flight-note-*.
+function DeadReckoningNote() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 8,
+      background: 'rgba(251,146,60,0.05)',
+      border: '1px solid rgba(251,146,60,0.18)',
+      borderRadius: 6, padding: '10px 12px', marginTop: 4,
+    }}>
+      <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>⚠</span>
+      <div>
+        <div style={{ fontFamily: T.mono, fontSize: 8, color: T.orange,
+          letterSpacing: '0.14em', marginBottom: 4 }}>
+          ESTIMATED TIME AND POSITION ONLY
+        </div>
+        <div style={{ fontFamily: T.sans, fontSize: 11, color: T.dim, lineHeight: 1.6 }}>
+          Prayer times and Qibla direction are calculated using dead reckoning and carry a margin of error.
+          Recheck closer to departure or while inflight for the best accuracy.
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Permanent (not timeline-anchored) live aircraft position card — lat/lng,
 // a horizontal progress bar, and a boxed refresh button that runs the same
 // "calculating" spinner as the main CALCULATE button.
@@ -521,12 +685,8 @@ export default function FlightPage({ settings }) {
   }, [result, timelineRows])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-
-      {/* Reset */}
-      <div style={{ marginBottom: 12 }}>
-        <ResetButton onReset={resetInputs} />
-      </div>
+    <div className={`flight-page${result ? ' has-result' : ''}`}>
+      <div className="flight-form">
 
       {/* Offline / manual detection banner */}
       <div style={{
@@ -662,11 +822,13 @@ export default function FlightPage({ settings }) {
           after a calculation, so old results on screen are never mistaken
           for current; spinner is a cosmetic delay since the math itself is
           instant and would otherwise swap in with no feedback. */}
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, marginBottom: 20 }}>
+      <ResetButton onReset={resetInputs} />
       <button
         onClick={handleCalculate}
         disabled={isCalculating}
         style={{
-          width: '100%', padding: '12px',
+          flex: 1, padding: '12px',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           background: isCalculating
             ? 'rgba(255,255,255,0.04)'
@@ -678,7 +840,6 @@ export default function FlightPage({ settings }) {
           fontFamily: T.mono, fontSize: 10,
           letterSpacing: '0.16em',
           color: isCalculating ? T.dim : isStale ? T.orange : 'var(--cp-acc)',
-          marginBottom: 20,
         }}
       >
         {isCalculating ? (
@@ -692,10 +853,13 @@ export default function FlightPage({ settings }) {
           </>
         ) : isStale ? '⊕ RECALCULATE' : '⊕ CALCULATE'}
       </button>
+      </div>
+      </div>
 
       {/* Results */}
       {result && (
         <>
+        <div className="flight-results">
           {/* Qibla */}
           <Section title="QIBLA FROM CURRENT POSITION">
             <div style={{
@@ -750,6 +914,12 @@ export default function FlightPage({ settings }) {
             />
           </Section>
 
+          {/* From 768px the note sits in the empty space under Current Position */}
+          <div className="flight-note-side"><DeadReckoningNote /></div>
+        </div>
+
+        {/* Bottom band: prayer times + disclaimer (full width from 768px) */}
+        <div className="flight-bottom">
           {/* Prayer times */}
           <Section title="IN-FLIGHT PRAYER TIMES">
             {/* Watch toggle — same in-flight prayer moment, shown on either zone's clock */}
@@ -777,6 +947,13 @@ export default function FlightPage({ settings }) {
                 </span>
               )}
             </div>
+            <div className="flight-tl-h">
+              <HorizontalTimeline
+                dep={dep} dest={dest} depClock={depClock} arrClock={arrClock}
+                rows={timelineRows} totalHours={result.totalHours} elapsedHours={result.elapsedHours}
+              />
+            </div>
+            <div className="flight-tl-v">
             <div ref={timelineContainerRef} style={{ position: 'relative', paddingLeft: 28, marginTop: 14 }}>
               {segments.map((seg, i) => (
                 <div key={i} style={{
@@ -801,6 +978,7 @@ export default function FlightPage({ settings }) {
                 markerRef={el => { markerRefs.current[timelineRows.length + 1] = el }}
               />
             </div>
+            </div>
             <div style={{ fontFamily: T.mono, fontSize: 8, color: T.dim,
               letterSpacing: '0.08em', textAlign: 'center', marginTop: 8,
               lineHeight: 1.8 }}>
@@ -814,25 +992,8 @@ export default function FlightPage({ settings }) {
             </div>
           </Section>
 
-          {/* Dead reckoning disclaimer */}
-          <div style={{
-            display: 'flex', alignItems: 'flex-start', gap: 8,
-            background: 'rgba(251,146,60,0.05)',
-            border: '1px solid rgba(251,146,60,0.18)',
-            borderRadius: 6, padding: '10px 12px', marginTop: 4,
-          }}>
-            <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>⚠</span>
-            <div>
-              <div style={{ fontFamily: T.mono, fontSize: 8, color: T.orange,
-                letterSpacing: '0.14em', marginBottom: 4 }}>
-                ESTIMATED TIME AND POSITION ONLY
-              </div>
-              <div style={{ fontFamily: T.sans, fontSize: 11, color: T.dim, lineHeight: 1.6 }}>
-                Prayer times and Qibla direction are calculated using dead reckoning and carry a margin of error.
-                Recheck closer to departure or while inflight for the best accuracy.
-              </div>
-            </div>
-          </div>
+          <div className="flight-note-bottom"><DeadReckoningNote /></div>
+        </div>
         </>
       )}
     </div>

@@ -146,7 +146,7 @@ export default function Converter() {
   }
 
   return (
-    <div style={{ flex: 1, minHeight: 0, maxWidth: 700, width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
+    <div className="converter-shell" style={{ flex: 1, minHeight: 0, width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
       {/* category — up to 6 per row (today's 12 categories fill exactly 2
           rows, no horizontal scroll needed). Flex-wrap + centering instead
           of a plain grid, so if the category count ever isn't a multiple

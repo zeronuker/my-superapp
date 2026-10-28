@@ -193,10 +193,10 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="b737-shell">
 
       {/* ── Disclaimer banner ──────────────────────────────────────────────── */}
-      <div style={{
+      <div className="b737-banner" style={{
         background: 'rgba(59,141,255,0.06)',
         border: '1px solid rgba(59,141,255,0.2)',
         borderLeft: '3px solid var(--cb-blue)',
@@ -214,6 +214,7 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
         Compliance with all applicable regulations remains the sole responsibility of the user.
       </div>
 
+      <div className="b737-inputs">
       {/* Step 1 */}
       <div>
         <SectionHeader title="Step 1 — Aircraft" />
@@ -302,9 +303,13 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
               <ChoiceBtn active={edto.antiIce === 'engine-wing'} onClick={() => setEDTOAntiIce('engine-wing')} accentColor="var(--cp-red)">Engine + Wing</ChoiceBtn>
             </div>
           </div>
+        </>
+      )}
+      </div>
 
-          {/* Results */}
-          <div>
+      {currentVariant && (
+          /* Results */
+          <div className="b737-results">
             <SectionHeader title="Results" />
             {(!edto.weight || edto.isaDeviation === '') ? (
               <div className="cp-card-bg3" style={{
@@ -317,10 +322,10 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
               }}>
-                ↑ Enter aircraft weight and ISA deviation above to calculate EDTO altitudes
+                Enter aircraft weight and ISA deviation to calculate EDTO altitudes
               </div>
             ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="b737-cards">
               <ResultCard
                 title="Long Range Cruise Altitude"
                 value={edto.longRangeCruiseAlt !== null ? edto.longRangeCruiseAlt.toLocaleString() : null}
@@ -350,7 +355,6 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
             </div>
             )}
           </div>
-        </>
       )}
     </div>
   )

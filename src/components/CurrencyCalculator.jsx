@@ -338,9 +338,10 @@ export default function CurrencyCalculator() {
   const pickerResults = currencyPickerRows({ query: pickerSearch, all: CURRENCIES, byCode: CURRENCY_BY_CODE, baseline: pickerBaseline, current: list, base })
 
   return (
-    <div style={{ maxWidth: 440, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <ResetButton onReset={handleReset} />
+    <div className="currency-shell">
+      <div className="currency-reset"><ResetButton onReset={handleReset} /></div>
 
+      <div className="currency-inputs">
       <div>
         <div className="cp-label" style={{ marginBottom: 6 }}>Amount</div>
         <input
@@ -392,9 +393,11 @@ export default function CurrencyCalculator() {
           ))}
         </div>
       </div>
+      </div>
 
-      <div className="cp-divider" />
+      <div className="cp-divider currency-divider" />
 
+      <div className="currency-list">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div className="cp-section-header" style={{ margin: 0 }}>Converted to</div>
         <button onClick={openListPicker} className="cp-btn" style={{ fontSize: 11, padding: '6px 12px' }}>
@@ -451,9 +454,10 @@ export default function CurrencyCalculator() {
           )
         })}
       </div>
+      </div>
 
       {rateSource && !loading && (
-        <div className="cp-card-bg3" style={{
+        <div className="cp-card-bg3 currency-source" style={{
           border: `1px solid ${rateSource === 'cached' ? 'rgba(63,224,197,0.2)' : rateSource === 'live' ? 'var(--cp-border2)' : 'rgba(245,197,66,0.3)'}`,
           borderRadius: 4, padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4,
         }}>

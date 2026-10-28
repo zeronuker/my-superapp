@@ -133,9 +133,9 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="b737-shell">
 
-      <div style={{
+      <div className="b737-banner" style={{
         background: 'rgba(59,141,255,0.06)',
         border: '1px solid rgba(59,141,255,0.2)',
         borderLeft: '3px solid var(--cb-blue)',
@@ -153,6 +153,7 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
         Compliance with all applicable regulations remains the sole responsibility of the user.
       </div>
 
+      <div className="b737-inputs">
       <div>
         <SectionHeader title="Step 1 — Aircraft" />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -269,8 +270,12 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
               </ChoiceBtn>
             </div>
           </div>
+        </>
+      )}
+      </div>
 
-          <div>
+      {table && (
+          <div className="b737-results">
             <SectionHeader title="Results" />
             {!inputsComplete ? (
               <div className="cp-card-bg3" style={{
@@ -283,7 +288,7 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
               }}>
-                ↑ Enter weight, OAT, pressure altitude and speed above to calculate the go-around climb gradient
+                Enter weight, OAT, pressure altitude and speed to calculate the go-around climb gradient
               </div>
             ) : !r || r.finalGradient === null ? (
               <div className="cp-card-bg3" style={{
@@ -336,7 +341,6 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
               </div>
             )}
           </div>
-        </>
       )}
     </div>
   )

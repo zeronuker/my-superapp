@@ -82,7 +82,7 @@ function RawNotamEntry({ notam, isLast }) {
   const statusColor = notam.validity.status === 'ACTIVE' ? T.green
     : notam.validity.status === 'FUTURE' ? '#eab308' : T.dim
   return (
-    <div style={{ borderBottom: isLast ? 'none' : `1px solid ${T.bord}`, padding: '9px 0' }}>
+    <div className="notam-entry" style={{ borderBottom: isLast ? 'none' : `1px solid ${T.bord}`, padding: '9px 0' }}>
       <div style={{ fontFamily: T.mono, fontSize: 10, fontWeight: 700, color: T.ink, letterSpacing: '0.08em', marginBottom: 4 }}>
         {notam.id} — {notam.icao}{' '}
         <span style={{ fontFamily: T.mono, fontSize: 8, color: statusColor }}>[{notam.validity.status}]</span>
@@ -126,7 +126,7 @@ function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
               ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim, padding: '4px 2px' }}>
                   No NOTAMs match the current filters.</div>
               : (
-                <div className="cp-card-bg3" style={{ border: '1px solid var(--cp-border)', borderRadius: 6, padding: '0 14px' }}>
+                <div className="cp-card-bg3 notam-list" style={{ border: '1px solid var(--cp-border)', borderRadius: 6, padding: '0 14px' }}>
                   {shown.map((n, i) => <RawNotamEntry key={n.id} notam={n} isLast={i === shown.length - 1} />)}
                 </div>
               )}

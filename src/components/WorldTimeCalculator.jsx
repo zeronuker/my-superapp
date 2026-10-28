@@ -341,7 +341,7 @@ export default function WorldTimeCalculator() {
   }
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto' }}>
+    <div className="worldtime-shell">
 
       {/* ── Pinned clocks: UTC + Local ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
@@ -378,7 +378,7 @@ export default function WorldTimeCalculator() {
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+      <div className="worldtime-clocks">
         {zones.map(zone => (
           <ZoneCard key={zone.id} zone={zone} now={now} fmt={fmt}
             dst={dstMap[zone.tz]} onRemove={() => removeZone(zone.id)} flash={flashId === zone.id} />

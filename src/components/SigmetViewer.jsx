@@ -307,7 +307,7 @@ export default function SigmetViewer() {
             No active SIGMETs for the selected FIRs.
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="sigmet-list">
             {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} />)}
           </div>
         )

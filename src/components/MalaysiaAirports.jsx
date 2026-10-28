@@ -350,7 +350,7 @@ export default function MalaysiaAirports() {
       {manualFetch && <RadarSweepLoader targets={[scanTarget]} />}
 
       {results && !manualFetch && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="aero-results">
           {results.length === 0 ? (
             <div style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12, color: 'var(--cp-dim)' }}>
               No flights found.

@@ -107,9 +107,9 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
   const r = quickTurnaround.results
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="b737-shell">
 
-      <div style={{
+      <div className="b737-banner" style={{
         background: 'rgba(59,141,255,0.06)',
         border: '1px solid rgba(59,141,255,0.2)',
         borderLeft: '3px solid var(--cb-blue)',
@@ -127,6 +127,7 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
         Compliance with all applicable regulations remains the sole responsibility of the user.
       </div>
 
+      <div className="b737-inputs">
       <div>
         <SectionHeader title="Step 1 — Aircraft" />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -156,7 +157,7 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
         <>
           <div>
             <SectionHeader title={`Step ${isNG ? '3' : '2'} — Conditions (${table.flapsConfig})`} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16, alignItems: 'end' }}>
               <div>
                 <div className="cp-label" style={{ marginBottom: 6 }}>Landing Weight</div>
                 <input
@@ -224,8 +225,12 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
               </div>
             </div>
           </div>
+        </>
+      )}
+      </div>
 
-          <div>
+      {table && (
+          <div className="b737-results">
             <SectionHeader title="Results" />
             {!inputsComplete ? (
               <div className="cp-card-bg3" style={{
@@ -238,7 +243,7 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
                 letterSpacing: '0.12em',
                 textTransform: 'uppercase',
               }}>
-                ↑ Enter OAT, pressure altitude and landing weight to calculate the quick turnaround limit
+                Enter OAT, pressure altitude and landing weight to calculate the quick turnaround limit
               </div>
             ) : !r || r.adjustedLimitKg === null ? (
               <div className="cp-card-bg3" style={{
@@ -311,7 +316,6 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
               </div>
             )}
           </div>
-        </>
       )}
     </div>
   )

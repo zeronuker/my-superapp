@@ -76,7 +76,7 @@ export default function PrayerModule({ clockFormat = '24hr', animStyle }) {
   const { bearing, heading, needleAngle, live, permissionNeeded, requestPermission } = useQibla(location)
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto' }}>
+    <div className="prayer-shell">
       <SubNav active={tab} onChange={setTab} />
 
       <div key={tab} className={tabAnim.className} style={tabAnim.style}>
