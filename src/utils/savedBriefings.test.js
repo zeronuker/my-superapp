@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { briefingRow, autoBriefingName, formatSnapshotStamp, savedRowInfo, filterSaves, sortByNewest, findOldest, isAtCap, pickNextAfterDelete, makeBriefingId } from './savedBriefings'
+import { saveYM, briefingRow, autoBriefingName, formatSnapshotStamp, savedRowInfo, filterSaves, sortByNewest, findOldest, isAtCap, pickNextAfterDelete, makeBriefingId } from './savedBriefings'
 
 describe('filterSaves', () => {
   const at = Date.UTC(2026, 8, 15, 13, 2)
@@ -158,5 +158,16 @@ describe('briefingRow', () => {
   it('a manual save has no flight details', () => {
     expect(briefingRow({ id: 'b', name: 'Mine', route: { dep: 'WMKK', arr: 'VHHH' }, savedAt: at }))
       .toMatchObject({ isOfp: false, flight: null, dep: 'WMKK', arr: 'VHHH', customName: 'Mine' })
+  })
+})
+
+describe('saveYM', () => {
+  const saved = Date.UTC(2026, 8, 15, 13, 2)
+  it('uses the flight date of an OFP save', () => {
+    const s = { savedAt: saved, route: { flightDetails: { info: { std: '2026-10-02T01:30:00Z' } } } }
+    expect(saveYM(s)).toEqual({ year: 2026, month: 10 })
+  })
+  it('falls back to the saved date', () => {
+    expect(saveYM({ savedAt: saved, route: { dep: 'WMKK' } })).toEqual({ year: 2026, month: 9 })
   })
 })

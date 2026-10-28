@@ -8,7 +8,7 @@ import { ofpToFields } from '../utils/ofpParse'
 import { blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
 import { readOfpFile } from '../services/ofpFile'
 import { icaoToFir } from '../data/firLookup'
-import { briefingRow, filterSaves } from '../utils/savedBriefings'
+import { briefingRow, filterSaves, saveYM } from '../utils/savedBriefings'
 import { resolveLinks } from '../utils/briefingLink'
 import ResetButton from './ResetButton'
 import RouteInput from './RouteInput'
@@ -23,13 +23,13 @@ import { ModuleHeader, InfoBanner } from './ModuleChrome'
 import { useTransitionAnim } from '../useTransitionAnim'
 import { SyncStatus, SyncBar, rowSyncing } from './SyncStatus'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
+import MonthBrowser from './MonthBrowser'
 
 // The front door for a flight: import the OFP (or type the flight in), check
 // the summary, open the Briefing. Opening it also fills the METAR/TAF, NOTAM
 // and SIGMET tabs (briefingSync.js), so they show the same flight.
 const CACHE_KEY = BRIEFING_SETUP_CACHE_KEY
 const ERA_MAX = 5
-const PAGE_SIZE = 5   // saved briefings per page
 
 function saveCache(data) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch (_) {}
@@ -87,7 +87,6 @@ export default function BriefingModule() {
   const [detecting,    setDetecting]    = useState(false)
   const [busy,        setBusy]         = useState(false)
   const [importError,  setImportError]  = useState('')
-  const [page,         setPage]         = useState(cache?.savedPage || 1)   // saved-list page, kept when you leave the tab
   const [query,        setQuery]        = useState('')   // saved-list search, not kept
   const [screen,       setScreen]       = useState('list')   // 'list' (saved briefings) | 'new' (set a flight up)
   const animStyle = useCalculatorStore(s => s.settings.animStyle)
@@ -110,11 +109,11 @@ export default function BriefingModule() {
   }
 
   useEffect(() => {
-    saveCache({ mode, ofp, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, savedPage: page, fetchedAt: importedAt })
-  }, [mode, ofp, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, page, importedAt])
+    saveCache({ mode, ofp, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, fetchedAt: importedAt })
+  }, [mode, ofp, dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, importedAt])
 
   const handleReset = () => {
-    setMode('ofp'); setOfp(null); setPage(1)
+    setMode('ofp'); setOfp(null)
     setDep(''); setArr(''); setRouteText('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(1); setEnrouteAlts(Array(ERA_MAX).fill(''))
@@ -180,12 +179,7 @@ export default function BriefingModule() {
   const openIt = () => ready && openBriefing({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, flightDetails })
 
   const parsed = useMemo(() => parseRoute(routeText), [routeText])
-  // The saves load from storage a moment after the tab opens, so `page` is only clamped when
-  // drawing: deleting the last briefing on a page lands on the page before it.
   const found = useMemo(() => filterSaves(saves, query), [saves, query])
-  const pages = Math.max(1, Math.ceil(found.length / PAGE_SIZE))
-  const cur = Math.min(page, pages)
-  const shown = found.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE)
 
   const info = ofp?.info
   const warning = info ? ofpWarning(Date.now(), info) : null
@@ -391,9 +385,9 @@ export default function BriefingModule() {
         <div style={{ marginBottom: 16 }}>
           <div style={{ position: 'relative' }}>
             <input className="cp-input" style={{ width: '100%', boxSizing: 'border-box', paddingRight: 32 }} placeholder="Search flight, ICAO, tail, name, date…"
-              value={query} onChange={e => { setQuery(e.target.value); setPage(1) }} aria-label="Search saved briefings" />
+              value={query} onChange={e => setQuery(e.target.value)} aria-label="Search saved briefings" />
             {query && (
-              <button onClick={() => { setQuery(''); setPage(1) }} title="Clear search" aria-label="Clear search"
+              <button onClick={() => setQuery('')} title="Clear search" aria-label="Clear search"
                 style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 6px' }}>×</button>
             )}
           </div>
@@ -412,8 +406,8 @@ export default function BriefingModule() {
         </div>
       ) : (
         <div style={{ marginBottom: 20 }}>
-          {found.length === 0 && <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No saved briefings match.</div>}
-          {shown.map(b => {
+          {found.length === 0 ? <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No saved briefings match.</div> : (
+          <MonthBrowser items={found} getYM={saveYM} searching={!!query.trim()} noun="BRIEFING" renderItem={b => {
             const synced = cloud.synced[b.id] === b.name
             const syncing = rowSyncing(syncBusy, synced)
             return (
@@ -434,18 +428,7 @@ export default function BriefingModule() {
                 <SyncBar active={syncing} />
               </div>
             )
-          })}
-          {found.length > PAGE_SIZE && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 12 }}>
-              <button className="cp-btn" onClick={() => setPage(cur - 1)} disabled={cur === 1}
-                style={{ ...smallBtn, opacity: cur === 1 ? 0.4 : 1 }}>‹ PREV</button>
-              <div style={{ textAlign: 'center', fontFamily: 'var(--cb-font-mono)' }}>
-                <div style={{ fontSize: 13 }}>{(cur - 1) * PAGE_SIZE + 1}–{Math.min(found.length, cur * PAGE_SIZE)} of {found.length}</div>
-                <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em' }}>PAGE {cur} OF {pages}</div>
-              </div>
-              <button className="cp-btn" onClick={() => setPage(cur + 1)} disabled={cur === pages}
-                style={{ ...smallBtn, opacity: cur === pages ? 0.4 : 1 }}>NEXT ›</button>
-            </div>
+          }} />
           )}
           {syncError && <div style={{ fontSize: 12, marginTop: 10, color: 'var(--cp-red)' }}>{syncError}</div>}
         </div>

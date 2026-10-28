@@ -12,14 +12,10 @@ import { matchField } from '../utils/searchLogs'
 import { useCalculatorStore } from '../../../store/calculatorStore'
 import { resolveLinks, briefingCount } from '../../../utils/briefingLink'
 import ConfirmDeleteModal from '../../../components/ConfirmDeleteModal'
+import MonthBrowser from '../../../components/MonthBrowser'
 
 // Saved duty logs — newest first. Tap to open, trash to delete, NEW to create.
 const mono = 'var(--cb-font-mono)'
-
-const MONTH_NAMES = [
-  'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
-  'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
-]
 
 // Build a "WMKK → VOMM → WMKK" route string from a log's sectors.
 export function routeOf(log) {
@@ -64,51 +60,6 @@ function MatchChip({ field }) {
       padding: '2px 6px', flexShrink: 0,
     }}>matched · {field}</span>
   )
-}
-
-// Splits logs (already newest-first) into: undated, the current/future flat
-// list, past months still within the current (ongoing) year, and fully
-// past years — each past year nests its own past months (year > month).
-// Grouping is keyed off each log's own date, computed fresh every render so
-// a month/year rolling over while the app is open re-buckets automatically.
-function groupLogs(logs) {
-  const now = new Date()
-  const curY = now.getFullYear(), curM = now.getMonth() + 1
-
-  const undated = []
-  const flat = []
-  const pastMonthsThisYear = new Map()
-  const pastYears = new Map()
-
-  for (const log of logs) {
-    const ym = parseLogYM(log)
-    if (!ym) { undated.push(log); continue }
-    const { year, month } = ym
-    const isPast = year < curY || (year === curY && month < curM)
-    if (!isPast) { flat.push(log); continue }
-    if (year === curY) {
-      const key = `${year}-${month}`
-      if (!pastMonthsThisYear.has(key)) pastMonthsThisYear.set(key, { year, month, logs: [] })
-      pastMonthsThisYear.get(key).logs.push(log)
-    } else {
-      if (!pastYears.has(year)) pastYears.set(year, new Map())
-      const monthsMap = pastYears.get(year)
-      if (!monthsMap.has(month)) monthsMap.set(month, [])
-      monthsMap.get(month).push(log)
-    }
-  }
-
-  const pastMonthsArr = [...pastMonthsThisYear.values()].sort((a, b) => b.month - a.month)
-  const pastYearsArr = [...pastYears.entries()]
-    .map(([year, monthsMap]) => ({
-      year,
-      months: [...monthsMap.entries()]
-        .map(([month, monthLogs]) => ({ month, logs: monthLogs }))
-        .sort((a, b) => b.month - a.month),
-    }))
-    .sort((a, b) => b.year - a.year)
-
-  return { undated, flat, pastMonthsArr, pastYearsArr }
 }
 
 // Per-entry sync status — derived from existing store fields, no new per-log
@@ -372,63 +323,6 @@ function ViewedLogDetail({ log, onBack }) {
   )
 }
 
-// Renders a grouped-logs result (see groupLogs) with the current/flat list
-// followed by collapsible past-months and past-years banners — shared between
-// the main duty log list and the viewed-code panel so both get the same
-// current-month/year collapse behaviour.
-function GroupedLogs({ undated, flat, pastMonthsArr, pastYearsArr, expanded, onToggle, renderLog, forceOpen = false }) {
-  return (
-    <>
-      {undated.map(renderLog)}
-      {flat.map(renderLog)}
-
-      {pastMonthsArr.map(({ year, month, logs: monthLogs }) => {
-        const key = `month:${year}-${month}`
-        return (
-          <CollapsibleBanner
-            key={key}
-            label={`${MONTH_NAMES[month - 1]} ${year}`}
-            count={monthLogs.length}
-            expanded={forceOpen || expanded.has(key)}
-            onToggle={() => onToggle(key)}
-          >
-            {monthLogs.map(renderLog)}
-          </CollapsibleBanner>
-        )
-      })}
-
-      {pastYearsArr.map(({ year, months }) => {
-        const yearKey = `year:${year}`
-        const yearCount = months.reduce((sum, m) => sum + m.logs.length, 0)
-        return (
-          <CollapsibleBanner
-            key={yearKey}
-            label={String(year)}
-            count={yearCount}
-            expanded={forceOpen || expanded.has(yearKey)}
-            onToggle={() => onToggle(yearKey)}
-          >
-            {months.map(({ month, logs: monthLogs }) => {
-              const key = `month:${year}-${month}`
-              return (
-                <CollapsibleBanner
-                  key={key}
-                  label={`${MONTH_NAMES[month - 1]} ${year}`}
-                  count={monthLogs.length}
-                  expanded={forceOpen || expanded.has(key)}
-                  onToggle={() => onToggle(key)}
-                >
-                  {monthLogs.map(renderLog)}
-                </CollapsibleBanner>
-              )
-            })}
-          </CollapsibleBanner>
-        )
-      })}
-    </>
-  )
-}
-
 function SyncToast({ children, actions }) {
   return (
     <div style={{
@@ -443,33 +337,6 @@ function SyncToast({ children, actions }) {
   )
 }
 
-function CollapsibleBanner({ label, count, expanded, onToggle, children }) {
-  return (
-    <div style={{ marginBottom: 9 }}>
-      <div onClick={onToggle} style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 6,
-        padding: '9px 11px', cursor: 'pointer',
-      }}>
-        <span style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'var(--cp-txt)' }}>
-          {label}
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.08em' }}>
-            {count} LOG{count === 1 ? '' : 'S'}
-          </span>
-          <span style={{ color: 'var(--cp-acc)', fontSize: 11 }}>{expanded ? '▾' : '▸'}</span>
-        </span>
-      </div>
-      <Collapse open={expanded}>
-        <div style={{ paddingLeft: 10, marginTop: 9 }}>
-          {children}
-        </div>
-      </Collapse>
-    </div>
-  )
-}
-
 export default function LogList({
   logs, onNew, onOpen, onDelete,
   syncCode, lastSyncedAt, onSyncNow, syncBusy, syncError,
@@ -478,13 +345,6 @@ export default function LogList({
   viewCodeHistory, onAddViewCode, onRemoveViewCode,
   animStyle,
 }) {
-  const [expanded, setExpanded] = useState(() => new Set())
-  const toggle = (key) => setExpanded(prev => {
-    const next = new Set(prev)
-    next.has(key) ? next.delete(key) : next.add(key)
-    return next
-  })
-
   const [query, setQuery] = useState('')
   const q = query.trim()
 
@@ -502,13 +362,6 @@ export default function LogList({
   const viewedAnim = useTransitionAnim(openViewedLog ? 'detail' : 'list', ['list', 'detail'], animStyle)
   const [scanning, setScanning] = useState(false)
   const scanPresence = usePresence(scanning)
-
-  const [viewedExpanded, setViewedExpanded] = useState(() => new Set())
-  const toggleViewed = (key) => setViewedExpanded(prev => {
-    const next = new Set(prev)
-    next.has(key) ? next.delete(key) : next.add(key)
-    return next
-  })
 
   const runView = async (code) => {
     setViewError('')
@@ -585,11 +438,18 @@ export default function LogList({
   }, [viewedLogs, q])
   const filteredViewedLogs = viewedMatches ? viewedLogs.filter(l => viewedMatches.has(l.id)) : viewedLogs
 
-  const { undated, flat, pastMonthsArr, pastYearsArr } = useMemo(() => groupLogs(filteredLogs), [filteredLogs])
-  const {
-    undated: viewedUndated, flat: viewedFlat,
-    pastMonthsArr: viewedPastMonthsArr, pastYearsArr: viewedPastYearsArr,
-  } = useMemo(() => groupLogs(filteredViewedLogs), [filteredViewedLogs])
+  // Undated logs have no month, so they sit above the month browser (a search lists them with the rest).
+  const undated = q ? [] : filteredLogs.filter(l => !parseLogYM(l))
+  const viewedUndated = q ? [] : filteredViewedLogs.filter(l => !parseLogYM(l))
+  const renderLog = (log) => (
+    <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete}
+      syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy}
+      query={q} matchField={mineMatches?.get(log.id)} briefings={briefingCount(log, links)} />
+  )
+  const renderViewedLog = (log) => (
+    <ViewedLogRow key={log.id} log={log} onOpen={setOpenViewedLog}
+      query={q} matchField={viewedMatches?.get(log.id)} />
+  )
 
   return (
     <div>
@@ -676,15 +536,16 @@ export default function LogList({
         </div>
       )}
 
-      <GroupedLogs
-        undated={undated} flat={flat} pastMonthsArr={pastMonthsArr} pastYearsArr={pastYearsArr}
-        expanded={expanded} onToggle={toggle} forceOpen={!!q}
-        renderLog={(log) => (
-          <LogCard key={log.id} log={log} onOpen={onOpen} onDelete={onDelete}
-            syncCode={syncCode} lastSyncedAt={lastSyncedAt} onSyncNow={onSyncNow} syncBusy={syncBusy}
-            query={q} matchField={mineMatches?.get(log.id)} briefings={briefingCount(log, links)} />
-        )}
-      />
+      {undated.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', color: 'var(--cp-dim)', marginBottom: 8 }}>UNDATED · {undated.length}</div>
+          {undated.map(renderLog)}
+        </div>
+      )}
+      {logs.length > 0 && !(q && filteredLogs.length === 0) && (
+        <MonthBrowser items={filteredLogs.filter(l => q || parseLogYM(l))} getYM={parseLogYM} renderItem={renderLog}
+          searching={!!q} noun="LOG" />
+      )}
 
       <div className="cp-divider" style={{ margin: '18px 0' }} />
 
@@ -780,15 +641,14 @@ export default function LogList({
                 </div>
               ) : (
                 <div style={{ marginBottom: 10 }}>
-                  <GroupedLogs
-                    undated={viewedUndated} flat={viewedFlat}
-                    pastMonthsArr={viewedPastMonthsArr} pastYearsArr={viewedPastYearsArr}
-                    expanded={viewedExpanded} onToggle={toggleViewed} forceOpen={!!q}
-                    renderLog={(log) => (
-                      <ViewedLogRow key={log.id} log={log} onOpen={setOpenViewedLog}
-                        query={q} matchField={viewedMatches?.get(log.id)} />
-                    )}
-                  />
+                  {viewedUndated.length > 0 && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', color: 'var(--cp-dim)', marginBottom: 8 }}>UNDATED · {viewedUndated.length}</div>
+                      {viewedUndated.map(renderViewedLog)}
+                    </div>
+                  )}
+                  <MonthBrowser key={viewedCode} items={filteredViewedLogs.filter(l => q || parseLogYM(l))} getYM={parseLogYM}
+                    renderItem={renderViewedLog} searching={!!q} noun="LOG" />
                 </div>
               )}
               <button onClick={handleImportClick} disabled={importBusy} className="cp-btn-danger cp-btn" style={{ width: '100%', padding: '8px 10px' }}>

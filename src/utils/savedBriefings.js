@@ -88,6 +88,14 @@ export function filterSaves(saves, query) {
   })
 }
 
+// The month a save sits under in the Saved Briefings list: its flight date (OFP saves), else the
+// day it was saved. UTC, like the dates the rows show.
+export function saveYM(save) {
+  const std = Date.parse(save.route?.flightDetails?.info?.std)
+  const d = new Date(Number.isFinite(std) ? std : save.savedAt)
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 }
+}
+
 export function sortByNewest(list) {
   return [...list].sort((a, b) => b.savedAt - a.savedAt)
 }

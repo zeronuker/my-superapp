@@ -43,7 +43,7 @@ src/
   components/                 # one file per calculator tab (+ shared UI)
     BriefingModule.jsx        #   Briefing tab, laid out like the Duty Log (ModuleChrome.jsx
                               #   header + info banner shared with it): a list page (saved
-                              #   briefings, 5 per page, "Have a code?" box with shared recent
+                              #   briefings shown by month through MonthBrowser.jsx like the Duty Log, 5 per page, "Have a code?" box with shared recent
                               #   codes) and a New page opened by + NEW (import the OFP or type
                               #   it in, GENERATE BRIEFING)
     METARTAFCalculator.jsx    #   METAR/TAF tab.  NotamViewer.jsx = own NOTAM tab
