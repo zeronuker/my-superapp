@@ -26,6 +26,7 @@ import CartoRouteMap, { hasCartoLoadedBefore, sigmetPopupEl } from './CartoRoute
 import OfflineCoastlineMap from './OfflineCoastlineMap'
 import FlightDetailsTab from './FlightDetailsTab'
 import Seg from './Seg'
+import Collapse from './Collapse'
 import ChamferFrame from '@brand/ChamferFrame'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { resolveLinks, rankSectors } from '../utils/briefingLink'
@@ -234,27 +235,44 @@ function NotamListSection({ notams }) {
   )
 }
 
+// A NOTAM card whose header (`children`: code, name, role) opens and closes it.
+// The count stays visible while it is closed.
+function CollapsibleNotamCard({ accent, notams, defaultOpen, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const active = (notams || []).filter(n => n.validity.status === 'ACTIVE').length
+  return (
+    <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
+      <button onClick={() => setOpen(o => !o)} aria-expanded={open} style={{
+        width: '100%', display: 'flex', alignItems: 'baseline', gap: 9, padding: '10px 14px', cursor: 'pointer',
+        textAlign: 'left', color: 'inherit', font: 'inherit', background: 'none', border: 'none',
+        borderLeft: `3px solid ${accent}`,
+      }}>
+        {children}
+        <span style={{ marginLeft: 'auto', flexShrink: 0, fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-dim)' }}>{active} ACTIVE</span>
+        <span style={{ flexShrink: 0, fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)' }}>{open ? '▼' : '▶'}</span>
+      </button>
+      <Collapse open={open}>
+        <div style={{ padding: '12px 14px 14px', borderTop: '1px solid var(--cp-border3)' }}>
+          <NotamListSection notams={notams} />
+        </div>
+      </Collapse>
+    </div>
+  )
+}
+
 // ── One FIR's NOTAMs — airspace/oceanic notices, not tied to any one airport ──
 function FirNotamCard({ fir, notams }) {
   return (
-    <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{
-        display: 'flex', alignItems: 'baseline', gap: 9, padding: '10px 14px',
-        borderBottom: '1px solid var(--cp-border3)', borderLeft: '3px solid var(--cp-acc)',
-      }}>
-        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--cp-txt)' }}>
-          {fir.icao}
+    <CollapsibleNotamCard accent="var(--cp-acc)" notams={notams} defaultOpen={false}>
+      <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--cp-txt)' }}>
+        {fir.icao}
+      </span>
+      {fir.name && (
+        <span style={{ minWidth: 0, fontSize: 11, color: 'var(--cp-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {fir.name}
         </span>
-        {fir.name && (
-          <span style={{ fontSize: 11, color: 'var(--cp-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {fir.name}
-          </span>
-        )}
-      </div>
-      <div style={{ padding: '12px 14px 14px' }}>
-        <NotamListSection notams={notams} />
-      </div>
-    </div>
+      )}
+    </CollapsibleNotamCard>
   )
 }
 
@@ -299,33 +317,24 @@ function FirSigmetCard({ fir, sigmets, now, firstNum }) {
 
 // ── One airport's NOTAMs, in the NOTAMs tab — same header treatment as
 // AirportCard (role-colored, name), without the METAR/TAF fields ──
-function AirportNotamCard({ target, notams }) {
+function AirportNotamCard({ target, notams, defaultOpen }) {
   const role = getRoleStyle(target.label)
   const airport = lookupAirport(target.icao)
-
   return (
-    <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{
-        display: 'flex', alignItems: 'baseline', gap: 9, padding: '10px 14px',
-        borderBottom: '1px solid var(--cp-border3)', borderLeft: `3px solid ${role.color}`,
-      }}>
-        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--cp-txt)' }}>
-          {target.icao}
+    <CollapsibleNotamCard accent={role.color} notams={notams} defaultOpen={defaultOpen}>
+      <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--cp-txt)' }}>
+        {target.icao}
+      </span>
+      <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.12em',
+        textTransform: 'uppercase', color: role.color, whiteSpace: 'nowrap' }}>
+        {target.label}
+      </span>
+      {airport && (
+        <span style={{ minWidth: 0, fontSize: 11, color: 'var(--cp-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {airport.name}
         </span>
-        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.12em',
-          textTransform: 'uppercase', color: role.color, whiteSpace: 'nowrap' }}>
-          {target.label}
-        </span>
-        {airport && (
-          <span style={{ fontSize: 11, color: 'var(--cp-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {airport.name}
-          </span>
-        )}
-      </div>
-      <div style={{ padding: '12px 14px 14px' }}>
-        <NotamListSection notams={notams} />
-      </div>
-    </div>
+      )}
+    </CollapsibleNotamCard>
   )
 }
 
@@ -417,18 +426,27 @@ const BASEMAP_TABS = [
 // The tap-a-zone box on a saved map picture: the same content as the live map's
 // popup, in a white box placed at the tap (x, y in the picture box's pixels).
 function SavedSigmetPopup({ tap, boxW, onClose }) {
+  const last = useRef(tap)
+  if (tap) last.current = tap   // keep showing the last one while it fades out
+  const presence = usePresence(!!tap)
   const bodyRef = useRef(null)
   useEffect(() => {
-    bodyRef.current.replaceChildren(sigmetPopupEl(tap.features, onClose))
-  }, [tap, onClose])
-  const above = tap.y > 160
+    if (tap && bodyRef.current) bodyRef.current.replaceChildren(sigmetPopupEl(tap.features, onClose))
+  }, [tap, onClose, presence.mounted])
+  const shown = last.current
+  if (!presence.mounted || !shown) return null
+  const above = shown.y > 160
+  // The outer div positions it; the inner one animates (an animation's transform would replace the position's).
   return (
-    <div ref={bodyRef} onClick={e => e.stopPropagation()} style={{
-      position: 'absolute', left: Math.max(135, Math.min(tap.x, boxW - 135)), top: tap.y + (above ? -10 : 10),
-      transform: above ? 'translate(-50%, -100%)' : 'translateX(-50%)',
-      width: 260, boxSizing: 'border-box', padding: '10px 12px', background: '#fff', borderRadius: 8,
-      boxShadow: '0 2px 12px rgba(0,0,0,0.35)', zIndex: 3,
-    }} />
+    <div onClick={e => e.stopPropagation()} style={{
+      position: 'absolute', left: Math.max(135, Math.min(shown.x, boxW - 135)), top: shown.y + (above ? -10 : 10),
+      transform: above ? 'translate(-50%, -100%)' : 'translateX(-50%)', width: 260, zIndex: 3,
+    }}>
+      <div ref={bodyRef} className={`cp-pop-in${presence.closing ? ' is-closing' : ''}`} style={{
+        boxSizing: 'border-box', padding: '10px 12px', background: '#fff', borderRadius: 8,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.35)', transformOrigin: above ? 'bottom center' : 'top center',
+      }} />
+    </div>
   )
 }
 
@@ -573,7 +591,7 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
             <>
               <img src={mapSnapshot} alt="Saved route map" onClick={onPictureTap}
                 style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'var(--cp-bg3)', display: 'block' }} />
-              {tap && <SavedSigmetPopup tap={tap} boxW={mapBoxRef.current?.clientWidth ?? 0} onClose={closeTap} />}
+              <SavedSigmetPopup tap={tap} boxW={mapBoxRef.current?.clientWidth ?? 0} onClose={closeTap} />
             </>
           ) : (
             <>
@@ -1146,13 +1164,13 @@ export default function BriefingView() {
                 <>
                   {/* same sections as the METAR/TAF tab */}
                   {[
-                    ['Departure & Arrival', SECTION_COLORS.depArr, depArr, 320],
-                    ['Destination Alternates', SECTION_COLORS.destAlt, destAltList, 320],
-                    ['Enroute Alternates', SECTION_COLORS.era, eraList, 280],
-                  ].filter(([, , list]) => list.length > 0).map(([title, color, list, minW]) => (
+                    ['Departure & Arrival', SECTION_COLORS.depArr, depArr, 320, true],
+                    ['Destination Alternates', SECTION_COLORS.destAlt, destAltList, 320, true],
+                    ['Enroute Alternates', SECTION_COLORS.era, eraList, 280, false],
+                  ].filter(([, , list]) => list.length > 0).map(([title, color, list, minW, open]) => (
                     <Section key={title} title={title} color={color}>
-                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(min(${minW}px, 100%), 1fr))`, gap: 12 }}>
-                        {list.map(a => <AirportNotamCard key={a.icao} target={a} notams={notamsByIcao[a.icao]} />)}
+                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(min(${minW}px, 100%), 1fr))`, gap: 12, alignItems: 'start' }}>
+                        {list.map(a => <AirportNotamCard key={a.icao} target={a} notams={notamsByIcao[a.icao]} defaultOpen={open} />)}
                       </div>
                     </Section>
                   ))}
@@ -1161,7 +1179,7 @@ export default function BriefingView() {
                     {firsUsed.length === 0 ? (
                       <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
                     ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 12, alignItems: 'start' }}>
                         {firsUsed.map(fir => <FirNotamCard key={fir.icao} fir={fir} notams={notamsByIcao[fir.icao]} />)}
                       </div>
                     )}

@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { Map as MaplibreMap, Marker, Popup, LngLatBounds, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { animDurationMs } from '../useTransitionAnim'
 import { getRoleStyle } from '../utils/metarSeverity'
 import { sigmetsToGeoJSON, sigmetLabelPoints, hazardColor, fmtHazard } from '../utils/sigmet'
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
@@ -377,12 +378,25 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
       // Tap a SIGMET zone → popup with every zone under the finger (they overlap).
       // One handler per map instance; the layer itself comes and goes (see the
       // sigmet effect below), so look it up at click time.
+      // The popup fades out before it is removed (CSS on .sigmet-popup in index.css), so
+      // closing on a map tap is done here instead of by MapLibre's instant closeOnClick.
+      let sigPopup = null
+      const closeSigPopup = () => {
+        const p = sigPopup
+        if (!p) return
+        sigPopup = null
+        const ms = animDurationMs()
+        if (!ms) { p.remove(); return }
+        p.addClassName('is-closing')
+        setTimeout(() => p.remove(), ms)
+      }
       map.on('click', (e) => {
-        if (!map.getLayer('sigmet-fill')) return
-        const hits = map.queryRenderedFeatures(e.point, { layers: ['sigmet-fill'] })
-        if (!hits.length) return
-        const popup = new Popup({ maxWidth: '260px', closeButton: false }).setLngLat(e.lngLat)
-        popup.setDOMContent(sigmetPopupEl(hits, () => popup.remove())).addTo(map)
+        const hits = map.getLayer('sigmet-fill') ? map.queryRenderedFeatures(e.point, { layers: ['sigmet-fill'] }) : []
+        if (!hits.length) { closeSigPopup(); return }
+        sigPopup?.remove()
+        const popup = new Popup({ maxWidth: '260px', closeButton: false, closeOnClick: false, className: 'sigmet-popup' }).setLngLat(e.lngLat)
+        popup.setDOMContent(sigmetPopupEl(hits, closeSigPopup)).addTo(map)
+        sigPopup = popup
       })
       map.on('mousemove', (e) => {
         map.getCanvas().style.cursor =

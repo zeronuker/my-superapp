@@ -402,6 +402,12 @@ input[type="number"] { -moz-appearance: textfield; }
   .cp-reveal-in { animation: cpAnimRise var(--cp-dur) cubic-bezier(.4,0,.2,1) backwards; }
   .cp-pill-in { animation: cpPillIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
   .cp-pill-in.is-closing { animation: cpPillOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
+  /* SIGMET popup on the map (CartoRouteMap.jsx). MapLibre positions .maplibregl-popup with a
+     transform, so the box and its pointer are animated, not the popup itself. */
+  .sigmet-popup .maplibregl-popup-content { animation: cpPopIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; transform-origin: bottom center; }
+  .sigmet-popup .maplibregl-popup-tip { animation: cpBackdropIn var(--cp-dur) ease backwards; }
+  .sigmet-popup.is-closing .maplibregl-popup-content { animation: cpPopOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
+  .sigmet-popup.is-closing .maplibregl-popup-tip { animation: cpBackdropOut var(--cp-dur) ease forwards; }
 }
 @keyframes cpDropIn  { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 @keyframes cpDropOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-8px); } }
