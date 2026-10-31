@@ -99,14 +99,17 @@ export function sigmetRings(s) {
 /**
  * GeoJSON polygons for every SIGMET that has an area and hasn't expired.
  * Feature properties carry what the map popup shows; `color` is added by the
- * map (CSS variables need resolving there).
+ * map (CSS variables need resolving there). `num` is the SIGMET's place in the
+ * list passed in (1-based, counted before expired ones are dropped), so the
+ * number on the map matches the number on its card.
  */
 export function sigmetsToGeoJSON(sigmets, now = Date.now()) {
   const features = []
-  for (const s of sigmets || []) {
+  for (const [i, s] of (sigmets || []).entries()) {
     if (s.validTo && s.validTo.getTime() < now) continue
     const alt = [s.base, s.top].map(fmtSigmetAlt).filter(Boolean)
     const props = {
+      num: i + 1,
       hazard: s.hazard || null,
       title: fmtHazard(s.hazard) + (s.qualifier ? ` · ${s.qualifier}` : ''),
       fir: s.firName || s.firId || '',
@@ -118,4 +121,17 @@ export function sigmetsToGeoJSON(sigmets, now = Date.now()) {
     }
   }
   return { type: 'FeatureCollection', features }
+}
+
+/**
+ * One number label per zone, as Point features: at the zone's northernmost
+ * corner, with the label drawn just above it, so it sits on the zone's edge and
+ * not over its middle (where the route and airport dots usually are).
+ */
+export function sigmetLabelPoints(features) {
+  return features.map(f => {
+    const ring = f.geometry.coordinates[0]
+    const top = ring.reduce((best, p) => (p[1] > best[1] ? p : best), ring[0])
+    return { type: 'Feature', properties: { num: f.properties.num, color: f.properties.color }, geometry: { type: 'Point', coordinates: top } }
+  })
 }

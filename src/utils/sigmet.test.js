@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeSigmet, filterSigmetsByFir, reviveSigmets, fmtHazard, hazardColor, fmtSigmetAlt, fmtSigmetTime, sigmetRings, sigmetsToGeoJSON } from './sigmet'
+import { normalizeSigmet, filterSigmetsByFir, reviveSigmets, fmtHazard, hazardColor, fmtSigmetAlt, fmtSigmetTime, sigmetRings, sigmetsToGeoJSON, sigmetLabelPoints } from './sigmet'
 
 // Shape confirmed against a live /isigmet response (aviationweather.gov,
 // 10 Jul 2026) — including a real Malaysia-region entry.
@@ -142,5 +142,14 @@ describe('sigmet map polygons', () => {
     expect(geo.features[0].geometry.type).toBe('Polygon')
     expect(geo.features[0].properties.title).toBe('Thunderstorm · EMBD')
     expect(geo.features[0].properties.alt).toBe('to FL520')
+  })
+  it('numbers zones by their place in the list, counting dropped ones, and labels the northern corner', () => {
+    const expired = withArea({ validTimeTo: 1_000 })
+    const live = withArea({ validTimeTo: 2_000_000_000 })
+    const geo = sigmetsToGeoJSON([expired, live], 1_500_000_000_000)
+    expect(geo.features.map(f => f.properties.num)).toEqual([2])
+    const [label] = sigmetLabelPoints(geo.features)
+    expect(label.properties.num).toBe(2)
+    expect(label.geometry.coordinates[1]).toBe(2)
   })
 })

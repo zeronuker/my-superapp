@@ -3,7 +3,7 @@ import { fmtHazard, hazardColor, fmtSigmetAlt, fmtSigmetTime } from '../utils/si
 
 // Extracted from SigmetViewer.jsx so BriefingView can render the same card
 // without a circular import between the two components.
-export default function SigmetCard({ s, now }) {
+export default function SigmetCard({ s, now, num }) {
   const color = hazardColor(s.hazard)
   const expired = s.validTo && s.validTo.getTime() < now
   const altParts = []
@@ -23,6 +23,12 @@ export default function SigmetCard({ s, now }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {num != null && (
+            <span title="Same number as on the map" style={{
+              fontFamily: 'var(--cb-font-mono)', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 3,
+              color: expired ? 'var(--cp-dim)' : color, border: `1px solid ${expired ? 'var(--cp-dim)' : color}`,
+            }}>{num}</span>
+          )}
           <span style={{
             fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
             color: expired ? 'var(--cp-dim)' : color,

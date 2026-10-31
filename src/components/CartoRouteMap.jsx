@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { Map as MaplibreMap, Marker, Popup, LngLatBounds, setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { getRoleStyle } from '../utils/metarSeverity'
-import { sigmetsToGeoJSON, hazardColor, fmtHazard } from '../utils/sigmet'
+import { sigmetsToGeoJSON, sigmetLabelPoints, hazardColor, fmtHazard } from '../utils/sigmet'
 import { interpolateGreatCircle } from '../modules/prayer/services/flightCalc'
 import { routeLineCoords } from '../utils/routeLine'
 import { placeLabels } from '../utils/labelLayout'
@@ -105,12 +105,12 @@ export function sigmetPopupEl(features, onClose) {
   const el = document.createElement('div')
   el.style.cssText = 'font-family:var(--cb-font-mono); font-size:11px; line-height:1.5; color:#0a1020; max-height:180px; overflow-y:auto; padding-right:22px;'
   features.forEach((f, i) => {
-    const { title, fir, alt, valid } = f.properties
+    const { num, title, fir, alt, valid } = f.properties
     const box = document.createElement('div')
     box.style.cssText = i ? 'margin-top:8px; padding-top:6px; border-top:1px solid #ccd;' : ''
     const head = document.createElement('div')
     head.style.fontWeight = '700'
-    head.textContent = title
+    head.textContent = num ? `#${num} ${title}` : title
     box.append(head)
     for (const line of [fir, alt, valid]) {
       if (!line) continue
@@ -299,7 +299,7 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
   // of drawn zones actually changes (same trick the route layer can't use —
   // `markers` is also fresh each render, but it is cheap to re-add).
   const sigGeo = useMemo(() => sigmetsToGeoJSON(sigmets), [sigmets])
-  const sigKey = sigGeo.features.map(f => `${f.properties.title}|${f.properties.valid}|${f.geometry.coordinates[0].length}`).join(';')
+  const sigKey = sigGeo.features.map(f => `${f.properties.num}|${f.properties.title}|${f.properties.valid}|${f.geometry.coordinates[0].length}`).join(';')
   const sigGeoRef = useRef(sigGeo)
   sigGeoRef.current = sigGeo
   const sigHazards = [...new Set(sigGeo.features.map(f => f.properties.hazard))]
@@ -502,8 +502,8 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
     const map = mapRef.current
     if (status !== 'ready' || !map) return
     const draw = () => {
-      for (const id of ['sigmet-fill', 'sigmet-line']) if (map.getLayer(id)) map.removeLayer(id)
-      if (map.getSource('sigmets')) map.removeSource('sigmets')
+      for (const id of ['sigmet-fill', 'sigmet-line', 'sigmet-label']) if (map.getLayer(id)) map.removeLayer(id)
+      for (const id of ['sigmets', 'sigmet-labels']) if (map.getSource(id)) map.removeSource(id)
       const geo = sigGeoRef.current
       if (!geo.features.length) return
       const features = geo.features.map(f => ({ ...f, properties: { ...f.properties, color: cssColor(hazardColor(f.properties.hazard)) } }))
@@ -511,12 +511,26 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
       const before = map.getLayer('route-casing') ? 'route-casing' : undefined
       map.addLayer({ id: 'sigmet-fill', type: 'fill', source: 'sigmets', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 } }, before)
       map.addLayer({ id: 'sigmet-line', type: 'line', source: 'sigmets', paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.9 } }, before)
+      // Zone numbers (match the cards in the SIGMETs tab). Drawn in the map itself
+      // so the saved picture has them; the font is borrowed from the basemap's own
+      // labels, since a symbol layer needs one its glyph server has.
+      const font = map.getStyle().layers.find(l => l.type === 'symbol' && l.layout?.['text-font'])?.layout['text-font']
+      if (!font) return
+      map.addSource('sigmet-labels', { type: 'geojson', data: { type: 'FeatureCollection', features: sigmetLabelPoints(features) } })
+      map.addLayer({
+        id: 'sigmet-label', type: 'symbol', source: 'sigmet-labels',
+        layout: {
+          'text-field': ['to-string', ['get', 'num']], 'text-font': font, 'text-size': 12, 'text-anchor': 'bottom',
+          'text-offset': [0, -0.1], 'text-allow-overlap': true, 'text-ignore-placement': true,
+        },
+        paint: { 'text-color': ['get', 'color'], 'text-halo-color': OVERLAY[styleKey].halo, 'text-halo-width': 1.5 },
+      }, before)
     }
     // Unlike the route effect (re-run every render), this one only runs when the
     // zones change — so if the style is still loading right now, wait for it.
     if (map.isStyleLoaded()) draw()
     else { map.once('idle', draw); return () => map.off('idle', draw) }
-  }, [status, sigKey])
+  }, [status, sigKey, styleKey])
 
   const buttonStyle = {
     fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.05em', textTransform: 'uppercase',

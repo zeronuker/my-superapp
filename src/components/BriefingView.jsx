@@ -16,6 +16,7 @@ import {
 } from '../utils/metarSeverity'
 import { filterSigmetsByFir, reviveSigmets, sigmetsToGeoJSON } from '../utils/sigmet'
 import { featuresAt, tapOnContainedImage } from '../utils/snapshotHit'
+import { notamText } from '../utils/notamText'
 import { autoBriefingName, findOldest, isAtCap, formatSnapshotStamp } from '../utils/savedBriefings'
 import { BRIEFING_SAVES_CAP } from '../store/calculatorStore'
 import SigmetCard from './SigmetCard'
@@ -150,6 +151,7 @@ function NotamLine({ n, first }) {
   const [open, setOpen] = useState(false)
   const [cut, setCut] = useState(false)
   const textRef = useRef(null)
+  const text = notamText(n)
   useEffect(() => {
     const el = textRef.current
     if (!el || open) return   // while open the text wraps, so keep the last answer
@@ -158,7 +160,7 @@ function NotamLine({ n, first }) {
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [n.summary, open])
+  }, [text, open])
   return (
     <div style={{ padding: '6px 0', fontSize: 11.5, lineHeight: 1.45, borderTop: first ? 'none' : '1px solid var(--cp-border3)' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
@@ -166,7 +168,7 @@ function NotamLine({ n, first }) {
         <span ref={textRef} style={{
           color: 'var(--cp-muted)', minWidth: 0,
           ...(open ? { wordBreak: 'break-word' } : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }),
-        }}>{n.summary}</span>
+        }}>{text}</span>
       </div>
       {(cut || open) && (
         <button onClick={() => setOpen(o => !o)} style={{
@@ -260,7 +262,7 @@ function FirNotamCard({ fir, notams }) {
 
 // ── One FIR's SIGMETs, in the SIGMETs tab — same header as FirNotamCard plus
 // live / expired counts; a FIR with none says so (it was checked and is clear) ──
-function FirSigmetCard({ fir, sigmets, now }) {
+function FirSigmetCard({ fir, sigmets, now, firstNum }) {
   const expired = sigmets.filter(s => s.validTo && s.validTo.getTime() < now).length
   const active = sigmets.length - expired
   const badge = (color) => ({
@@ -289,7 +291,7 @@ function FirSigmetCard({ fir, sigmets, now }) {
           <div style={{ fontSize: 11, color: 'var(--cp-dim)', fontStyle: 'italic' }}>No active SIGMETs</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} />)}
+            {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} num={firstNum + i} />)}
           </div>
         )}
       </div>
@@ -900,8 +902,14 @@ export default function BriefingView() {
   const notamsByIcao = data?.notamsByIcao || {}
   // Briefings saved before the move to IndexedDB have validFrom/validTo as
   // strings (JSON round-trip) — revive them or SigmetCard throws.
-  const sigmets = reviveSigmets(data?.sigmets)
   const firsUsed = data?.firsUsed || []
+  // SIGMETs in the order the tab shows them (FIR by FIR along the route): a SIGMET's
+  // number is its place in this list, on its card and on the map.
+  const allSigmets = reviveSigmets(data?.sigmets)
+  const sigmetGroups = firsUsed.map(fir => ({
+    fir, list: allSigmets.filter(s => s.firId && s.firId.toUpperCase() === fir.icao.toUpperCase()),
+  }))
+  const sigmets = sigmetGroups.flatMap(g => g.list)
   const fetchedAt = data?.fetchedAt || null
 
   const depArr = airports.filter(a => a.label === 'DEPARTURE' || a.label === 'ARRIVAL')
@@ -1156,13 +1164,18 @@ export default function BriefingView() {
               {/* ── NOTAMs — per-airport, then per route FIR (airspace/oceanic notices) ── */}
               {activeTab === 'notam' && (
                 <>
-                  {airports.length > 0 && (
-                    <Section title="Notams — Airports" color={SECTION_COLORS.notam}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 12 }}>
-                        {airports.map(a => <AirportNotamCard key={a.icao} target={a} notams={notamsByIcao[a.icao]} />)}
+                  {/* same sections as the METAR/TAF tab */}
+                  {[
+                    ['Departure & Arrival', SECTION_COLORS.depArr, depArr, 320],
+                    ['Destination Alternates', SECTION_COLORS.destAlt, destAltList, 320],
+                    ['Enroute Alternates', SECTION_COLORS.era, eraList, 280],
+                  ].filter(([, , list]) => list.length > 0).map(([title, color, list, minW]) => (
+                    <Section key={title} title={title} color={color}>
+                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(min(${minW}px, 100%), 1fr))`, gap: 12 }}>
+                        {list.map(a => <AirportNotamCard key={a.icao} target={a} notams={notamsByIcao[a.icao]} />)}
                       </div>
                     </Section>
-                  )}
+                  ))}
 
                   <Section title="Notams — Route Firs" color={SECTION_COLORS.notam}>
                     {firsUsed.length === 0 ? (
@@ -1183,9 +1196,9 @@ export default function BriefingView() {
                     <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      {firsUsed.map(fir => (
-                        <FirSigmetCard key={fir.icao} fir={fir} now={now}
-                          sigmets={sigmets.filter(s => s.firId && s.firId.toUpperCase() === fir.icao.toUpperCase())} />
+                      {sigmetGroups.map((g, gi) => (
+                        <FirSigmetCard key={g.fir.icao} fir={g.fir} now={now} sigmets={g.list}
+                          firstNum={sigmetGroups.slice(0, gi).reduce((n, p) => n + p.list.length, 1)} />
                       ))}
                     </div>
                   )}
