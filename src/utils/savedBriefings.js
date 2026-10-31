@@ -59,9 +59,13 @@ export function savedRowInfo(save) {
 }
 
 // savedRowInfo plus the route and save time: everything a list row shows, as small plain values.
-// The cloud keeps this beside each briefing so the VIEW list can draw rows without downloading them.
+// The cloud keeps this beside each briefing so the VIEW list can draw rows without downloading them (and sync can
+// tell that a picture changed).
 export function briefingRow(save) {
-  return { ...savedRowInfo(save), dep: save.route?.dep ?? null, arr: save.route?.arr ?? null, savedAt: save.savedAt }
+  return {
+    ...savedRowInfo(save), dep: save.route?.dep ?? null, arr: save.route?.arr ?? null, savedAt: save.savedAt,
+    satAt: save.satSnapshot?.takenAt ?? null, windAt: save.windSnapshot?.takenAt ?? null,   // when its cloud / winds pictures were made: a new one goes up again
+  }
 }
 
 // A UTC timestamp as "2026-09-18 18 SEP 2026 SEPTEMBER 2026" so it matches as ISO and as text.

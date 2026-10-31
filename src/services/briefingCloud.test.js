@@ -13,17 +13,25 @@ const save = (id, name, mapSnapshot = 'img') => ({ id, name, savedAt: 1, route: 
 // A fake cloud: items are what list() returns; sent records everything uploaded, in order.
 function fakeApi({ items = [], entries = {}, pieces = {}, listError = null } = {}) {
   const sent = []
+  const puts = []   // what each put carried besides the map: the entry, its row and the picture counts
   return {
-    sent,
+    sent, puts,
     list: async () => { if (listError) throw listError; return items },
     get: async (_c, id) => entries[id],
-    getPart: async (_c, id, n) => pieces[id][n],
-    put: async (_c, _d, e, mapParts, row) => { sent.push(['put', e.id, mapParts, e.mapSnapshot, row?.dep]) },
-    putPart: async (_c, _d, id, n, data) => { sent.push(['part', id, n, data]) },
+    getPart: async (_c, id, n, what = 'map') => (what === 'map' ? pieces[id] : pieces[id][what])[n],
+    put: async (_c, _d, e, mapParts, row, counts) => { sent.push(['put', e.id, mapParts, e.mapSnapshot, row?.dep]); puts.push({ entry: e, row, counts }) },
+    putPart: async (_c, _d, id, n, data, what = 'map') => { sent.push(what === 'map' ? ['part', id, n, data] : ['part', id, n, data, what]) },
     remove: async (_c, _d, id) => { sent.push(['remove', id]) },
     claim: async () => items,
   }
 }
+
+// A save with a cloud (sat) and/or winds picture, as the Satellite tab keeps them.
+const withPictures = (s, { sat, wind } = {}) => ({
+  ...s,
+  ...(sat ? { satSnapshot: { image: sat.image, takenAt: sat.at, region: 'himawari' } } : {}),
+  ...(wind ? { windSnapshot: { image: wind.image, takenAt: wind.at, fl: 340 } } : {}),
+})
 
 describe('planSync', () => {
   it('pushes new saves and renamed ones, removes cloud copies that are gone', () => {
@@ -40,6 +48,24 @@ describe('planSync', () => {
 
   it('re-sends a briefing the cloud holds without its row summary (uploaded before rows existed)', () => {
     expect(planSync([save('a', 'A')], [{ id: 'a', name: 'A', mapParts: 1 }]).push.map(s => s.id)).toEqual(['a'])
+  })
+})
+
+describe('planSync and pictures', () => {
+  const s = withPictures(save('a', 'A'), { sat: { image: 'i', at: 100 } })
+
+  it('re-sends a briefing whose cloud or winds picture the cloud does not hold (or holds another of)', () => {
+    expect(planSync([s], [{ id: 'a', name: 'A', row: {} }]).push.map(x => x.id)).toEqual(['a'])
+    expect(planSync([s], [{ id: 'a', name: 'A', row: { satAt: 99 } }]).push.map(x => x.id)).toEqual(['a'])
+    expect(planSync([withPictures(save('a', 'A'), { wind: { image: 'w', at: 5 } })], [{ id: 'a', name: 'A', row: {} }]).push.map(x => x.id)).toEqual(['a'])
+  })
+
+  it('leaves it be when the pictures match', () => {
+    expect(planSync([s], [{ id: 'a', name: 'A', row: { satAt: 100 } }]).push).toEqual([])
+  })
+
+  it('re-sends a briefing whose picture is gone from the device, so the cloud copy loses it too', () => {
+    expect(planSync([save('a', 'A')], [{ id: 'a', name: 'A', row: { satAt: 100 } }]).push.map(x => x.id)).toEqual(['a'])
   })
 })
 
@@ -104,6 +130,61 @@ describe('syncSaves', () => {
   })
 })
 
+describe('syncSaves with the Satellite pictures', () => {
+  it('sends map, cloud and winds pieces first, then the briefing with no picture data in it', async () => {
+    const api = fakeApi()
+    const s = withPictures(save('a', 'A'), { sat: { image: 'SAT', at: 1 }, wind: { image: 'WIND', at: 2 } })
+    await syncSaves('CODE', 'dev', [s], api)
+    expect(api.sent).toEqual([['part', 'a', 0, 'img'], ['part', 'a', 0, 'SAT', 'sat'], ['part', 'a', 0, 'WIND', 'wind'], ['put', 'a', 1, null, 'WMKK']])
+    const { entry, row, counts } = api.puts[0]
+    expect(entry.satSnapshot).toEqual({ image: null, takenAt: 1, region: 'himawari' })
+    expect(entry.windSnapshot).toEqual({ image: null, takenAt: 2, fl: 340 })
+    expect(counts).toEqual({ satParts: 1, windParts: 1 })
+    expect([row.satAt, row.windAt]).toEqual([1, 2])
+  })
+
+  it('sends a briefing without pictures as before, with zero counts', async () => {
+    const api = fakeApi()
+    await syncSaves('CODE', 'dev', [save('a', 'A', null)], api)
+    expect(api.sent).toEqual([['put', 'a', 0, null, 'WMKK']])
+    expect(api.puts[0].counts).toEqual({ satParts: 0, windParts: 0 })
+  })
+
+  it('does not send a picture again when the cloud holds this very one (a rename)', async () => {
+    const s = withPictures(save('a', 'New'), { sat: { image: 'SAT', at: 1 } })
+    const api = fakeApi({ items: [{ id: 'a', name: 'Old', mapParts: 1, satParts: 1, windParts: 0, row: { satAt: 1, windAt: null } }] })
+    await syncSaves('CODE', 'dev', [s], api)
+    expect(api.sent).toEqual([['put', 'a', 1, null, 'WMKK']])
+  })
+
+  it('sends only the picture that changed (a retaken cloud picture, the same winds)', async () => {
+    const s = withPictures(save('a', 'A'), { sat: { image: 'NEWSAT', at: 9 }, wind: { image: 'WIND', at: 2 } })
+    const api = fakeApi({ items: [{ id: 'a', name: 'A', mapParts: 1, satParts: 1, windParts: 1, row: { satAt: 1, windAt: 2 } }] })
+    await syncSaves('CODE', 'dev', [s], api)
+    expect(api.sent).toEqual([['part', 'a', 0, 'NEWSAT', 'sat'], ['put', 'a', 1, null, 'WMKK']])
+  })
+
+  it('a real-size briefing (text 423 kB + pictures 628 kB) goes up in documents all under the 900 000 limit', async () => {
+    const LIMIT = 900_000
+    const s = withPictures(
+      { ...save('a', 'A', 'm'.repeat(1_500_000)), data: { notams: 'n'.repeat(423_000) } },
+      { sat: { image: 's'.repeat(400_000), at: 1 }, wind: { image: 'w'.repeat(228_000), at: 2 } },
+    )
+    const docs = []
+    const api = fakeApi()
+    const { putPart, put } = api
+    api.putPart = async (c, d, id, n, data, what) => { docs.push(data.length); return putPart(c, d, id, n, data, what) }
+    api.put = async (c, d, e, ...rest) => { docs.push(JSON.stringify(e).length); return put(c, d, e, ...rest) }
+    await syncSaves('CODE', 'dev', [s], api)
+    expect(Math.max(...docs)).toBeLessThanOrEqual(LIMIT)
+    expect(JSON.stringify(s).length).toBeGreaterThan(LIMIT)   // it would not have fitted as one document
+    const joined = what => api.sent.filter(x => x[0] === 'part' && (x[4] ?? 'map') === what).map(x => x[3]).join('')
+    expect(joined('map')).toBe(s.mapSnapshot)
+    expect(joined('sat')).toBe(s.satSnapshot.image)
+    expect(joined('wind')).toBe(s.windSnapshot.image)
+  })
+})
+
 describe('pushSaves', () => {
   it('sends just the given briefings, even if the cloud already has them, and deletes nothing', async () => {
     const api = fakeApi({ items: [{ id: 'a', name: 'A', mapParts: 1, row: {} }, { id: 'other', name: 'Other', mapParts: 0, row: {} }] })
@@ -159,6 +240,39 @@ describe('fetchOne', () => {
     const api = fakeApi({ entries: { a: { entry: save('a', 'A', null), mapParts: 2 } }, pieces: { a: ['x', 'y'] } })
     api.claim = async () => { throw new Error('must not claim') }
     expect((await fetchOne('CODE', 'a', api)).mapSnapshot).toBe('xy')
+  })
+})
+
+describe('fetchOne with the Satellite pictures', () => {
+  it('puts the cloud and winds pictures back into the briefing', async () => {
+    const entry = withPictures(save('a', 'A', null), { sat: { image: null, at: 1 }, wind: { image: null, at: 2 } })
+    const api = fakeApi({
+      entries: { a: { entry, mapParts: 1, satParts: 2, windParts: 1 } },
+      pieces: { a: Object.assign(['MAP'], { sat: ['S1', 'S2'], wind: ['W1'] }) },
+    })
+    const out = await fetchOne('CODE', 'a', api)
+    expect([out.mapSnapshot, out.satSnapshot.image, out.windSnapshot.image]).toEqual(['MAP', 'S1S2', 'W1'])
+    expect([out.satSnapshot.takenAt, out.windSnapshot.fl]).toEqual([1, 340])
+  })
+
+  it('a briefing stored before pictures had pieces keeps the picture inside its entry', async () => {
+    const entry = withPictures(save('a', 'A', null), { sat: { image: 'INLINE', at: 1 } })
+    const api = fakeApi({ entries: { a: { entry, mapParts: 0 } } })
+    expect((await fetchOne('CODE', 'a', api)).satSnapshot.image).toBe('INLINE')
+  })
+
+  it('sync then fetch gives back the same briefing', async () => {
+    const original = withPictures(save('a', 'A', 'm'.repeat(MAP_PIECE_CHARS + 3)), { sat: { image: 's'.repeat(MAP_PIECE_CHARS * 2), at: 1 }, wind: { image: 'w', at: 2 } })
+    const store = { parts: {}, entry: null, counts: null }
+    const api = fakeApi()
+    api.putPart = async (_c, _d, _id, n, data, what = 'map') => { (store.parts[what] ??= [])[n] = data }
+    api.put = async (_c, _d, e, mapParts, _row, counts) => { store.entry = e; store.counts = { mapParts, ...counts } }
+    await syncSaves('CODE', 'dev', [original], api)
+    const back = fakeApi({
+      entries: { a: { entry: JSON.parse(JSON.stringify(store.entry)), ...store.counts } },
+      pieces: { a: Object.assign(store.parts.map, { sat: store.parts.sat, wind: store.parts.wind }) },
+    })
+    expect(await fetchOne('CODE', 'a', back)).toEqual(original)
   })
 })
 

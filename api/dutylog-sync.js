@@ -15,17 +15,18 @@
  * Saved briefings share the same code, owner and device id. They are far bigger than a
  * duty log (and Vercel rejects request bodies over ~4.5 MB), so each one is its own
  * document under dutylogs/<code>/briefings/<id>, sent one request at a time (&kind=briefing):
- * GET  ...&kind=briefing            -> { items: [{ id, name, savedAt, mapParts, row }] }  list, no ownership check
- * GET  ...&kind=briefing&id=ID      -> { entry, mapParts }                               one briefing (without its map picture)
- * GET  ...&kind=briefing&id=ID&part=N -> { data }                                        piece N of its map picture
- * PUT  ...&kind=briefing&id=ID      body: { entry, mapParts, row, deviceId }             owner-only
- * PUT  ...&kind=briefing&id=ID&part=N body: { data, deviceId }                           owner-only
- * DELETE ...&kind=briefing&id=ID&deviceId=DEV                                            owner-only, with its map pieces
+ * GET  ...&kind=briefing            -> { items: [{ id, name, savedAt, mapParts, satParts, windParts, row }] }  list, no ownership check
+ * GET  ...&kind=briefing&id=ID      -> { entry, mapParts, satParts, windParts }          one briefing (without its pictures)
+ * GET  ...&kind=briefing&id=ID&part=N[&what=map|sat|wind] -> { data }                    piece N of one of its pictures (map unless told)
+ * PUT  ...&kind=briefing&id=ID      body: { entry, mapParts, satParts, windParts, row, deviceId }   owner-only
+ * PUT  ...&kind=briefing&id=ID&part=N[&what=...] body: { data, deviceId }                owner-only
+ * DELETE ...&kind=briefing&id=ID&deviceId=DEV                                            owner-only, with all its pieces
  * POST ...&kind=briefing            body: { deviceId }                                   claim ownership -> { items }
  *
- * The map picture is a data URL that can be any size, so the client cuts it into pieces
- * (each under the document limit) and sends them BEFORE the entry, which records how many
- * there are: a briefing that exists in the cloud is therefore always complete.
+ * The map picture and the Satellite tab's cloud ("sat") and winds ("wind") pictures are data URLs that can
+ * be any size, so the client cuts each into pieces (each under the document limit) and sends them BEFORE the
+ * entry, which records how many there are: a briefing that exists in the cloud is therefore always complete.
+ * Map pieces are stored as parts/<n> (as they always were); the others as parts/sat-<n> and parts/wind-<n>.
  */
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
@@ -35,7 +36,8 @@ import { rateLimited } from './_rateLimit.js'
 const CODE_RE = /^[A-Z0-9]{4,8}(-[A-Z0-9]{4,8}){1,3}$/
 const MAX_PAYLOAD_BYTES = 900_000 // Firestore doc limit is 1 MiB
 const BRIEFING_ID_RE = /^[A-Za-z0-9-]{1,64}$/
-const MAX_MAP_PARTS = 50
+// How many pieces each picture may have, by kind (a piece is up to 700 000 characters).
+const MAX_PIECES = { map: 50, sat: 10, wind: 10 }
 
 // Read-only cross-origin access for eLogbook's duty-log link feature.
 const CORS_ORIGINS = ['https://www.claudeborne.my', 'http://localhost:5173']
@@ -61,13 +63,15 @@ async function handleBriefing(req, res, ref) {
   const id = req.query.id ? String(req.query.id) : null
   if (id && !BRIEFING_ID_RE.test(id)) return res.status(400).json({ error: 'bad briefing id' })
   const part = req.query.part === undefined ? null : Number(req.query.part)
-  if (part !== null && (!id || !Number.isInteger(part) || part < 0 || part >= MAX_MAP_PARTS)) {
-    return res.status(400).json({ error: 'bad map part' })
+  const what = req.query.what === undefined ? 'map' : String(req.query.what)
+  if (!Object.hasOwn(MAX_PIECES, what)) return res.status(400).json({ error: 'bad picture kind' })
+  if (part !== null && (!id || !Number.isInteger(part) || part < 0 || part >= MAX_PIECES[what])) {
+    return res.status(400).json({ error: 'bad piece' })
   }
   const briefings = ref.collection('briefings')
-  const partDoc = (n) => briefings.doc(id).collection('parts').doc(String(n))
+  const partDoc = (n, kind = what) => briefings.doc(id).collection('parts').doc(kind === 'map' ? String(n) : `${kind}-${n}`)
   const listItems = async () => {
-    const list = await briefings.select('name', 'savedAt', 'mapParts', 'row').get()
+    const list = await briefings.select('name', 'savedAt', 'mapParts', 'satParts', 'windParts', 'row').get()
     return list.docs.map(d => ({ id: d.id, ...d.data() }))
   }
 
@@ -78,12 +82,13 @@ async function handleBriefing(req, res, ref) {
       if (!id) return res.status(200).json({ items: await listItems() })
       if (part !== null) {
         const p = await partDoc(part).get()
-        if (!p.exists) return res.status(404).json({ error: 'map piece not found' })
+        if (!p.exists) return res.status(404).json({ error: 'piece not found' })
         return res.status(200).json({ data: p.data().data })
       }
       const doc = await briefings.doc(id).get()
       if (!doc.exists) return res.status(404).json({ error: 'briefing not found' })
-      return res.status(200).json({ entry: JSON.parse(doc.data().json), mapParts: doc.data().mapParts ?? 0 })
+      const d = doc.data()
+      return res.status(200).json({ entry: JSON.parse(d.json), mapParts: d.mapParts ?? 0, satParts: d.satParts ?? 0, windParts: d.windParts ?? 0 })
     }
 
     if (req.method === 'POST') {
@@ -119,8 +124,8 @@ async function handleBriefing(req, res, ref) {
       }
       if (!isPut) {
         const doc = await briefings.doc(id).get()
-        const pieces = doc.exists ? doc.data().mapParts ?? 0 : 0
-        for (let n = 0; n < pieces; n++) await partDoc(n).delete()
+        const counts = doc.exists ? { map: doc.data().mapParts ?? 0, sat: doc.data().satParts ?? 0, wind: doc.data().windParts ?? 0 } : {}
+        for (const [kind, pieces] of Object.entries(counts)) for (let n = 0; n < pieces; n++) await partDoc(n, kind).delete()
         await briefings.doc(id).delete()
         return res.status(200).json({ ok: true })
       }
@@ -129,14 +134,17 @@ async function handleBriefing(req, res, ref) {
       if (part !== null) {
         await partDoc(part).set({ data: payload })
       } else {
-        const mapParts = Number(req.body.mapParts) || 0
-        if (mapParts < 0 || mapParts > MAX_MAP_PARTS) return res.status(400).json({ error: 'bad mapParts' })
+        const counts = {}
+        for (const [kind, field] of [['map', 'mapParts'], ['sat', 'satParts'], ['wind', 'windParts']]) {
+          counts[field] = Number(req.body[field]) || 0
+          if (!Number.isInteger(counts[field]) || counts[field] < 0 || counts[field] > MAX_PIECES[kind]) return res.status(400).json({ error: `bad ${field}` })
+        }
         // `row`: the few plain values the VIEW list draws a row from, so the list needs no download.
         const row = req.body.row ?? null
         if (row !== null && (typeof row !== 'object' || Array.isArray(row) || JSON.stringify(row).length > 2000)) {
           return res.status(400).json({ error: 'bad row' })
         }
-        await briefings.doc(id).set({ name: String(entry.name ?? ''), savedAt: Number(entry.savedAt) || 0, json: payload, mapParts, row })
+        await briefings.doc(id).set({ name: String(entry.name ?? ''), savedAt: Number(entry.savedAt) || 0, json: payload, ...counts, row })
       }
       return res.status(200).json({ ok: true })
     }

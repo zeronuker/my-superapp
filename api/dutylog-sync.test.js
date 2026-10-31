@@ -15,7 +15,7 @@ const fb = vi.hoisted(() => {
       get: async () => ({
         docs: [...docs.entries()]
           .filter(([p]) => p.startsWith(`${path}/`) && !p.slice(path.length + 1).includes('/'))
-          .map(([p, v]) => ({ id: p.split('/').pop(), data: () => ({ name: v.name, savedAt: v.savedAt, mapParts: v.mapParts, row: v.row }) })),
+          .map(([p, v]) => ({ id: p.split('/').pop(), data: () => ({ name: v.name, savedAt: v.savedAt, mapParts: v.mapParts, satParts: v.satParts, windParts: v.windParts, row: v.row }) })),
       }),
     }),
   })
@@ -42,7 +42,7 @@ describe('briefing endpoints', () => {
     expect((await call('PUT', { query: { id: 'a' }, body: { deviceId: 'dev1', entry: entry('a', 'Alpha') } })).code).toBe(200)
     expect(fb.docs.get(`dutylogs/${CODE}`).ownerDeviceId).toBe('dev1')
 
-    expect((await call('GET')).body).toEqual({ items: [{ id: 'a', name: 'Alpha', savedAt: 5, mapParts: 0, row: null }] })
+    expect((await call('GET')).body).toEqual({ items: [{ id: 'a', name: 'Alpha', savedAt: 5, mapParts: 0, satParts: 0, windParts: 0, row: null }] })
     expect((await call('GET', { query: { id: 'a' } })).body.entry).toEqual(entry('a', 'Alpha'))
   })
 
@@ -76,7 +76,7 @@ describe('briefing endpoints', () => {
     }
     await call('PUT', { query: { id: 'a' }, body: { deviceId: 'dev1', mapParts: 3, entry: { ...entry('a'), mapSnapshot: null } } })
 
-    expect((await call('GET')).body.items).toEqual([{ id: 'a', name: 'a', savedAt: 5, mapParts: 3, row: null }])
+    expect((await call('GET')).body.items).toEqual([{ id: 'a', name: 'a', savedAt: 5, mapParts: 3, satParts: 0, windParts: 0, row: null }])
     const got = (await call('GET', { query: { id: 'a' } })).body
     expect(got.mapParts).toBe(3)
     const back = []
@@ -109,5 +109,67 @@ describe('briefing endpoints', () => {
     const big = { ...entry('a'), mapSnapshot: 'x'.repeat(950_000) }
     expect((await call('PUT', { query: { id: 'a' }, body: { deviceId: 'd', entry: big } })).code).toBe(413)
     expect((await call('GET')).code).toBe(404)
+  })
+})
+
+describe('picture pieces: map, cloud (sat) and winds (wind)', () => {
+  const put = (query, body) => call('PUT', { query: { id: 'a', ...query }, body: { deviceId: 'dev1', ...body } })
+
+  it('keeps each picture in its own pieces and gives all three back whole', async () => {
+    const maps = ['m'.repeat(700_000), 'M'.repeat(5)]
+    const sats = ['s'.repeat(700_000), 'S'.repeat(300_000)]
+    const winds = ['w'.repeat(300_000)]
+    for (const [n, data] of maps.entries()) expect((await put({ part: String(n) }, { data })).code).toBe(200)
+    for (const [n, data] of sats.entries()) expect((await put({ part: String(n), what: 'sat' }, { data })).code).toBe(200)
+    for (const [n, data] of winds.entries()) expect((await put({ part: String(n), what: 'wind' }, { data })).code).toBe(200)
+    expect((await put({}, { mapParts: 2, satParts: 2, windParts: 1, entry: { ...entry('a'), mapSnapshot: null } })).code).toBe(200)
+
+    expect((await call('GET')).body.items).toEqual([{ id: 'a', name: 'a', savedAt: 5, mapParts: 2, satParts: 2, windParts: 1, row: null }])
+    const got = (await call('GET', { query: { id: 'a' } })).body
+    expect([got.mapParts, got.satParts, got.windParts]).toEqual([2, 2, 1])
+    const piece = async (what, n) => (await call('GET', { query: { id: 'a', part: String(n), ...(what ? { what } : {}) } })).body.data
+    expect([await piece(undefined, 0), await piece(undefined, 1)]).toEqual(maps)
+    expect([await piece('sat', 0), await piece('sat', 1)]).toEqual(sats)
+    expect([await piece('wind', 0)]).toEqual(winds)
+  })
+
+  it('stores map pieces where they always were, and the others under their own names', async () => {
+    await put({ part: '0' }, { data: 'm' })
+    await put({ part: '0', what: 'sat' }, { data: 's' })
+    await put({ part: '0', what: 'wind' }, { data: 'w' })
+    const base = `dutylogs/${CODE}/briefings/a/parts`
+    expect([...fb.docs.keys()].filter(k => k.startsWith(base)).sort()).toEqual([`${base}/0`, `${base}/sat-0`, `${base}/wind-0`])
+  })
+
+  it('refuses a picture kind it does not know, a piece number past the limit, and the wrong owner', async () => {
+    expect((await put({ part: '0', what: 'sky' }, { data: 'x' })).code).toBe(400)
+    expect((await put({ part: '10', what: 'sat' }, { data: 'x' })).code).toBe(400)
+    expect((await put({ part: '10', what: 'wind' }, { data: 'x' })).code).toBe(400)
+    expect((await put({ part: '49' }, { data: 'x' })).code).toBe(200)
+    expect((await call('PUT', { query: { id: 'a', part: '0', what: 'sat' }, body: { deviceId: 'dev2', data: 'x' } })).code).toBe(403)
+    expect((await put({ part: '0', what: 'sat' }, { data: 'x'.repeat(950_000) })).code).toBe(413)
+  })
+
+  it('refuses counts that are out of range', async () => {
+    expect((await put({}, { satParts: 11, entry: entry('a') })).code).toBe(400)
+    expect((await put({}, { windParts: -1, entry: entry('a') })).code).toBe(400)
+    expect((await put({}, { mapParts: 51, entry: entry('a') })).code).toBe(400)
+  })
+
+  it('deletes every kind of piece with the briefing', async () => {
+    await put({ part: '0' }, { data: 'm' })
+    await put({ part: '0', what: 'sat' }, { data: 's' })
+    await put({ part: '0', what: 'wind' }, { data: 'w' })
+    await put({}, { mapParts: 1, satParts: 1, windParts: 1, entry: entry('a') })
+    expect((await call('DELETE', { query: { id: 'a', deviceId: 'dev1' } })).code).toBe(200)
+    expect([...fb.docs.keys()].filter(k => k.includes('/briefings/'))).toEqual([])
+  })
+
+  it('still reads a briefing stored before pictures had pieces (counts default to 0)', async () => {
+    fb.docs.set(`dutylogs/${CODE}`, { logs: [], updatedAt: 1, ownerDeviceId: 'dev1' })
+    fb.docs.set(`dutylogs/${CODE}/briefings/old`, { name: 'Old', savedAt: 1, json: JSON.stringify(entry('old', 'Old')), mapParts: 1, row: null })
+    const got = (await call('GET', { query: { id: 'old' } })).body
+    expect([got.mapParts, got.satParts, got.windParts]).toEqual([1, 0, 0])
+    expect(got.entry.id).toBe('old')
   })
 })

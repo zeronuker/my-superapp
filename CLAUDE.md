@@ -215,7 +215,14 @@ when asked. The service worker caches aggressively; users get an update prompt
   of truth, no tombstones). The map picture is never left off: it is cut into
   700 000-character pieces (`parts` subcollection, `mapParts` count on the briefing
   doc) sent BEFORE the briefing, so a briefing in the cloud always has its whole
-  map; a rename does not resend it. "Synced" per row = `briefing.cloud.synced[id] ===
+  map; a rename does not resend it. The Satellite tab's cloud and winds pictures (`satSnapshot.image`,
+  `windSnapshot.image`) go the same way, each in its own pieces (`parts/sat-<n>`, `parts/wind-<n>`, counts
+  `satParts` / `windParts`, `?what=sat|wind`), because the text (NOTAMs, weather) plus pictures can pass the
+  900 000-byte document limit (a real WMKK→OPKC briefing was 1.05 MB); the entry is sent with `image: null`.
+  The row summary carries `satAt` / `windAt` (the pictures' `takenAt`): a different time re-sends only that
+  picture. Pieces of a replaced picture are left behind until the briefing is deleted. `call` waits once and
+  retries on a 429 (150 briefing requests a minute).
+  "Synced" per row = `briefing.cloud.synced[id] ===
   name` (localStorage `cb-briefing-cloud`). The "Have a code?" box on the Saved
   Briefings list VIEWs read-only, as rows in the Saved Briefings style
   (`BriefingRowText`, drawn from a small `row` summary — `briefingRow()` — stored
@@ -286,8 +293,8 @@ when asked. The service worker caches aggressively; users get an update prompt
   attached to the save as `satSnapshot` ({ image JPEG data URL, takenAt, sats, credits }, IndexedDB,
   `attachSatSnapshot` in the store); RETAKE replaces it; offline it shows the stored one. A saved
   briefing that has a cloud or a winds picture gets a SATELLITE tab in its window (`BriefingView.jsx`, `SavedSatellite.jsx`: CLOUD and WINDS sub-tabs, the one not made yet says so). With no briefing
-  picked it shows a region still (not kept). Not in the cloud sync yet (phase 2: `briefingCloud.js`
-  and `api/dutylog-sync.js` would carry it, like the map picture's `mapParts`).
+  picked it shows a region still (not kept). In the cloud sync as pieces, like the map (see Saved Briefings
+  cloud backup).
   How the picture is made: ONE finished image per satellite for the route's area (not map tiles):
   NASA GIBS WMS (`gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi`: Himawari-9, GOES-East/West) and
   EUMETSAT EUMETView WMS (`view.eumetsat.int/geoserver/wms`: Meteosat IODC and MTG 0°). Both are
@@ -315,7 +322,7 @@ when asked. The service worker caches aggressively; users get an update prompt
   the OFP's departure time (else now), kept in the save as `windSnapshot` (`attachWindSnapshot`), shown offline,
   shown in the saved briefing's SATELLITE tab (`SavedSatellite.jsx`: CLOUD and WINDS sub-tabs); none picked = region still, not kept. RETAKE or another
   level rebuilds it. Both views stay mounted once opened (the shell hides the other one) and only the visible one
-  downloads. Not in the cloud sync yet. While a first picture is built (no old picture to keep showing) the picture
+  downloads. In the cloud sync as pieces. While a first picture is built (no old picture to keep showing) the picture
   area shows `SatLoader.jsx`: a satellite circling a globe plus step chips (`utils/loaderSteps.js`, different words for
   CLOUD and WINDS), for show only like the METAR/TAF loader; the picture is held back until every chip has had its
   700 ms turn.
