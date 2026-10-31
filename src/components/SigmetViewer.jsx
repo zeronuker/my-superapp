@@ -10,6 +10,7 @@ import ResetButton from './ResetButton'
 import CopyAirportsButton from './CopyAirportsButton'
 import EnrouteAlternates from './EnrouteAlternates'
 import SigmetCard from './SigmetCard'
+import Collapse from './Collapse'
 import SnapshotBanner from './SnapshotBanner'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
@@ -40,6 +41,56 @@ function SectionHeader({ title }) {
 
 const upper = s => s.toUpperCase()
 
+// One collapsible row per FIR, like a NOTAM location: FIR code + name, counts of
+// live / expired SIGMETs, and the cards underneath when opened.
+function FirSection({ chip, sigmets, now, collapsed, onToggle }) {
+  const expired = sigmets.filter(s => s.validTo && s.validTo.getTime() < now).length
+  const active = sigmets.length - expired
+  const badge = (color, bg, border) => ({
+    fontFamily: 'var(--cb-font-mono)', fontSize: 8, fontWeight: 700, letterSpacing: '0.1em',
+    padding: '2px 8px', borderRadius: 3, background: bg, color, border: `1px solid ${border}`,
+  })
+  return (
+    <div id={`sigmet-sec-${chip.icao}`} style={{ marginBottom: 8, scrollMarginTop: 12 }}>
+      <button onClick={onToggle} style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+        background: 'rgba(63,224,197,0.10)', border: '1px solid rgba(63,224,197,0.40)',
+        borderLeft: '3px solid var(--cp-acc)', borderRadius: 6, padding: '9px 12px',
+        cursor: 'pointer', textAlign: 'left',
+      }}>
+        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--cp-acc)', letterSpacing: '0.08em' }}>
+          {chip.icao}
+        </span>
+        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 8, color: 'var(--cp-acc)', opacity: 0.8, letterSpacing: '0.1em' }}>
+          {chip.name && chip.name !== chip.icao ? String(chip.name).toUpperCase() : 'FIR'}
+        </span>
+        <span style={{ marginLeft: 'auto', ...badge(
+          active ? 'var(--cp-green)' : 'var(--cp-dim)',
+          active ? 'rgba(34,197,94,0.12)' : 'transparent',
+          active ? 'rgba(34,197,94,0.3)' : 'var(--cp-border)',
+        ) }}>{active} ACTIVE</span>
+        {expired > 0 && (
+          <span style={badge('var(--cp-red)', 'rgba(248,113,113,0.12)', 'rgba(248,113,113,0.35)')}>{expired} EXPIRED</span>
+        )}
+        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)' }}>{collapsed ? '▶' : '▼'}</span>
+      </button>
+      <Collapse open={!collapsed}>
+        <div style={{ marginTop: 8 }}>
+          {sigmets.length === 0 ? (
+            <div style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12, color: 'var(--cp-dim)', padding: '4px 2px' }}>
+              No active SIGMETs for this FIR.
+            </div>
+          ) : (
+            <div className="sigmet-list">
+              {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} />)}
+            </div>
+          )}
+        </div>
+      </Collapse>
+    </div>
+  )
+}
+
 export default function SigmetViewer() {
   const { briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(useShallow(s => ({
     briefing: s.briefing,
@@ -65,6 +116,9 @@ export default function SigmetViewer() {
   const [error, setError] = useState('')
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [now, setNow] = useState(Date.now())
+  const [collapsedMap, setCollapsedMap] = useState({})
+  const isCollapsed = (icao) => collapsedMap[icao] ?? true   // default: collapsed, like NOTAM
+  const toggleSection = (icao) => setCollapsedMap(m => ({ ...m, [icao]: !isCollapsed(icao) }))
 
   useEffect(() => {
     const on = () => setIsOnline(true)
@@ -307,9 +361,11 @@ export default function SigmetViewer() {
             No active SIGMETs for the selected FIRs.
           </div>
         ) : (
-          <div className="sigmet-list">
-            {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} />)}
-          </div>
+          chips.map(chip => (
+            <FirSection key={chip.icao} chip={chip} now={now}
+              sigmets={sigmets.filter(s => s.firId && s.firId.toUpperCase() === chip.icao.toUpperCase())}
+              collapsed={isCollapsed(chip.icao)} onToggle={() => toggleSection(chip.icao)} />
+          ))
         )
       )}
     </div>

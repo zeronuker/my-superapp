@@ -652,6 +652,14 @@ html[data-hico="true"] .cp-input:focus {
   .sigmet-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
 }
 
+/* ── iOS Safari zooms into any focused field under 16px and stays zoomed. On touch
+   devices every field is 16px (!important: many set their size inline); desktop
+   keeps its sizes. ── */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]),
+  select, textarea { font-size: 16px !important; }
+}
+
 /* Phone landscape (short viewport height) — tighten card spacing so 2 aircraft
    + 2 sectors have a better chance of fitting without scrolling. */
 @media (orientation: landscape) and (max-height: 500px) {
@@ -730,6 +738,8 @@ html[data-hico="true"] .cp-input:focus {
   .cp-mode-head { flex-wrap: wrap; }
   .cp-mode-head > :last-child { margin-left: auto; }
   .cp-mode-strip { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 1 1 100%; min-width: 0; overflow: visible !important; }
+  /* Short labels (Calculator): all tabs stay in ONE row, however many there are. */
+  .cp-mode-strip.cp-mode-strip-row { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
   /* One line each, so every tab is the same height; the label scales with the screen. */
   .cp-mode-btn {
     white-space: nowrap !important; justify-content: center; padding: 7px 4px !important;

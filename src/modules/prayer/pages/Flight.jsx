@@ -296,19 +296,25 @@ function HorizontalTimeline({ dep, dest, depClock, arrClock, rows, totalHours, e
               <div style={{
                 position: 'absolute', left: cx - HCARD_W / 2, width: HCARD_W, height: HCARD_H, boxSizing: 'border-box',
                 top: above ? cy - HROW - HCARD_H : cy + HROW,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap',
                 opacity: row.isSunrise ? 0.55 : row.done ? 0.38 : 1,
-                ...(row.isNext ? {
-                  background: 'rgba(var(--cp-acc-rgb,63,224,197),0.07)',
-                  border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.25)',
-                  borderRadius: 6,
-                } : {}),
               }}>
-                <span style={{ fontFamily: T.sans, fontSize: 13, color: row.isNext ? 'var(--cp-acc)' : T.ink }}>
-                  {row.name}
-                  {row.dayIndex > 1 && <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, marginLeft: 5 }}>DAY {row.dayIndex}</span>}
-                </span>
-                <span style={{ fontFamily: T.mono, fontSize: 13, color: row.isNext ? 'var(--cp-acc)' : T.ink2 }}>{row.time}</span>
+                {/* The next-prayer chip hugs its text; the card box above only reserves space. */}
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  ...(row.isNext ? {
+                    padding: '1px 6px',
+                    background: 'rgba(var(--cp-acc-rgb,63,224,197),0.07)',
+                    border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.25)',
+                    borderRadius: 6,
+                  } : {}),
+                }}>
+                  <span style={{ fontFamily: T.sans, fontSize: 13, color: row.isNext ? 'var(--cp-acc)' : T.ink }}>
+                    {row.name}
+                    {row.dayIndex > 1 && <span style={{ fontFamily: T.mono, fontSize: 9, color: T.dim, marginLeft: 5 }}>DAY {row.dayIndex}</span>}
+                  </span>
+                  <span style={{ fontFamily: T.mono, fontSize: 13, color: row.isNext ? 'var(--cp-acc)' : T.ink2 }}>{row.time}</span>
+                </div>
               </div>
             </div>
           ))}

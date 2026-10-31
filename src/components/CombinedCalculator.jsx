@@ -40,7 +40,7 @@ export default function CombinedCalculator({ animStyle, modes = MODES.map(m => m
       {(shown.length > 1 || resettable) && (
       <div className="cp-mode-head" style={{ display: 'flex', alignItems: 'center', justifyContent: shown.length > 1 ? 'space-between' : 'flex-end', gap: 10, marginBottom: 8, flexShrink: 0 }}>
         {/* ── Mode toggle ───────────────────────────────────────────────── */}
-        {shown.length > 1 && <div className="cp-mode-strip" style={{
+        {shown.length > 1 && <div className="cp-mode-strip cp-mode-strip-row" style={{
           display: 'inline-flex',
           background: 'var(--cp-bg3)',
           border: '1px solid var(--cp-border)',
