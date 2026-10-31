@@ -34,7 +34,7 @@ async function call(code, method, { id, part, what, deviceId, body } = {}) {
   let res = await send()
   // The server allows 150 briefing requests a minute and a first backup with pictures can come close: wait, once.
   if (res.status === 429) {
-    await sleep(Math.min(20, Number(res.headers?.get?.('Retry-After')) || 5) * 1000)
+    await sleep(Math.min(60, Number(res.headers?.get?.('Retry-After')) || 5) * 1000)
     res = await send()
   }
   const data = await res.json().catch(() => ({}))
