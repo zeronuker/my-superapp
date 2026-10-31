@@ -93,9 +93,17 @@ function cssColor(v) {
 
 // Tap-a-zone popup. Built with textContent (the feed's text is external) and
 // explicit dark text, since MapLibre's popup background is white.
-function sigmetPopupEl(features) {
+export function sigmetPopupEl(features, onClose) {
+  const wrap = document.createElement('div')
+  wrap.style.cssText = 'position:relative;'
+  const close = document.createElement('button')
+  close.type = 'button'
+  close.setAttribute('aria-label', 'Close')
+  close.textContent = '×'
+  close.style.cssText = 'position:absolute; top:-6px; right:-6px; width:28px; height:28px; border:0; background:transparent; color:#0a1020; font-size:22px; line-height:1; cursor:pointer; z-index:1;'
+  close.addEventListener('click', onClose)
   const el = document.createElement('div')
-  el.style.cssText = 'font-family:var(--cb-font-mono); font-size:11px; line-height:1.5; color:#0a1020; max-height:180px; overflow-y:auto;'
+  el.style.cssText = 'font-family:var(--cb-font-mono); font-size:11px; line-height:1.5; color:#0a1020; max-height:180px; overflow-y:auto; padding-right:22px;'
   features.forEach((f, i) => {
     const { title, fir, alt, valid } = f.properties
     const box = document.createElement('div')
@@ -112,7 +120,8 @@ function sigmetPopupEl(features) {
     }
     el.append(box)
   })
-  return el
+  wrap.append(el, close)
+  return wrap
 }
 
 // Small dot + name for a fix on a pasted route (the "fix names" toggle). The dot
@@ -314,7 +323,10 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
       if (status !== 'ready' || !map) { resolve(null); return }
       map.once('render', () => {
         const withMarkers = drawMarkersOnSnapshot(map, map.getCanvas(), markers, routeLine, fixLayoutRef.current, OVERLAY[styleKey])
-        resolve(withMarkers.toDataURL('image/jpeg', 0.72))
+        // the view lets a saved picture find its SIGMET zones again (utils/snapshotHit.js)
+        const { lng, lat } = map.getCenter()
+        const { clientWidth: w, clientHeight: h } = map.getContainer()
+        resolve({ image: withMarkers.toDataURL('image/jpeg', 0.72), view: { lng, lat, zoom: map.getZoom(), w, h } })
       })
       map.triggerRepaint()
     }),
@@ -369,7 +381,8 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
         if (!map.getLayer('sigmet-fill')) return
         const hits = map.queryRenderedFeatures(e.point, { layers: ['sigmet-fill'] })
         if (!hits.length) return
-        new Popup({ maxWidth: '260px' }).setLngLat(e.lngLat).setDOMContent(sigmetPopupEl(hits)).addTo(map)
+        const popup = new Popup({ maxWidth: '260px', closeButton: false }).setLngLat(e.lngLat)
+        popup.setDOMContent(sigmetPopupEl(hits, () => popup.remove())).addTo(map)
       })
       map.on('mousemove', (e) => {
         map.getCanvas().style.cursor =

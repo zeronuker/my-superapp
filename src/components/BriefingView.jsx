@@ -1,4 +1,4 @@
-import React, { createContext, forwardRef, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { usePresence, animDurationMs, useTransitionAnim } from '../useTransitionAnim'
 import { fetchWeather } from '../services/weatherAPI'
@@ -14,13 +14,14 @@ import {
   getMetarFlightCat, getWindSev, tokenizeRaw, parseTafSegments,
   getRoleStyle,
 } from '../utils/metarSeverity'
-import { filterSigmetsByFir, reviveSigmets } from '../utils/sigmet'
+import { filterSigmetsByFir, reviveSigmets, sigmetsToGeoJSON } from '../utils/sigmet'
+import { featuresAt, tapOnContainedImage } from '../utils/snapshotHit'
 import { autoBriefingName, findOldest, isAtCap, formatSnapshotStamp } from '../utils/savedBriefings'
 import { BRIEFING_SAVES_CAP } from '../store/calculatorStore'
 import SigmetCard from './SigmetCard'
 import RadarSweepLoader, { computeAnimDuration } from './RadarSweepLoader'
 import WindyRouteMap, { hasWindyLoadedBefore } from './WindyRouteMap'
-import CartoRouteMap, { hasCartoLoadedBefore } from './CartoRouteMap'
+import CartoRouteMap, { hasCartoLoadedBefore, sigmetPopupEl } from './CartoRouteMap'
 import OfflineCoastlineMap from './OfflineCoastlineMap'
 import FlightDetailsTab from './FlightDetailsTab'
 import Seg from './Seg'
@@ -121,12 +122,9 @@ function BriefingTabBar({ tabs, active, onSelect, counts }) {
 }
 
 // Airports/taxiways/obstacles/navaids are what a pilot scans a NOTAM list
-// for first — routine admin notices can wait for the full NOTAM tab.
+// for first, so they come first; the other categories follow, grouped.
 const NOTAM_PRIORITY = { AERODROME: 0, OBSTACLE: 1, NAVAID: 2 }
-const NOTAM_CAP = 5
-// Rough chars-to-5-lines estimate at this card's font/width — see the
-// "no DOM measurement available" note where it's used.
-const NOTAM_TEXT_CLAMP_CHARS = 260
+const NOTAM_PAGE = 5
 
 // ── Build the same ordered, deduped airport list every module builds ──
 // `key` (dep/arr/alt1/alt2/eraN) matches METARTAFCalculator's own target
@@ -146,88 +144,91 @@ function buildAirportTargets(dep, arr, destAlts, enrouteCount, enrouteAlts) {
   return list.filter(t => { if (seen.has(t.icao)) return false; seen.add(t.icao); return true })
 }
 
-// Pausing (not discarding — see BriefingView) and jumping to the NOTAM tab
-// for the full, untruncated list. Shared by AirportCard and FirNotamCard.
-// BriefingView provides its animated pause through this context, so the overlay
-// fades out like ✕ does instead of vanishing when a card jumps to the NOTAM tab.
-const PauseBriefingContext = createContext(null)
-
-function useViewAllNotams(icao) {
-  const pauseBriefing = useCalculatorStore(s => s.pauseBriefing)
-  const setActiveCalculator = useCalculatorStore(s => s.setActiveCalculator)
-  const setNotamFocus = useCalculatorStore(s => s.setNotamFocus)
-  const pauseAnimated = useContext(PauseBriefingContext)
-  return () => { (pauseAnimated || pauseBriefing)(); setNotamFocus(icao); setActiveCalculator('notam') }
+// One NOTAM on one line; the ones that don't fit get "read full text", which
+// opens that NOTAM in place.
+function NotamLine({ n, first }) {
+  const [open, setOpen] = useState(false)
+  const [cut, setCut] = useState(false)
+  const textRef = useRef(null)
+  useEffect(() => {
+    const el = textRef.current
+    if (!el || open) return   // while open the text wraps, so keep the last answer
+    const measure = () => setCut(el.scrollWidth > el.clientWidth)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [n.summary, open])
+  return (
+    <div style={{ padding: '6px 0', fontSize: 11.5, lineHeight: 1.45, borderTop: first ? 'none' : '1px solid var(--cp-border3)' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, color: 'var(--cp-dim)', flexShrink: 0 }}>{n.id}</span>
+        <span ref={textRef} style={{
+          color: 'var(--cp-muted)', minWidth: 0,
+          ...(open ? { wordBreak: 'break-word' } : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }),
+        }}>{n.summary}</span>
+      </div>
+      {(cut || open) && (
+        <button onClick={() => setOpen(o => !o)} style={{
+          marginTop: 2, padding: 0, border: 'none', background: 'none', cursor: 'pointer',
+          fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-acc)',
+          textDecoration: 'underline', textUnderlineOffset: 2,
+        }}>{open ? 'show less' : 'read full text'}</button>
+      )}
+    </div>
+  )
 }
 
-// Capped, prioritized, line-clamped NOTAM list — shared by AirportCard
-// (per-airport) and FirNotamCard (per-FIR, e.g. airspace/oceanic notices).
-function NotamListSection({ notams, onViewAll }) {
-  const activeNotams = (notams || []).filter(n => n.validity.status === 'ACTIVE')
-  const sortedNotams = [...activeNotams].sort((a, b) =>
-    (NOTAM_PRIORITY[a.category] ?? 99) - (NOTAM_PRIORITY[b.category] ?? 99))
-  const visibleNotams = sortedNotams.slice(0, NOTAM_CAP)
-  const hiddenCount = sortedNotams.length - visibleNotams.length
+// Active NOTAMs grouped by category like the METAR/TAF boxes, NOTAM_PAGE per
+// page — shared by AirportNotamCard (per-airport) and FirNotamCard (per-FIR,
+// e.g. airspace/oceanic notices).
+function NotamListSection({ notams }) {
+  const [page, setPage] = useState(1)
+  const sorted = (notams || []).filter(n => n.validity.status === 'ACTIVE').sort((a, b) =>
+    (NOTAM_PRIORITY[a.category] ?? 99) - (NOTAM_PRIORITY[b.category] ?? 99)
+    || (a.category || '').localeCompare(b.category || ''))
+  const pages = Math.max(1, Math.ceil(sorted.length / NOTAM_PAGE))
+  const cur = Math.min(page, pages)
+  const from = (cur - 1) * NOTAM_PAGE
+  const groups = []   // a category that runs over a page break continues on the next page
+  for (const n of sorted.slice(from, from + NOTAM_PAGE)) {
+    const last = groups[groups.length - 1]
+    if (last && last.category === n.category) last.items.push(n)
+    else groups.push({ category: n.category, items: [n] })
+  }
+  const navBtn = { fontSize: 10, letterSpacing: '0.16em', padding: '4px 10px' }
 
   return (
     <div>
-      <div className="cp-label" style={{ marginBottom: 3 }}>NOTAMS · {activeNotams.length} ACTIVE</div>
-      {activeNotams.length === 0 ? (
+      <div className="cp-label" style={{ marginBottom: 6 }}>NOTAMS · {sorted.length} ACTIVE</div>
+      {sorted.length === 0 ? (
         <div style={{ fontSize: 11, color: 'var(--cp-dim)', fontStyle: 'italic' }}>No active NOTAMs</div>
       ) : (
-        <div>
-          {visibleNotams.map((n, i) => {
-            // No DOM measurement available at render time — a character
-            // count is a reasonable stand-in for "this will run past 5
-            // lines at this card's width" without needing a ref/resize
-            // observer for something this low-stakes.
-            const likelyOverflows = (n.summary || '').length > NOTAM_TEXT_CLAMP_CHARS
+        <>
+          {groups.map(g => {
+            const cat = NOTAM_CATEGORIES[g.category]
             return (
-              <div key={n.id} style={{
-                fontSize: 11.5, lineHeight: 1.4, padding: '6px 0',
-                borderTop: i === 0 ? 'none' : '1px solid var(--cp-border3)',
-              }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                  <span style={{
-                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0, marginTop: 4,
-                    background: NOTAM_CATEGORIES[n.category]?.color || 'var(--cp-dim)',
-                  }} />
-                  <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, color: 'var(--cp-dim)', flexShrink: 0 }}>
-                    {n.id}
-                  </span>
-                  <span style={{
-                    color: 'var(--cp-muted)', display: '-webkit-box',
-                    WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                  }}>
-                    {n.summary}
-                  </span>
+              <div key={g.category} style={{ marginBottom: 9 }}>
+                <div className="cp-label" style={{ marginBottom: 3, color: cat?.color }}>{(cat?.label || g.category || 'Other').toUpperCase()}</div>
+                <div style={{ background: 'var(--cp-bg3)', borderRadius: 4, padding: '2px 9px', fontFamily: 'var(--cb-font-mono)' }}>
+                  {g.items.map((n, i) => <NotamLine key={n.id} n={n} first={i === 0} />)}
                 </div>
-                {likelyOverflows && (
-                  <button onClick={onViewAll} style={{
-                    marginTop: 3, marginLeft: 14, padding: 0, border: 'none', background: 'none', cursor: 'pointer',
-                    fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-acc)',
-                    textDecoration: 'underline', textUnderlineOffset: 2,
-                  }}>
-                    read full text in NOTAM tab →
-                  </button>
-                )}
               </div>
             )
           })}
-          {hiddenCount > 0 && (
-            <button onClick={onViewAll} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%',
-              marginTop: 6, padding: '8px 10px', borderRadius: 5, cursor: 'pointer', textAlign: 'left',
-              border: '1px dashed var(--cp-border)', background: 'var(--cp-bg3)',
-              fontFamily: 'var(--cb-font-mono)', fontSize: 10.5, letterSpacing: '0.02em', color: 'var(--cp-acc)',
-            }}>
-              <span style={{ color: 'var(--cp-dim)' }}>
-                <span style={{ color: 'var(--cp-acc)' }}>+ {hiddenCount} more</span> · runway/taxiway, obstacle &amp; navaid notices shown first
-              </span>
-              <span style={{ flexShrink: 0 }}>view all in NOTAM tab →</span>
-            </button>
+          {pages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
+              <button className="cp-btn" onClick={() => setPage(cur - 1)} disabled={cur === 1}
+                style={{ ...navBtn, opacity: cur === 1 ? 0.4 : 1 }}>‹ PREV</button>
+              <div style={{ textAlign: 'center', fontFamily: 'var(--cb-font-mono)' }}>
+                <div style={{ fontSize: 13 }}>{from + 1}–{Math.min(sorted.length, from + NOTAM_PAGE)} of {sorted.length}</div>
+                <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em' }}>PAGE {cur} OF {pages}</div>
+              </div>
+              <button className="cp-btn" onClick={() => setPage(cur + 1)} disabled={cur === pages}
+                style={{ ...navBtn, opacity: cur === pages ? 0.4 : 1 }}>NEXT ›</button>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   )
@@ -235,7 +236,6 @@ function NotamListSection({ notams, onViewAll }) {
 
 // ── One FIR's NOTAMs — airspace/oceanic notices, not tied to any one airport ──
 function FirNotamCard({ fir, notams }) {
-  const viewAllNotams = useViewAllNotams(fir.icao)
   return (
     <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
       <div style={{
@@ -252,7 +252,46 @@ function FirNotamCard({ fir, notams }) {
         )}
       </div>
       <div style={{ padding: '12px 14px 14px' }}>
-        <NotamListSection notams={notams} onViewAll={viewAllNotams} />
+        <NotamListSection notams={notams} />
+      </div>
+    </div>
+  )
+}
+
+// ── One FIR's SIGMETs, in the SIGMETs tab — same header as FirNotamCard plus
+// live / expired counts; a FIR with none says so (it was checked and is clear) ──
+function FirSigmetCard({ fir, sigmets, now }) {
+  const expired = sigmets.filter(s => s.validTo && s.validTo.getTime() < now).length
+  const active = sigmets.length - expired
+  const badge = (color) => ({
+    fontFamily: 'var(--cb-font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+    padding: '2px 8px', borderRadius: 3, color, border: `1px solid ${color}`, whiteSpace: 'nowrap',
+  })
+  return (
+    <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 9, padding: '10px 14px',
+        borderBottom: '1px solid var(--cp-border3)', borderLeft: '3px solid var(--cp-acc)',
+      }}>
+        <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--cp-txt)' }}>
+          {fir.icao}
+        </span>
+        {fir.name && (
+          <span style={{ fontSize: 11, color: 'var(--cp-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {fir.name}
+          </span>
+        )}
+        <span style={{ marginLeft: 'auto', ...badge(active ? 'var(--cp-green)' : 'var(--cp-dim)') }}>{active} ACTIVE</span>
+        {expired > 0 && <span style={badge('var(--cp-red)')}>{expired} EXPIRED</span>}
+      </div>
+      <div style={{ padding: '12px 14px 14px' }}>
+        {sigmets.length === 0 ? (
+          <div style={{ fontSize: 11, color: 'var(--cp-dim)', fontStyle: 'italic' }}>No active SIGMETs</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} />)}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -263,7 +302,6 @@ function FirNotamCard({ fir, notams }) {
 function AirportNotamCard({ target, notams }) {
   const role = getRoleStyle(target.label)
   const airport = lookupAirport(target.icao)
-  const viewAllNotams = useViewAllNotams(target.icao)
 
   return (
     <div className="cp-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -285,7 +323,7 @@ function AirportNotamCard({ target, notams }) {
         )}
       </div>
       <div style={{ padding: '12px 14px 14px' }}>
-        <NotamListSection notams={notams} onViewAll={viewAllNotams} />
+        <NotamListSection notams={notams} />
       </div>
     </div>
   )
@@ -376,8 +414,40 @@ const BASEMAP_TABS = [
 // `saved`: a saved briefing is a frozen snapshot — it shows the map picture
 // taken when it was saved (or, if none was captured, the bundled offline map)
 // and never loads the live CARTO or Windy maps, online or offline.
-const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, saved, sigmets, routeFixes, routeError, fixNamesOn }, ref) {
+// The tap-a-zone box on a saved map picture: the same content as the live map's
+// popup, in a white box placed at the tap (x, y in the picture box's pixels).
+function SavedSigmetPopup({ tap, boxW, onClose }) {
+  const bodyRef = useRef(null)
+  useEffect(() => {
+    bodyRef.current.replaceChildren(sigmetPopupEl(tap.features, onClose))
+  }, [tap, onClose])
+  const above = tap.y > 160
+  return (
+    <div ref={bodyRef} onClick={e => e.stopPropagation()} style={{
+      position: 'absolute', left: Math.max(135, Math.min(tap.x, boxW - 135)), top: tap.y + (above ? -10 : 10),
+      transform: above ? 'translate(-50%, -100%)' : 'translateX(-50%)',
+      width: 260, boxSizing: 'border-box', padding: '10px 12px', background: '#fff', borderRadius: 8,
+      boxShadow: '0 2px 12px rgba(0,0,0,0.35)', zIndex: 3,
+    }} />
+  )
+}
+
+const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, mapView, savedAt, saved, sigmets, routeFixes, routeError, fixNamesOn }, ref) {
   const [tab, setTab] = useState('static')
+  // Tap on a saved picture: { x, y, features } in the picture box's pixels, or null.
+  const [tap, setTap] = useState(null)
+  // Zones as drawn when the briefing was saved, so ones that have expired since stay tappable.
+  const savedZones = useMemo(() => (saved && mapView ? sigmetsToGeoJSON(sigmets, savedAt).features : []), [saved, mapView, sigmets, savedAt])
+  const closeTap = useCallback(() => setTap(null), [])
+  const onPictureTap = (e) => {
+    if (!savedZones.length) return
+    const img = e.currentTarget
+    const box = img.getBoundingClientRect()
+    const x = e.clientX - box.left, y = e.clientY - box.top
+    const p = tapOnContainedImage(x, y, box.width, box.height, img.naturalWidth, img.naturalHeight)
+    const features = p ? featuresAt(mapView, savedZones, p.fx, p.fy) : []
+    setTap(features.length ? { x, y, features } : null)
+  }
   // The Static map follows the app theme: dark map in dark mode, light in light.
   const styleKey = useCalculatorStore(s => s.darkMode) ? 'dark' : 'light'
   const [showFixNames, setShowFixNames] = useState(!!fixNamesOn)
@@ -500,8 +570,11 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
           mapSnapshot ? (
             // 'contain' (not 'cover'): the picture was taken at whatever size the
             // map was when saved — never crop a marker off the edge.
-            <img src={mapSnapshot} alt="Saved route map"
-              style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'var(--cp-bg3)', display: 'block' }} />
+            <>
+              <img src={mapSnapshot} alt="Saved route map" onClick={onPictureTap}
+                style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'var(--cp-bg3)', display: 'block' }} />
+              {tap && <SavedSigmetPopup tap={tap} boxW={mapBoxRef.current?.clientWidth ?? 0} onClose={closeTap} />}
+            </>
           ) : (
             <>
               <OfflineCoastlineMap markers={markers} />
@@ -621,7 +694,6 @@ export default function BriefingView() {
   const briefing = useCalculatorStore(s => s.briefing)
   const setBriefingData = useCalculatorStore(s => s.setBriefingData)
   const closeBriefing = useCalculatorStore(s => s.closeBriefing)
-  const pauseBriefing = useCalculatorStore(s => s.pauseBriefing)
   const saveBriefing = useCalculatorStore(s => s.saveBriefing)
   const renameSavedBriefing = useCalculatorStore(s => s.renameSavedBriefing)
   const deleteSavedBriefing = useCalculatorStore(s => s.deleteSavedBriefing)
@@ -694,7 +766,6 @@ export default function BriefingView() {
     setClosing(true)
     closeTimer.current = setTimeout(done, ms)
   }
-  const pauseAnimated = () => closeAnimated(pauseBriefing)
 
   // Duty log link — only for this device's own saved briefings (a cloud copy is read-only).
   const link = localEntry ? links.bySave.get(localEntry.id) : null
@@ -874,7 +945,8 @@ export default function BriefingView() {
     setSaving(true)
     setSaveError('')
     try {
-      const result = await saveBriefing(titleDraft ?? undefined, await routeMapRef.current?.getMapSnapshot())
+      const snap = await routeMapRef.current?.getMapSnapshot()
+      const result = await saveBriefing(titleDraft ?? undefined, snap?.image ?? null, snap?.view ?? null)
       if (result.ok) return true
       if (result.reason === 'full' && useCalculatorStore.getState().briefing.saves.length > 0) {
         setStorageFull(true)
@@ -916,7 +988,7 @@ export default function BriefingView() {
   const handleDiscardAndClose = () => { setShowSavePrompt(false); closeAnimated() }
 
   return (
-    <PauseBriefingContext.Provider value={pauseAnimated}>
+    <>
     <div
       onClick={requestClose}
       className={`cp-backdrop-in${closing ? ' is-closing' : ''}`}
@@ -1039,7 +1111,7 @@ export default function BriefingView() {
                 {fetchedAt && ` · FETCHED ${new Date(fetchedAt).toUTCString().toUpperCase()}`}
               </div>
 
-              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} saved={isSaved} sigmets={sigmets} routeFixes={data?.routeFixes} routeError={data?.routeError} fixNamesOn={!!flightDetails && data?.routeFixes?.length > 0} />
+              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} mapView={savedEntry?.mapView ?? null} savedAt={savedEntry?.savedAt} saved={isSaved} sigmets={sigmets} routeFixes={data?.routeFixes} routeError={data?.routeError} fixNamesOn={!!flightDetails && data?.routeFixes?.length > 0} />
 
               <BriefingTabBar
                 tabs={tabs}
@@ -1109,13 +1181,12 @@ export default function BriefingView() {
                 <Section title="Sigmets — Route Firs" color={SECTION_COLORS.sigmet}>
                   {firsUsed.length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
-                  ) : sigmets.length === 0 ? (
-                    <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>
-                      No active SIGMETs for {firsUsed.map(f => f.icao).join(', ')}.
-                    </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} />)}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {firsUsed.map(fir => (
+                        <FirSigmetCard key={fir.icao} fir={fir} now={now}
+                          sigmets={sigmets.filter(s => s.firId && s.firId.toUpperCase() === fir.icao.toUpperCase())} />
+                      ))}
                     </div>
                   )}
                 </Section>
@@ -1159,6 +1230,6 @@ export default function BriefingView() {
         }}
         onCancel={() => setExportOpen(false)} />
     )}
-    </PauseBriefingContext.Provider>
+    </>
   )
 }

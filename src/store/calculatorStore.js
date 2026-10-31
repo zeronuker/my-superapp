@@ -290,11 +290,13 @@ export const useCalculatorStore = create((set, get) => ({
   // succeeded. Resolves { ok: true } or { ok: false, reason } where reason is
   // 'full' (device storage full — caller offers delete-oldest), 'nodata', or
   // 'error' (anything else).
-  saveBriefing:     async (name, mapSnapshot = null) => {
+  // `mapView` is where that map was looking (see utils/snapshotHit.js) so the
+  // picture's SIGMET zones can be tapped.
+  saveBriefing:     async (name, mapSnapshot = null, mapView = null) => {
     const { route, data } = get().briefing
     if (!data) return { ok: false, reason: 'nodata' }
     const savedAt = Date.now()
-    const entry = { id: makeBriefingId(), name: (name || '').trim() || autoBriefingName(route, savedAt), route, data, savedAt, mapSnapshot }
+    const entry = { id: makeBriefingId(), name: (name || '').trim() || autoBriefingName(route, savedAt), route, data, savedAt, mapSnapshot, mapView }
     try { await idbBackend.put(entry) } catch (err) {
       return { ok: false, reason: isQuotaError(err) ? 'full' : 'error' }
     }
