@@ -23,6 +23,7 @@ import { ModuleHeader } from './ModuleChrome'
 import { useTransitionAnim } from '../useTransitionAnim'
 import { SyncStatus, SyncBar, rowSyncing } from './SyncStatus'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
+import ExportBriefingButton from './ExportBriefingButton'
 import MonthBrowser from './MonthBrowser'
 
 // The front door for a flight: import the OFP (or type the flight in), check
@@ -413,6 +414,7 @@ export default function BriefingModule() {
                     status={<SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={() => syncNow(b.id)} />} />
                 </div>
                 </div>
+                <ExportBriefingButton entry={b} link={links.bySave.get(b.id)} dutyLogs={dutyLogs} />
                 <button onClick={() => setDeletingId(b.id)} title="Delete" aria-label={`Delete ${b.name}`}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
                 <ConfirmDeleteModal open={deletingId === b.id} what="briefing" name={b.name}
