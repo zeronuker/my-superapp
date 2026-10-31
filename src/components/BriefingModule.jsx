@@ -411,10 +411,10 @@ export default function BriefingModule() {
                   onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openSavedBriefing(b.id) } }}
                   style={{ width: '100%', textAlign: 'left', cursor: 'pointer', color: 'inherit' }}>
                   <BriefingRowText r={briefingRow(b)} logged={links.bySave.has(b.id)}
-                    status={<SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={() => syncNow(b.id)} />} />
+                    status={<SyncStatus syncCode={syncCode} synced={synced} busy={syncBusy} onSync={() => syncNow(b.id)} />}
+                    action={<ExportBriefingButton entry={b} link={links.bySave.get(b.id)} dutyLogs={dutyLogs} />} />
                 </div>
                 </div>
-                <ExportBriefingButton entry={b} link={links.bySave.get(b.id)} dutyLogs={dutyLogs} />
                 <button onClick={() => setDeletingId(b.id)} title="Delete" aria-label={`Delete ${b.name}`}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
                 <ConfirmDeleteModal open={deletingId === b.id} what="briefing" name={b.name}

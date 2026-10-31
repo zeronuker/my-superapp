@@ -15,7 +15,7 @@ const hint = { fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpac
 
 // What a Saved Briefings row shows, from briefingRow(): used by the saved list and the cloud list.
 // `status` (the sync badge) sits at the right end of the "saved" line.
-export function BriefingRowText({ r, status, logged }) {
+export function BriefingRowText({ r, status, logged, action }) {
   const join = (...parts) => parts.filter(Boolean).join(' · ')
   const times = [r.std && `STD ${r.std}`, r.sta && `STA ${r.sta}`].filter(Boolean).join(' → ')
   const detail = { fontFamily: mono, fontSize: 12, color: 'var(--cp-dim)', marginTop: 3 }
@@ -48,6 +48,7 @@ export function BriefingRowText({ r, status, logged }) {
             }}>{logged ? 'LOGGED' : 'NOT LOGGED'}</span>
           )}
           {status}
+          {action}
         </span>
       </div>
     </>

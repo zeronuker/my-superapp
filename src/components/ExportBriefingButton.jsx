@@ -15,8 +15,10 @@ export default function ExportBriefingButton({ entry, link, dutyLogs }) {
   }
   const sections = pdfSections(input)
   if (!sections.length) return null
+  // The span keeps clicks (the dialog's too, React events bubble out of portals) from
+  // reaching the row, which opens the briefing when tapped.
   return (
-    <>
+    <span onClick={e => e.stopPropagation()} style={{ display: 'inline-flex' }}>
       <button onClick={() => setOpen(true)} className="cp-btn" aria-label={`Export PDF of ${entry.name}`} title="Export PDF"
         style={{ width: 24, height: 22, padding: 0, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--cp-acc)' }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -30,6 +32,6 @@ export default function ExportBriefingButton({ entry, link, dutyLogs }) {
           await exportBriefingPdf(buildPdfModel(input, selection), opts)
         }}
         onCancel={() => setOpen(false)} />
-    </>
+    </span>
   )
 }
