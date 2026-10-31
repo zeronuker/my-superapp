@@ -118,7 +118,7 @@ export default function Converter() {
           )}
         </div>
         <div className="cp-value-box" style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-          <input type="number" inputMode="decimal" placeholder="0" value={value}
+          <input type="number" inputMode="decimal" placeholder="e.g. 12345" value={value}
             onChange={e => {
               setDriver(side)
               if (side === 'from') setFromVal(e.target.value); else setToVal(e.target.value)

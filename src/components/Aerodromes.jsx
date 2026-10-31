@@ -205,7 +205,7 @@ function FlightCard({ f, airlines }) {
   )
 }
 
-export default function MalaysiaAirports() {
+export default function Aerodromes() {
   const { direction, terminal, dayKey, criteria, query, results } = useCalculatorStore(s => s.gatefinder)
   const setField = useCalculatorStore(s => s.setGatefinderField)
   const resetGatefinder = useCalculatorStore(s => s.resetGatefinder)

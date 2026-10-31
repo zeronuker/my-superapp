@@ -75,20 +75,18 @@ function Field({ label, value, onChange, placeholder, unit, type = 'text', input
             autoComplete="off" autoCorrect="off"
             autoCapitalize={type === 'text' && !inlineSuffix ? 'characters' : 'off'}
             spellCheck="false"
+            className="cp-input"
             style={{
-              width: '100%', minWidth: 0, background: T.bg1,
-              border: `1px solid ${fieldError ? 'rgba(251,146,60,0.5)' : T.bord2}`,
-              borderRadius: 6, color: T.ink,
-              fontFamily: T.mono, fontSize: 14,
-              padding: inlineSuffix ? '9px 28px 9px 12px' : '9px 12px',
-              outline: 'none', letterSpacing: '0.06em',
+              minWidth: 0,
+              ...(fieldError && { borderColor: 'rgba(251,146,60,0.5)' }),
+              ...(inlineSuffix && { paddingRight: 28 }),
             }}
           />
           {inlineSuffix && value !== '' && (
             <span style={{
               position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-              fontFamily: T.mono, fontSize: 14, color: T.dim,
-              pointerEvents: 'none', letterSpacing: '0.06em',
+              fontFamily: T.mono, fontSize: 13, color: T.dim,
+              pointerEvents: 'none',
             }}>{inlineSuffix}</span>
           )}
         </div>
@@ -302,12 +300,13 @@ function HorizontalTimeline({ dep, dest, depClock, arrClock, rows, totalHours, e
                 {/* The next-prayer chip hugs its text; the card box above only reserves space. */}
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: 7,
+                  padding: '1px 6px', borderRadius: 6,
                   ...(row.isNext ? {
-                    padding: '1px 6px',
                     background: 'rgba(var(--cp-acc-rgb,63,224,197),0.07)',
                     border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.25)',
-                    borderRadius: 6,
-                  } : {}),
+                  } : {
+                    background: T.bg2, border: `1px solid ${T.bord2}`,
+                  }),
                 }}>
                   <span style={{ fontFamily: T.sans, fontSize: 13, color: row.isNext ? 'var(--cp-acc)' : T.ink }}>
                     {row.name}
@@ -728,7 +727,7 @@ export default function FlightPage({ settings }) {
               label="DEPARTURE (ICAO)"
               value={dep}
               onChange={v => setInputs({ dep: v.toUpperCase() })}
-              placeholder="WMKK"
+              placeholder="e.g. WMKK"
             />
             <AirportTag airport={depAirport} icao={dep} />
           </div>
@@ -747,7 +746,7 @@ export default function FlightPage({ settings }) {
               label="DESTINATION (ICAO)"
               value={dest}
               onChange={v => setInputs({ dest: v.toUpperCase() })}
-              placeholder="OMDB"
+              placeholder="e.g. OMDB"
             />
             <AirportTag airport={destAirport} icao={dest} />
           </div>
@@ -764,9 +763,9 @@ export default function FlightPage({ settings }) {
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, minWidth: 0 }}>
               <Field label="DEP TIME (ETD)" value={depTime} onChange={v => setInputs({ depTime: v })}
-                placeholder="0930" hint="HH:MM" inputMode="decimal" />
+                placeholder="e.g. 0930" hint="HH:MM" inputMode="decimal" />
               <Field label="ARR TIME (ETA)" value={arrTime} onChange={v => setInputs({ arrTime: v })}
-                placeholder="1730" hint="HH:MM" inputMode="decimal" />
+                placeholder="e.g. 1730" hint="HH:MM" inputMode="decimal" />
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {[['utc', 'UTC / ZULU'], ['local', 'LOCAL']].map(([id, label]) => (
@@ -783,9 +782,9 @@ export default function FlightPage({ settings }) {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, minWidth: 0 }}>
             <Field label="ELAPSED TIME" value={elapsedHours} onChange={v => setInputs({ elapsedHours: v })}
-              placeholder="3.5" unit="HRS" type="number" hint="Time since departure" />
+              placeholder="e.g. 3.5" unit="HRS" type="number" hint="Time since departure" />
             <Field label="TOTAL FLIGHT TIME" value={totalHours} onChange={v => setInputs({ totalHours: v })}
-              placeholder="7.0" unit="HRS" type="number" hint="Estimated total duration" />
+              placeholder="e.g. 7.0" unit="HRS" type="number" hint="Estimated total duration" />
           </div>
         )}
       </Section>
@@ -797,7 +796,7 @@ export default function FlightPage({ settings }) {
             label="ALTITUDE"
             value={altitudeFt}
             onChange={v => setInputs({ altitudeFt: v })}
-            placeholder="35000"
+            placeholder="e.g. 35000"
             unit="FT"
             type="number"
           />
@@ -805,7 +804,7 @@ export default function FlightPage({ settings }) {
             label="TRUE HEADING"
             value={headingDeg}
             onChange={v => setInputs({ headingDeg: v })}
-            placeholder="234°"
+            placeholder="e.g. 234°"
             inlineSuffix="°"
             hint="Optional — check moving map on your IFE screen"
           />

@@ -282,7 +282,7 @@ export default function SigmetViewer() {
           <div key={key}>
             <div className="cp-label" style={{ marginBottom: 4 }}>{label}</div>
             <input className="cp-input" style={{ width: '100%', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase' }}
-              placeholder="ICAO" value={destAlts[key]} maxLength={4}
+              placeholder="e.g. WSSS" value={destAlts[key]} maxLength={4}
               onChange={e => setDestAlts(p => ({ ...p, [key]: upper(e.target.value) }))} />
           </div>
         ))}

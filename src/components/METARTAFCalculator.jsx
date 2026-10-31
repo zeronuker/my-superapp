@@ -307,7 +307,7 @@ export default function METARTAFCalculator() {
         {[{ key: 'alt1', label: 'DEST ALT 1' }, { key: 'alt2', label: 'DEST ALT 2' }].map(({ key, label }) => (
           <div key={key}>
             <div className="cp-label" style={{ marginBottom: 4 }}>{label}</div>
-            <input className="cp-input" style={monoInput} placeholder="ICAO"
+            <input className="cp-input" style={monoInput} placeholder="e.g. WSSS"
               value={destAlts[key]} maxLength={4}
               onChange={e => setDestAlts(p => ({ ...p, [key]: e.target.value.toUpperCase() }))}
               onKeyDown={e => e.key === 'Enter' && handleFetch()} />

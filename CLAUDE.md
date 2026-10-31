@@ -247,7 +247,7 @@ when asked. The service worker caches aggressively; users get an update prompt
   is in one `/_a/flights/<no>/<id>/departing|picking-up` call per flight, made
   only for the up-to-25 flights returned and skipped for finished ones). Both are
   translated into the Malaysia flight shape. Codeshare names: from that day's
-  flights, then the Malaysia airline list in `MalaysiaAirports.jsx`, else the
+  flights, then the Malaysia airline list in `Aerodromes.jsx`, else the
   bare flight number. Times are airport-local; today starts an hour ago.
   `vercel dev` cannot serve the Vite app here; verify the UI with `npm run dev`
   plus the handler run directly in node.

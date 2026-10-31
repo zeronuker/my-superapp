@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { usePresence, animDurationMs } from '../useTransitionAnim'
+import { usePresence } from '../useTransitionAnim'
 import * as Flags from 'country-flag-icons/react/3x2'
 import { CURRENCIES, CURRENCY_BY_CODE } from '../data/currencies.js'
 import { useShallow } from 'zustand/react/shallow'
@@ -116,64 +116,19 @@ function FlagIcon({ code, size = 22 }) {
 }
 
 // Backdrop + panel wrapper shared by the base-currency picker and the edit-list picker.
-//
-// The search box auto-focuses, and on iPad/iPhone the on-screen keyboard slides
-// over the bottom of the page without resizing it. A fixed pop-up can't be moved
-// out of its way, so instead the pop-up is part of the PAGE and the whole app
-// scrolls up:
-//  - it is absolutely positioned on the document (via a portal to <body>, which
-//    also keeps it clear of the app's own zoom settings) and opens where the
-//    user tapped, on a dimmed layer covering the whole page;
-//  - once the keyboard is up, the page scrolls so the pop-up sits at the top of
-//    the screen. The layer is made taller than the page, so there is always room
-//    to scroll;
-//  - closing puts the page back exactly where it was.
-// `anchor` = { y, scrollBefore } in document coordinates, captured when it opened.
-// No keyboard measuring is involved.
-const KEYBOARD_SETTLE_MS = 350   // let the keyboard finish sliding up before scrolling
+// It is absolutely positioned on the document (via a portal to <body>, which also keeps it
+// clear of the app's own zoom settings) and opens where the user tapped, on a dimmed layer
+// covering the whole page. The page does not scroll.
+// `anchor` = { y } in document coordinates, captured when it opened.
 function Overlay({ onClose, closing, anchor, children }) {
   const [height, setHeight] = useState(null)
 
-  // Dimmed layer = the page's height + 75% of a screen, so the page can scroll far enough.
   useLayoutEffect(() => {
-    const size = () => {
-      const page = document.getElementById('root')?.offsetHeight || document.documentElement.scrollHeight
-      setHeight(Math.max(page + window.innerHeight * 0.75, anchor.y + window.innerHeight))
-    }
+    const size = () => setHeight(document.getElementById('root')?.offsetHeight || document.documentElement.scrollHeight)
     size()
     window.addEventListener('resize', size)
     return () => window.removeEventListener('resize', size)
-  }, [anchor.y])
-
-  // Scroll the whole app up to the pop-up once the keyboard is out; put it back on close.
-  useEffect(() => {
-    const lift = () => window.scrollTo({ top: Math.max(0, anchor.y - 12), behavior: 'smooth' })
-    const timer = setTimeout(lift, KEYBOARD_SETTLE_MS)
-    // Unmount without an exit animation (reduced motion): snap back if not already there.
-    return () => {
-      clearTimeout(timer)
-      if (Math.abs(window.scrollY - anchor.scrollBefore) > 1) window.scrollTo(0, anchor.scrollBefore)
-    }
-  }, [anchor])
-
-  // Closing: glide back while the dimmed layer is still mounted (removing it
-  // shrinks the page, so doing this on unmount would snap). Hand-timed to the
-  // exit animation instead of `behavior: 'smooth'`, whose length the browser
-  // picks — a long one would outlast the layer and snap at the end.
-  useEffect(() => {
-    if (!closing) return undefined
-    const from = window.scrollY
-    const ms = animDurationMs()
-    const t0 = performance.now()
-    let raf
-    const step = (now) => {
-      const p = Math.min(1, (now - t0) / ms)
-      window.scrollTo(0, from + (anchor.scrollBefore - from) * (1 - (1 - p) ** 3))
-      if (p < 1) raf = requestAnimationFrame(step)
-    }
-    raf = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(raf)
-  }, [closing, anchor.scrollBefore])
+  }, [])
 
   return createPortal(
     <div
@@ -181,7 +136,7 @@ function Overlay({ onClose, closing, anchor, children }) {
       className={`cp-backdrop-in${closing ? ' is-closing' : ''}`}
       style={{
         position: 'absolute', top: 0, left: 0, width: '100%', boxSizing: 'border-box', zIndex: 1000,
-        background: 'rgba(0,0,0,0.55)', height: height ?? 'calc(100% + 75vh)',
+        background: 'rgba(0,0,0,0.55)', height: height ?? '100%',
       }}
     >
       <ChamferFrame
@@ -252,7 +207,7 @@ export default function CurrencyCalculator() {
   // this, so a row stays put when it is un-starred / unticked (see currencyPicker.js).
   const [baseBaseline, setBaseBaseline] = useState([])
   // Where a picker was opened (document coordinates) — see Overlay.
-  const [anchor, setAnchor] = useState({ y: 0, scrollBefore: 0 })
+  const [anchor, setAnchor] = useState({ y: 0 })
   const [pickerBaseline, setPickerBaseline] = useState([])
 
   const dragIndex = useRef(null)
@@ -326,7 +281,7 @@ export default function CurrencyCalculator() {
     setCurrencyBase(code)
     setBaseOpen(false); setBaseSearch('')
   }
-  const anchorTo = (el) => setAnchor({ y: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 8), scrollBefore: window.scrollY })
+  const anchorTo = (el) => setAnchor({ y: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 8) })
   const openBasePicker = (e) => { anchorTo(e.currentTarget); setBaseBaseline(quickBase); setBaseOpen(true) }
   const openListPicker = (e) => { anchorTo(e.currentTarget); setPickerBaseline(list); setPickerOpen(true) }
 

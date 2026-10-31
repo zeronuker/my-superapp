@@ -113,7 +113,7 @@ export function CloudView() {
       </div>
       <button onClick={() => setScanning(true)} className="cp-btn" style={{ width: '100%', padding: '8px 10px', marginBottom: 8 }}>TAP TO SCAN</button>
       <div style={{ display: 'flex', gap: 8 }}>
-        <input value={input} onChange={e => setInput(e.target.value)} placeholder="XXXX-XXXX-XXXX" className="cp-input" style={{ flex: 1 }}
+        <input value={input} onChange={e => setInput(e.target.value)} placeholder="e.g. XXXX-XXXX-XXXX" className="cp-input" style={{ flex: 1 }}
           aria-label="Sync code" />
         <button onClick={() => view()} disabled={!!viewing || busy || !input.trim()} className="cp-btn" style={{ padding: '8px 10px' }}>{viewing ? <Dots>VIEW</Dots> : 'VIEW'}</button>
       </div>

@@ -170,7 +170,7 @@ function UtcOffsetInput({ value, onChange, onBlur, maxLength = 6 }) {
         color: 'var(--cp-acc2)', background: 'color-mix(in srgb, var(--cp-acc2) 16%, transparent)',
         borderRight: '1px solid var(--cp-acc2)',
       }}>UTC</span>
-      <input type="text" inputMode="tel" placeholder="+HH:MM" value={value} onChange={onChange} onBlur={onBlur} maxLength={maxLength}
+      <input type="text" inputMode="tel" placeholder="e.g. +HH:MM" value={value} onChange={onChange} onBlur={onBlur} maxLength={maxLength}
         style={{
           flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none',
           color: 'var(--cp-acc2)', fontFamily: 'var(--cb-font-mono)', fontSize: 13,
@@ -438,7 +438,7 @@ export default function FTLCalculator() {
                 undefined
               }>
               <input
-                type="text" value={reportTime} placeholder="HH:MM"
+                type="text" value={reportTime} placeholder="e.g. HH:MM"
                 inputMode="numeric" pattern="[0-9]*"
                 onChange={e => setFTLField({ reportTime: e.target.value })}
                 onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ reportTime: n }) }}
@@ -455,7 +455,7 @@ export default function FTLCalculator() {
                       value={diffCabinTime} onChange={v => setFTLField({ diffCabinTime: v })}
                     />
                     <Collapse open={diffCabinTime} horizontal style={{ flexShrink: 0 }}>
-                      <input type="text" placeholder="HH:MM"
+                      <input type="text" placeholder="e.g. HH:MM"
                         inputMode="numeric" pattern="[0-9]*"
                         value={cabinReportTime} onChange={e => setFTLField({ cabinReportTime: e.target.value })}
                         onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ cabinReportTime: n }) }}
@@ -486,7 +486,7 @@ export default function FTLCalculator() {
                       value={longRange} onChange={v => setFTLField({ longRange: v })}
                     />
                     <Collapse open={longRange} horizontal style={{ flexShrink: 0 }}>
-                      <input type="text" placeholder="H:MM"
+                      <input type="text" placeholder="e.g. H:MM"
                         inputMode="numeric" pattern="[0-9]*"
                         value={longestSector} onChange={e => setFTLField({ longestSector: e.target.value })}
                         onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ longestSector: fmtDur(m) }) }}
@@ -537,7 +537,7 @@ export default function FTLCalculator() {
             <Collapse open={delayedReporting}>
             {delayedReporting && (
               <Row label="ACTUAL REPORT TIME" note="REPORT TIME above is treated as the original/planned time (Ch. 2.7.1)">
-                <input type="text" value={actualReportTime} placeholder="HH:MM"
+                <input type="text" value={actualReportTime} placeholder="e.g. HH:MM"
                   inputMode="numeric" pattern="[0-9]*"
                   onChange={e => setFTLField({ actualReportTime: e.target.value })}
                   onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ actualReportTime: n }) }}
@@ -562,7 +562,7 @@ export default function FTLCalculator() {
             <Collapse open={positioning}>
               {positioning && (
                 <Row label="POSITIONING REPORT TIME" note="FDP commences here, not at the flight report time (Ch. 2.8.1)">
-                  <input type="text" value={positioningReportTime} placeholder="HH:MM"
+                  <input type="text" value={positioningReportTime} placeholder="e.g. HH:MM"
                     inputMode="numeric" pattern="[0-9]*"
                     onChange={e => setFTLField({ positioningReportTime: e.target.value })}
                     onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ positioningReportTime: n }) }}
@@ -581,7 +581,7 @@ export default function FTLCalculator() {
                 label="REST DURATION"
                 note="Rest period before this duty — selects Table B row (Ch. 2.10)"
               >
-                <input type="text" placeholder="H:MM or HHMM"
+                <input type="text" placeholder="e.g. H:MM or HHMM"
                   inputMode="numeric" pattern="[0-9]*"
                   value={precedingRest} onChange={e => setFTLField({ precedingRest: e.target.value })}
                   onBlur={e => { if (/^\d{3}$/.test(e.target.value.trim())) return; const m = parseDur(e.target.value); if (m != null) setFTLField({ precedingRest: fmtDur(m) }) }}
@@ -608,7 +608,7 @@ export default function FTLCalculator() {
             {standby && (
               <>
                 <Row label="STANDBY START" note="Max 12h standby (Ch. 2.9)">
-                  <input type="text" value={standbyStart} placeholder="HH:MM"
+                  <input type="text" value={standbyStart} placeholder="e.g. HH:MM"
                     inputMode="numeric" pattern="[0-9]*"
                     onChange={e => setFTLField({ standbyStart: e.target.value })}
                     onBlur={e => { const n = normalizeTime(e.target.value); if (n) setFTLField({ standbyStart: n }) }}
@@ -663,7 +663,7 @@ export default function FTLCalculator() {
                     />
                   </Row>
                   <Row label="REST PERIOD" note="Minimum 3h required (Ch. 2.12)">
-                    <input type="text" placeholder="H:MM"
+                    <input type="text" placeholder="e.g. H:MM"
                       inputMode="numeric" pattern="[0-9]*"
                       value={ifrRest} onChange={e => setFTLField({ ifrRest: e.target.value })}
                       onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ ifrRest: fmtDur(m) }) }}
@@ -714,7 +714,7 @@ export default function FTLCalculator() {
             )}
             {splitDuty && !reducedRest && (
               <Row label="REST PERIOD" note="Must be 3–10h · extension = ½ rest (Ch. 2.13.1)">
-                <input type="text" placeholder="H:MM"
+                <input type="text" placeholder="e.g. H:MM"
                   inputMode="numeric" pattern="[0-9]*"
                   value={splitRest} onChange={e => setFTLField({ splitRest: e.target.value })}
                   onBlur={e => { const m = parseDur(e.target.value); if (m != null) setFTLField({ splitRest: fmtDur(m) }) }}
@@ -783,7 +783,7 @@ export default function FTLCalculator() {
                         />
                       </div>
                     )}
-                    <input type="text" placeholder="HH:MM"
+                    <input type="text" placeholder="e.g. HH:MM"
                       inputMode="numeric" pattern="[0-9]*"
                       value={picEndMode === 'local' ? hereEndInput : picActualEnd}
                       onChange={e => {

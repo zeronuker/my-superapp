@@ -398,7 +398,7 @@ export default function NotamViewer() {
         {[{ key: 'alt1', label: 'DEST ALT 1' }, { key: 'alt2', label: 'DEST ALT 2' }].map(({ key, label }) => (
           <div key={key}>
             <div className="cp-label" style={{ marginBottom: 4 }}>{label}</div>
-            <input className="cp-input" style={monoInput} placeholder="ICAO" value={destAlts[key]} maxLength={4}
+            <input className="cp-input" style={monoInput} placeholder="e.g. WSSS" value={destAlts[key]} maxLength={4}
               onChange={e => setDestAlts(p => ({ ...p, [key]: upper(e.target.value) }))}
               onKeyDown={e => e.key === 'Enter' && handleFetch()} />
           </div>

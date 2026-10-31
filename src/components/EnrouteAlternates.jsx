@@ -31,7 +31,7 @@ export default function EnrouteAlternates({ count, alts, max, onChange, inputSty
               <div className="cp-label" style={{ marginBottom: 4 }}>ERA {i + 1}</div>
               <div style={{ position: 'relative' }}>
                 <input className="cp-input" style={{ ...inputStyle, paddingRight: 34 }}
-                  placeholder="ICAO" value={alts[i] || ''} maxLength={4}
+                  placeholder="e.g. WSSS" value={alts[i] || ''} maxLength={4}
                   onChange={e => onChange({ count, alts: alts.map((a, k) => (k === i ? clean(e.target.value) : a)) })}
                   onKeyDown={onEnter ? (e => e.key === 'Enter' && onEnter()) : undefined} />
                 <button type="button"

@@ -545,7 +545,7 @@ export default function LogList({
         <input
           value={viewInput}
           onChange={(e) => setViewInput(e.target.value)}
-          placeholder="XXXX-XXXX-XXXX"
+          placeholder="e.g. XXXX-XXXX-XXXX"
           className="cp-input"
           style={{ flex: 1 }}
         />

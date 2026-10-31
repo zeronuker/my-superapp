@@ -163,7 +163,7 @@ input[type="number"] { -moz-appearance: textfield; }
   transition: border-color 0.15s;
 }
 .cp-input:focus { border-color: var(--cp-acc); }
-.cp-input::placeholder { color: var(--cp-dim); }
+input::placeholder, textarea::placeholder { color: var(--cp-dim); opacity: 1; }
 
 .cp-value-box {
   background: var(--cp-bginput);
@@ -290,7 +290,6 @@ input[type="number"] { -moz-appearance: textfield; }
   padding: 7px 4px;
   outline: none;
 }
-.cp-table input::placeholder { color: var(--cp-dim); opacity: 0.5; }
 .cp-table input:focus { background: var(--cp-hover); }
 
 @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
