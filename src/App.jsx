@@ -32,6 +32,7 @@ const METARTAFCalculator      = lazy(() => import('./components/METARTAFCalculat
 const NotamViewer             = lazy(() => import('./components/NotamViewer'))
 const SigmetViewer            = lazy(() => import('./components/SigmetViewer'))
 const Aerodromes              = lazy(() => import('./components/Aerodromes'))
+const SatelliteViewer         = lazy(() => import('./components/SatelliteViewer'))
 const FTLCalculator           = lazy(() => import('./components/FTLCalculator'))
 const WorldTimeCalculator     = lazy(() => import('./components/WorldTimeCalculator'))
 const PrayerModule            = lazy(() => import('./modules/prayer'))
@@ -53,6 +54,7 @@ export const CALCULATORS = [
   { id: 'notam',         icon: '📋',  name: 'NOTAM',          component: NotamViewer },
   { id: 'sigmet',        icon: '⛈️',  name: 'SIGMET',         component: SigmetViewer },
   { id: 'gatefinder',    icon: '🛬',  name: 'Aerodromes', component: Aerodromes },
+  { id: 'satellite',     icon: '🛰️', name: 'Satellite',      component: SatelliteViewer },
   { id: 'ftl',           icon: '⏳',  name: 'Flight Time Limitations', component: FTLCalculator },
   { id: 'dutylog',       icon: '🛫',  name: 'Duty Log',       component: DutyLogModule },
   { id: 'worldtime',     icon: '🌐',  name: 'World Time',     component: WorldTimeCalculator },

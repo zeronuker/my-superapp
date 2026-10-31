@@ -334,6 +334,24 @@ export const useCalculatorStore = create((set, get) => ({
     set(s => ({ briefing: { ...s.briefing, saves: s.briefing.saves.map(b => (b.id === id ? renamed : b)) } }))
     return { ok: true }
   },
+  // The satellite picture of this save's route (see services/satelliteSnapshot.js), replacing any earlier one.
+  attachSatSnapshot: async (id, satSnapshot) => {
+    const current = get().briefing.saves.find(b => b.id === id)
+    if (!current) return { ok: false }
+    const next = { ...current, satSnapshot }
+    try { await idbBackend.put(next) } catch (err) { return { ok: false, reason: isQuotaError(err) ? 'full' : 'error' } }
+    set(s => ({ briefing: { ...s.briefing, saves: s.briefing.saves.map(b => (b.id === id ? next : b)) } }))
+    return { ok: true }
+  },
+  // The winds-aloft picture of this save's route (see services/windSnapshot.js), replacing any earlier one.
+  attachWindSnapshot: async (id, windSnapshot) => {
+    const current = get().briefing.saves.find(b => b.id === id)
+    if (!current) return { ok: false }
+    const next = { ...current, windSnapshot }
+    try { await idbBackend.put(next) } catch (err) { return { ok: false, reason: isQuotaError(err) ? 'full' : 'error' } }
+    set(s => ({ briefing: { ...s.briefing, saves: s.briefing.saves.map(b => (b.id === id ? next : b)) } }))
+    return { ok: true }
+  },
   // The save's own copy of a hand-made duty log link: { logId, sectorId }, or null to drop it. The
   // sector keeps the other copy (`briefingLink`), written by the same handler.
   setSavedBriefingLink: async (id, dutyLink) => {

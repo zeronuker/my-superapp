@@ -314,6 +314,20 @@ input::placeholder, textarea::placeholder { color: var(--cp-dim); opacity: 1; }
   .cp-spinner, .cp-pulse, .cp-pop { animation: none; }
 }
 
+/* ── Satellite tab loader: a satellite circling a globe, and the step chip that is being worked on ── */
+@keyframes cp-orbit { to { offset-distance: 100%; } }
+.cp-orbit-art { position: relative; width: 160px; height: 110px; transform: rotate(-18deg); }
+.cp-orbiter {
+  position: absolute; left: 0; top: 0; width: 18px; height: 18px; margin: -9px 0 0 -9px; color: var(--cp-acc);
+  offset-path: path('M 12 55 a 68 24 0 1 0 136 0 a 68 24 0 1 0 -136 0'); offset-rotate: 0deg;
+  animation: cp-orbit 3.2s linear infinite;
+}
+.cp-chip-scan { animation: blink 0.9s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .cp-orbiter { animation: none; offset-distance: 25%; }
+  .cp-chip-scan { animation: none; }
+}
+
 /* ── Tab bar scrollable ── */
 .cp-tab-bar { scrollbar-width: none; -ms-overflow-style: none; }
 .cp-tab-bar::-webkit-scrollbar { display: none; }

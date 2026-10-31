@@ -15,7 +15,7 @@ import { TabIcon } from './TabIcon'
 // so image icon sets reuse that tool's artwork for the group header.
 export const NAV_GROUPS = [
   { id: 'calc', label: 'CALCULATOR(s)', icon: '🔢',  iconId: 'calculator', members: ['calculator', 'convert', 'interpolation'] },
-  { id: 'avdata', label: 'FLIGHT DATA', icon: '🗃️', iconId: 'metartaf', members: ['metartaf', 'notam', 'sigmet', 'briefing', 'gatefinder'] },
+  { id: 'avdata', label: 'FLIGHT DATA', icon: '🗃️', iconId: 'metartaf', members: ['metartaf', 'notam', 'sigmet', 'briefing', 'gatefinder', 'satellite'] },
   { id: 'avops',  label: 'FLIGHT OPERATIONS', icon: '📡', iconId: 'flight',   members: ['ftl', 'b737perf', 'dutylog'] },
   { id: 'misc', label: 'MISCELLANEOUS', icon: '🧰',  iconId: 'worldtime',  members: ['currency', 'worldtime', 'prayer'] },
 ]

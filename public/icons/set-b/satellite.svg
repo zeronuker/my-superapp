@@ -1,0 +1,11 @@
+<svg id="col-satellite" viewBox="0 0 64 64" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(-5 -5) rotate(-35 32 32)">
+    <rect x="4" y="28" width="17" height="8" fill="#FFA726" fill-opacity="0.2" stroke="#FFA726" stroke-width="2.5"/>
+    <rect x="43" y="28" width="17" height="8" fill="#FFA726" fill-opacity="0.2" stroke="#FFA726" stroke-width="2.5"/>
+    <line x1="21" y1="32" x2="25" y2="32" stroke="#FFA726" stroke-width="2.5"/>
+    <line x1="39" y1="32" x2="43" y2="32" stroke="#FFA726" stroke-width="2.5"/>
+    <rect x="25" y="25" width="14" height="14" rx="2" fill="white" stroke="#FFA726" stroke-width="2.5"/>
+  </g>
+  <path d="M40 54 A12 12 0 0 0 54 40" fill="none" stroke="#FFD700" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M40 61 A19 19 0 0 0 61 40" fill="none" stroke="#FFD700" stroke-width="1.8" stroke-linecap="round" opacity="0.55"/>
+</svg>

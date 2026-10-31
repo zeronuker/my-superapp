@@ -278,6 +278,78 @@ when asked. The service worker caches aggressively; users get an update prompt
   `weatherAPI.js` / `notamAPI.js`), SkyLink only gets called if those fail.
   Its `aircraft` / `aircraft-performance` resources exist in the proxy but
   have no frontend caller currently.
+- **Satellite tab, CLOUD view (`SatelliteViewer.jsx` is the shell: folder tabs CLOUD | WINDS | STORMS (`BriefingTabBar.jsx`, shared with the saved
+  briefing window) over one box of choices: BRIEFING (the Duty Log's `LinkPicker` + `LinkChips`), REGION (a `Seg`, only
+  with no briefing picked) and the WINDS flight LEVEL (a `Seg`); `CloudPane.jsx`, `SatPicture.jsx`, `services/satelliteSnapshot.js`,
+  `utils/satSnapshot.js` + `satFrames.js`)** — in Flight Data. A still infrared cloud picture, no
+  loop. Pick a saved briefing: the first time it is opened online the route's picture is built and
+  attached to the save as `satSnapshot` ({ image JPEG data URL, takenAt, sats, credits }, IndexedDB,
+  `attachSatSnapshot` in the store); RETAKE replaces it; offline it shows the stored one. A saved
+  briefing that has a cloud or a winds picture gets a SATELLITE tab in its window (`BriefingView.jsx`, `SavedSatellite.jsx`: CLOUD and WINDS sub-tabs, the one not made yet says so). With no briefing
+  picked it shows a region still (not kept). Not in the cloud sync yet (phase 2: `briefingCloud.js`
+  and `api/dutylog-sync.js` would carry it, like the map picture's `mapParts`).
+  How the picture is made: ONE finished image per satellite for the route's area (not map tiles):
+  NASA GIBS WMS (`gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi`: Himawari-9, GOES-East/West) and
+  EUMETSAT EUMETView WMS (`view.eumetsat.int/geoserver/wms`: Meteosat IODC and MTG 0°). Both are
+  keyless and browser-readable. A satellite returns transparent pixels outside its view, so each is
+  drawn only in the band of longitudes it is nearest to (halfway between neighbours, `satBands`), with a
+  dashed seam line. Under them is GIBS `BlueMarble_ShadedRelief_Bathymetry` (dimmed) with the cloud at 55% opacity,
+  so land and sea still show (the plain cloud picture hid them); on top, `Coastlines_15m` as a white line with a
+  dark edge, then the route and airport codes drawn with Canvas 2D. Things learned the hard way:
+  GIBS publishes a frame in pieces, so the newest frame can exist under the satellite but be empty
+  where the route is: a 32 px probe under the satellite (a missing frame is an 83-byte blank PNG,
+  status 200), then the band's own picture must be >= 50% filled, else step back 10 min.
+  GIBS WMS has a ~3° gap just east of the date line when asked for one wide picture, so every
+  request is cut in two at ±180° (`bandPieces`) and the halves are put together.
+  EUMETSAT returns the NEAREST image for a time that does not exist, so the newest time comes from
+  the layer's own small capabilities file; it is slow (seconds to tens of seconds, more pixels is
+  slower), so Meteosat is asked for at most 200 000 pixels, its requests run one after another, and
+  the timeout is 60 s. Meteosat is plain grayscale, so it looks darker than NASA's colour-enhanced
+  images. EUMETSAT's data policy wording was NOT read: check it before relying on this, and keep
+  "© EUMETSAT" on the picture. NASA is never given a key. Tile layers stop at zoom 6 (not used here).
+- **Satellite tab, WINDS view (`WindPane.jsx`, `WindPicture.jsx`, `services/windSnapshot.js`, `utils/grib2.js`,
+  `gfsIndex.js`, `windPicture.js`; map drawing shared with the CLOUD picture in `services/mapPicture.js`)** —
+  the second view of the Satellite tab in Flight Data (there is no separate Winds tile). A still winds-aloft
+  picture at FL100/180/240/300/340/390 (default FL340): speed shading (the jet stream), wind barbs, the route and
+  airport codes over the same relief map. Same flow as CLOUD: pick a saved briefing and it is built once, valid for
+  the OFP's departure time (else now), kept in the save as `windSnapshot` (`attachWindSnapshot`), shown offline,
+  shown in the saved briefing's SATELLITE tab (`SavedSatellite.jsx`: CLOUD and WINDS sub-tabs); none picked = region still, not kept. RETAKE or another
+  level rebuilds it. Both views stay mounted once opened (the shell hides the other one) and only the visible one
+  downloads. Not in the cloud sync yet. While a first picture is built (no old picture to keep showing) the picture
+  area shows `SatLoader.jsx`: a satellite circling a globe plus step chips (`utils/loaderSteps.js`, different words for
+  CLOUD and WINDS), for show only like the METAR/TAF loader; the picture is held back until every chip has had its
+  700 ms turn.
+  Data: NOAA GFS 1° forecast on AWS (`noaa-gfs-bdp-pds`, public domain, keyless, open to browsers incl. Range
+  requests). Each run has a text index (`.idx`) listing every message's byte offset, so only the east-west and
+  north-south wind at one pressure level are fetched (~52 KB each, instead of a ~43 MB file). The 1° files have a
+  forecast every 3 hours (f001 does not exist). A run appears ~3.5 h after its nominal hour, so the newest of the
+  last four runs that has the wanted forecast hour is used. Flight level to pressure: FL100=700, FL180=500,
+  FL240=400, FL300=300, FL340=250, FL390=200 hPa. The GRIB2 messages are packed with template 5.3 (complex packing
+  + spatial differencing); `grib2.js` is a ~90-line decoder for just that (the repo "gods-eye-view" decodes with a
+  40 MB ecCodes WASM build on its server, far too heavy for a PWA). Checked against NOAA's own winds aloft
+  forecast (aviationweather.gov FD text, 12 station/level pairs): mean difference 3.6 kt and 3°. It is a MODEL
+  FORECAST, not the WAFC charts airlines use (those need a registered account): the picture says so.
+- **Satellite tab, STORMS view (`StormPane.jsx`, `StormPicture.jsx`, `services/stormSnapshot.js`, `cycloneData.js`,
+  `utils/cyclones.js`; drawing in `mapPicture.js` `drawStorms`)** — the third view of the Satellite tab. Current tropical
+  cyclones on the relief map with the route (no cloud, no wind), plus a list under the picture (wind, position,
+  advisory time, distance to the route). Unlike CLOUD/WINDS it is NEVER saved into a briefing (storms change within
+  hours): it is built from the picked briefing's route (or the region) each visit, held in memory while you switch
+  views, needs internet, and the saved briefing window has no STORMS tab.
+  Data: GDACS (UN/EC; storm data from JTWC, NHC and others), keyless and open to browsers:
+  `gdacs.org/gdacsapi/api/events/geteventlist/EVENTS4APP?eventlist=TC` lists current storms (filter `iscurrent`), and
+  each storm's `url.geometry` file (~460 KB) has the track (32 two-point LineStrings that chain into ONE line from
+  genesis to the end of the forecast; the `forecast` flag is a boolean, not the string 'True'), the cone
+  (`Poly_Cones`), the 60/90/120 km/h wind swath along the WHOLE track (`Poly_Green/Orange/Red` labelled "NN km/h"; the
+  forecast-time ones are not used) and one wind area per track point named by its time (`Point_Polygon_*`, label
+  "01/11 06:00 UTC": its centroid snaps to the track point and names the forecast dates). The storm's list position is
+  "now": the track point nearest to it splits past from forecast. Only storms whose track or cone reaches the picture
+  (plus 3° margin) are fetched. Terms of GDACS NOT read: check before relying on it. Positions are advisory-grade.
+  GIBS quirk found on the way: BlueMarble relief at an EXACT request size (e.g. 658x560) can come back with a strip
+  at one edge empty, while the same box at another width is complete; `loadBaseLayers` checks the relief for
+  see-through pixels and retries at 1.3x, 0.8x, 1.7x the width (the map is stretched to fit anyway). A single request
+  crossing the date line has its own ~3° gap, hence the cut at ±180° (`bandPieces`).
+  Region buttons in the STORMS view get a dot (alert colour, count if several) when a storm's CENTRE is in or within 5° of
+  the region (`stormsInRegion`, from the same storm list, kept 10 min by `fetchStormList`; not shown with a briefing picked).
 - **Dev-only `npm audit` findings** (esbuild/vite/vitest) — not shipped to
   production; do not `npm audit fix --force` (it pulls a breaking Vite major).
   See SECURITY.md.

@@ -25,6 +25,8 @@ import WindyRouteMap, { hasWindyLoadedBefore } from './WindyRouteMap'
 import CartoRouteMap, { hasCartoLoadedBefore, sigmetPopupEl } from './CartoRouteMap'
 import OfflineCoastlineMap from './OfflineCoastlineMap'
 import FlightDetailsTab from './FlightDetailsTab'
+import SavedSatellite from './SavedSatellite'
+import BriefingTabBar from './BriefingTabBar'
 import Seg from './Seg'
 import Collapse from './Collapse'
 import ChamferFrame from '@brand/ChamferFrame'
@@ -82,44 +84,7 @@ const BRIEFING_TABS = [
   { id: 'notam', label: 'NOTAMs' },
   { id: 'sigmet', label: 'SIGMETs' },
 ]
-
-function BriefingTabBar({ tabs, active, onSelect, counts }) {
-  return (
-    <div style={{ overflowX: 'auto', overflowY: 'hidden' }}>
-      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', borderBottom: '1px solid var(--cp-border2)', marginBottom: 16 }}>
-        {tabs.map(tab => {
-          const isActive = active === tab.id
-          return (
-            <button
-              key={tab.id}
-              className="cp-bf-tab"
-              onClick={() => onSelect(tab.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
-                padding: '7px 16px', borderRadius: '5px 5px 0 0', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-                background: isActive ? 'var(--cp-bg)' : 'transparent',
-                borderTop: isActive ? '2px solid var(--cp-acc)' : '1px solid var(--cp-border2)',
-                borderLeft: '1px solid var(--cp-border2)',
-                borderRight: '1px solid var(--cp-border2)',
-                borderBottom: isActive ? '1px solid var(--cp-bg)' : '1px solid var(--cp-border2)',
-                color: isActive ? 'var(--cp-acc)' : 'var(--cp-dim)',
-                marginBottom: isActive ? -1 : 0,
-              }}
-            >
-              {tab.label}
-              {counts[tab.id] != null && <span style={{
-                fontSize: 9.5, fontWeight: 700, padding: '1px 5px', borderRadius: 8,
-                background: isActive ? 'var(--cp-bg2)' : 'var(--cp-bg3)',
-                color: isActive ? 'var(--cp-txt)' : 'var(--cp-dim)',
-              }}>{counts[tab.id]}</span>}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
+const SATELLITE_TAB = { id: 'satellite', label: 'Satellite' }
 
 // Airports/taxiways/obstacles/navaids are what a pilot scans a NOTAM list
 // for first, so they come first; the other categories follow, grouped.
@@ -736,7 +701,11 @@ export default function BriefingView() {
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine)
   // The Flight Details tab exists only for a briefing started from an imported OFP, and opens first.
   const flightDetails = route.flightDetails ?? null
-  const tabs = flightDetails ? [FLIGHT_TAB, ...BRIEFING_TABS] : BRIEFING_TABS
+  // The Satellite tab (cloud and winds sub-tabs) exists only once the app's own Satellite tab has attached a picture to this save.
+  const satSnapshot = savedEntry?.satSnapshot ?? null
+  const windSnapshot = savedEntry?.windSnapshot ?? null
+  const baseTabs = [...BRIEFING_TABS, ...(satSnapshot || windSnapshot ? [SATELLITE_TAB] : [])]
+  const tabs = flightDetails ? [FLIGHT_TAB, ...baseTabs] : baseTabs
   const [pickedTab, setActiveTab] = useState(() => tabs[0].id)
   // Switching to a saved briefing without an OFP while Flight Details was showing falls back to the first tab.
   const activeTab = tabs.some(t => t.id === pickedTab) ? pickedTab : tabs[0].id
@@ -1128,6 +1097,7 @@ export default function BriefingView() {
 
               <div key={activeTab} className={tabAnim.className} style={tabAnim.style}>
               {activeTab === 'flight' && <FlightDetailsTab d={flightDetails} />}
+              {activeTab === 'satellite' && <SavedSatellite sat={satSnapshot} wind={windSnapshot} />}
               {activeTab === 'metar' && (
                 <>
                   {/* ── Departure / Arrival ── */}
