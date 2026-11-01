@@ -325,6 +325,13 @@ export const useCalculatorStore = create((set, get) => ({
     set(s => ({ briefing: { ...s.briefing, saves: sortByNewest(entries) } }))
     return { ok: true }
   },
+  // A new picture makes the cloud copy out of date: its row shows SYNC again until the next sync.
+  markBriefingUnsynced: (id) => {
+    const { cloud } = get().briefing
+    if (!(id in cloud.synced)) return
+    const { [id]: _gone, ...synced } = cloud.synced
+    get().setBriefingCloud({ ...cloud, synced })
+  },
   renameSavedBriefing: async (id, name) => {
     const trimmed = (name || '').trim()
     const current = get().briefing.saves.find(b => b.id === id)
@@ -341,6 +348,7 @@ export const useCalculatorStore = create((set, get) => ({
     const next = { ...current, satSnapshot }
     try { await idbBackend.put(next) } catch (err) { return { ok: false, reason: isQuotaError(err) ? 'full' : 'error' } }
     set(s => ({ briefing: { ...s.briefing, saves: s.briefing.saves.map(b => (b.id === id ? next : b)) } }))
+    get().markBriefingUnsynced(id)
     return { ok: true }
   },
   // The winds-aloft picture of this save's route (see services/windSnapshot.js), replacing any earlier one.
@@ -350,6 +358,7 @@ export const useCalculatorStore = create((set, get) => ({
     const next = { ...current, windSnapshot }
     try { await idbBackend.put(next) } catch (err) { return { ok: false, reason: isQuotaError(err) ? 'full' : 'error' } }
     set(s => ({ briefing: { ...s.briefing, saves: s.briefing.saves.map(b => (b.id === id ? next : b)) } }))
+    get().markBriefingUnsynced(id)
     return { ok: true }
   },
   // The save's own copy of a hand-made duty log link: { logId, sectorId }, or null to drop it. The

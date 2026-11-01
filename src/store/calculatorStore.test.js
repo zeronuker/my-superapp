@@ -58,3 +58,25 @@ describe('setSavedBriefingLink', () => {
     expect(await useCalculatorStore.getState().setSavedBriefingLink('nope', null)).toEqual({ ok: false })
   })
 })
+
+describe('attaching a satellite or winds picture', () => {
+  const save = { id: 's1', name: 'One', route: {}, data: {}, savedAt: 1 }
+  beforeEach(() => {
+    vi.spyOn(idbBackend, 'put').mockResolvedValue()
+    useCalculatorStore.setState(s => ({ briefing: { ...s.briefing, saves: [save], cloud: { at: 5, synced: { s1: 'One', s2: 'Two' } } } }))
+  })
+
+  it('makes only that briefing show SYNC again, for a cloud picture and for a winds picture', async () => {
+    await useCalculatorStore.getState().attachSatSnapshot('s1', { image: 'x', takenAt: 1 })
+    expect(useCalculatorStore.getState().briefing.cloud.synced).toEqual({ s2: 'Two' })
+    useCalculatorStore.setState(s => ({ briefing: { ...s.briefing, cloud: { at: 5, synced: { s1: 'One' } } } }))
+    await useCalculatorStore.getState().attachWindSnapshot('s1', { image: 'y', takenAt: 2, fl: 100 })
+    expect(useCalculatorStore.getState().briefing.cloud.synced).toEqual({})
+  })
+
+  it('leaves the synced mark alone when the picture could not be stored', async () => {
+    idbBackend.put.mockRejectedValue(new Error('full'))
+    await useCalculatorStore.getState().attachSatSnapshot('s1', { image: 'x', takenAt: 1 })
+    expect(useCalculatorStore.getState().briefing.cloud.synced).toEqual({ s1: 'One', s2: 'Two' })
+  })
+})

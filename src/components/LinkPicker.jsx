@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import ChamferFrame from '@brand/ChamferFrame'
 import { usePresence } from '../useTransitionAnim'
+import { paginate } from '../utils/monthGroups'
 
 const mono = 'var(--cb-font-mono)'
 
@@ -15,16 +16,19 @@ const Tag = ({ t }) => (
   <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap', ...TAG[t.kind] }}>{t.text}</span>
 )
 
+const PAGE_SIZE = 5
+
 const linkBtn ={ fontFamily: mono, fontSize: 10, letterSpacing: '0.06em', color: 'var(--cp-dim)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }
 
 // The list a sector or a briefing is linked from (Duty Log ↔ Saved Briefings). items: [{ key, title, sub,
 // tags: [{ text, kind }], best, near, takenBy, search }] already best-first. Items outside `near` stay
-// hidden until SHOW ALL or a search. Picking one that is linked elsewhere asks first (takenBy says to what).
+// hidden until SHOW ALL or a search; the list shows PAGE_SIZE at a time. Picking one that is linked elsewhere asks first (takenBy says to what).
 export default function LinkPicker({ open, title, subtitle, searchHint, allLabel, items, onPick, onCancel }) {
   const presence = usePresence(open)
   const [query, setQuery] = useState('')
   const [showAll, setShowAll] = useState(false)
   const [confirm, setConfirm] = useState(null)
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     if (!open) return
@@ -32,7 +36,7 @@ export default function LinkPicker({ open, title, subtitle, searchHint, allLabel
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onCancel])
-  useEffect(() => { if (!open) { setQuery(''); setShowAll(false); setConfirm(null) } }, [open])
+  useEffect(() => { if (!open) { setQuery(''); setShowAll(false); setConfirm(null); setPage(1) } }, [open])
 
   if (!presence.mounted) return null
 
@@ -41,6 +45,7 @@ export default function LinkPicker({ open, title, subtitle, searchHint, allLabel
   const hasFar = items.some(i => !i.near)
   const narrowed = !showAll && !q && items.some(i => i.near)
   const shown = items.filter(i => (terms.length ? terms.every(t => i.search.includes(t)) : narrowed ? i.near : true))
+  const { shown: pageItems, pages, cur } = paginate(shown, page, PAGE_SIZE)
   const pick = (item) => (item.takenBy ? setConfirm(item) : onPick(item.key))
 
   return (
@@ -49,7 +54,7 @@ export default function LinkPicker({ open, title, subtitle, searchHint, allLabel
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
     }}>
       <ChamferFrame onClick={e => e.stopPropagation()} className={`cp-pop-in${presence.closing ? ' is-closing' : ''}`} pad="14px"
-        style={{ width: '100%', maxWidth: 460, maxHeight: '86vh', display: 'flex', flexDirection: 'column' }}>
+        style={{ width: '100%', maxWidth: 460, maxHeight: '86dvh', display: 'flex', flexDirection: 'column' }}>
         {confirm ? (
           <>
             <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.12em', color: 'var(--cp-txt)', marginBottom: 8 }}>REPLACE LINK?</div>
@@ -66,13 +71,13 @@ export default function LinkPicker({ open, title, subtitle, searchHint, allLabel
           <>
             <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.12em', color: 'var(--cp-txt)' }}>{title}</div>
             <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', color: 'var(--cp-dim)', margin: '4px 0 10px' }}>{subtitle}</div>
-            <input className="cp-input" value={query} onChange={e => setQuery(e.target.value)} placeholder={searchHint}
+            <input className="cp-input" value={query} onChange={e => { setQuery(e.target.value); setPage(1) }} placeholder={searchHint}
               style={{ fontSize: 11, padding: '7px 9px', marginBottom: 4 }} />
             <div style={{ overflowY: 'auto', minHeight: 0 }}>
               {shown.length === 0 && (
                 <div style={{ fontSize: 12, color: 'var(--cp-dim)', padding: '14px 0' }}>Nothing matches.</div>
               )}
-              {shown.map(item => (
+              {pageItems.map(item => (
                 <button key={item.key} onClick={() => pick(item)} style={{
                   width: '100%', textAlign: 'left', cursor: 'pointer', color: 'inherit', marginTop: 6,
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
@@ -94,8 +99,17 @@ export default function LinkPicker({ open, title, subtitle, searchHint, allLabel
                 </button>
               ))}
             </div>
+            {pages > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10 }}>
+                <button className="cp-btn" onClick={() => setPage(cur - 1)} disabled={cur === 1}
+                  style={{ fontSize: 10, letterSpacing: '0.16em', padding: '4px 10px', opacity: cur === 1 ? 0.4 : 1 }}>‹ PREV</button>
+                <span style={{ fontFamily: mono, fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em' }}>PAGE {cur} OF {pages}</span>
+                <button className="cp-btn" onClick={() => setPage(cur + 1)} disabled={cur === pages}
+                  style={{ fontSize: 10, letterSpacing: '0.16em', padding: '4px 10px', opacity: cur === pages ? 0.4 : 1 }}>NEXT ›</button>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-              {hasFar && !q ? <button onClick={() => setShowAll(v => !v)} style={linkBtn}>{showAll ? 'SHOW NEARBY ONLY' : allLabel}</button> : <span />}
+              {hasFar && !q ? <button onClick={() => { setShowAll(v => !v); setPage(1) }} style={linkBtn}>{showAll ? 'SHOW NEARBY ONLY' : allLabel}</button> : <span />}
               <button onClick={onCancel} style={linkBtn}>CANCEL</button>
             </div>
           </>
