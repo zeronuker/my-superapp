@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import ChamferFrame from '@brand/ChamferFrame'
 import { usePresence } from '../useTransitionAnim'
 import { paginate } from '../utils/monthGroups'
@@ -48,7 +49,9 @@ export default function LinkPicker({ open, title, subtitle, searchHint, allLabel
   const { shown: pageItems, pages, cur } = paginate(shown, page, PAGE_SIZE)
   const pick = (item) => (item.takenBy ? setConfirm(item) : onPick(item.key))
 
-  return (
+  // In the page body, not inside the tool card: the card is CSS-zoomed in landscape compact mode (iPad), which
+  // shrinks and offsets a fixed overlay, so it was centred in a smaller area than the screen.
+  return createPortal(
     <div onClick={onCancel} className={`cp-backdrop-in${presence.closing ? ' is-closing' : ''}`} style={{
       position: 'fixed', inset: 0, zIndex: 450, background: 'rgba(0,0,0,0.72)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
@@ -115,6 +118,7 @@ export default function LinkPicker({ open, title, subtitle, searchHint, allLabel
           </>
         )}
       </ChamferFrame>
-    </div>
+    </div>,
+    document.body
   )
 }
