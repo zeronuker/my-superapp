@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { ModuleHeader } from './ModuleChrome'
 import BriefingTabBar from './BriefingTabBar'
@@ -35,11 +35,12 @@ function StormDot({ storms }) {
 const VIEWS = [{ id: 'cloud', label: 'CLOUD' }, { id: 'winds', label: 'WINDS' }, { id: 'storms', label: 'STORMS' }]
 
 // One row of the box of choices: a small label, then the control.
-function Row({ label, children, last }) {
+function Row({ label, children, action, last }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: last ? 0 : 10 }}>
       <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.14em', color: 'var(--cp-dim)', minWidth: 62 }}>{label}</span>
       {children}
+      {action && <span style={{ marginLeft: 'auto' }}>{action}</span>}
     </div>
   )
 }
@@ -48,7 +49,9 @@ function Row({ label, children, last }) {
 // level) and STORMS (current tropical cyclones). The tabs pick the view; one box holds what to look at: a saved
 // briefing (the Duty Log's picker), or a region when none is picked, and the flight level for WINDS.
 // CLOUD and WINDS build their picture once per briefing, keep it in the briefing and show it offline; STORMS is
-// never kept. With no briefing a region still is shown (not kept). All views share the box.
+// never kept. With no briefing a region still is shown (not kept). All views share the box. Nothing is downloaded
+// until the box's button (FETCH SATELLITE IMAGE, then RETAKE) is pressed: the shell counts presses per view and
+// briefing / region (/ level) and hands the count to the view as `n`; a view reports back `{ hasPic, busy }`.
 export default function SatelliteViewer() {
   const saves = useCalculatorStore(s => s.briefing.saves)
   const isOnline = useOnlineStatus()
@@ -59,6 +62,11 @@ export default function SatelliteViewer() {
   const [levelPick, setLevelPick] = useState({ key: '', fl: DEFAULT_WIND_LEVEL })
   const [stormList, setStormList] = useState([])           // current storms, for the dots on the region bar (STORMS view only)
   const [seen, setSeen] = useState({})                     // a view other than CLOUD is only started the first time it is asked for
+  const [presses, setPresses] = useState({})               // `${view}|${briefing or region}[|level]` → times the button was pressed
+  const [status, setStatus] = useState({})                 // view → { hasPic, busy }, reported by each view
+  const report = useMemo(() => Object.fromEntries(VIEWS.map(v => [v.id, st => setStatus(prev => (
+    prev[v.id]?.hasPic === st.hasPic && prev[v.id]?.busy === st.busy ? prev : { ...prev, [v.id]: st }
+  ))])), [])
 
   const entry = saves.find(b => b.id === pickedId) ?? null
   const region = SAT_REGIONS.find(r => r.id === regionId)
@@ -77,6 +85,14 @@ export default function SatelliteViewer() {
     return () => ctl.abort()
   }, [view, isOnline])
 
+  const pressKey = id => `${id}|${key}${id === 'winds' ? `|${fl}` : ''}`
+  const nOf = id => presses[pressKey(id)] ?? 0
+  const press = () => setPresses(p => ({ ...p, [pressKey(view)]: (p[pressKey(view)] ?? 0) + 1 }))
+  const cur = status[view] ?? { hasPic: false, busy: false }
+  const fetchButton = isOnline && (
+    <button className="cp-btn" onClick={press} disabled={cur.busy}>{cur.hasPic ? 'RETAKE' : 'FETCH SATELLITE IMAGE'}</button>
+  )
+
   const pickItems = saves.map(save => briefingItem({ save, auto: false, near: true }, null))   // newest first, as saved
 
   return (
@@ -86,7 +102,7 @@ export default function SatelliteViewer() {
       <BriefingTabBar tabs={VIEWS} active={view} onSelect={id => { setView(id); setSeen(s => ({ ...s, [id]: true })) }} />
 
       <div style={{ border: '1px solid var(--cp-border)', borderRadius: 6, padding: '12px 14px', background: 'var(--cp-bg2)', marginBottom: 14 }}>
-        <Row label="BRIEFING" last={!!entry && view !== 'winds'}>
+        <Row label="BRIEFING" action={entry ? fetchButton : null} last={!!entry && view !== 'winds'}>
           <LinkChip linked={!!entry} tone="mint" label="BRIEFING" emptyLabel="PICK A BRIEFING" onClick={() => setPickOpen(true)} />
           {entry
             ? <LinkLine text={briefingName(entry)} onChange={() => setPickOpen(true)} onUnlink={() => setPickedId('')} unlinkLabel="CLEAR" />
@@ -94,7 +110,7 @@ export default function SatelliteViewer() {
         </Row>
 
         {!entry && (
-          <Row label="REGION" last={view !== 'winds'}>
+          <Row label="REGION" action={fetchButton} last={view !== 'winds'}>
             <div className="cp-tab-bar" style={{ overflowX: 'auto', maxWidth: '100%' }}>
               <Seg value={regionId} onChange={setRegionId}
                 options={SAT_REGIONS.map(r => ({
@@ -117,16 +133,16 @@ export default function SatelliteViewer() {
 
       {/* Every view stays mounted once opened, so switching back and forth keeps what each one shows. */}
       <div style={{ display: view === 'cloud' ? 'block' : 'none' }}>
-        <CloudPane entry={entry} region={region} active={view === 'cloud'} />
+        <CloudPane entry={entry} region={region} active={view === 'cloud'} n={nOf('cloud')} onStatus={report.cloud} />
       </div>
       {seen.winds && (
         <div style={{ display: view === 'winds' ? 'block' : 'none' }}>
-          <WindPane entry={entry} region={region} fl={fl} active={view === 'winds'} />
+          <WindPane entry={entry} region={region} fl={fl} active={view === 'winds'} n={nOf('winds')} onStatus={report.winds} />
         </div>
       )}
       {seen.storms && (
         <div style={{ display: view === 'storms' ? 'block' : 'none' }}>
-          <StormPane entry={entry} region={region} active={view === 'storms'} />
+          <StormPane entry={entry} region={region} active={view === 'storms'} n={nOf('storms')} onStatus={report.storms} />
         </div>
       )}
 

@@ -1,9 +1,11 @@
 // Builds one storms picture: the relief map and coastline, the route and airports, and the current tropical cyclones
 // from GDACS drawn on top (no cloud, no wind). Also works out the list shown under the picture: for each storm its
-// wind, position, advisory time and how close it is to the route. The maths is in utils/cyclones.js.
+// wind, position, advisory time and how close it is to the route, and what the tap-for-details card shows (strength,
+// movement, forecast table, closest approach, airports at risk, where the storm sits on the picture). The maths is in
+// utils/cyclones.js.
 
-import { latOfY } from '../utils/satSnapshot'
-import { kmhToKt, distanceToRoute } from '../utils/cyclones'
+import { latOfY, toPixel } from '../utils/satSnapshot'
+import { kmhToKt, distanceToRoute, stormMovement, forecastRows, airportsAtRisk } from '../utils/cyclones'
 import { fetchStorms } from './cycloneData'
 import { framePicture, loadBaseLayers, newCanvas, drawRelief, drawCoast, drawRoute, drawStamp, drawStorms, haloText, MONO } from './mapPicture'
 
@@ -16,7 +18,7 @@ const stamp = ms => {
 
 // opts: { markers, path }  the route to draw (empty for a region picture)
 //       { coords, pad }    the area, as for the satellite picture
-// Resolves { image (JPEG data URL), takenAt, ok, storms: [list entries], credits, width, height }.
+// Resolves { image (JPEG data URL), takenAt, ok, storms: [list entries + details], credits, width, height }.
 // `ok` is false when GDACS could not be reached (the picture is still made, without storms).
 export async function buildStormSnapshot(opts = {}, signal) {
   const { f, route, pins, west, east } = framePicture(opts)
@@ -53,11 +55,17 @@ export async function buildStormSnapshot(opts = {}, signal) {
   drawStamp(ctx, f, `${left} · CHECKED ${stamp(Date.now())}`, CREDIT)
 
   return {
-    image: canvas.toDataURL('image/jpeg', 0.84), takenAt: Date.now(), ok: found.ok, credits: [CREDIT], width: f.width, height: f.height,
-    storms: storms.map(s => ({
-      id: s.id, name: s.name, source: s.source, alert: s.alert, windKt: s.windKt, position: s.position,
-      advisory: s.summary.advisory || null, updatedMs: s.updatedMs,
-      distance: distanceToRoute(s.position, s.summary, route),
-    })),
+    image: canvas.toDataURL('image/jpeg', 0.84), takenAt: Date.now(), ok: found.ok, airportsChecked: pins.length, credits: [CREDIT], width: f.width, height: f.height,
+    storms: storms.map(s => {
+      const at = toPixel(s.position[0], s.position[1], f), { rows, closest } = forecastRows(s.position, s.summary, route)
+      return {
+        id: s.id, name: s.name, source: s.source, alert: s.alert, windKt: s.windKt, position: s.position,
+        advisory: s.summary.advisory || null, updatedMs: s.updatedMs,
+        distance: distanceToRoute(s.position, s.summary, route),
+        at: [at.x / f.width, at.y / f.height],                       // where the storm sits on the picture, as fractions, for the tap spot
+        strength: s.severityText, country: s.country, startMs: s.fromMs, reportUrl: s.reportUrl,
+        movement: stormMovement(s.summary), rows, closest, airports: airportsAtRisk(pins, s.position, s.summary),
+      }
+    }),
   }
 }

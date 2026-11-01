@@ -7,31 +7,29 @@ import { buildSatSnapshot } from '../services/satelliteSnapshot'
 import { snapshotInputFromBriefing } from '../services/mapPicture'
 import { CLOUD_STEPS, holdForLoader } from '../utils/loaderSteps'
 
-const mono = 'var(--cb-font-mono)'
-
-// The CLOUD view of the Satellite tab: one still infrared picture. For a saved briefing it is built the first time it
-// is opened online and kept in the save (RETAKE replaces it); with none picked it is a region still, not kept.
-// `active` is false while the other view is showing, so nothing is downloaded for a view nobody is looking at.
-export default function CloudPane({ entry, region, active }) {
+// The CLOUD view of the Satellite tab: one still infrared picture. Nothing is downloaded until the shell's button is pressed
+// (`n` = presses for this briefing / region; 0 = none yet): a briefing's stored picture, or a region picture fetched earlier
+// this visit, just shows. A fetch for a saved briefing is kept in the save (RETAKE replaces it); a region one is not kept.
+// `active` is false while another view is showing; `onStatus` tells the shell whether there is a picture and whether it is busy.
+export default function CloudPane({ entry, region, active, n, onStatus }) {
   const isOnline = useOnlineStatus()
   const attachSatSnapshot = useCalculatorStore(s => s.attachSatSnapshot)
   const key = entry?.id ?? region.id
-  const [bump, setBump] = useState({ key: '', n: 0 })                    // RETAKE count for the current briefing / region
-  const rebuilds = bump.key === key ? bump.n : 0
   const [state, setState] = useState({ status: 'idle', snap: null })     // idle | loading | ready | error
   const regionCache = useRef({})                                          // region id → picture, this visit only
+  const built = useRef({})                                                // key → the press count its picture was fetched for
   const savedSnap = entry?.satSnapshot ?? null
 
   useEffect(() => {
     if (!active) return
-    // A briefing that already has its picture just shows it (no network); RETAKE is the only reason to rebuild.
-    if (entry && savedSnap && rebuilds === 0) { setState({ status: 'ready', snap: savedSnap }); return }
-    if (!entry && regionCache.current[region.id] && rebuilds === 0) { setState({ status: 'ready', snap: regionCache.current[region.id] }); return }
-    if (!isOnline) { setState({ status: savedSnap ? 'ready' : 'error', snap: savedSnap }); return }
+    const old = entry ? savedSnap : regionCache.current[key] ?? null
+    if (old && (n === 0 || built.current[key] === n)) { setState({ status: 'ready', snap: old }); return }
+    if (n === 0) { setState({ status: isOnline ? 'idle' : 'error', snap: null }); return }
+    if (!isOnline) { setState({ status: old ? 'ready' : 'error', snap: old }); return }
 
     const ctl = new AbortController()
     const startedAt = Date.now()
-    setState({ status: 'loading', snap: savedSnap })                       // a retake keeps showing the old picture meanwhile
+    setState({ status: 'loading', snap: old })                             // the loader shows; a failed retake brings the old picture back
     ;(async () => {
       try {
         let snap
@@ -40,41 +38,30 @@ export default function CloudPane({ entry, region, active }) {
           const r = await attachSatSnapshot(entry.id, snap)
           if (!r.ok) throw new Error('could not save the picture')
         } else {
-          const [w, s, e, n] = region.box
-          snap = await buildSatSnapshot({ coords: [[w, s], [e, n]], only: region, pad: 0 }, ctl.signal)
-          regionCache.current[region.id] = snap
+          const [w, s, e, nn] = region.box
+          snap = await buildSatSnapshot({ coords: [[w, s], [e, nn]], only: region, pad: 0 }, ctl.signal)
+          regionCache.current[key] = snap
         }
-        if (!savedSnap) await holdForLoader(startedAt, CLOUD_STEPS, ctl.signal)      // a first picture waits for the loader's steps
+        built.current[key] = n
+        await holdForLoader(startedAt, CLOUD_STEPS, ctl.signal)
         if (!ctl.signal.aborted) setState({ status: 'ready', snap })
       } catch (err) {
-        if (!ctl.signal.aborted) setState(savedSnap ? { status: 'ready', snap: savedSnap } : { status: 'error', snap: null })
+        if (!ctl.signal.aborted) { built.current[key] = n; setState(old ? { status: 'ready', snap: old } : { status: 'error', snap: null }) }
       }
     })()
     return () => ctl.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `entry` changes whenever the save is rewritten; the key decides
-  }, [key, rebuilds, isOnline, active])
+  }, [key, n, isOnline, active])
 
-  const retake = () => { delete regionCache.current[region.id]; setBump({ key, n: rebuilds + 1 }) }
-  const busy = state.status === 'loading' || state.status === 'idle'   // idle: the moment before the first build starts
+  const loading = state.status === 'loading' || (state.status === 'idle' && n > 0)   // idle with a press: the moment before the build starts
+  const hasPic = state.status === 'ready' && !!state.snap
+  useEffect(() => { onStatus({ hasPic, busy: loading }) }, [hasPic, loading, onStatus])
 
-  return (
-    <div>
-      {state.snap && state.status !== 'error' ? <SatPicture snap={state.snap} />
-        : busy ? <SatLoader steps={CLOUD_STEPS} />
-        : <PictureNote>{isOnline
-            ? 'NO SATELLITE PICTURE AVAILABLE FOR THIS AREA RIGHT NOW. TRY AGAIN SHORTLY.'
-            : entry ? 'THIS BRIEFING HAS NO SATELLITE PICTURE YET. OPEN THIS TAB ONLINE TO ADD ONE.'
-            : 'SATELLITE PICTURES NEED AN INTERNET CONNECTION.'}</PictureNote>}
-
-      {state.snap && busy && (
-        <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', color: 'var(--cp-dim)', marginTop: 8 }}>UPDATING…</div>
-      )}
-
-      {isOnline && (state.status === 'ready' || state.status === 'error') && (
-        <div style={{ marginTop: 12 }}>
-          <button className="cp-btn" onClick={retake} disabled={busy}>RETAKE</button>
-        </div>
-      )}
-    </div>
-  )
+  return loading ? <SatLoader steps={CLOUD_STEPS} />
+    : state.status === 'idle' ? <PictureNote>PRESS “FETCH SATELLITE IMAGE” TO LOAD THE CLOUD PICTURE.</PictureNote>
+    : hasPic ? <SatPicture snap={state.snap} />
+    : <PictureNote>{isOnline
+        ? 'NO SATELLITE PICTURE AVAILABLE FOR THIS AREA RIGHT NOW. TRY AGAIN SHORTLY.'
+        : entry ? 'THIS BRIEFING HAS NO SATELLITE PICTURE YET. GO ONLINE AND PRESS “FETCH SATELLITE IMAGE”.'
+        : 'SATELLITE PICTURES NEED AN INTERNET CONNECTION.'}</PictureNote>
 }

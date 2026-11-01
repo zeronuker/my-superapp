@@ -289,7 +289,10 @@ when asked. The service worker caches aggressively; users get an update prompt
   briefing window) over one box of choices: BRIEFING (the Duty Log's `LinkPicker` + `LinkChips`), REGION (a `Seg`, only
   with no briefing picked) and the WINDS flight LEVEL (a `Seg`); `CloudPane.jsx`, `SatPicture.jsx`, `services/satelliteSnapshot.js`,
   `utils/satSnapshot.js` + `satFrames.js`)** — in Flight Data. A still infrared cloud picture, no
-  loop. Pick a saved briefing: the first time it is opened online the route's picture is built and
+  loop. Nothing downloads when the tab opens or a choice changes: the box's button (FETCH SATELLITE IMAGE, then
+  RETAKE; the shell counts presses per view + briefing/region(/level) and passes `n` to each pane, which reports
+  `{ hasPic, busy }` back) starts the build, with the loader (retakes too); a stored picture or one fetched earlier this
+  visit just shows. The STORMS region dots still load the small storm list on their own. Pick a saved briefing: its fetched picture is
   attached to the save as `satSnapshot` ({ image JPEG data URL, takenAt, sats, credits }, IndexedDB,
   `attachSatSnapshot` in the store); RETAKE replaces it; offline it shows the stored one. A saved
   briefing that has a cloud or a winds picture gets a SATELLITE tab in its window (`BriefingView.jsx`, `SavedSatellite.jsx`: CLOUD and WINDS sub-tabs, the one not made yet says so). With no briefing
@@ -355,6 +358,14 @@ when asked. The service worker caches aggressively; users get an update prompt
   at one edge empty, while the same box at another width is complete; `loadBaseLayers` checks the relief for
   see-through pixels and retries at 1.3x, 0.8x, 1.7x the width (the map is stretched to fit anyway). A single request
   crossing the date line has its own ~3° gap, hence the cut at ±180° (`bandPieces`).
+  Tap for details: a storm's marker on the picture (a transparent button over the image, placed from `at` = the storm's
+  pixel as fractions) opens a small card with a CLOSE button and FULL DETAILS; a storm's line opens and closes to show
+  strength wording, movement (heading/speed from the timed track points around now, `stormMovement`), countries, start,
+  the forecast centres with their times (`forecastRows`; every track point has its time in `trackMs`, from the wind-area
+  labels, year taken from the advisory), the distance of each from the route and where the centre comes nearest, the
+  briefing's airports it reaches (`airportsAtRisk`: inside a wind swath or the cone, or within 150 NM of the centre or
+  forecast track; only with a briefing picked) and a link to GDACS's report. No trend: GDACS labels every track segment
+  with the storm's one current category, so a forecast intensity cannot be read from it; no pressure or gusts either.
   Region buttons in the STORMS view get a dot (alert colour, count if several) when a storm's CENTRE is in or within 5° of
   the region (`stormsInRegion`, from the same storm list, kept 10 min by `fetchStormList`; not shown with a briefing picked).
 - **Dev-only `npm audit` findings** (esbuild/vite/vitest) — not shipped to

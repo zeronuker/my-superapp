@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
   parseStormList, summarizeStormGeometry, stormReachesArea, distanceToRoute, stormsInRegion, shortTime, kmhToKt, ALERT_COLOR,
+  labelMs, bearingDeg, compass, stormMovement, forecastRows, pointInRing, airportsAtRisk,
 } from './cyclones'
 
 // Real GDACS files for typhoon IN-FA-26 (31 Oct 2026, advisory 06Z), with the big rings thinned out.
@@ -118,4 +119,115 @@ describe('small helpers', () => {
   it('shortens a time label', () => { expect(shortTime('01/11 06:00 UTC')).toBe('01/11 06Z') })
   it('converts km/h to knots', () => { expect(kmhToKt(185.2)).toBeCloseTo(100, 6) })
   it('has a colour for each alert level', () => { expect(Object.keys(ALERT_COLOR)).toEqual(['Green', 'Orange', 'Red']) })
+})
+
+describe('what the list adds for the detail card', () => {
+  it('keeps the strength wording, when the storm started and the GDACS report page', () => {
+    expect(infa.severityText).toMatch(/Hurricane\/Typhoon.*241 km\/h/)
+    expect(infa.fromMs).toBe(Date.parse('2026-10-25T06:00:00Z'))
+    expect(infa.reportUrl).toMatch(/report\.aspx\?eventid=1001343/)
+  })
+})
+
+describe('time of each track point', () => {
+  it('gives every point its time, oldest first, with now at the advisory time', () => {
+    expect(geo.trackMs).toHaveLength(geo.track.length)
+    expect(geo.trackMs[0]).toBe(Date.parse('2026-10-25T06:00:00Z'))
+    expect(geo.trackMs[geo.nowIndex]).toBe(Date.parse('2026-10-31T06:00:00Z'))
+    expect(geo.trackMs.filter(m => m != null).every((m, i, a) => !i || m > a[i - 1])).toBe(true)
+  })
+
+  it('takes the year from the advisory, so a December advisory with January points is next year', () => {
+    const adv = Date.parse('2026-12-31T18:00:00Z')
+    expect(labelMs('01/01 06:00 UTC', adv)).toBe(Date.parse('2027-01-01T06:00:00Z'))
+    expect(labelMs('30/12 06:00 UTC', adv)).toBe(Date.parse('2026-12-30T06:00:00Z'))
+    expect(labelMs('01/01 06:00 UTC', NaN)).toBeNull()
+    expect(labelMs('now', adv)).toBeNull()
+  })
+})
+
+describe('bearing and compass', () => {
+  it('points the right way', () => {
+    expect(Math.round(bearingDeg(0, 0, 0, 10))).toBe(0)
+    expect(Math.round(bearingDeg(0, 0, 10, 0))).toBe(90)
+    expect(Math.round(bearingDeg(10, 0, 0, 0))).toBe(270)
+    expect(Math.round(bearingDeg(179, 0, -179, 0))).toBe(90)       // across the date line
+    expect(compass(0)).toBe('N'); expect(compass(37)).toBe('NE'); expect(compass(359)).toBe('N'); expect(compass(200)).toBe('SSW')
+  })
+})
+
+describe('stormMovement', () => {
+  it('works out heading and speed from the timed track points around now', () => {
+    const m = stormMovement(geo)                  // now 22.2N 142.9E at 06Z, next point 22.8N 143.4E twelve hours later
+    expect(compass(m.headingDeg)).toBe('NE')
+    expect(m.speedKt).toBeGreaterThanOrEqual(3); expect(m.speedKt).toBeLessThanOrEqual(5)
+  })
+
+  it('is null without times or without a point after now', () => {
+    expect(stormMovement({ ...geo, trackMs: undefined })).toBeNull()
+    expect(stormMovement({ ...geo, trackMs: geo.track.map(() => null) })).toBeNull()
+    expect(stormMovement({ ...geo, nowIndex: geo.track.length - 1 })).toBeNull()
+  })
+})
+
+describe('forecastRows', () => {
+  const route = [[139.8, 35.5], [135, 34], [121, 25]]
+
+  it('lists now and every forecast point with its time and distance from the route', () => {
+    const { rows } = forecastRows(infa.position, geo, route)
+    expect(rows).toHaveLength(geo.forecast.length + 1)
+    expect(rows[0]).toMatchObject({ label: 'NOW', position: [142.9, 22.2], ms: Date.parse('2026-10-31T06:00:00Z') })
+    expect(rows[1].label).toBe('31/10 18Z')
+    expect(rows.every(r => Number.isInteger(r.routeNm) && r.routeNm > 0)).toBe(true)
+  })
+
+  it('names where the centre comes nearest the route (the last forecast point here)', () => {
+    const { closest } = forecastRows(infa.position, geo, route)
+    expect(closest.label).toBe('05/11 06Z')
+    expect(closest.routeNm).toBeLessThan(500)
+  })
+
+  it('has no distances without a route', () => {
+    const { rows, closest } = forecastRows(infa.position, geo, [])
+    expect(closest).toBeNull(); expect(rows.every(r => r.routeNm === null)).toBe(true)
+  })
+})
+
+describe('pointInRing', () => {
+  const square = [[0, 0], [10, 0], [10, 10], [0, 10]]
+  it('tells inside from outside', () => {
+    expect(pointInRing([5, 5], square)).toBe(true)
+    expect(pointInRing([15, 5], square)).toBe(false)
+    expect(pointInRing([5, -1], square)).toBe(false)
+  })
+  it('works for a ring across the date line', () => {
+    const ring = [[175, 0], [-175, 0], [-175, 10], [175, 10]]
+    expect(pointInRing([180, 5], ring)).toBe(true)
+    expect(pointInRing([-178, 5], ring)).toBe(true)
+    expect(pointInRing([170, 5], ring)).toBe(false)
+  })
+})
+
+describe('airportsAtRisk', () => {
+  const pins = [
+    { icao: 'RJTT', kind: 'dep', lat: 35.55, lng: 139.78 },     // Tokyo: far from the storm
+    { icao: 'RJAN', kind: 'alt', lat: 22.3, lng: 143 },          // right under the storm centre
+    { icao: 'VHHH', kind: 'arr', lat: 22.3, lng: 113.9 },
+  ]
+  it('names only the airports the storm reaches, with the strongest wind area they are in', () => {
+    const out = airportsAtRisk(pins, infa.position, geo)
+    expect(out.map(a => a.icao)).toEqual(['RJAN'])
+    expect(out[0]).toMatchObject({ kind: 'alt', bandKmh: 120, inCone: true })
+    expect(out[0].trackNm).toBeLessThan(20)
+  })
+  it('counts an airport near the forecast track even outside every area', () => {
+    const near = [{ icao: 'XXXX', kind: 'arr', lat: 22.5, lng: 149 }]          // about 300 NM east of the track, outside every wind area
+    const out = airportsAtRisk(near, infa.position, geo, 400)
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ bandKmh: null, inCone: false })
+    expect(airportsAtRisk(near, infa.position, geo, 5)).toEqual([])
+  })
+  it('copes with no airports', () => {
+    expect(airportsAtRisk(undefined, infa.position, geo)).toEqual([])
+  })
 })
