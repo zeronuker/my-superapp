@@ -278,7 +278,7 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
           <div className="b737-results">
             <SectionHeader title="Results" />
             {!inputsComplete ? (
-              <div className="cp-card-bg3" style={{
+              <div key="empty" className="cp-card-bg3 cp-reveal-in" style={{
                 border: '1px solid var(--cp-border2)',
                 borderRadius: 4,
                 padding: '28px 20px',
@@ -291,7 +291,7 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
                 Enter weight, OAT, pressure altitude and speed to calculate the go-around climb gradient
               </div>
             ) : !r || r.finalGradient === null ? (
-              <div className="cp-card-bg3" style={{
+              <div key="nodata" className="cp-card-bg3 cp-reveal-in" style={{
                 border: '1px solid var(--cp-border2)',
                 borderLeft: '3px solid var(--cp-yellow)',
                 borderRadius: 4,
@@ -304,7 +304,7 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
                 uncertified OAT/pressure-altitude combination. Check your entries against the source manual.
               </div>
             ) : (
-              <div className="cp-card-bg3" style={{
+              <div key="result" className="cp-card-bg3 cp-reveal-in" style={{
                 border: '1px solid var(--cp-border2)',
                 borderLeft: '3px solid var(--cp-acc)',
                 borderRadius: 4,

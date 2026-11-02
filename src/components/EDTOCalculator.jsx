@@ -312,7 +312,7 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
           <div className="b737-results">
             <SectionHeader title="Results" />
             {(!edto.weight || edto.isaDeviation === '') ? (
-              <div className="cp-card-bg3" style={{
+              <div key="empty" className="cp-card-bg3 cp-reveal-in" style={{
                 border: '1px solid var(--cp-border2)',
                 borderRadius: 4,
                 padding: '28px 20px',
@@ -325,7 +325,7 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
                 Enter aircraft weight and ISA deviation to calculate EDTO altitudes
               </div>
             ) : (
-            <div className="b737-cards">
+            <div key="result" className="b737-cards cp-reveal-in">
               <ResultCard
                 title="Long Range Cruise Altitude"
                 value={edto.longRangeCruiseAlt !== null ? edto.longRangeCruiseAlt.toLocaleString() : null}

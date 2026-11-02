@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import SatPicture from './SatPicture'
 import WindPicture from './WindPicture'
+import { useCalculatorStore } from '../store/calculatorStore'
+import { useTransitionAnim } from '../useTransitionAnim'
 
 const mono = 'var(--cb-font-mono)'
 
@@ -13,6 +15,8 @@ export default function SavedSatellite({ sat, wind }) {
     { id: 'winds', label: 'WINDS', snap: wind },
   ]
   const current = views.find(v => v.id === sub)
+  const animStyle = useCalculatorStore(s => s.settings.animStyle)
+  const subAnim = useTransitionAnim(sub, views.map(v => v.id), animStyle)
 
   return (
     <div>
@@ -23,16 +27,18 @@ export default function SavedSatellite({ sat, wind }) {
         ))}
       </div>
 
-      {current.snap
-        ? (sub === 'cloud' ? <SatPicture snap={current.snap} /> : <WindPicture snap={current.snap} />)
-        : (
-          <div style={{
-            fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'var(--cp-dim)', textAlign: 'center',
-            padding: '48px 16px', border: '1px solid var(--cp-border)', borderRadius: 6,
-          }}>
-            NO {current.label} PICTURE SAVED IN THIS BRIEFING YET. OPEN THE {current.label} VIEW IN THE SATELLITE TAB (FLIGHT DATA) ONLINE TO MAKE ONE.
-          </div>
-        )}
+      <div key={sub} className={subAnim.className} style={subAnim.style}>
+        {current.snap
+          ? (sub === 'cloud' ? <SatPicture snap={current.snap} /> : <WindPicture snap={current.snap} />)
+          : (
+            <div style={{
+              fontFamily: mono, fontSize: 11, letterSpacing: '0.1em', color: 'var(--cp-dim)', textAlign: 'center',
+              padding: '48px 16px', border: '1px solid var(--cp-border)', borderRadius: 6,
+            }}>
+              NO {current.label} PICTURE SAVED IN THIS BRIEFING YET. OPEN THE {current.label} VIEW IN THE SATELLITE TAB (FLIGHT DATA) ONLINE TO MAKE ONE.
+            </div>
+          )}
+      </div>
     </div>
   )
 }

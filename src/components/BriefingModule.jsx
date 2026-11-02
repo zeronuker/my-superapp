@@ -14,6 +14,7 @@ import ResetButton from './ResetButton'
 import RouteInput from './RouteInput'
 import EnrouteAlternates from './EnrouteAlternates'
 import Seg from './Seg'
+import Collapse from './Collapse'
 import { Field, TimeCol, Chip } from './OfpBits'
 import { useOnlineStatus } from '../utils/useOnlineStatus'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
@@ -215,7 +216,7 @@ export default function BriefingModule() {
           <button className="cp-btn" onClick={() => fileRef.current?.click()} disabled={busy} style={{ ...accentBtn, padding: '12px 22px' }}>
             {busy ? 'READING…' : '⇪  IMPORT OFP'}
           </button>
-          {importError && <div style={{ fontSize: 12, marginTop: 12, color: 'var(--cp-yellow)' }}>{importError}</div>}
+          <Collapse open={!!importError}><div style={{ fontSize: 12, marginTop: 12, color: 'var(--cp-yellow)' }}>{importError}</div></Collapse>
         </div>
       )}
 
@@ -284,7 +285,7 @@ export default function BriefingModule() {
             <button className="cp-btn" onClick={() => fileRef.current?.click()} disabled={busy} style={smallBtn}>{busy ? 'READING…' : 'CHANGE OFP'}</button>
             <button className="cp-btn" onClick={() => setMode('manual')} style={smallBtn}>EDIT OFP</button>
           </div>
-          {importError && <div style={{ fontSize: 12, marginTop: 10, color: 'var(--cp-yellow)' }}>{importError}</div>}
+          <Collapse open={!!importError}><div style={{ fontSize: 12, marginTop: 10, color: 'var(--cp-yellow)' }}>{importError}</div></Collapse>
         </div>
       )}
 
@@ -423,7 +424,7 @@ export default function BriefingModule() {
               </div>
             )
           }} />
-          {syncError && <div style={{ fontSize: 12, marginTop: 10, color: 'var(--cp-red)' }}>{syncError}</div>}
+          <Collapse open={!!syncError}><div style={{ fontSize: 12, marginTop: 10, color: 'var(--cp-red)' }}>{syncError}</div></Collapse>
         </div>
       )}
 

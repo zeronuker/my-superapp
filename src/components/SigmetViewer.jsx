@@ -331,10 +331,10 @@ export default function SigmetViewer() {
           letterSpacing: '0.12em', color: 'var(--cp-acc)', opacity: customInput ? 1 : 0.4 }}>+ ADD</button>
       </div>
 
-      {error && (
+      <Collapse open={!!error}>
         <div style={{ fontFamily: 'var(--cb-font-body)', fontSize: 12, color: 'var(--cp-orange)', background: 'rgba(251,146,60,0.08)',
           border: '1px solid rgba(251,146,60,0.25)', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>⚠ {error}</div>
-      )}
+      </Collapse>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <button onClick={handleFetch} disabled={loading || !chips.length} style={{
@@ -356,17 +356,19 @@ export default function SigmetViewer() {
 
       {/* ── Results ── */}
       {sigmets && (
-        sigmets.length === 0 ? (
-          <div style={{ fontFamily: 'var(--cb-font-body)', fontSize: 13, color: 'var(--cp-dim)', textAlign: 'center', padding: '24px 0' }}>
-            No active SIGMETs for the selected FIRs.
-          </div>
-        ) : (
-          chips.map(chip => (
-            <FirSection key={chip.icao} chip={chip} now={now}
-              sigmets={sigmets.filter(s => s.firId && s.firId.toUpperCase() === chip.icao.toUpperCase())}
-              collapsed={isCollapsed(chip.icao)} onToggle={() => toggleSection(chip.icao)} />
-          ))
-        )
+        <div className="cp-reveal-in">
+          {sigmets.length === 0 ? (
+            <div style={{ fontFamily: 'var(--cb-font-body)', fontSize: 13, color: 'var(--cp-dim)', textAlign: 'center', padding: '24px 0' }}>
+              No active SIGMETs for the selected FIRs.
+            </div>
+          ) : (
+            chips.map(chip => (
+              <FirSection key={chip.icao} chip={chip} now={now}
+                sigmets={sigmets.filter(s => s.firId && s.firId.toUpperCase() === chip.icao.toUpperCase())}
+                collapsed={isCollapsed(chip.icao)} onToggle={() => toggleSection(chip.icao)} />
+            ))
+          )}
+        </div>
       )}
     </div>
   )

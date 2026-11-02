@@ -452,10 +452,10 @@ export default function NotamViewer() {
       </div>
 
       {/* ── Error ── */}
-      {error && (
+      <Collapse open={!!error}>
         <div style={{ fontFamily: T.sans, fontSize: 12, color: T.orange, background: 'rgba(251,146,60,0.08)',
           border: '1px solid rgba(251,146,60,0.25)', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>⚠ {error}</div>
-      )}
+      </Collapse>
 
       {/* ── Fetch ── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
@@ -483,7 +483,7 @@ export default function NotamViewer() {
 
       {/* ── Results ── */}
       {notams && (
-        <>
+        <div className="cp-reveal-in">
           {notams.length === 0 && (
             <div style={{ fontFamily: T.sans, fontSize: 13, color: T.dim, textAlign: 'center', padding: '24px 0' }}>
               No NOTAMs found for the selected locations.
@@ -517,7 +517,7 @@ export default function NotamViewer() {
               ))}
             </>
           )}
-        </>
+        </div>
       )}
     </div>
   )

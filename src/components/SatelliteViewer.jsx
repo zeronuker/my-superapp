@@ -14,6 +14,7 @@ import { WIND_LEVELS, DEFAULT_WIND_LEVEL } from '../utils/gfsIndex'
 import { stormsInRegion, ALERT_COLOR } from '../utils/cyclones'
 import { fetchStormList } from '../services/cycloneData'
 import { useOnlineStatus } from '../utils/useOnlineStatus'
+import { useTransitionAnim } from '../useTransitionAnim'
 
 const mono = 'var(--cb-font-mono)'
 const ALERT_RANK = { Green: 0, Orange: 1, Red: 2 }
@@ -59,6 +60,8 @@ export default function SatelliteViewer() {
   const [pickOpen, setPickOpen] = useState(false)
   const [regionId, setRegionId] = useState(SAT_REGIONS[0].id)
   const [view, setView] = useState('cloud')
+  const animStyle = useCalculatorStore(s => s.settings.animStyle)
+  const viewAnim = useTransitionAnim(view, VIEWS.map(v => v.id), animStyle)
   const [levelPick, setLevelPick] = useState({ key: '', fl: DEFAULT_WIND_LEVEL })
   const [stormList, setStormList] = useState([])           // current storms, for the dots on the region bar (STORMS view only)
   const [seen, setSeen] = useState({})                     // a view other than CLOUD is only started the first time it is asked for
@@ -132,16 +135,16 @@ export default function SatelliteViewer() {
       </div>
 
       {/* Every view stays mounted once opened, so switching back and forth keeps what each one shows. */}
-      <div style={{ display: view === 'cloud' ? 'block' : 'none' }}>
+      <div className={view === 'cloud' ? viewAnim.className : undefined} style={{ ...viewAnim.style, display: view === 'cloud' ? 'block' : 'none' }}>
         <CloudPane entry={entry} region={region} active={view === 'cloud'} n={nOf('cloud')} onStatus={report.cloud} />
       </div>
       {seen.winds && (
-        <div style={{ display: view === 'winds' ? 'block' : 'none' }}>
+        <div className={view === 'winds' ? viewAnim.className : undefined} style={{ ...viewAnim.style, display: view === 'winds' ? 'block' : 'none' }}>
           <WindPane entry={entry} region={region} fl={fl} active={view === 'winds'} n={nOf('winds')} onStatus={report.winds} />
         </div>
       )}
       {seen.storms && (
-        <div style={{ display: view === 'storms' ? 'block' : 'none' }}>
+        <div className={view === 'storms' ? viewAnim.className : undefined} style={{ ...viewAnim.style, display: view === 'storms' ? 'block' : 'none' }}>
           <StormPane entry={entry} region={region} active={view === 'storms'} n={nOf('storms')} onStatus={report.storms} />
         </div>
       )}
