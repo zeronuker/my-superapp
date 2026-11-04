@@ -84,28 +84,32 @@ function AircraftRow({ aircraft, index, onOpen }) {
   const color = aircraftStripeColors[index % aircraftStripeColors.length]
   const t = aircraftText(aircraft)
   return (
-    <button type="button" onClick={onOpen} aria-label={`edit aircraft ${index + 1}`} style={rowStyle(color, false)}>
+    <button type="button" onClick={onOpen} aria-label={`open aircraft ${index + 1}`} style={rowStyle(color, false)}>
       <span style={badgeStyle}>#{index + 1}</span>
       <span style={rowMain}><b style={{ fontWeight: 600 }}>{t.main}</b><span style={{ color: 'var(--cp-dim)' }}>{t.rest}</span></span>
-      <span style={{ color: 'var(--cp-dim)' }}>✎</span>
+      <span style={{ color: 'var(--cp-dim)' }} aria-hidden="true">▾</span>
     </button>
   )
 }
 
-function Aircraft({ logId, aircraft, index, total, actions, onDone }) {
+function Aircraft({ logId, aircraft, index, total, actions, onClose }) {
   const set = (patch) => actions.updateAircraft(logId, aircraft.id, patch)
   const f = (key) => (v) => set({ [key]: v })
   const stripeColor = aircraftStripeColors[index % aircraftStripeColors.length]
   return (
-    <div className="dutylog-open" style={{ ...frame(stripeColor, 'var(--cp-border2)', 3), borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
+    <div className="dutylog-open" style={{ ...frame(stripeColor, stripeColor, 5), borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={badgeStyle}>
+        <span style={{ ...badgeStyle, color: stripeColor }}>
           AIRCRAFT #{index + 1}
         </span>
-        {total > 1 && (
-          <button onClick={() => actions.removeAircraft(logId, aircraft.id)} aria-label="remove aircraft"
-            className="cp-btn" style={{ padding: '2px 7px', color: 'var(--cp-red)' }}>✕</button>
-        )}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {total > 1 && (
+            <button onClick={() => actions.removeAircraft(logId, aircraft.id)} aria-label="remove aircraft"
+              className="cp-btn" style={{ padding: '2px 7px', color: 'var(--cp-red)' }}>✕</button>
+          )}
+          <button onClick={onClose} aria-label={`close aircraft ${index + 1}`}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: stripeColor, fontSize: 12, padding: '2px 6px' }}>▴</button>
+        </span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7, marginBottom: 7 }}>
         <Field label="Registration" value={aircraft.reg}  onChange={f('reg')} />
@@ -142,7 +146,6 @@ function Aircraft({ logId, aircraft, index, total, actions, onDone }) {
           </div>
         </div>
       </div>
-      <button onClick={onDone} className="cp-btn" style={{ width: '100%', marginTop: 9, padding: 7, fontSize: 10, color: 'var(--cp-acc)', borderColor: 'var(--cp-acc)' }}>DONE ▴</button>
     </div>
   )
 }
@@ -436,7 +439,8 @@ export default function LogEditor({ log, actions, onBack }) {
   // One aircraft and one sector are open at a time; the rest are one-line rows. A new log opens its blank aircraft.
   const focusSectorId = useDutyLogStore(s => s.focusSectorId)
   const setFocusSectorId = useDutyLogStore(s => s.setFocusSectorId)
-  const [openAid, setOpenAid] = useState(() => (log.aircraft || []).find(a => !a.reg && !a.type)?.id ?? null)
+  const [openAids, setOpenAids] = useState(() => (log.aircraft || []).filter(a => !a.reg && !a.type).map(a => a.id))
+  const toggleAircraft = (id) => setOpenAids(ids => (ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]))
   const [selSid, setSelSid] = useState(() => (log.sectors.some(s => s.id === focusSectorId) ? focusSectorId : log.sectors[0]?.id))
   const lastSelIndex = useRef(0)
   const { index: selIndex, sector: selected } = pickSelected(log.sectors, selSid, lastSelIndex.current)
@@ -451,7 +455,7 @@ export default function LogEditor({ log, actions, onBack }) {
   }, [log.sectors])
   useEffect(() => {
     const air = log.aircraft || []
-    if (air.length > counts.current.aircraft) setOpenAid(air[air.length - 1].id)
+    if (air.length > counts.current.aircraft) setOpenAids(ids => [...ids, air[air.length - 1].id])
     counts.current.aircraft = air.length
   }, [log.aircraft])
 
@@ -518,11 +522,11 @@ export default function LogEditor({ log, actions, onBack }) {
           {atMaxAircraft ? 'MAX 2 AIRCRAFT PER DUTY' : '+ ADD AIRCRAFT'}
         </button>
       </div>
-      <div className="dutylog-aircraft-list" style={{ marginBottom: 9 }}>
-        {(log.aircraft || []).map((a, i) => (a.id === openAid
+      <div className="dutylog-aircraft-list" data-open={(log.aircraft || []).filter(a => openAids.includes(a.id)).length} style={{ marginBottom: 9 }}>
+        {(log.aircraft || []).map((a, i) => (openAids.includes(a.id)
           ? <Aircraft key={a.id} logId={log.id} aircraft={a} index={i}
-              total={(log.aircraft || []).length} actions={actions} onDone={() => setOpenAid(null)} />
-          : <AircraftRow key={a.id} aircraft={a} index={i} onOpen={() => setOpenAid(a.id)} />
+              total={(log.aircraft || []).length} actions={actions} onClose={() => toggleAircraft(a.id)} />
+          : <AircraftRow key={a.id} aircraft={a} index={i} onOpen={() => toggleAircraft(a.id)} />
         ))}
       </div>
 
