@@ -121,9 +121,42 @@ function FlagIcon({ code, size = 22 }) {
 // clear of the app's own zoom settings) and opens where the user tapped, on a dimmed layer
 // covering the whole page. The page does not scroll.
 // `anchor` = { y } in document coordinates, captured when it opened.
+// The on-screen keyboard shrinks the visible area (window.visualViewport) without telling the
+// page layout, so the panel follows that area: it stays where it was tapped while it fits and
+// is pushed up (never below the keyboard) when it does not. Its result list shrinks via --cp-vvh.
+// The part of the document the user can see right now (document coordinates for `top`).
+function readView() {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null
+  return vv ? { top: vv.pageTop, height: vv.height } : { top: window.scrollY, height: window.innerHeight }
+}
+// Where the panel's top edge goes: the tapped spot, moved up if its bottom would fall under the
+// keyboard, but never above the visible area's top (8px margin).
+function panelTop(wanted, view, panelH) {
+  const min = view.top + 8
+  const max = view.top + view.height - panelH - 8
+  return Math.max(min, Math.min(wanted, max))
+}
+
 function Overlay({ onClose, closing, anchor, children }) {
   useScrollLock(true)
   const [height, setHeight] = useState(null)
+  const panelRef = useRef(null)
+  const [view, setView] = useState(() => readView())
+  const [panelH, setPanelH] = useState(0)
+
+  useLayoutEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => setView(readView())
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
+  }, [])
+
+  useLayoutEffect(() => {
+    const h = panelRef.current?.closest('.cp-pop-in')?.offsetHeight || 0
+    if (h !== panelH) setPanelH(h)
+  })
 
   useLayoutEffect(() => {
     const size = () => setHeight(document.getElementById('root')?.offsetHeight || document.documentElement.scrollHeight)
@@ -138,18 +171,19 @@ function Overlay({ onClose, closing, anchor, children }) {
       className={`cp-backdrop-in${closing ? ' is-closing' : ''}`}
       style={{
         position: 'absolute', top: 0, left: 0, width: '100%', boxSizing: 'border-box', zIndex: 1000,
-        background: 'rgba(0,0,0,0.55)', height: height ?? '100%',
+        background: 'rgba(0,0,0,0.55)', height: height ?? '100%', '--cp-vvh': `${view.height}px`,
       }}
     >
       <ChamferFrame
         className={`cp-pop-in${closing ? ' is-closing' : ''}`}
         onClick={e => e.stopPropagation()}
         style={{
-          position: 'absolute', top: anchor.y, left: 0, right: 0, marginInline: 'auto',
+          position: 'absolute', top: panelTop(anchor.y, view, panelH), left: 0, right: 0, marginInline: 'auto',
           width: 'min(380px, calc(100% - 32px))', boxSizing: 'border-box',
+          transition: 'top 0.15s ease',
         }}
       >
-        {children}
+        <div ref={panelRef}>{children}</div>
       </ChamferFrame>
     </div>,
     document.body
@@ -174,7 +208,7 @@ function SearchInput({ value, onChange, placeholder }) {
 // The pickers only list a few rows at a time (a short scroll window), not the
 // full currency list.
 const PICKER_RESULTS_STYLE = {
-  overflowY: 'auto', maxHeight: 'min(30vh, 220px)', padding: '0 6px 8px',
+  overflowY: 'auto', maxHeight: 'min(30vh, 220px, max(56px, calc(var(--cp-vvh, 100vh) - 200px)))', padding: '0 6px 8px',
   WebkitOverflowScrolling: 'touch',
 }
 const PICKER_HINT_STYLE = { margin: '0 12px 6px', fontSize: 11, color: 'var(--cp-dim)', lineHeight: 1.4 }
