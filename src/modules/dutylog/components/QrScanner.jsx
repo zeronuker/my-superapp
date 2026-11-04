@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useScrollLock } from '../../../useScrollLock'
 import jsQR from 'jsqr'
 
 const mono = 'var(--cb-font-mono)'
@@ -6,6 +7,7 @@ const mono = 'var(--cb-font-mono)'
 // Full-screen camera overlay — scans QR frames until one decodes, then calls
 // onResult and stops. Closeable any time via onClose.
 export default function QrScanner({ onResult, onClose, closing = false }) {
+  useScrollLock(true)
   // While the exit animation plays the camera is still running; ignore any
   // code it sees in that moment.
   const closingRef = useRef(closing)

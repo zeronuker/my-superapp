@@ -17,6 +17,7 @@ import DashboardHome from './components/DashboardHome'
 import SettingsPanel from './components/settings/SettingsPanel'
 import { APP_VERSION, resolveAccentId } from './appConstants'
 import { useTransitionAnim, usePresence, ANIM_SPEED_MS } from './useTransitionAnim'
+import { useScrollLock } from './useScrollLock'
 
 // Each tab is code-split into its own chunk, loaded on demand when first opened.
 // vite-plugin-pwa precaches every emitted chunk, so offline still works.
@@ -135,6 +136,7 @@ export default function App() {
   // Keeps Settings on screen for its exit animation (all close paths — ✕,
   // backdrop, Escape — just set settingsOpen false).
   const settingsPresence = usePresence(settingsOpen)
+  useScrollLock(settingsPresence.mounted)
 
   // Build ordered tab list — respects user-saved order, appends unknown new tabs at end
   const orderedCalcs = React.useMemo(() => {

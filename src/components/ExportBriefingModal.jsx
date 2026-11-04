@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import ChamferFrame from '@brand/ChamferFrame'
 import { usePresence } from '../useTransitionAnim'
+import { useScrollLock } from '../useScrollLock'
 import Seg from './Seg'
 import { defaultSelection } from '../utils/briefingPdf'
 
@@ -26,6 +27,7 @@ function Row({ checked, indeterminate, onChange, label, hint, child }) {
 // this briefing has); `onExport(selection, { orientation, theme })` makes and downloads the file.
 export default function ExportBriefingModal({ open, title, sections, onExport, onCancel }) {
   const presence = usePresence(open)
+  useScrollLock(presence.mounted)
   const [sel, setSel] = useState(() => defaultSelection(sections))
   const [orientation, setOrientation] = useState('portrait')
   const [theme, setTheme] = useState('dark')

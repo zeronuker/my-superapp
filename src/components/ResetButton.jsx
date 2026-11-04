@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { usePresence } from '../useTransitionAnim'
+import { useScrollLock } from '../useScrollLock'
 import ChamferFrame from '@brand/ChamferFrame'
 
 // Standardized reset button: visibly orange by default (no hover needed to
@@ -23,6 +24,7 @@ export default function ResetButton({ onReset, scoped = false, hasUnsavedBriefin
   const [pressed, setPressed] = useState(false)
   const [open, setOpen] = useState(false)
   const presence = usePresence(open)
+  useScrollLock(presence.mounted)
 
   const colors = pressed || hover
     ? { borderColor: 'var(--cp-red)', color: 'var(--cp-red)', background: pressed ? 'rgba(239,68,68,0.20)' : 'rgba(239,68,68,0.10)' }

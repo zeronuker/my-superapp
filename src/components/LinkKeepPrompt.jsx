@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import ChamferFrame from '@brand/ChamferFrame'
 import { usePresence } from '../useTransitionAnim'
+import { useScrollLock } from '../useScrollLock'
 
 const mono = 'var(--cb-font-mono)'
 
@@ -14,6 +15,7 @@ const CHOICES = [
 // rows: [{ key, title, sub }]. Every row starts on KEEP. onConfirm gets { [key]: 'keep' | 'discard' }.
 export default function LinkKeepPrompt({ open, title, subtitle, rows, onConfirm, onUndo }) {
   const presence = usePresence(open)
+  useScrollLock(presence.mounted)
   const [choices, setChoices] = useState({})
   // Kept so the prompt can finish its exit animation after the parent has cleared its rows.
   const last = useRef({ title, subtitle, rows })

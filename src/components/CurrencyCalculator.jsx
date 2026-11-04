@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { usePresence } from '../useTransitionAnim'
+import { useScrollLock } from '../useScrollLock'
 import * as Flags from 'country-flag-icons/react/3x2'
 import { CURRENCIES, CURRENCY_BY_CODE } from '../data/currencies.js'
 import { useShallow } from 'zustand/react/shallow'
@@ -121,6 +122,7 @@ function FlagIcon({ code, size = 22 }) {
 // covering the whole page. The page does not scroll.
 // `anchor` = { y } in document coordinates, captured when it opened.
 function Overlay({ onClose, closing, anchor, children }) {
+  useScrollLock(true)
   const [height, setHeight] = useState(null)
 
   useLayoutEffect(() => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import ChamferFrame from '@brand/ChamferFrame'
 import { usePresence } from '../useTransitionAnim'
+import { useScrollLock } from '../useScrollLock'
 import { paginate } from '../utils/monthGroups'
 
 const mono = 'var(--cb-font-mono)'
@@ -26,6 +27,7 @@ const linkBtn ={ fontFamily: mono, fontSize: 10, letterSpacing: '0.06em', color:
 // hidden until SHOW ALL or a search; the list shows PAGE_SIZE at a time. Picking one that is linked elsewhere asks first (takenBy says to what).
 export default function LinkPicker({ open, title, subtitle, searchHint, allLabel, items, onPick, onCancel }) {
   const presence = usePresence(open)
+  useScrollLock(presence.mounted)
   const [query, setQuery] = useState('')
   const [showAll, setShowAll] = useState(false)
   const [confirm, setConfirm] = useState(null)

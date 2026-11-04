@@ -37,6 +37,7 @@ import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { resolveLinks, rankSectors } from '../utils/briefingLink'
 import { writeLink, clearLink } from '../services/linkSave'
 import LinkPicker from './LinkPicker'
+import { useScrollLock } from '../useScrollLock'
 import { sectorItem, briefingName, linkedSectorName } from './linkItems'
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
@@ -887,10 +888,7 @@ export default function BriefingView() {
   const capPresence = usePresence(showCapPrompt)
   const savePresence = usePresence(showSavePrompt)
 
-  useEffect(() => {
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [])
+  useScrollLock(true)
 
   useEffect(() => {
     const on = () => setIsOffline(false)

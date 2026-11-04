@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useMemo, useRef } from 'react'
+import { useScrollLock } from '../../../useScrollLock'
 import { aircraftStripeColors, aircraftChip, sectorRowColors } from '../utils/sectorColors'
 import { pickSelected, neighbour, rowText, aircraftText } from '../utils/sectorNav'
 import { formatHHMM } from '../utils/formatHHMM'
@@ -309,6 +310,7 @@ function SectorEditor({ logId, sector, index, total, color, actions, onRemarks, 
 }
 
 function RemarksModal({ sector, index, onSave, onCancel, closing }) {
+  useScrollLock(true)
   const [text, setText] = useState(sector.remark || '')
   const wrapRef = useRef()
   const taRef = useRef()

@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
 import { usePresence } from '../useTransitionAnim'
+import { useScrollLock } from '../useScrollLock'
 import ChamferFrame from '@brand/ChamferFrame'
 
 const mono = 'var(--cb-font-mono)'
@@ -9,6 +10,7 @@ const mono = 'var(--cb-font-mono)'
 // `what` is the noun shown in the title ("briefing", "log"); `name` is optional detail.
 export default function ConfirmDeleteModal({ open, what, name, onConfirm, onCancel }) {
   const presence = usePresence(open)
+  useScrollLock(presence.mounted)
   if (!presence.mounted) return null
 
   return createPortal(
