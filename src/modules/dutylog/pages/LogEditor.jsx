@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useScrollLock } from '../../../useScrollLock'
 import { aircraftStripeColors, aircraftChip, sectorRowColors } from '../utils/sectorColors'
 import { pickSelected, neighbour, rowText, aircraftText } from '../utils/sectorNav'
@@ -333,12 +334,15 @@ function RemarksModal({ sector, index, onSave, onCancel, closing }) {
     return () => document.removeEventListener('keydown', handle)
   }, [onCancel])
 
-  return (
+  // In <body>, not inside the app (its text-size zoom would skew the keyboard-area sizes); it sits
+  // in the visible area above the on-screen keyboard (see keyboardArea.js).
+  return createPortal(
     <div ref={wrapRef} className={`cp-backdrop-in${closing ? ' is-closing' : ''}`} style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)',
+      position: 'fixed', top: 'var(--kb-top, 0px)', left: 0, right: 0, height: 'var(--kb-h, 100%)', background: 'rgba(0,0,0,0.72)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, zIndex: 5,
     }}>
-      <ChamferFrame className={`cp-pop-in${closing ? ' is-closing' : ''}`} pad="14px" style={{ width: '100%', maxWidth: 460 }}>
+      <ChamferFrame className={`cp-pop-in${closing ? ' is-closing' : ''}`} pad="14px"
+        style={{ width: '100%', maxWidth: 460, maxHeight: 'calc(var(--kb-h, 100dvh) - 36px)', overflowY: 'auto' }}>
         <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.12em', color: 'var(--cp-txt)', marginBottom: 4 }}>
           SECTOR #{index + 1} — REMARKS
         </div>
@@ -355,7 +359,8 @@ function RemarksModal({ sector, index, onSave, onCancel, closing }) {
           </button>
         </div>
       </ChamferFrame>
-    </div>
+    </div>,
+    document.body
   )
 }
 

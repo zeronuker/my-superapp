@@ -55,11 +55,11 @@ export default function LinkPicker({ open, title, subtitle, searchHint, allLabel
   // shrinks and offsets a fixed overlay, so it was centred in a smaller area than the screen.
   return createPortal(
     <div onClick={onCancel} className={`cp-backdrop-in${presence.closing ? ' is-closing' : ''}`} style={{
-      position: 'fixed', inset: 0, zIndex: 450, background: 'rgba(0,0,0,0.72)',
+      position: 'fixed', top: 'var(--kb-top, 0px)', left: 0, right: 0, height: 'var(--kb-h, 100%)', zIndex: 450, background: 'rgba(0,0,0,0.72)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
     }}>
       <ChamferFrame onClick={e => e.stopPropagation()} className={`cp-pop-in${presence.closing ? ' is-closing' : ''}`} pad="14px"
-        style={{ width: '100%', maxWidth: 460, maxHeight: '86dvh', display: 'flex', flexDirection: 'column' }}>
+        style={{ width: '100%', maxWidth: 460, maxHeight: 'min(86dvh, calc(var(--kb-h, 100dvh) - 32px))', display: 'flex', flexDirection: 'column' }}>
         {confirm ? (
           <>
             <div style={{ fontFamily: mono, fontSize: 11, letterSpacing: '0.12em', color: 'var(--cp-txt)', marginBottom: 8 }}>REPLACE LINK?</div>

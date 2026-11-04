@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { usePresence } from '../useTransitionAnim'
 import { useScrollLock } from '../useScrollLock'
+import { keyboardUp } from '../keyboardArea'
 import * as Flags from 'country-flag-icons/react/3x2'
 import { CURRENCIES, CURRENCY_BY_CODE } from '../data/currencies.js'
 import { useShallow } from 'zustand/react/shallow'
@@ -122,17 +123,18 @@ function FlagIcon({ code, size = 22 }) {
 // covering the whole page. The page does not scroll.
 // `anchor` = { y } in document coordinates, captured when it opened.
 // The on-screen keyboard shrinks the visible area (window.visualViewport) without telling the
-// page layout, so the panel follows that area: it stays where it was tapped while it fits and
-// is pushed up (never below the keyboard) when it does not. Its result list shrinks via --cp-vvh.
+// page layout, so the panel follows that area: it opens where it was tapped and, while a keyboard
+// is up, sits in the middle of the visible area. Its result list shrinks via --cp-vvh.
 // The part of the document the user can see right now (document coordinates for `top`).
 function readView() {
   const vv = typeof window !== 'undefined' ? window.visualViewport : null
-  return vv ? { top: vv.pageTop, height: vv.height } : { top: window.scrollY, height: window.innerHeight }
+  return vv ? { top: vv.pageTop, height: vv.height, kb: keyboardUp() } : { top: window.scrollY, height: window.innerHeight, kb: false }
 }
-// Where the panel's top edge goes: the tapped spot, moved up if its bottom would fall under the
-// keyboard, but never above the visible area's top (8px margin).
+// Where the panel's top edge goes: the tapped spot normally; while a keyboard is up, the middle of
+// the visible area, never above its top (8px margin).
 function panelTop(wanted, view, panelH) {
   const min = view.top + 8
+  if (view.kb) return Math.max(min, view.top + (view.height - panelH) / 2)
   const max = view.top + view.height - panelH - 8
   return Math.max(min, Math.min(wanted, max))
 }
