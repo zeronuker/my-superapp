@@ -34,7 +34,6 @@ import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { resolveLinks, rankSectors } from '../utils/briefingLink'
 import { writeLink, clearLink } from '../services/linkSave'
 import LinkPicker from './LinkPicker'
-import { LinkChip, LinkLine } from './LinkChips'
 import { sectorItem, briefingName, linkedSectorName } from './linkItems'
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
@@ -673,6 +672,42 @@ function SaveBeforeClosePrompt({ onSave, onDiscard, onCancel, closing }) {
   )
 }
 
+// ── The saved briefing's DUTY LOG chip: dashed "+ DUTY LOG" to link one, or a solid chip whose menu
+// goes to the log, changes it, or unlinks it ──
+const chipBase = { fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.08em', fontWeight: 500, cursor: 'pointer', padding: '5px 9px', borderRadius: 4, whiteSpace: 'nowrap' }
+function DutyLogChip({ linked, sectorName, onLink, onGoTo, onChange, onUnlink }) {
+  const [open, setOpen] = useState(false)
+  if (!linked) {
+    return <button onClick={onLink} style={{ ...chipBase, color: 'var(--cp-dim)', background: 'transparent', border: '1px dashed var(--cp-border)' }}>+ DUTY LOG</button>
+  }
+  const item = (label, fn, color) => (
+    <button onClick={() => { setOpen(false); fn() }} style={{
+      display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none',
+      cursor: 'pointer', fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: color || 'var(--cp-txt)',
+    }}>{label}</button>
+  )
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open}
+        style={{ ...chipBase, color: 'var(--cp-acc)', background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)' }}>DUTY LOG ▾</button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
+          <div role="menu" style={{
+            position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 10, minWidth: 180,
+            background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,0.4)', overflow: 'hidden',
+          }}>
+            {sectorName && <div style={{ padding: '8px 12px 2px', fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--cp-dim)' }}>{sectorName}</div>}
+            {item('Go to duty log', onGoTo)}
+            {item('Change…', onChange)}
+            {item('Unlink', onUnlink, 'var(--cp-red)')}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function BriefingView() {
   const briefing = useCalculatorStore(s => s.briefing)
   const setBriefingData = useCalculatorStore(s => s.setBriefingData)
@@ -1035,10 +1070,6 @@ export default function BriefingView() {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: 2 }}>
-            {localEntry && (
-              <LinkChip linked={!!link} tone="mint" label="DUTY LOG" emptyLabel="LINK DUTY LOG"
-                onClick={() => (link ? openLog() : setPickOpen(true))} />
-            )}
             {!isSaved && data && (
               <button onClick={attemptSave} disabled={saving} className="cp-btn" style={{ fontSize: 10, letterSpacing: '0.1em' }}>
                 {saving ? 'SAVING…' : 'SAVE'}
@@ -1047,12 +1078,6 @@ export default function BriefingView() {
             <button onClick={requestClose} className="cp-btn" style={{ width: 28, height: 28, padding: 0 }}>✕</button>
           </div>
         </div>
-
-        {localEntry && link && (
-          <LinkLine style={{ padding: '6px 18px 0' }}
-            text={`Duty log linked by you · ${linkedSectorName(dutyLogs, link)}`}
-            onChange={() => setPickOpen(true)} onUnlink={unlink} />
-        )}
 
         {saveError && (
           <div style={{ color: 'var(--cp-red)', fontFamily: 'var(--cb-font-mono)', fontSize: 11,
@@ -1080,10 +1105,17 @@ export default function BriefingView() {
                 </div>
               )}
 
-              <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)',
-                letterSpacing: '0.08em', marginBottom: 14 }}>
-                {route.dep && route.arr ? `${route.dep} → ${route.arr}` : route.dep || route.arr}
-                {fetchedAt && ` · FETCHED ${new Date(fetchedAt).toUTCString().toUpperCase()}`}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14 }}>
+                <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em', minWidth: 0 }}>
+                  {route.dep && route.arr ? `${route.dep} → ${route.arr}` : route.dep || route.arr}
+                  {fetchedAt && ` · FETCHED ${new Date(fetchedAt).toUTCString().toUpperCase()}`}
+                </div>
+                {localEntry && (
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <DutyLogChip linked={!!link} sectorName={link ? linkedSectorName(dutyLogs, link) : ''}
+                      onLink={() => setPickOpen(true)} onGoTo={openLog} onChange={() => setPickOpen(true)} onUnlink={unlink} />
+                  </div>
+                )}
               </div>
 
               <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} mapView={savedEntry?.mapView ?? null} savedAt={savedEntry?.savedAt} saved={isSaved} sigmets={sigmets} routeFixes={data?.routeFixes} routeError={data?.routeError} fixNamesOn={!!flightDetails && data?.routeFixes?.length > 0} />
