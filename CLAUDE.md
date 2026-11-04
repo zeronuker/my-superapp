@@ -214,7 +214,7 @@ when asked. The service worker caches aggressively; users get an update prompt
   (`mapSnapshot`/`mapView`); if the photo fails nothing changes. `ofpAt` on the save (also in `briefingRow`) makes the
   next cloud SYNC resend the briefing and its map (`planSync`/`pushOne`).
 - **Duty Log editor layout (`modules/dutylog/pages/LogEditor.jsx`, `utils/sectorNav.js`, `.dutylog-*` rules in
-  `index.css`)** — aircraft and sectors are one-line rows (aircraft: reg · type · config with ▾, tap to open, ▴ in the open card folds it; several aircraft can be open at once, side by side on a wide screen, each framed in its aircraft colour;
+  `index.css`)** — aircraft and sectors are one-line rows (aircraft: reg · type · config with ▾, a big ▾ / ▴ button opens and folds it; REMOVE AIRCRAFT sits at the card's foot, REMOVE SECTOR at the left of the sector footer (‹ SECTOR x of y › on the right), both asking CANCEL / REMOVE first, so delete is never beside the fold button; unselected sector rows show no icon, the selected one a ●; several aircraft can be open at once, side by side on a wide screen, each framed in its aircraft colour;
   sector: flight, route, aircraft chip), ONE sector open at a time. Wide screens (landscape or ≥640px): the rows in a
   left column, the open sector's editor in a right column that stays in view (`position: sticky`); phone: the editor
   opens in place between the rows. The editor ends with ‹ SECTOR x of y › (buttons only, no keyboard arrows); ENG OUT is

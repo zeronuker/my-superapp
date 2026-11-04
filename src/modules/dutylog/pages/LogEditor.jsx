@@ -80,19 +80,36 @@ const addBtnStyle = (atMax) => ({
   opacity: atMax ? 0.55 : 1,
 })
 
+// The aircraft ▾ / ▴: a large button so a thumb can hit it, kept well away from the REMOVE button at the card's foot.
+const bigArrow = { width: 34, height: 30, display: 'grid', placeItems: 'center', flexShrink: 0, border: '1px solid var(--cp-border)', borderRadius: 5, color: 'var(--cp-txt)', fontSize: 17, lineHeight: 1, background: 'transparent' }
+const removeBtn = { fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', whiteSpace: 'nowrap', cursor: 'pointer', padding: '7px 9px', borderRadius: 5, color: 'var(--cp-red)', background: 'transparent', border: '1px solid color-mix(in srgb, var(--cp-red) 55%, transparent)' }
+
+// "Remove sector #3? … CANCEL  REMOVE" — nothing is deleted until REMOVE is tapped.
+function ConfirmRemove({ text, onCancel, onConfirm }) {
+  return (
+    <div role="alertdialog" style={{ marginTop: 8, border: '1px solid var(--cp-red)', borderRadius: 6, padding: '8px 10px',
+      background: 'color-mix(in srgb, var(--cp-red) 8%, var(--cp-bg2))', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <span style={{ flex: 1, minWidth: 140, fontFamily: mono, fontSize: 10, color: 'var(--cp-txt)', lineHeight: 1.5 }}>{text}</span>
+      <button onClick={onCancel} className="cp-btn" style={{ padding: '5px 9px', fontSize: 10 }}>CANCEL</button>
+      <button onClick={onConfirm} style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: '5px 10px', borderRadius: 5, border: '1px solid var(--cp-red)', background: '#b91c1c', color: '#fff' }}>REMOVE</button>
+    </div>
+  )
+}
+
 function AircraftRow({ aircraft, index, onOpen }) {
   const color = aircraftStripeColors[index % aircraftStripeColors.length]
   const t = aircraftText(aircraft)
   return (
-    <button type="button" onClick={onOpen} aria-label={`open aircraft ${index + 1}`} style={rowStyle(color, false)}>
+    <button type="button" onClick={onOpen} aria-label={`open aircraft ${index + 1}`} style={{ ...rowStyle(color, false), padding: '6px 8px 6px 10px' }}>
       <span style={badgeStyle}>#{index + 1}</span>
       <span style={rowMain}><b style={{ fontWeight: 600 }}>{t.main}</b><span style={{ color: 'var(--cp-dim)' }}>{t.rest}</span></span>
-      <span style={{ color: 'var(--cp-dim)' }} aria-hidden="true">▾</span>
+      <span style={bigArrow} aria-hidden="true">▾</span>
     </button>
   )
 }
 
 function Aircraft({ logId, aircraft, index, total, actions, onClose }) {
+  const [confirming, setConfirming] = useState(false)
   const set = (patch) => actions.updateAircraft(logId, aircraft.id, patch)
   const f = (key) => (v) => set({ [key]: v })
   const stripeColor = aircraftStripeColors[index % aircraftStripeColors.length]
@@ -102,14 +119,7 @@ function Aircraft({ logId, aircraft, index, total, actions, onClose }) {
         <span style={{ ...badgeStyle, color: 'var(--cp-txt)' }}>
           AIRCRAFT #{index + 1}
         </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {total > 1 && (
-            <button onClick={() => actions.removeAircraft(logId, aircraft.id)} aria-label="remove aircraft"
-              className="cp-btn" style={{ padding: '2px 7px', color: 'var(--cp-red)' }}>✕</button>
-          )}
-          <button onClick={onClose} aria-label={`close aircraft ${index + 1}`}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-txt)', fontSize: 12, padding: '2px 6px' }}>▴</button>
-        </span>
+        <button onClick={onClose} aria-label={`close aircraft ${index + 1}`} style={{ ...bigArrow, cursor: 'pointer' }}>▴</button>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7, marginBottom: 7 }}>
         <Field label="Registration" value={aircraft.reg}  onChange={f('reg')} />
@@ -146,6 +156,15 @@ function Aircraft({ logId, aircraft, index, total, actions, onClose }) {
           </div>
         </div>
       </div>
+      {total > 1 && (
+        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed var(--cp-border2)' }}>
+          <button onClick={() => setConfirming(true)} aria-label="remove aircraft" style={removeBtn}>✕ &nbsp;REMOVE AIRCRAFT</button>
+          {confirming && (
+            <ConfirmRemove text={`Remove aircraft ${aircraft.reg || `#${index + 1}`}? Its sectors will be left without an aircraft.`}
+              onCancel={() => setConfirming(false)} onConfirm={() => actions.removeAircraft(logId, aircraft.id)} />
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -161,25 +180,28 @@ function SectorRow({ sector, index, selected, color, chip, chipColor, onSelect }
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.06em', padding: '2px 7px', borderRadius: 4, flexShrink: 0,
           ...aircraftChip(chipColor) }}>{chip}</span>
       )}
-      <span style={{ color: selected ? color : 'var(--cp-dim)' }} aria-hidden="true">{selected ? '●' : '▾'}</span>
+      {selected && <span style={{ color }} aria-hidden="true">●</span>}
     </button>
   )
 }
 
-// ‹ SECTOR 3 of 8 ›  — moves to the previous / next sector; each end is greyed out.
-function SectorNav({ index, total, onPrev, onNext }) {
+// Foot of the open sector: REMOVE SECTOR on the left, ‹ SECTOR 3 of 8 › on the right (each end greyed out).
+function SectorFooter({ index, total, onPrev, onNext, onRemove }) {
   const btn = (disabled) => ({
     width: 36, height: 30, padding: 0, fontSize: 16, lineHeight: 1,
     color: disabled ? 'var(--cp-dim)' : 'var(--cp-acc)', borderColor: disabled ? 'var(--cp-border)' : 'var(--cp-acc)',
     background: disabled ? 'transparent' : 'var(--cp-accdim)', opacity: disabled ? 0.45 : 1, cursor: disabled ? 'not-allowed' : 'pointer',
   })
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 10, paddingTop: 9, borderTop: '1px dashed var(--cp-border2)' }}>
-      <button className="cp-btn" aria-label="previous sector" disabled={index === 0} onClick={onPrev} style={btn(index === 0)}>‹</button>
-      <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.12em', minWidth: 120, textAlign: 'center', color: 'var(--cp-txt)' }}>
-        <span style={{ color: 'var(--cp-dim)' }}>SECTOR</span> {index + 1} <span style={{ color: 'var(--cp-dim)' }}>of</span> {total}
-      </span>
-      <button className="cp-btn" aria-label="next sector" disabled={index === total - 1} onClick={onNext} style={btn(index === total - 1)}>›</button>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 9, borderTop: '1px dashed var(--cp-border2)' }}>
+      {onRemove ? <button onClick={onRemove} aria-label="remove sector" style={removeBtn}>✕ REMOVE SECTOR</button> : <span />}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button className="cp-btn" aria-label="previous sector" disabled={index === 0} onClick={onPrev} style={btn(index === 0)}>‹</button>
+        <span style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', whiteSpace: 'nowrap', color: 'var(--cp-txt)' }}>
+          <span style={{ color: 'var(--cp-dim)' }}>SECTOR</span> {index + 1} <span style={{ color: 'var(--cp-dim)' }}>of</span> {total}
+        </span>
+        <button className="cp-btn" aria-label="next sector" disabled={index === total - 1} onClick={onNext} style={btn(index === total - 1)}>›</button>
+      </div>
     </div>
   )
 }
@@ -188,6 +210,7 @@ function SectorNav({ index, total, onPrev, onNext }) {
 function SectorEditor({ logId, sector, index, total, color, actions, onRemarks, aircraftList, link, onOpenLink, onPickLink, onUnlink, onPrev, onNext }) {
   const set = (patch) => actions.updateSector(logId, sector.id, patch)
   const f = (key) => (v) => set({ [key]: v })
+  const [confirming, setConfirming] = useState(false)
   const hasRemark = (sector.remark || '').trim().length > 0
 
   const showAcftChip = aircraftList.length > 1
@@ -219,10 +242,6 @@ function SectorEditor({ logId, sector, index, total, color, actions, onRemarks, 
           <LinkChip linked={!!link} tone="amber" label="BRIEFING" emptyLabel="LINK BRIEFING"
             onClick={() => (link ? onOpenLink(link.saveId) : onPickLink(sector.id))} />
         </div>
-        {total > 1 && (
-          <button onClick={() => actions.removeSector(logId, sector.id)} aria-label="remove sector"
-            className="cp-btn" style={{ padding: '2px 7px', color: 'var(--cp-red)' }}>✕</button>
-        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7, marginBottom: 7 }}>
@@ -265,7 +284,11 @@ function SectorEditor({ logId, sector, index, total, color, actions, onRemarks, 
           onChange={() => onPickLink(sector.id)} onUnlink={() => onUnlink(sector.id)} />
       )}
 
-      <SectorNav index={index} total={total} onPrev={onPrev} onNext={onNext} />
+      <SectorFooter index={index} total={total} onPrev={onPrev} onNext={onNext} onRemove={total > 1 ? () => setConfirming(true) : null} />
+      {confirming && (
+        <ConfirmRemove text={`Remove sector #${index + 1}${sector.fltNo ? ` (${sector.fltNo})` : ''}? This cannot be undone.`}
+          onCancel={() => setConfirming(false)} onConfirm={() => actions.removeSector(logId, sector.id)} />
+      )}
     </div>
   )
 }
