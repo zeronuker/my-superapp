@@ -15,9 +15,6 @@ export const neighbour = (sectors, index, dir) => sectors[index + dir] ?? null
 // What a folded row shows: "MH103" and "WMKK → VHHH", with — for what is not filled in yet.
 export const rowText = (s) => ({ flight: s.fltNo || '—', route: `${s.from || '—'} → ${s.dest || '—'}` })
 
-// True when the MORE part (ENG OUT and remarks) holds something, so MORE can show a dot.
-export const hasMore = (s) => [s.engN1, s.engAlt, s.engIas, s.remark].some(v => String(v ?? '').trim() !== '')
-
 // The folded aircraft line: "9M-LNQ · B738 · C16Y138", or NEW AIRCRAFT while nothing is typed.
 export function aircraftText(a) {
   if (![a.reg, a.type, a.config].some(Boolean)) return { main: 'NEW AIRCRAFT', rest: '' }

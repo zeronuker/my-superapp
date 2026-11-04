@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect, useMemo, useRef } from 'react'
-import { aircraftStripeColors } from '../utils/sectorColors'
-import { pickSelected, neighbour, rowText, hasMore, aircraftText } from '../utils/sectorNav'
+import { aircraftStripeColors, sectorRowColors } from '../utils/sectorColors'
+import { pickSelected, neighbour, rowText, aircraftText } from '../utils/sectorNav'
 import { formatHHMM } from '../utils/formatHHMM'
 import { usePresence, animDurationMs } from '../../../useTransitionAnim'
 import Collapse from '../../../components/Collapse'
@@ -63,8 +63,9 @@ function Field({ label, value, onChange, numeric, time, unit, unitPosition = 'su
 const badgeStyle = { fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)', background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px', flexShrink: 0 }
 const rowStyle = (color, selected) => ({
   display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer',
-  border: `1px solid ${selected ? 'var(--cp-acc)' : 'var(--cp-border2)'}`, borderLeft: `3px solid ${color}`, borderRadius: 6,
-  padding: '9px 10px', background: selected ? 'var(--cp-accdim)' : 'var(--cp-bg2)', fontFamily: mono, fontSize: 10, color: 'var(--cp-txt)',
+  border: `1px solid ${selected ? color : 'var(--cp-border2)'}`, borderLeft: `4px solid ${color}`, borderRadius: 6,
+  padding: '9px 10px', background: selected ? `color-mix(in srgb, ${color} 12%, var(--cp-bg2))` : 'var(--cp-bg2)',
+  fontFamily: mono, fontSize: 10, color: 'var(--cp-txt)',
 })
 const rowMain = { flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
 const addBtnStyle = (atMax) => ({
@@ -143,7 +144,7 @@ function Aircraft({ logId, aircraft, index, total, actions, onDone }) {
   )
 }
 
-function SectorRow({ sector, index, selected, color, chip, onSelect }) {
+function SectorRow({ sector, index, selected, color, chip, chipColor, onSelect }) {
   const t = rowText(sector)
   return (
     <button type="button" className="dutylog-srow" data-sector-id={sector.id} onClick={onSelect}
@@ -152,9 +153,9 @@ function SectorRow({ sector, index, selected, color, chip, onSelect }) {
       <span style={rowMain}><b style={{ fontWeight: 600 }}>{t.flight}</b> <span style={{ color: 'var(--cp-dim)' }}>{t.route}</span></span>
       {chip && (
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.06em', padding: '2px 7px', borderRadius: 4, flexShrink: 0,
-          border: `1px solid ${color}`, color, background: `${color}22` }}>{chip}</span>
+          border: `1px solid ${chipColor}`, color: chipColor, background: `${chipColor}22` }}>{chip}</span>
       )}
-      <span style={{ color: selected ? 'var(--cp-acc)' : 'var(--cp-dim)' }} aria-hidden="true">{selected ? '●' : '▾'}</span>
+      <span style={{ color: selected ? color : 'var(--cp-dim)' }} aria-hidden="true">{selected ? '●' : '▾'}</span>
     </button>
   )
 }
@@ -177,11 +178,10 @@ function SectorNav({ index, total, onPrev, onNext }) {
   )
 }
 
-// The one open sector: all its fields. ENG OUT and remarks sit under MORE.
-function SectorEditor({ logId, sector, index, total, actions, onRemarks, aircraftList, link, onOpenLink, onPickLink, onUnlink, onPrev, onNext }) {
+// The one open sector: all its fields, framed in its row's colour (thicker on the left).
+function SectorEditor({ logId, sector, index, total, color, actions, onRemarks, aircraftList, link, onOpenLink, onPickLink, onUnlink, onPrev, onNext }) {
   const set = (patch) => actions.updateSector(logId, sector.id, patch)
   const f = (key) => (v) => set({ [key]: v })
-  const [more, setMore] = useState(false)
   const hasRemark = (sector.remark || '').trim().length > 0
 
   const showAcftChip = aircraftList.length > 1
@@ -192,10 +192,10 @@ function SectorEditor({ logId, sector, index, total, actions, onRemarks, aircraf
   const acftColor = aircraftStripeColors[selIndex % aircraftStripeColors.length]
 
   return (
-    <div className="dutylog-open" data-sector-editor style={{ border: '1px solid var(--cp-acc)', borderLeft: `3px solid ${acftColor}`, borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
+    <div className="dutylog-open" data-sector-editor style={{ border: `1px solid ${color}`, borderLeft: `5px solid ${color}`, borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={badgeStyle}>
+          <span style={{ ...badgeStyle, color }}>
             SECTOR #{index + 1}
           </span>
           {showAcftChip && (
@@ -237,30 +237,22 @@ function SectorEditor({ logId, sector, index, total, actions, onRemarks, aircraf
         <Field label="On Block"  value={sector.onBlk}   onChange={f('onBlk')} time />
       </div>
 
-      <button onClick={() => setMore(m => !m)} aria-expanded={more} style={{
+      <div style={{ display: 'flex', gap: 9, alignItems: 'center', borderTop: '1px dashed var(--cp-border2)', paddingTop: 8, marginTop: 9 }}>
+        <span style={{ fontFamily: mono, fontSize: 8.5, letterSpacing: '0.1em', color: 'var(--cp-dim)', whiteSpace: 'nowrap' }}>ENG OUT</span>
+        <div style={{ flex: 1 }}><Field label="N1"  value={sector.engN1}  onChange={f('engN1')} numeric unit="%" /></div>
+        <div style={{ flex: 1 }}><Field label="ALT" value={sector.engAlt} onChange={f('engAlt')} numeric unit="FL" unitPosition="prefix" /></div>
+        <div style={{ flex: 1 }}><Field label="IAS" value={sector.engIas} onChange={f('engIas')} numeric unit="KTS" /></div>
+      </div>
+
+      <button onClick={() => onRemarks(sector.id)} style={{
         width: '100%', marginTop: 9, fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', cursor: 'pointer',
-        borderRadius: 6, padding: 7, color: hasMore(sector) ? 'var(--cp-acc)' : 'var(--cp-muted)',
-        border: `1px ${hasMore(sector) ? 'solid var(--cp-acc)' : 'dashed var(--cp-border)'}`, background: hasMore(sector) ? 'var(--cp-accdim)' : 'transparent',
+        borderRadius: 6, padding: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        color: hasRemark ? 'var(--cp-acc)' : 'var(--cp-muted)',
+        border: `1px ${hasRemark ? 'solid var(--cp-acc)' : 'dashed var(--cp-border)'}`,
+        background: hasRemark ? 'var(--cp-accdim)' : 'transparent',
       }}>
-        MORE · ENG OUT · REMARKS {hasMore(sector) && '● '}{more ? '▴' : '▾'}
+        {hasRemark ? 'REMARKS' : '+ ADD REMARKS'}
       </button>
-      <Collapse open={more}>
-        <div style={{ display: 'flex', gap: 9, alignItems: 'center', borderTop: '1px dashed var(--cp-border2)', paddingTop: 8, marginTop: 9 }}>
-          <span style={{ fontFamily: mono, fontSize: 8.5, letterSpacing: '0.1em', color: 'var(--cp-dim)', whiteSpace: 'nowrap' }}>ENG OUT</span>
-          <div style={{ flex: 1 }}><Field label="N1"  value={sector.engN1}  onChange={f('engN1')} numeric unit="%" /></div>
-          <div style={{ flex: 1 }}><Field label="ALT" value={sector.engAlt} onChange={f('engAlt')} numeric unit="FL" unitPosition="prefix" /></div>
-          <div style={{ flex: 1 }}><Field label="IAS" value={sector.engIas} onChange={f('engIas')} numeric unit="KTS" /></div>
-        </div>
-        <button onClick={() => onRemarks(sector.id)} style={{
-          width: '100%', marginTop: 9, fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', cursor: 'pointer',
-          borderRadius: 6, padding: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          color: hasRemark ? 'var(--cp-acc)' : 'var(--cp-muted)',
-          border: `1px ${hasRemark ? 'solid var(--cp-acc)' : 'dashed var(--cp-border)'}`,
-          background: hasRemark ? 'var(--cp-accdim)' : 'transparent',
-        }}>
-          {hasRemark ? 'REMARKS' : '+ ADD REMARKS'}
-        </button>
-      </Collapse>
 
       {link && (
         <LinkLine style={{ marginTop: 8, textAlign: 'center' }}
@@ -546,14 +538,15 @@ export default function LogEditor({ log, actions, onBack }) {
         {log.sectors.map((sec, i) => {
           const air = log.aircraft || []
           const ai = Math.max(0, air.findIndex(a => a.id === sec.aircraftId))
-          const color = aircraftStripeColors[ai % aircraftStripeColors.length]
+          const color = sectorRowColors[i % sectorRowColors.length]
+          const acftColor = aircraftStripeColors[ai % aircraftStripeColors.length]
           return (
             <Fragment key={sec.id}>
               <SectorRow sector={sec} index={i} selected={i === selIndex} color={color}
-                chip={air.length > 1 ? (air[ai]?.reg || `ACFT ${ai + 1}`).toUpperCase() : null}
+                chip={air.length > 1 ? (air[ai]?.reg || `ACFT ${ai + 1}`).toUpperCase() : null} chipColor={acftColor}
                 onSelect={() => { setSelSid(sec.id); showEditor() }} />
               {i === selIndex && (
-                <SectorEditor logId={log.id} sector={sec} index={i} total={log.sectors.length}
+                <SectorEditor logId={log.id} sector={sec} index={i} total={log.sectors.length} color={color}
                   actions={actions} onRemarks={setRemarkSid} aircraftList={air}
                   link={linkOf(sec)} onOpenLink={openSavedBriefing} onPickLink={startPick} onUnlink={unlink}
                   onPrev={() => go(-1)} onNext={() => go(1)} />

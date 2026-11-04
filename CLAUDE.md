@@ -217,8 +217,10 @@ when asked. The service worker caches aggressively; users get an update prompt
   `index.css`)** — aircraft and sectors are one-line rows (aircraft: reg · type · config, tap to open, DONE folds it;
   sector: flight, route, aircraft chip), ONE sector open at a time. Wide screens (landscape or ≥640px): the rows in a
   left column, the open sector's editor in a right column that stays in view (`position: sticky`); phone: the editor
-  opens in place between the rows. The editor ends with ‹ SECTOR x of y › (buttons only, no keyboard arrows); ENG OUT and
-  remarks sit under MORE (dot when filled). The bar colour = the aircraft (no per-sector colours here; the read-only
+  opens in place between the rows. The editor ends with ‹ SECTOR x of y › (buttons only, no keyboard arrows); ENG OUT is
+  always shown and + ADD REMARKS is a button. Each sector has its own colour (`sectorRowColors`, 8, ordered so look-alike
+  colours are never neighbours) on its row's left bar; the open sector's frame uses that colour all round, 5px on the
+  left; the aircraft shows as the chip (`aircraftStripeColors`). The read-only
   `ViewedSector` in `LogList.jsx` still uses `sectorStripeColors`). A new sector/aircraft opens by itself; arriving from a
   briefing (`focusSectorId`) opens that sector. Limits stay 2 aircraft, 8 sectors (the add buttons read MAX…). The saved
   log data, the briefing links and the cloud sync are unchanged.

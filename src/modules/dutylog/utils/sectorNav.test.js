@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { pickSelected, neighbour, rowText, hasMore, aircraftText } from './sectorNav'
+import { sectorRowColors } from './sectorColors'
+import { pickSelected, neighbour, rowText, aircraftText } from './sectorNav'
 
 const secs = ['a', 'b', 'c'].map(id => ({ id }))
 
@@ -38,16 +39,6 @@ describe('rowText', () => {
   })
 })
 
-describe('hasMore', () => {
-  it('is false when ENG OUT and remarks are empty', () => {
-    expect(hasMore({ engN1: '', engAlt: '', engIas: '', remark: '  ' })).toBe(false)
-  })
-  it('is true when any of them holds something', () => {
-    expect(hasMore({ engN1: '', engAlt: '', engIas: '250', remark: '' })).toBe(true)
-    expect(hasMore({ remark: 'Late pax' })).toBe(true)
-  })
-})
-
 describe('aircraftText', () => {
   it('joins registration, type and configuration', () => {
     expect(aircraftText({ reg: '9M-LNQ', type: 'B738', config: 'C16Y138' })).toEqual({ main: '9M-LNQ', rest: ' · B738 · C16Y138' })
@@ -57,5 +48,12 @@ describe('aircraftText', () => {
   })
   it('dashes the parts still missing', () => {
     expect(aircraftText({ reg: '9M-LNQ', type: '', config: '' })).toEqual({ main: '9M-LNQ', rest: ' · — · —' })
+  })
+})
+
+describe('sectorRowColors', () => {
+  it('has a colour for each of the 8 sectors, all different', () => {
+    expect(sectorRowColors).toHaveLength(8)
+    expect(new Set(sectorRowColors).size).toBe(8)
   })
 })
