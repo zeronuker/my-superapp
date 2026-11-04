@@ -554,32 +554,25 @@ html[data-hico="true"] .cp-input:focus {
 
 /* ── Duty log responsive layout ── */
 .dutylog-shell { max-width: 860px; margin: 0 auto; }
-.dutylog-aircraft-list, .dutylog-sector-list { display: flex; flex-direction: column; gap: 9px; }
+.dutylog-aircraft-list, .dutylog-sector-list { display: flex; flex-direction: column; gap: 6px; }
 
-/* Aircraft cards: 2 per row in landscape. Sector cards also in a wide portrait screen (tablet). */
-@media (orientation: landscape) {
-  .dutylog-aircraft-list {
-    display: grid; grid-template-columns: 1fr 1fr; align-items: start;
-  }
-  .dutylog-aircraft-list > div:only-child,
-  .dutylog-aircraft-list > div:nth-child(odd):last-child {
-    grid-column: 1 / -1;
-    justify-self: center;
-    width: calc(50% - 4.5px);
-  }
+/* Aircraft: one-line rows, two to a row on a wide screen; the open aircraft takes the full row. */
+@media (orientation: landscape), (min-width: 640px) {
+  .dutylog-aircraft-list { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  .dutylog-aircraft-list > .dutylog-open,
+  .dutylog-aircraft-list > :only-child { grid-column: 1 / -1; }
 }
+
+/* Sectors: a list of one-line rows (left) and the one open sector (right, stays in view while the list
+   scrolls). On a phone the open sector simply opens in place, between the rows. --n = number of rows. */
 @media (orientation: landscape), (min-width: 640px) {
   .dutylog-sector-list {
-    display: grid; grid-template-columns: 1fr 1fr; align-items: start;
+    display: grid; grid-template-columns: minmax(0, 330px) minmax(0, 1fr);
+    grid-template-rows: repeat(var(--n, 1), auto) 1fr;
+    column-gap: 14px; row-gap: 6px; align-items: start;
   }
-  /* Odd count — lone last card spans both columns, centered at half-width
-     instead of sticking to column 1 with dead space beside it. */
-  .dutylog-sector-list > div:only-child,
-  .dutylog-sector-list > div:nth-child(odd):last-child {
-    grid-column: 1 / -1;
-    justify-self: center;
-    width: calc(50% - 4.5px);
-  }
+  .dutylog-sector-list > .dutylog-srow { grid-column: 1; }
+  .dutylog-sector-list > .dutylog-open { grid-column: 2; grid-row: 1 / -1; position: sticky; top: 8px; }
 }
 
 /* ── Currency: one column on phones, two from 768px (inputs + rate source left, list right) ── */
@@ -682,7 +675,7 @@ html[data-hico="true"] .cp-input:focus {
 /* Phone landscape (short viewport height) — tighten card spacing so 2 aircraft
    + 2 sectors have a better chance of fitting without scrolling. */
 @media (orientation: landscape) and (max-height: 500px) {
-  .dutylog-aircraft-list > div, .dutylog-sector-list > div { padding: 6px 8px; }
+  .dutylog-aircraft-list > .dutylog-open, .dutylog-sector-list > .dutylog-open { padding: 6px 8px; }
 }
 
 /* Crew — single column (portrait) vs 2 evenly-split columns (landscape). */

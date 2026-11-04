@@ -213,6 +213,15 @@ when asked. The service worker caches aggressively; users get an update prompt
   the fix names on (SIGMET zones as of the save time, `sigmetsAt`) and the new picture REPLACES the old one
   (`mapSnapshot`/`mapView`); if the photo fails nothing changes. `ofpAt` on the save (also in `briefingRow`) makes the
   next cloud SYNC resend the briefing and its map (`planSync`/`pushOne`).
+- **Duty Log editor layout (`modules/dutylog/pages/LogEditor.jsx`, `utils/sectorNav.js`, `.dutylog-*` rules in
+  `index.css`)** — aircraft and sectors are one-line rows (aircraft: reg · type · config, tap to open, DONE folds it;
+  sector: flight, route, aircraft chip), ONE sector open at a time. Wide screens (landscape or ≥640px): the rows in a
+  left column, the open sector's editor in a right column that stays in view (`position: sticky`); phone: the editor
+  opens in place between the rows. The editor ends with ‹ SECTOR x of y › (buttons only, no keyboard arrows); ENG OUT and
+  remarks sit under MORE (dot when filled). The bar colour = the aircraft (no per-sector colours here; the read-only
+  `ViewedSector` in `LogList.jsx` still uses `sectorStripeColors`). A new sector/aircraft opens by itself; arriving from a
+  briefing (`focusSectorId`) opens that sector. Limits stay 2 aircraft, 8 sectors (the add buttons read MAX…). The saved
+  log data, the briefing links and the cloud sync are unchanged.
 - **Saved Briefings cloud backup (`services/briefingCloud.js`,
   `components/SavedBriefingsCloud.jsx`, `api/dutylog-sync.js` `&kind=briefing`)** —
   works like the Duty Log's backup and shares its sync code, owner device and
