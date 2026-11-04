@@ -6,7 +6,7 @@ import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
 import { SyncStatus, SyncBar, rowSyncing } from '../../../components/SyncStatus'
 import { ModuleHeader } from '../../../components/ModuleChrome'
 import { CODE_RE } from '../services/sync'
-import { sectorRowColors, aircraftStripeColors } from '../utils/sectorColors'
+import { sectorRowColors, aircraftStripeColors, aircraftChip } from '../utils/sectorColors'
 import { formatHHMM } from '../utils/formatHHMM'
 import { matchField } from '../utils/searchLogs'
 import { useCalculatorStore } from '../../../store/calculatorStore'
@@ -229,10 +229,9 @@ function ViewedSector({ sector, index, aircraftList }) {
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
             fontFamily: mono, fontSize: 9, letterSpacing: '0.06em', fontWeight: 500,
-            padding: '2px 7px', borderRadius: 4, border: `1px solid ${acftColor}`,
-            color: acftColor, background: `${acftColor}22`,
+            padding: '2px 7px', borderRadius: 4, ...aircraftChip(acftColor),
           }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: acftColor }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
             {(selAcft.reg || `ACFT ${selIndex + 1}`).toUpperCase()}
           </span>
         )}

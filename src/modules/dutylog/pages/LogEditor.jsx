@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect, useMemo, useRef } from 'react'
-import { aircraftStripeColors, sectorRowColors } from '../utils/sectorColors'
+import { aircraftStripeColors, aircraftChip, sectorRowColors } from '../utils/sectorColors'
 import { pickSelected, neighbour, rowText, aircraftText } from '../utils/sectorNav'
 import { formatHHMM } from '../utils/formatHHMM'
 import { usePresence, animDurationMs } from '../../../useTransitionAnim'
@@ -99,7 +99,7 @@ function Aircraft({ logId, aircraft, index, total, actions, onClose }) {
   return (
     <div className="dutylog-open" style={{ ...frame(stripeColor, stripeColor, 5), borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ ...badgeStyle, color: stripeColor }}>
+        <span style={{ ...badgeStyle, color: 'var(--cp-txt)' }}>
           AIRCRAFT #{index + 1}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -108,7 +108,7 @@ function Aircraft({ logId, aircraft, index, total, actions, onClose }) {
               className="cp-btn" style={{ padding: '2px 7px', color: 'var(--cp-red)' }}>✕</button>
           )}
           <button onClick={onClose} aria-label={`close aircraft ${index + 1}`}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: stripeColor, fontSize: 12, padding: '2px 6px' }}>▴</button>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-txt)', fontSize: 12, padding: '2px 6px' }}>▴</button>
         </span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7, marginBottom: 7 }}>
@@ -159,7 +159,7 @@ function SectorRow({ sector, index, selected, color, chip, chipColor, onSelect }
       <span style={rowMain}><b style={{ fontWeight: 600 }}>{t.flight}</b> <span style={{ color: 'var(--cp-dim)' }}>{t.route}</span></span>
       {chip && (
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.06em', padding: '2px 7px', borderRadius: 4, flexShrink: 0,
-          border: `1px solid ${chipColor}`, color: chipColor, background: `${chipColor}22` }}>{chip}</span>
+          ...aircraftChip(chipColor) }}>{chip}</span>
       )}
       <span style={{ color: selected ? color : 'var(--cp-dim)' }} aria-hidden="true">{selected ? '●' : '▾'}</span>
     </button>
@@ -209,10 +209,9 @@ function SectorEditor({ logId, sector, index, total, color, actions, onRemarks, 
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer',
                 fontFamily: mono, fontSize: 9, letterSpacing: '0.06em', fontWeight: 500,
-                padding: '2px 7px', borderRadius: 4, border: `1px solid ${acftColor}`,
-                color: acftColor, background: `${acftColor}22`,
+                padding: '2px 7px', borderRadius: 4, ...aircraftChip(acftColor),
               }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: acftColor }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
               {(selAcft.reg || `ACFT ${selIndex + 1}`).toUpperCase()}
               <span style={{ opacity: 0.6 }}>⇄</span>
             </button>

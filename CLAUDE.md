@@ -220,7 +220,7 @@ when asked. The service worker caches aggressively; users get an update prompt
   opens in place between the rows. The editor ends with ‹ SECTOR x of y › (buttons only, no keyboard arrows); ENG OUT is
   always shown and + ADD REMARKS is a button. Each sector has its own colour (`sectorRowColors`, 8, ordered so look-alike
   colours are never neighbours) on its row's left bar; the open sector's frame uses that colour all round, 5px on the
-  left; the aircraft shows as the chip (`aircraftStripeColors`). The same colours colour each duty's strip in the Duty Log
+  left; the aircraft shows as a solid chip with white text and frames its card (`aircraftStripeColors`: dark ochre-brown and deep ultramarine, chosen to look nothing like the 8 bright sector colours — measured with CIEDE2000, keep it that way if you change either list). The same colours colour each duty's strip in the Duty Log
   list and the read-only `ViewedSector` (`LogList.jsx`). Borders there use separate width/style/colour props (`frame()`):
   a `border` shorthand next to `borderLeft` loses the left edge when React re-renders. A new sector/aircraft opens by itself; arriving from a
   briefing (`focusSectorId`) opens that sector. Limits stay 2 aircraft, 8 sectors (the add buttons read MAX…). The saved
