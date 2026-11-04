@@ -55,7 +55,7 @@ export default function LinkPicker({ open, title, subtitle, searchHint, allLabel
   // shrinks and offsets a fixed overlay, so it was centred in a smaller area than the screen.
   return createPortal(
     <div onClick={onCancel} className={`cp-backdrop-in${presence.closing ? ' is-closing' : ''}`} style={{
-      position: 'fixed', top: 'var(--kb-top, 0px)', left: 0, right: 0, height: 'var(--kb-h, 100%)', zIndex: 450, background: 'rgba(0,0,0,0.72)',
+      position: 'fixed', top: 'var(--kb-top, 0px)', left: 0, right: 0, height: 'var(--kb-h, 100%)', transition: 'top 0.15s ease, height 0.15s ease', zIndex: 450, background: 'rgba(0,0,0,0.72)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
     }}>
       <ChamferFrame onClick={e => e.stopPropagation()} className={`cp-pop-in${presence.closing ? ' is-closing' : ''}`} pad="14px"

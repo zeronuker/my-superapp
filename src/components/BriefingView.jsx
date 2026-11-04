@@ -646,9 +646,9 @@ function CapReachedPrompt({ oldest, cap, storageFull, onConfirm, onCancel, closi
 
 // ── Shown when a chosen OFP's airports differ from the saved briefing's ──
 const ofpBtn = { fontSize: 10, letterSpacing: '0.04em', padding: '8px 9px', whiteSpace: 'nowrap' }
-function OfpMismatchPrompt({ warn, onAdd, onAnother, onCancel }) {
+function OfpMismatchPrompt({ warn, onAdd, onAnother, onCancel, closing }) {
   return (
-    <BriefingPromptModal onDismiss={onCancel} closing={false}>
+    <BriefingPromptModal onDismiss={onCancel} closing={closing}>
       <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--cp-yellow)', marginBottom: 10 }}>
         Different flight?
       </div>
@@ -703,14 +703,15 @@ const CHIP_OFF = { color: 'var(--cp-dim)', background: 'transparent', border: '1
 // items: [{ label, onClick, color?, disabled? }]. `set` = solid chip (something is linked / added), else dashed.
 function MenuChip({ label, set, items, disabled }) {
   const [open, setOpen] = useState(false)
+  const presence = usePresence(open)
   return (
     <div style={{ position: 'relative' }}>
       <button onClick={() => !disabled && setOpen(o => !o)} disabled={disabled} aria-haspopup="menu" aria-expanded={open}
         style={{ ...chipBase, ...(set ? CHIP_ON : CHIP_OFF), ...(disabled ? { opacity: 0.4, cursor: 'not-allowed' } : {}) }}>{label} ▾</button>
-      {open && (
+      {presence.mounted && (
         <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
-          <div role="menu" style={{
+          {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />}
+          <div role="menu" className={`cp-drop-in${presence.closing ? ' is-closing' : ''}`} style={{
             position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 10, minWidth: 180,
             background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,0.4)', overflow: 'hidden',
           }}>
@@ -794,7 +795,10 @@ export default function BriefingView() {
   const ofpFileRef = useRef(null)
   const [ofpBusy, setOfpBusy] = useState('')        // '' | 'reading' | 'drawing'
   const [ofpNote, setOfpNote] = useState('')        // why it did not work (or a heads-up), shown under the row
+  const ofpAskShown = useRef(null)                 // keeps the last question on screen while its window fades out
   const [ofpAsk, setOfpAsk] = useState(null)        // { f, warn }: the OFP is for other airports — add anyway?
+  if (ofpAsk) ofpAskShown.current = ofpAsk
+  const ofpAskPresence = usePresence(!!ofpAsk)
   const [ofpJob, setOfpJob] = useState(null)        // { f, fd, pts }: the map is being redrawn
 
   const startOfp = (f) => {
@@ -1306,7 +1310,8 @@ export default function BriefingView() {
       </ChamferFrame>
     </div>
 
-    {ofpAsk && <OfpMismatchPrompt warn={ofpAsk.warn} onAdd={() => startOfp(ofpAsk.f)}
+    {ofpAskPresence.mounted && ofpAskShown.current && <OfpMismatchPrompt closing={ofpAskPresence.closing}
+      warn={ofpAskShown.current.warn} onAdd={() => startOfp(ofpAskShown.current.f)}
       onAnother={() => { setOfpAsk(null); ofpFileRef.current?.click() }} onCancel={() => setOfpAsk(null)} />}
 
     {capPresence.mounted && (

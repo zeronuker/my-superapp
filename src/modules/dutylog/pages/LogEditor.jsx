@@ -125,13 +125,22 @@ function AircraftRow({ aircraft, index, onOpen }) {
   )
 }
 
-function Aircraft({ logId, aircraft, index, total, actions, onClose }) {
+// Phone: one aircraft is a one-line row or, once opened, its card. Keeps the card on screen for its fold-away animation.
+function PhoneAircraft({ logId, aircraft, index, total, actions, open, onToggle }) {
+  const presence = usePresence(open)
+  return presence.mounted
+    ? <Aircraft logId={logId} aircraft={aircraft} index={index} total={total} actions={actions}
+        onClose={onToggle} closing={presence.closing} />
+    : <AircraftRow aircraft={aircraft} index={index} onOpen={onToggle} />
+}
+
+function Aircraft({ logId, aircraft, index, total, actions, onClose, closing = false }) {
   const [confirming, setConfirming] = useState(false)
   const set = (patch) => actions.updateAircraft(logId, aircraft.id, patch)
   const f = (key) => (v) => set({ [key]: v })
   const stripeColor = aircraftStripeColors[index % aircraftStripeColors.length]
   return (
-    <div className="dutylog-open" style={{ ...frame(stripeColor, stripeColor, 5), borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
+    <div className={`dutylog-open cp-reveal-in${closing ? ' is-closing' : ''}`} style={{ ...frame(stripeColor, stripeColor, 5), borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ ...badgeStyle, color: 'var(--cp-txt)' }}>
           AIRCRAFT #{index + 1}
@@ -238,7 +247,7 @@ function SectorEditor({ logId, sector, index, total, color, actions, onRemarks, 
   const acftColor = aircraftStripeColors[selIndex % aircraftStripeColors.length]
 
   return (
-    <div className="dutylog-open" data-sector-editor style={{ ...frame(color, color, 5), borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
+    <div className="dutylog-open cp-reveal-in" data-sector-editor style={{ ...frame(color, color, 5), borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ ...badgeStyle, color }}>
@@ -338,7 +347,7 @@ function RemarksModal({ sector, index, onSave, onCancel, closing }) {
   // in the visible area above the on-screen keyboard (see keyboardArea.js).
   return createPortal(
     <div ref={wrapRef} className={`cp-backdrop-in${closing ? ' is-closing' : ''}`} style={{
-      position: 'fixed', top: 'var(--kb-top, 0px)', left: 0, right: 0, height: 'var(--kb-h, 100%)', background: 'rgba(0,0,0,0.72)',
+      position: 'fixed', top: 'var(--kb-top, 0px)', left: 0, right: 0, height: 'var(--kb-h, 100%)', transition: 'top 0.15s ease, height 0.15s ease', background: 'rgba(0,0,0,0.72)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, zIndex: 5,
     }}>
       <ChamferFrame className={`cp-pop-in${closing ? ' is-closing' : ''}`} pad="14px"
@@ -571,10 +580,8 @@ export default function LogEditor({ log, actions, onBack }) {
       <div className="dutylog-aircraft-list" style={{ marginBottom: 9 }}>
         {(log.aircraft || []).map((a, i) => (wide
           ? <Aircraft key={a.id} logId={log.id} aircraft={a} index={i} total={(log.aircraft || []).length} actions={actions} />
-          : openAids.includes(a.id)
-            ? <Aircraft key={a.id} logId={log.id} aircraft={a} index={i}
-                total={(log.aircraft || []).length} actions={actions} onClose={() => toggleAircraft(a.id)} />
-            : <AircraftRow key={a.id} aircraft={a} index={i} onOpen={() => toggleAircraft(a.id)} />
+          : <PhoneAircraft key={a.id} logId={log.id} aircraft={a} index={i} total={(log.aircraft || []).length}
+              actions={actions} open={openAids.includes(a.id)} onToggle={() => toggleAircraft(a.id)} />
         ))}
       </div>
 

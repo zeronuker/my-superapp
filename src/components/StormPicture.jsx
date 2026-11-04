@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Collapse from './Collapse'
+import { usePresence } from '../useTransitionAnim'
 import { formatSnapshotStamp } from '../utils/savedBriefings'
 import { ALERT_COLOR, compass } from '../utils/cyclones'
 
@@ -67,10 +68,10 @@ function StormDetails({ s, snap }) {
 }
 
 // The small card opened by tapping a storm on the map: the basics, a way to the full details, and a close button.
-function MapCard({ s, onClose, onFull }) {
+function MapCard({ s, onClose, onFull, closing }) {
   const [x, y] = [s.at[0] * 100, s.at[1] * 100]
   return (
-    <div role="dialog" aria-label={`${s.name} details`} onClick={e => e.stopPropagation()} style={{
+    <div role="dialog" aria-label={`${s.name} details`} className={`cp-pop-in${closing ? ' is-closing' : ''}`} onClick={e => e.stopPropagation()} style={{
       position: 'absolute', zIndex: 2, width: 232, maxWidth: '80%', boxSizing: 'border-box',
       left: `clamp(6px, calc(${x}% - 116px), calc(100% - 238px))`,
       ...(y > 55 ? { bottom: `calc(${100 - y}% + 22px)` } : { top: `calc(${y}% + 22px)` }),
@@ -100,6 +101,9 @@ export default function StormPicture({ snap }) {
   useEffect(() => { if (open) rows.current[open]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }, [open])
 
   const shown = snap.storms.find(s => s.id === card)
+  const lastShown = useRef(null)           // keeps the card on screen while it fades out
+  if (shown) lastShown.current = shown
+  const cardPresence = usePresence(!!shown)
   return (
     <div>
       <div style={{ position: 'relative' }}>
@@ -112,7 +116,10 @@ export default function StormPicture({ snap }) {
             padding: 0, border: 'none', borderRadius: '50%', background: 'transparent', cursor: 'pointer',
           }} />
         ))}
-        {shown && <MapCard s={shown} onClose={() => setCard(null)} onFull={() => { setOpen(shown.id); setCard(null) }} />}
+        {cardPresence.mounted && lastShown.current && (
+          <MapCard s={lastShown.current} closing={cardPresence.closing} onClose={() => setCard(null)}
+            onFull={() => { setOpen(lastShown.current.id); setCard(null) }} />
+        )}
       </div>
 
       <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
