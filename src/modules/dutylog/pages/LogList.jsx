@@ -6,7 +6,7 @@ import ScanViewfinderLoader from '../components/ScanViewfinderLoader'
 import { SyncStatus, SyncBar, rowSyncing } from '../../../components/SyncStatus'
 import { ModuleHeader } from '../../../components/ModuleChrome'
 import { CODE_RE } from '../services/sync'
-import { sectorStripeColors, aircraftStripeColors, logSegmentColors } from '../utils/sectorColors'
+import { sectorRowColors, aircraftStripeColors } from '../utils/sectorColors'
 import { formatHHMM } from '../utils/formatHHMM'
 import { matchField } from '../utils/searchLogs'
 import { useCalculatorStore } from '../../../store/calculatorStore'
@@ -79,7 +79,7 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
     }}>
       <div style={{ width: 3, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         {Array.from({ length: n }).map((_, i) => (
-          <div key={i} style={{ flex: 1, background: logSegmentColors[i % logSegmentColors.length] }} />
+          <div key={i} style={{ flex: 1, background: sectorRowColors[i % sectorRowColors.length] }} />
         ))}
       </div>
       <div style={{ flex: 1, minWidth: 0, padding: 11 }}>
@@ -137,7 +137,7 @@ function ViewedLogRow({ log, onOpen, query, matchField }) {
     }}>
       <div style={{ width: 3, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         {Array.from({ length: n }).map((_, i) => (
-          <div key={i} style={{ flex: 1, background: logSegmentColors[i % logSegmentColors.length] }} />
+          <div key={i} style={{ flex: 1, background: sectorRowColors[i % sectorRowColors.length] }} />
         ))}
       </div>
       <div style={{ flex: 1, minWidth: 0, padding: '8px 10px' }}>
@@ -210,7 +210,7 @@ function ViewedAircraft({ aircraft, index }) {
 
 function ViewedSector({ sector, index, aircraftList }) {
   const hasRemark = (sector.remark || '').trim().length > 0
-  const stripeColor = sectorStripeColors[index % sectorStripeColors.length]
+  const stripeColor = sectorRowColors[index % sectorRowColors.length]
 
   const showAcftChip = aircraftList.length > 1
   let selIndex = aircraftList.findIndex(a => a.id === sector.aircraftId)

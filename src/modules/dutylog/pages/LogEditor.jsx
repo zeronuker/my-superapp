@@ -63,10 +63,13 @@ function Field({ label, value, onChange, numeric, time, unit, unitPosition = 'su
 const badgeStyle = { fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)', background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px', flexShrink: 0 }
 const rowStyle = (color, selected) => ({
   display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer',
-  border: `1px solid ${selected ? color : 'var(--cp-border2)'}`, borderLeft: `4px solid ${color}`, borderRadius: 6,
+  ...frame(color, selected ? color : 'var(--cp-border2)', 4), borderRadius: 6,
   padding: '9px 10px', background: selected ? `color-mix(in srgb, ${color} 12%, var(--cp-bg2))` : 'var(--cp-bg2)',
   fontFamily: mono, fontSize: 10, color: 'var(--cp-txt)',
 })
+// Border as separate width / style / colour props. A `border` shorthand next to a `borderLeft` longhand makes React drop the
+// coloured left edge the next time the shorthand changes (it did, when a row was tapped open or folded).
+const frame = (edge, rest, leftWidth) => ({ borderStyle: 'solid', borderWidth: `1px 1px 1px ${leftWidth}px`, borderColor: `${rest} ${rest} ${rest} ${edge}` })
 const rowMain = { flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
 const addBtnStyle = (atMax) => ({
   padding: '4px 8px',
@@ -94,7 +97,7 @@ function Aircraft({ logId, aircraft, index, total, actions, onDone }) {
   const f = (key) => (v) => set({ [key]: v })
   const stripeColor = aircraftStripeColors[index % aircraftStripeColors.length]
   return (
-    <div className="dutylog-open" style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
+    <div className="dutylog-open" style={{ ...frame(stripeColor, 'var(--cp-border2)', 3), borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={badgeStyle}>
           AIRCRAFT #{index + 1}
@@ -192,7 +195,7 @@ function SectorEditor({ logId, sector, index, total, color, actions, onRemarks, 
   const acftColor = aircraftStripeColors[selIndex % aircraftStripeColors.length]
 
   return (
-    <div className="dutylog-open" data-sector-editor style={{ border: `1px solid ${color}`, borderLeft: `5px solid ${color}`, borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
+    <div className="dutylog-open" data-sector-editor style={{ ...frame(color, color, 5), borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ ...badgeStyle, color }}>
