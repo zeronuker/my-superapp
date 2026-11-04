@@ -544,7 +544,7 @@ export default function LogEditor({ log, actions, onBack }) {
           {atMaxAircraft ? 'MAX 2 AIRCRAFT PER DUTY' : '+ ADD AIRCRAFT'}
         </button>
       </div>
-      <div className="dutylog-aircraft-list" data-open={(log.aircraft || []).filter(a => openAids.includes(a.id)).length} style={{ marginBottom: 9 }}>
+      <div className="dutylog-aircraft-list" style={{ marginBottom: 9 }}>
         {(log.aircraft || []).map((a, i) => (openAids.includes(a.id)
           ? <Aircraft key={a.id} logId={log.id} aircraft={a} index={i}
               total={(log.aircraft || []).length} actions={actions} onClose={() => toggleAircraft(a.id)} />
