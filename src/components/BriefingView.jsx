@@ -644,6 +644,7 @@ function CapReachedPrompt({ oldest, cap, storageFull, onConfirm, onCancel, closi
 }
 
 // ── Shown when a chosen OFP's airports differ from the saved briefing's ──
+const ofpBtn = { fontSize: 10, letterSpacing: '0.04em', padding: '8px 9px', whiteSpace: 'nowrap' }
 function OfpMismatchPrompt({ warn, onAdd, onAnother, onCancel }) {
   return (
     <BriefingPromptModal onDismiss={onCancel} closing={false}>
@@ -653,14 +654,10 @@ function OfpMismatchPrompt({ warn, onAdd, onAnother, onCancel }) {
       <div style={{ fontSize: 12, color: 'var(--cp-txt)', lineHeight: 1.6, marginBottom: 18 }}>
         {warn} Add it anyway? Its flight details and route replace the ones shown here.
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
-        <button onClick={onAnother} className="cp-btn" style={{ fontSize: 11, flexBasis: '100%' }}>Select another OFP</button>
-        <button onClick={onCancel} className="cp-btn" style={{ fontSize: 11 }}>Cancel</button>
-        <button onClick={onAdd} style={{
-          fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
-          padding: '8px 14px', borderRadius: 6, cursor: 'pointer',
-          border: '1px solid var(--cp-acc)', background: 'var(--cp-accdim)', color: 'var(--cp-acc)',
-        }}>Add anyway</button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+        <button onClick={onCancel} className="cp-btn" style={ofpBtn}>Cancel</button>
+        <button onClick={onAnother} className="cp-btn" style={ofpBtn}>Select another OFP</button>
+        <button onClick={onAdd} className="cp-btn" style={{ ...ofpBtn, fontWeight: 700, color: 'var(--cp-acc)', borderColor: 'var(--cp-acc)', background: 'var(--cp-accdim)' }}>Add anyway</button>
       </div>
     </BriefingPromptModal>
   )
