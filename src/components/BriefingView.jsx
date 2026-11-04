@@ -644,7 +644,7 @@ function CapReachedPrompt({ oldest, cap, storageFull, onConfirm, onCancel, closi
 }
 
 // ── Shown when a chosen OFP's airports differ from the saved briefing's ──
-function OfpMismatchPrompt({ warn, onAdd, onCancel }) {
+function OfpMismatchPrompt({ warn, onAdd, onAnother, onCancel }) {
   return (
     <BriefingPromptModal onDismiss={onCancel} closing={false}>
       <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--cp-yellow)', marginBottom: 10 }}>
@@ -653,7 +653,8 @@ function OfpMismatchPrompt({ warn, onAdd, onCancel }) {
       <div style={{ fontSize: 12, color: 'var(--cp-txt)', lineHeight: 1.6, marginBottom: 18 }}>
         {warn} Add it anyway? Its flight details and route replace the ones shown here.
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
+        <button onClick={onAnother} className="cp-btn" style={{ fontSize: 11, flexBasis: '100%' }}>Select another OFP</button>
         <button onClick={onCancel} className="cp-btn" style={{ fontSize: 11 }}>Cancel</button>
         <button onClick={onAdd} style={{
           fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
@@ -1310,7 +1311,8 @@ export default function BriefingView() {
       </ChamferFrame>
     </div>
 
-    {ofpAsk && <OfpMismatchPrompt warn={ofpAsk.warn} onAdd={() => startOfp(ofpAsk.f)} onCancel={() => setOfpAsk(null)} />}
+    {ofpAsk && <OfpMismatchPrompt warn={ofpAsk.warn} onAdd={() => startOfp(ofpAsk.f)}
+      onAnother={() => { setOfpAsk(null); ofpFileRef.current?.click() }} onCancel={() => setOfpAsk(null)} />}
 
     {capPresence.mounted && (
       <CapReachedPrompt
