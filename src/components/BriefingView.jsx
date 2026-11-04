@@ -9,6 +9,9 @@ import { buildRouteLine } from '../utils/routeParse'
 import { FIX_OVERRIDES } from '../data/fixOverrides'
 import { syncModuleCaches, BRIEFING_METAR_HOURS } from '../services/briefingSync'
 import { lookupAirport } from '../data/airports'
+import { readOfpFile } from '../services/ofpFile'
+import { ofpToFields } from '../utils/ofpParse'
+import { flightDetailsFrom, ofpWaypoints, ofpMismatch, applyOfp } from '../utils/ofpAttach'
 import {
   CAT_COLORS, WIND_COLORS,
   getMetarFlightCat, getWindSev, tokenizeRaw, parseTafSegments,
@@ -414,7 +417,7 @@ function SavedSigmetPopup({ tap, boxW, onClose }) {
   )
 }
 
-const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, mapView, savedAt, saved, sigmets, routeFixes, routeError, fixNamesOn }, ref) {
+const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, isOffline, mapSnapshot, mapView, savedAt, saved, sigmets, routeFixes, routeError, fixNamesOn, redrawing }, ref) {
   const [tab, setTab] = useState('static')
   // Tap on a saved picture: { x, y, features } in the picture box's pixels, or null.
   const [tap, setTap] = useState(null)
@@ -574,7 +577,7 @@ const RouteMap = forwardRef(function RouteMap({ dep, arr, destAltList, eraList, 
         ) : tab === 'live' ? (
           <WindyRouteMap markers={markers} isOffline={isOffline} />
         ) : (
-          <CartoRouteMap ref={cartoRef} markers={markers} routeLine={routeLine} showFixNames={showFixNames} styleKey={styleKey} isOffline={isOffline} mapSnapshot={mapSnapshot} sigmets={sigmets} />
+          <CartoRouteMap ref={cartoRef} markers={markers} routeLine={routeLine} showFixNames={showFixNames} styleKey={styleKey} isOffline={isOffline} mapSnapshot={mapSnapshot} sigmets={sigmets} sigmetsAt={redrawing ? savedAt : undefined} />
         )}
       </div>
       {(routeLine?.missing.length > 0 || routeError) && (
@@ -640,6 +643,28 @@ function CapReachedPrompt({ oldest, cap, storageFull, onConfirm, onCancel, closi
   )
 }
 
+// ── Shown when a chosen OFP's airports differ from the saved briefing's ──
+function OfpMismatchPrompt({ warn, onAdd, onCancel }) {
+  return (
+    <BriefingPromptModal onDismiss={onCancel} closing={false}>
+      <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--cp-yellow)', marginBottom: 10 }}>
+        Different flight?
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--cp-txt)', lineHeight: 1.6, marginBottom: 18 }}>
+        {warn} Add it anyway? Its flight details and route replace the ones shown here.
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button onClick={onCancel} className="cp-btn" style={{ fontSize: 11 }}>Cancel</button>
+        <button onClick={onAdd} style={{
+          fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+          padding: '8px 14px', borderRadius: 6, cursor: 'pointer',
+          border: '1px solid var(--cp-acc)', background: 'var(--cp-accdim)', color: 'var(--cp-acc)',
+        }}>Add anyway</button>
+      </div>
+    </BriefingPromptModal>
+  )
+}
+
 // ── Shown only when closing (✕/Escape/backdrop) a fresh, never-saved briefing ──
 function SaveBeforeClosePrompt({ onSave, onDiscard, onCancel, closing }) {
   return (
@@ -672,24 +697,17 @@ function SaveBeforeClosePrompt({ onSave, onDiscard, onCancel, closing }) {
   )
 }
 
-// ── The saved briefing's DUTY LOG chip: dashed "+ DUTY LOG" to link one, or a solid chip whose menu
-// goes to the log, changes it, or unlinks it ──
+// ── The small chips on a saved briefing's info row: one opens a menu of actions ──
 const chipBase = { fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.08em', fontWeight: 500, cursor: 'pointer', padding: '5px 9px', borderRadius: 4, whiteSpace: 'nowrap' }
-function DutyLogChip({ linked, sectorName, onLink, onGoTo, onChange, onUnlink }) {
+const CHIP_ON = { color: 'var(--cp-acc)', background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)' }
+const CHIP_OFF = { color: 'var(--cp-dim)', background: 'transparent', border: '1px dashed var(--cp-border)' }
+// items: [{ label, onClick, color?, disabled? }]. `set` = solid chip (something is linked / added), else dashed.
+function MenuChip({ label, set, items, disabled }) {
   const [open, setOpen] = useState(false)
-  if (!linked) {
-    return <button onClick={onLink} style={{ ...chipBase, color: 'var(--cp-dim)', background: 'transparent', border: '1px dashed var(--cp-border)' }}>+ DUTY LOG</button>
-  }
-  const item = (label, fn, color) => (
-    <button onClick={() => { setOpen(false); fn() }} style={{
-      display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none',
-      cursor: 'pointer', fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: color || 'var(--cp-txt)',
-    }}>{label}</button>
-  )
   return (
     <div style={{ position: 'relative' }}>
-      <button onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open}
-        style={{ ...chipBase, color: 'var(--cp-acc)', background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)' }}>DUTY LOG ▾</button>
+      <button onClick={() => !disabled && setOpen(o => !o)} disabled={disabled} aria-haspopup="menu" aria-expanded={open}
+        style={{ ...chipBase, ...(set ? CHIP_ON : CHIP_OFF), ...(disabled ? { opacity: 0.4, cursor: 'not-allowed' } : {}) }}>{label} ▾</button>
       {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
@@ -697,10 +715,15 @@ function DutyLogChip({ linked, sectorName, onLink, onGoTo, onChange, onUnlink })
             position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 10, minWidth: 180,
             background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,0.4)', overflow: 'hidden',
           }}>
-            {sectorName && <div style={{ padding: '8px 12px 2px', fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--cp-dim)' }}>{sectorName}</div>}
-            {item('Go to duty log', onGoTo)}
-            {item('Change…', onChange)}
-            {item('Unlink', onUnlink, 'var(--cp-red)')}
+            {items.map(it => it.heading ? (
+              <div key={it.heading} style={{ padding: '8px 12px 2px', fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--cp-dim)' }}>{it.heading}</div>
+            ) : (
+              <button key={it.label} disabled={it.disabled} onClick={() => { setOpen(false); it.onClick() }} style={{
+                display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none',
+                cursor: it.disabled ? 'not-allowed' : 'pointer', opacity: it.disabled ? 0.4 : 1,
+                fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: it.color || 'var(--cp-txt)',
+              }}>{it.label}</button>
+            ))}
           </div>
         </>
       )}
@@ -765,6 +788,61 @@ export default function BriefingView() {
   const [saving, setSaving] = useState(false)
   const savingRef = useRef(false)
   const routeMapRef = useRef(null)
+
+  // Adding an OFP to this saved briefing (ADD / CHANGE OFP): read the file, then redraw the map with its waypoints
+  // while the live map is shown for a moment, then store both. Nothing changes unless every step worked.
+  const attachOfp = useCalculatorStore(s => s.attachOfp)
+  const ofpFileRef = useRef(null)
+  const [ofpBusy, setOfpBusy] = useState('')        // '' | 'reading' | 'drawing'
+  const [ofpNote, setOfpNote] = useState('')        // why it did not work (or a heads-up), shown under the row
+  const [ofpAsk, setOfpAsk] = useState(null)        // { f, warn }: the OFP is for other airports — add anyway?
+  const [ofpJob, setOfpJob] = useState(null)        // { f, fd, pts }: the map is being redrawn
+
+  const startOfp = (f) => {
+    setOfpAsk(null)
+    const fd = flightDetailsFrom(f, lookupAirport(f.dep)?.tz ?? null, lookupAirport(f.arr)?.tz ?? null)
+    setOfpJob({ f, fd, pts: ofpWaypoints(f) })
+    setOfpBusy('drawing')
+  }
+  const pickOfp = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''   // lets the same file be chosen again
+    if (!file || !localEntry) return
+    setOfpNote(''); setOfpBusy('reading')
+    const r = await readOfpFile(file)
+    if (!r.ok) { setOfpNote(r.error); setOfpBusy(''); return }
+    const f = ofpToFields(r)
+    const warn = ofpMismatch(localEntry.route, f)
+    if (warn) { setOfpBusy(''); setOfpAsk({ f, warn }); return }
+    startOfp(f)
+  }
+  useEffect(() => {
+    if (!ofpJob || !localEntry) return
+    let dead = false
+    ;(async () => {
+      let snap = null
+      if (ofpJob.pts) {
+        await sleep(300)   // the live map mounts first
+        snap = await routeMapRef.current?.getMapSnapshot()
+        if (snap) { await sleep(700); snap = (await routeMapRef.current?.getMapSnapshot()) ?? snap }   // second still: the fix names have settled
+        if (dead) return
+        if (!snap) {
+          setOfpNote("Couldn't redraw the map — check your connection and try again. Nothing was changed.")
+          setOfpJob(null); setOfpBusy(''); return
+        }
+      }
+      const next = applyOfp(localEntry, ofpJob.f, ofpJob.fd)
+      const res = await attachOfp(localEntry.id, { ...next, ofpAt: Date.now() }, snap)
+      if (dead) return
+      if (!res.ok) setOfpNote(res.reason === 'full' ? 'OFP not added — device storage is full.' : 'OFP not added — could not write to device storage.')
+      else {
+        setActiveTab('flight')
+        if (!ofpJob.pts) setOfpNote('OFP added. It has no waypoint positions, so the map was not redrawn.')
+      }
+      setOfpJob(null); setOfpBusy('')
+    })()
+    return () => { dead = true }
+  }, [ofpJob])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Real close — ✕/Escape/backdrop. A fresh, unsaved fetch prompts to save
   // first; a saved entry (or an empty/still-loading session) just closes.
@@ -1112,13 +1190,34 @@ export default function BriefingView() {
                 </div>
                 {localEntry && (
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <DutyLogChip linked={!!link} sectorName={link ? linkedSectorName(dutyLogs, link) : ''}
-                      onLink={() => setPickOpen(true)} onGoTo={openLog} onChange={() => setPickOpen(true)} onUnlink={unlink} />
+                    {link ? (
+                      <MenuChip label="DUTY LOG" set items={[
+                        ...(linkedSectorName(dutyLogs, link) ? [{ heading: linkedSectorName(dutyLogs, link) }] : []),
+                        { label: 'Go to duty log', onClick: openLog },
+                        { label: 'Change…', onClick: () => setPickOpen(true) },
+                        { label: 'Unlink', onClick: unlink, color: 'var(--cp-red)' },
+                      ]} />
+                    ) : (
+                      <button onClick={() => setPickOpen(true)} style={{ ...chipBase, ...CHIP_OFF }}>+ DUTY LOG</button>
+                    )}
+                    <MenuChip label={ofpBusy ? (ofpBusy === 'reading' ? 'READING…' : 'DRAWING…') : 'OFP'} set={!!flightDetails}
+                      disabled={isOffline || !!ofpBusy} items={[
+                        { label: 'Add OFP', onClick: () => ofpFileRef.current?.click(), disabled: !!flightDetails },
+                        { label: 'Change OFP', onClick: () => ofpFileRef.current?.click(), disabled: !flightDetails },
+                      ]} />
                   </div>
                 )}
               </div>
 
-              <RouteMap ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline} mapSnapshot={savedEntry?.mapSnapshot ?? null} mapView={savedEntry?.mapView ?? null} savedAt={savedEntry?.savedAt} saved={isSaved} sigmets={sigmets} routeFixes={data?.routeFixes} routeError={data?.routeError} fixNamesOn={!!flightDetails && data?.routeFixes?.length > 0} />
+              {localEntry && <input ref={ofpFileRef} type="file" accept=".txt,.xml,.pdf,application/pdf,text/plain,text/xml"
+                onChange={pickOfp} style={{ display: 'none' }} aria-label="Choose OFP file" />}
+              {ofpNote && <div role="status" style={{ fontSize: 11, color: 'var(--cp-yellow)', margin: '-6px 0 12px' }}>{ofpNote}</div>}
+
+              <RouteMap key={ofpJob?.pts ? 'redraw' : 'saved'} ref={routeMapRef} dep={route.dep} arr={route.arr} destAltList={destAltList} eraList={eraList} isOffline={isOffline}
+                mapSnapshot={ofpJob?.pts ? null : savedEntry?.mapSnapshot ?? null} mapView={savedEntry?.mapView ?? null} savedAt={savedEntry?.savedAt}
+                saved={isSaved && !ofpJob?.pts} redrawing={!!ofpJob?.pts} sigmets={sigmets}
+                routeFixes={ofpJob?.pts ?? data?.routeFixes} routeError={ofpJob?.pts ? null : data?.routeError}
+                fixNamesOn={ofpJob?.pts ? true : !!flightDetails && data?.routeFixes?.length > 0} />
 
               <BriefingTabBar
                 tabs={tabs}
@@ -1210,6 +1309,8 @@ export default function BriefingView() {
         </div>
       </ChamferFrame>
     </div>
+
+    {ofpAsk && <OfpMismatchPrompt warn={ofpAsk.warn} onAdd={() => startOfp(ofpAsk.f)} onCancel={() => setOfpAsk(null)} />}
 
     {capPresence.mounted && (
       <CapReachedPrompt

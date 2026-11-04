@@ -33,6 +33,26 @@ const withPictures = (s, { sat, wind } = {}) => ({
   ...(wind ? { windSnapshot: { image: wind.image, takenAt: wind.at, fl: 340 } } : {}),
 })
 
+describe('an OFP added after saving', () => {
+  const withOfp = (s, at) => ({ ...s, ofpAt: at })
+  it('is pushed again, with its new map, though the cloud holds the same name and map count', async () => {
+    const cloudItem = { id: 'a', name: 'A', mapParts: 1, row: { ofpAt: null } }
+    expect(planSync([withOfp(save('a', 'A'), 5)], [cloudItem]).push.map(s => s.id)).toEqual(['a'])
+    const api = fakeApi({ items: [cloudItem] })
+    await syncSaves('code', 'dev', [withOfp(save('a', 'A', 'new-map'), 5)], api)
+    expect(api.sent).toEqual([['part', 'a', 0, 'new-map'], ['put', 'a', 1, null, 'WMKK']])
+    expect(api.puts[0].row.ofpAt).toBe(5)
+  })
+  it('is left alone once the cloud row shows the same OFP time', () => {
+    expect(planSync([withOfp(save('a', 'A'), 5)], [{ id: 'a', name: 'A', mapParts: 1, row: { ofpAt: 5 } }]).push).toEqual([])
+  })
+  it('does not resend an unchanged map', async () => {
+    const api = fakeApi({ items: [{ id: 'a', name: 'A', mapParts: 1, row: { ofpAt: 5 } }] })
+    await pushSaves('code', 'dev', [withOfp(save('a', 'A'), 5)], api)
+    expect(api.sent.map(x => x[0])).toEqual(['put'])
+  })
+})
+
 describe('planSync', () => {
   it('pushes new saves and renamed ones, removes cloud copies that are gone', () => {
     const saves = [save('a', 'A'), save('b', 'B2'), save('c', 'C')]

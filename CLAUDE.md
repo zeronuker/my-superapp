@@ -203,6 +203,16 @@ when asked. The service worker caches aggressively; users get an update prompt
   Weight bars: share of the OPERATIONAL limit, green up to 70%, amber to 80%,
   red above. Only one format prints some items: MORA, pax/cargo, take-off
   alternate and EDTO status (PDF); commercial flight number (XmlOFP).
+- **Add OFP to a saved briefing (`BriefingView.jsx` OFP ▾ chip, `utils/ofpAttach.js`, store `attachOfp`)** — on the info
+  row of the pilot's own saved briefings (not cloud copies), beside the DUTY LOG chip (a menu: Go to duty log / Change… /
+  Unlink). OFP ▾ has Add OFP (no OFP yet) and Change OFP (one already there); disabled offline, since the map picture
+  is redrawn from CARTO. The file is read on the device (`readOfpFile`); a different dep/arr asks "Add anyway?".
+  Only the Flight Details (`route.flightDetails`) and the route's waypoints (`route.routeText`, `data.routeFixes`)
+  change: everything else in the save (name, airports, alternates, FIRs, weather/NOTAM/SIGMET, Satellite pictures) is
+  left as saved, and the OFP's own alternates/FIRs are ignored. The live map is shown for a moment, photographed with
+  the fix names on (SIGMET zones as of the save time, `sigmetsAt`) and the new picture REPLACES the old one
+  (`mapSnapshot`/`mapView`); if the photo fails nothing changes. `ofpAt` on the save (also in `briefingRow`) makes the
+  next cloud SYNC resend the briefing and its map (`planSync`/`pushOne`).
 - **Saved Briefings cloud backup (`services/briefingCloud.js`,
   `components/SavedBriefingsCloud.jsx`, `api/dutylog-sync.js` `&kind=briefing`)** —
   works like the Duty Log's backup and shares its sync code, owner device and

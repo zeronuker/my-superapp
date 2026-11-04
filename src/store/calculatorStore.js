@@ -361,6 +361,25 @@ export const useCalculatorStore = create((set, get) => ({
     get().markBriefingUnsynced(id)
     return { ok: true }
   },
+  // An OFP added to a save after it was saved (see utils/ofpAttach.js): its flight details and waypoints, and the
+  // map picture redrawn with them — `map` is { image, view }, or null when the OFP had no waypoints to draw (the
+  // old picture stays). Replaces the old picture; the rest of the save stays
+  // as it was. If this save is the open briefing, the open view gets the same route and data.
+  attachOfp: async (id, { route, data, ofpAt }, map) => {
+    const current = get().briefing.saves.find(b => b.id === id)
+    if (!current) return { ok: false }
+    const next = { ...current, route, data, ofpAt, ...(map ? { mapSnapshot: map.image, mapView: map.view } : {}) }
+    try { await idbBackend.put(next) } catch (err) { return { ok: false, reason: isQuotaError(err) ? 'full' : 'error' } }
+    set(s => ({
+      briefing: {
+        ...s.briefing,
+        saves: s.briefing.saves.map(b => (b.id === id ? next : b)),
+        ...(s.briefing.savedId === id ? { route, data } : {}),
+      },
+    }))
+    get().markBriefingUnsynced(id)
+    return { ok: true }
+  },
   // The save's own copy of a hand-made duty log link: { logId, sectorId }, or null to drop it. The
   // sector keeps the other copy (`briefingLink`), written by the same handler.
   setSavedBriefingLink: async (id, dutyLink) => {

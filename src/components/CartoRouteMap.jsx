@@ -283,7 +283,7 @@ function drawMarkersOnSnapshot(map, baseCanvas, markers, routeLine, fixLayout, {
   return out
 }
 
-const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, showFixNames, styleKey, isOffline, mapSnapshot, sigmets }, ref) {
+const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, showFixNames, styleKey, isOffline, mapSnapshot, sigmets, sigmetsAt }, ref) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
@@ -299,7 +299,7 @@ const CartoRouteMap = forwardRef(function CartoRouteMap({ markers, routeLine, sh
   // `sigmets` is a fresh array every parent render, so redraw only when the set
   // of drawn zones actually changes (same trick the route layer can't use —
   // `markers` is also fresh each render, but it is cheap to re-add).
-  const sigGeo = useMemo(() => sigmetsToGeoJSON(sigmets), [sigmets])
+  const sigGeo = useMemo(() => sigmetsToGeoJSON(sigmets, sigmetsAt), [sigmets, sigmetsAt])  // sigmetsAt: redrawing a saved briefing's map shows the zones as they were when it was saved
   const sigKey = sigGeo.features.map(f => `${f.properties.num}|${f.properties.title}|${f.properties.valid}|${f.geometry.coordinates[0].length}`).join(';')
   const sigGeoRef = useRef(sigGeo)
   sigGeoRef.current = sigGeo

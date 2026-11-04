@@ -60,6 +60,9 @@ export const cloudApi = {
 // picture on this device is not the one up there.
 const picturesDiffer = (s, row) => (s.satSnapshot?.takenAt ?? null) !== (row.satAt ?? null) || (s.windSnapshot?.takenAt ?? null) !== (row.windAt ?? null)
 
+// An OFP added (or changed) after the briefing was saved redraws its map and rewrites its flight details.
+const ofpDiffers = (s, row) => (s.ofpAt ?? null) !== (row.ofpAt ?? null)
+
 // What a sync has to do: push saves the cloud lacks, holds under another name (a rename), holds
 // without its row summary (uploaded before the VIEW list drew rows) or holds with other pictures;
 // delete cloud copies of saves that are gone from this device.
@@ -67,7 +70,7 @@ export function planSync(saves, cloudItems) {
   const cloud = new Map(cloudItems.map(i => [i.id, i]))
   const local = new Set(saves.map(s => s.id))
   return {
-    push: saves.filter(s => { const c = cloud.get(s.id); return !c || c.name !== s.name || !c.row || picturesDiffer(s, c.row) }),
+    push: saves.filter(s => { const c = cloud.get(s.id); return !c || c.name !== s.name || !c.row || picturesDiffer(s, c.row) || ofpDiffers(s, c.row) }),
     remove: cloudItems.filter(i => !local.has(i.id)).map(i => i.id),
   }
 }
@@ -89,12 +92,12 @@ const PICTURES = [
   { kind: 'wind', field: 'windSnapshot', count: 'windParts', madeAt: 'windAt' },
 ]
 
-// One briefing up: its map pieces first (a map never changes after saving, so only when the cloud's count
-// differs), then each Satellite picture's pieces (when the cloud holds another picture, see picturesDiffer),
+// One briefing up: its map pieces first (a map only changes when an OFP is added, so only when the cloud's count
+// differs or its row shows another OFP), then each Satellite picture's pieces (when the cloud holds another picture, see picturesDiffer),
 // then the briefing itself without any of the pictures' data — it always stays small, however big they are.
 async function pushOne(api, code, deviceId, s, cloudItem) {
   const mapPieces = splitMap(s.mapSnapshot)
-  if (cloudItem?.mapParts !== mapPieces.length) {
+  if (cloudItem?.mapParts !== mapPieces.length || (cloudItem.row && ofpDiffers(s, cloudItem.row))) {
     for (let n = 0; n < mapPieces.length; n++) await api.putPart(code, deviceId, s.id, n, mapPieces[n])
   }
   const entry = { ...s, mapSnapshot: null }

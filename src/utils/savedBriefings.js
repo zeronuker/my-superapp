@@ -64,7 +64,8 @@ export function savedRowInfo(save) {
 export function briefingRow(save) {
   return {
     ...savedRowInfo(save), dep: save.route?.dep ?? null, arr: save.route?.arr ?? null, savedAt: save.savedAt,
-    satAt: save.satSnapshot?.takenAt ?? null, windAt: save.windSnapshot?.takenAt ?? null,   // when its cloud / winds pictures were made: a new one goes up again
+    satAt: save.satSnapshot?.takenAt ?? null, windAt: save.windSnapshot?.takenAt ?? null,
+    ofpAt: save.ofpAt ?? null,   // when an OFP was added to this save: its map and flight details go up again   // when its cloud / winds pictures were made: a new one goes up again
   }
 }
 
