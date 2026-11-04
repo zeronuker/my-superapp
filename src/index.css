@@ -556,11 +556,11 @@ html[data-hico="true"] .cp-input:focus {
 .dutylog-shell { max-width: 860px; margin: 0 auto; }
 .dutylog-aircraft-list, .dutylog-sector-list { display: flex; flex-direction: column; gap: 6px; }
 
-/* Aircraft: two to a row on a wide screen, folded or open — an open card keeps its half width, its neighbour stays
-   beside it. A log with a single aircraft uses the full row. */
+/* Aircraft cards are always open on a wide screen: two side by side (equal height); a single one sits in the middle at
+   half width. On a phone they are one-line rows that open in place (see LogEditor). */
 @media (orientation: landscape), (min-width: 640px) {
-  .dutylog-aircraft-list { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
-  .dutylog-aircraft-list > :only-child { grid-column: 1 / -1; }
+  .dutylog-aircraft-list { display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; }
+  .dutylog-aircraft-list > :only-child { grid-column: 1 / -1; justify-self: center; width: calc(50% - 3px); }
 }
 
 /* Sectors: a list of one-line rows (left) and the one open sector (right, stays in view while the list

@@ -59,6 +59,21 @@ function Field({ label, value, onChange, numeric, time, unit, unitPosition = 'su
   )
 }
 
+// Same test as the wide-screen rules in index.css: iPad, desktop and phone in landscape are "wide".
+const WIDE_QUERY = '(orientation: landscape), (min-width: 640px)'
+function useWide() {
+  const [wide, setWide] = useState(() => typeof matchMedia === 'function' && matchMedia(WIDE_QUERY).matches)
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return
+    const m = matchMedia(WIDE_QUERY)
+    const on = () => setWide(m.matches)
+    on()
+    m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
+  }, [])
+  return wide
+}
+
 // ── Folded rows: one line per aircraft / sector, tap to open ──
 const badgeStyle = { fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)', background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px', flexShrink: 0 }
 const rowStyle = (color, selected) => ({
@@ -119,7 +134,7 @@ function Aircraft({ logId, aircraft, index, total, actions, onClose }) {
         <span style={{ ...badgeStyle, color: 'var(--cp-txt)' }}>
           AIRCRAFT #{index + 1}
         </span>
-        <button onClick={onClose} aria-label={`close aircraft ${index + 1}`} style={{ ...bigArrow, cursor: 'pointer' }}>▴</button>
+        {onClose && <button onClick={onClose} aria-label={`close aircraft ${index + 1}`} style={{ ...bigArrow, cursor: 'pointer' }}>▴</button>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 7, marginBottom: 7 }}>
         <Field label="Registration" value={aircraft.reg}  onChange={f('reg')} />
@@ -458,10 +473,12 @@ export default function LogEditor({ log, actions, onBack }) {
     return () => setLeaveGuard(null)
   }, [])
 
-  // One aircraft and one sector are open at a time; the rest are one-line rows. A new log opens its blank aircraft.
+  // One sector is open at a time, the rest are one-line rows. Aircraft: always open on a wide screen; on a phone they are
+  // one-line rows (closed) that open and fold with the big arrow.
   const focusSectorId = useDutyLogStore(s => s.focusSectorId)
   const setFocusSectorId = useDutyLogStore(s => s.setFocusSectorId)
-  const [openAids, setOpenAids] = useState(() => (log.aircraft || []).filter(a => !a.reg && !a.type).map(a => a.id))
+  const wide = useWide()
+  const [openAids, setOpenAids] = useState([])   // phone only: aircraft always start folded; wide screens show them all open
   const toggleAircraft = (id) => setOpenAids(ids => (ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]))
   const [selSid, setSelSid] = useState(() => (log.sectors.some(s => s.id === focusSectorId) ? focusSectorId : log.sectors[0]?.id))
   const lastSelIndex = useRef(0)
@@ -545,10 +562,12 @@ export default function LogEditor({ log, actions, onBack }) {
         </button>
       </div>
       <div className="dutylog-aircraft-list" style={{ marginBottom: 9 }}>
-        {(log.aircraft || []).map((a, i) => (openAids.includes(a.id)
-          ? <Aircraft key={a.id} logId={log.id} aircraft={a} index={i}
-              total={(log.aircraft || []).length} actions={actions} onClose={() => toggleAircraft(a.id)} />
-          : <AircraftRow key={a.id} aircraft={a} index={i} onOpen={() => toggleAircraft(a.id)} />
+        {(log.aircraft || []).map((a, i) => (wide
+          ? <Aircraft key={a.id} logId={log.id} aircraft={a} index={i} total={(log.aircraft || []).length} actions={actions} />
+          : openAids.includes(a.id)
+            ? <Aircraft key={a.id} logId={log.id} aircraft={a} index={i}
+                total={(log.aircraft || []).length} actions={actions} onClose={() => toggleAircraft(a.id)} />
+            : <AircraftRow key={a.id} aircraft={a} index={i} onOpen={() => toggleAircraft(a.id)} />
         ))}
       </div>
 
