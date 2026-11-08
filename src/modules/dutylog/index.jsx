@@ -140,6 +140,7 @@ export function DutyLogBackupSync() {
   const logsBackedUp = logs.filter(l => isLogSynced(l, lastSyncedAt)).length
 
   const [copied, setCopied] = useState(false)
+  const [copiedBookmark, setCopiedBookmark] = useState(false)
   const [busy, setBusy] = useState(false)
   const [phase, setPhase] = useState('')           // while syncing: 'logs' | 'briefings'
   const [progress, setProgress] = useState(null)   // { done, total } of the briefings being sent
@@ -192,6 +193,16 @@ export function DutyLogBackupSync() {
     navigator.clipboard?.writeText(syncCode)
     setCopied(true)
     setTimeout(() => setCopied(false), 1200)
+  }
+
+  // The SuperApp OFP bookmark: run on cvr.batikair.com.my, it loads public/cvr-send.js, which sends a
+  // flight's XmlOFP to this code's OFP inbox (Briefing → + NEW → From CVR).
+  const bookmark = syncCode && `javascript:(()=>{window.__cbCvr={api:'${location.origin}',code:'${syncCode}'};` +
+    `const s=document.createElement('script');s.src='${location.origin}/cvr-send.js?'+Date.now();document.body.appendChild(s)})()`
+  const copyBookmark = () => {
+    navigator.clipboard?.writeText(bookmark)
+    setCopiedBookmark(true)
+    setTimeout(() => setCopiedBookmark(false), 1200)
   }
 
   const relTime = relativeTimeFromNow(lastSyncedAt, now)
@@ -260,6 +271,15 @@ export function DutyLogBackupSync() {
             lineHeight: 1.6,
           }}>
             Code &amp; QR stay visible here any time — e.g. to set up a second device. Only this device can push updates while it owns this code.
+          </div>
+
+          <div className="cp-divider" style={{ margin: '16px 0' }} />
+          <div className="cp-label" style={{ marginBottom: 6 }}>CVR BOOKMARK</div>
+          <button onClick={copyBookmark} className="cp-btn" style={{ width: '100%', padding: '8px 10px', marginBottom: 8 }}>
+            {copiedBookmark ? 'COPIED' : 'COPY CVR BOOKMARK'}</button>
+          <div style={{ fontFamily: mono, fontSize: 9, color: 'var(--cp-dim)', letterSpacing: '0.06em', lineHeight: 1.6 }}>
+            Sends an OFP from cvr.batikair.com.my to Briefing → + NEW → From CVR. Set up once in Safari: bookmark any page,
+            name it "SuperApp OFP", then edit it and paste this as its address. On the CVR site, tap the bookmark.
           </div>
         </div>
       ) : (

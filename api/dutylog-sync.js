@@ -27,6 +27,14 @@
  * be any size, so the client cuts each into pieces (each under the document limit) and sends them BEFORE the
  * entry, which records how many there are: a briefing that exists in the cloud is therefore always complete.
  * Map pieces are stored as parts/<n> (as they always were); the others as parts/sat-<n> and parts/wind-<n>.
+ *
+ * OFP inbox (&kind=ofp): the CVR bookmark (public/cvr-send.js, run on cvr.batikair.com.my) drops a flight's
+ * XmlOFP here so the app can import it; the app deletes it once imported. Like a mailbox, the code alone is
+ * enough for all four calls (no owner check), and the code must already exist.
+ * POST   ...&kind=ofp&id=ID&label=LABEL  body: the XmlOFP as text/plain   (CORS open to the CVR site only)
+ * GET    ...&kind=ofp                    -> { items: [{ id, label, sentAt }] }  newest first
+ * GET    ...&kind=ofp&id=ID              -> { text, label, sentAt }
+ * DELETE ...&kind=ofp&id=ID
  */
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
@@ -41,6 +49,8 @@ const MAX_PIECES = { map: 50, sat: 10, wind: 10 }
 
 // Read-only cross-origin access for eLogbook's duty-log link feature.
 const CORS_ORIGINS = ['https://www.claudeborne.my', 'http://localhost:5173']
+// The CVR bookmark posts from the company site; it may use the OFP inbox and nothing else.
+const CVR_ORIGIN = 'https://cvr.batikair.com.my'
 
 function getDb() {
   if (!getApps().length) {
@@ -156,9 +166,48 @@ async function handleBriefing(req, res, ref) {
   return res.status(405).json({ error: 'method not allowed' })
 }
 
+async function handleOfp(req, res, ref) {
+  const id = req.query.id ? String(req.query.id) : null
+  if (id && !BRIEFING_ID_RE.test(id)) return res.status(400).json({ error: 'bad OFP id' })
+  if (req.method !== 'GET' && !id) return res.status(400).json({ error: 'id required' })
+  const ofps = ref.collection('ofps')
+  try {
+    // Only a code that exists: a typo in the bookmark must not make a new, unseen mailbox.
+    if (!(await ref.get()).exists) return res.status(404).json({ error: 'no backup found for this code' })
+    if (req.method === 'GET') {
+      if (!id) {
+        const list = await ofps.select('label', 'sentAt').get()
+        const items = list.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.sentAt - a.sentAt)
+        return res.status(200).json({ items })
+      }
+      const doc = await ofps.doc(id).get()
+      if (!doc.exists) return res.status(404).json({ error: 'OFP not found' })
+      const { text, label, sentAt } = doc.data()
+      return res.status(200).json({ text, label, sentAt })
+    }
+    if (req.method === 'POST') {
+      const text = req.body
+      if (typeof text !== 'string' || !text) return res.status(400).json({ error: 'OFP text required' })
+      if (Buffer.byteLength(text) > MAX_PAYLOAD_BYTES) return res.status(413).json({ error: 'OFP too large' })
+      await ofps.doc(id).set({ text, label: String(req.query.label ?? '').slice(0, 60), sentAt: Date.now() })
+      return res.status(200).json({ ok: true })
+    }
+    if (req.method === 'DELETE') {
+      await ofps.doc(id).delete()
+      return res.status(200).json({ ok: true })
+    }
+  } catch (e) {
+    return res.status(502).json({ error: String(e) })
+  }
+  res.setHeader('Allow', 'GET, POST, DELETE')
+  return res.status(405).json({ error: 'method not allowed' })
+}
+
 export default async function handler(req, res) {
   const origin = req.headers.origin
-  if (CORS_ORIGINS.includes(origin)) {
+  if (origin === CVR_ORIGIN && req.query.kind === 'ofp') {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+  } else if (CORS_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin)
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
@@ -184,6 +233,7 @@ export default async function handler(req, res) {
   const ref = db.collection('dutylogs').doc(code)
 
   if (isBriefing) return handleBriefing(req, res, ref)
+  if (req.query.kind === 'ofp') return handleOfp(req, res, ref)
 
   if (req.method === 'GET') {
     try {

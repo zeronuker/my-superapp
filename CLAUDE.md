@@ -187,6 +187,31 @@ when asked. The service worker caches aggressively; users get an update prompt
   Download). That site is behind Cloudflare and a login, so the app cannot
   fetch it itself; whether the OFP is there before departure is unconfirmed
   (on 2026-10-25 it listed only flown flights).
+- **OFP from CVR, no file (`public/cvr-send.js`, `api/dutylog-sync.js` `&kind=ofp`,
+  `services/cvrInbox.js`, Briefing New page "From CVR" list, Settings → Cloud Sync
+  COPY CVR BOOKMARK)** — the primary, no-download way to get an OFP before a flight.
+  Settings makes a bookmarklet carrying this device's sync code + the app origin; run on
+  cvr.batikair.com.my's Voyage Reports page (where the pilot is logged in) it loads
+  `/cvr-send.js`, reads the flights off the page (`viewFlightPlan(reportId,'SECTOR','LABEL')`
+  buttons), and on a tap fetches the OFP via the CVR WEBSITE's own two endpoints —
+  `GET /VoyageReports/FlightPlanFiles?reportId=&sector=` then
+  `GET /VoyageReports/FlightPlanFile?reportId=&key=<objectKey>&entry=<...XmlOFP.txt>` — which
+  return the XmlOFP **already decrypted as plain text** (the company app's
+  `/api/eff/download-zip` gives a ZipCrypto-ENCRYPTED zip a browser can't open, so it is NOT
+  used). Same-origin, so the login cookie rides along: no password, no token stored, no zip.
+  It POSTs the XmlOFP to the OFP inbox (`dutylogs/<code>/ofps/<id>`), a new mode of
+  `api/dutylog-sync.js` (no new function; CORS open to cvr.batikair.com.my for this mode only;
+  the sync code alone authorises; refuses >900 kB). The Briefing tab's + NEW page shows a
+  **From CVR** list below IMPORT OFP; a row is read with the same `readOfpFile` as a file and
+  **stays until the pilot taps ×**. Only the XmlOFP is taken (not the PFP/PFB or the pictures).
+  The one bit of parsing (`parseFlight`) is tested; the inbox mode is tested in
+  `api/_dutylog-sync.test.js`. Both endpoints need the row's numeric report number
+  (none, 0, another flight's or the app's flight code = 400/404). The list reads it from each
+  `.roster-item`'s Flight Plan button, or, when that is not shown yet, from its
+  `viewReportDetails` / `sendReportEmail` / `ExportReportPdf?reportId=` buttons (flight from
+  the row text, marked "not submitted"). Future dates list 0 flights, but the pilot sees a
+  flight-day row with the OFP number before submitting: whether it has a report number and
+  CVR serves its OFP before submission is UNPROVEN until a flight day (checked 2026-11-08).
 - **Flight Details tab (`FlightDetailsTab.jsx`, `utils/ofpDetails.js`,
   `utils/flightDetailsCalc.js`)** — the briefing overlay's first tab, only for a
   briefing started from an imported OFP (`route.flightDetails`, built in

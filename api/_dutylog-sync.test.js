@@ -11,11 +11,11 @@ const fb = vi.hoisted(() => {
   })
   const collRef = (path) => ({
     doc: (id) => docRef(`${path}/${id}`),
-    select: () => ({
+    select: (...fields) => ({
       get: async () => ({
         docs: [...docs.entries()]
           .filter(([p]) => p.startsWith(`${path}/`) && !p.slice(path.length + 1).includes('/'))
-          .map(([p, v]) => ({ id: p.split('/').pop(), data: () => ({ name: v.name, savedAt: v.savedAt, mapParts: v.mapParts, satParts: v.satParts, windParts: v.windParts, row: v.row }) })),
+          .map(([p, v]) => ({ id: p.split('/').pop(), data: () => Object.fromEntries(fields.map(f => [f, v[f]])) })),
       }),
     }),
   })
@@ -29,9 +29,9 @@ import handler from './dutylog-sync.js'
 const CODE = 'ABCD-EFGH-JKMN'
 const entry = (id, name = id) => ({ id, name, savedAt: 5, route: { pts: [[1, 2]] }, mapSnapshot: 'img' })
 
-function call(method, { query = {}, body } = {}) {
+function call(method, { query = {}, body, origin } = {}) {
   const res = { headers: {}, setHeader(k, v) { this.headers[k] = v }, status(c) { this.code = c; return this }, json(b) { this.body = b; return this }, end() { return this } }
-  const req = { method, headers: { 'x-forwarded-for': `ip-${Math.random()}` }, query: { code: CODE, kind: 'briefing', ...query }, body }
+  const req = { method, headers: { 'x-forwarded-for': `ip-${Math.random()}`, origin }, query: { code: CODE, kind: 'briefing', ...query }, body }
   return handler(req, res).then(() => res)
 }
 
@@ -109,6 +109,45 @@ describe('briefing endpoints', () => {
     const big = { ...entry('a'), mapSnapshot: 'x'.repeat(950_000) }
     expect((await call('PUT', { query: { id: 'a' }, body: { deviceId: 'd', entry: big } })).code).toBe(413)
     expect((await call('GET')).code).toBe(404)
+  })
+})
+
+describe('OFP inbox (kind=ofp)', () => {
+  const CVR = 'https://cvr.batikair.com.my'
+  const ofp = (method, query = {}, extra = {}) => call(method, { query: { kind: 'ofp', ...query }, ...extra })
+  beforeEach(() => { fb.docs.set(`dutylogs/${CODE}`, { logs: [], updatedAt: 1, ownerDeviceId: 'dev1' }) })
+
+  it('the CVR site posts an OFP; the app lists it (newest first), fetches it and deletes it', async () => {
+    const sent = await ofp('POST', { id: 'OD1703-2026-11-07-TWU-BKI', label: 'OD1703 TWU-BKI 07NOV' }, { body: '<FlightPlan/>', origin: CVR })
+    expect(sent.code).toBe(200)
+    expect(sent.headers['Access-Control-Allow-Origin']).toBe(CVR)
+    await new Promise(r => setTimeout(r, 2))
+    await ofp('POST', { id: 'OD1704', label: 'OD1704' }, { body: 'x' })
+
+    const items = (await ofp('GET')).body.items
+    expect(items.map(i => i.id)).toEqual(['OD1704', 'OD1703-2026-11-07-TWU-BKI'])
+    expect(items[1]).toEqual({ id: 'OD1703-2026-11-07-TWU-BKI', label: 'OD1703 TWU-BKI 07NOV', sentAt: expect.any(Number) })
+    expect((await ofp('GET', { id: 'OD1703-2026-11-07-TWU-BKI' })).body.text).toBe('<FlightPlan/>')
+
+    expect((await ofp('DELETE', { id: 'OD1704' })).code).toBe(200)
+    expect((await ofp('GET')).body.items.map(i => i.id)).toEqual(['OD1703-2026-11-07-TWU-BKI'])
+  })
+
+  it('leaves the duty logs and briefings alone, and gives the CVR site no access to anything else', async () => {
+    await ofp('POST', { id: 'a' }, { body: 'x' })
+    expect(fb.docs.get(`dutylogs/${CODE}`).logs).toEqual([])
+    expect((await call('GET', { origin: CVR })).headers['Access-Control-Allow-Origin']).toBeUndefined()
+  })
+
+  it('refuses an unknown code, a missing or bad id, an empty or oversize OFP', async () => {
+    fb.docs.clear()
+    expect((await ofp('POST', { id: 'a' }, { body: 'x' })).code).toBe(404)
+    fb.docs.set(`dutylogs/${CODE}`, { logs: [] })
+    expect((await ofp('POST', {}, { body: 'x' })).code).toBe(400)
+    expect((await ofp('POST', { id: '../x' }, { body: 'x' })).code).toBe(400)
+    expect((await ofp('POST', { id: 'a' }, { body: '' })).code).toBe(400)
+    expect((await ofp('POST', { id: 'a' }, { body: 'x'.repeat(950_000) })).code).toBe(413)
+    expect((await ofp('GET', { id: 'nope' })).code).toBe(404)
   })
 })
 
