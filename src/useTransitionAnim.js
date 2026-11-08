@@ -3,7 +3,7 @@ import { useState, useRef, useLayoutEffect } from 'react'
 const ANIM_STYLES = ['slide', 'rise']
 
 // Speed presets (ms) behind the --cp-dur CSS variable (set in App.jsx).
-export const ANIM_SPEED_MS = { normal: 260, slow: 420, slower: 650 }
+export const ANIM_SPEED_MS = { normal: 260, slow: 600, slower: 1100 }
 
 // Transition for a keyed panel (tool content, settings tabs). Put the returned
 // className/style on the panel; the class is dropped after the animation so

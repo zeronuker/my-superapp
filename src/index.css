@@ -399,26 +399,26 @@ input::placeholder, textarea::placeholder { color: var(--cp-dim); opacity: 1; }
 @keyframes cpAnimRise  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: no-preference) {
-  .cp-sheet-anim { animation: cpSheetUp var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-sheet-anim { animation: cpSheetUp var(--cp-dur) cubic-bezier(.4,0,.6,1) backwards; }
   .cp-sheet-anim.is-closing { animation: cpSheetDown var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
-  .cp-modal-anim { animation: cpModalIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-modal-anim { animation: cpModalIn var(--cp-dur) cubic-bezier(.4,0,.6,1) backwards; }
   .cp-modal-anim.is-closing { animation: cpModalOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
-  .cp-pop-in { animation: cpPopIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-pop-in { animation: cpPopIn var(--cp-dur) cubic-bezier(.4,0,.6,1) backwards; }
   .cp-pop-in.is-closing { animation: cpPopOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
   .cp-backdrop-in { animation: cpBackdropIn var(--cp-dur) ease backwards; }
   .cp-backdrop-in.is-closing { animation: cpBackdropOut var(--cp-dur) ease forwards; }
-  .cp-anim-slide { animation: cpAnimSlide var(--cp-dur) cubic-bezier(.22,.8,.3,1) both; }
-  .cp-anim-rise  { animation: cpAnimRise var(--cp-dur) cubic-bezier(.22,.8,.3,1) both; }
+  .cp-anim-slide { animation: cpAnimSlide var(--cp-dur) cubic-bezier(.4,0,.6,1) both; }
+  .cp-anim-rise  { animation: cpAnimRise var(--cp-dur) cubic-bezier(.4,0,.6,1) both; }
   .cp-launch-in  { animation: cpFadeIn var(--cp-dur) ease both; }
   .cp-drop-in { animation: cpDropIn var(--cp-dur) cubic-bezier(.4,0,.2,1) backwards; }
   .cp-drop-in.is-closing { animation: cpDropOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
   .cp-reveal-in { animation: cpAnimRise var(--cp-dur) cubic-bezier(.4,0,.2,1) backwards; }
   .cp-reveal-in.is-closing { animation: cpRiseOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
-  .cp-pill-in { animation: cpPillIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; }
+  .cp-pill-in { animation: cpPillIn var(--cp-dur) cubic-bezier(.4,0,.6,1) backwards; }
   .cp-pill-in.is-closing { animation: cpPillOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
   /* SIGMET popup on the map (CartoRouteMap.jsx). MapLibre positions .maplibregl-popup with a
      transform, so the box and its pointer are animated, not the popup itself. */
-  .sigmet-popup .maplibregl-popup-content { animation: cpPopIn var(--cp-dur) cubic-bezier(.22,.8,.3,1) backwards; transform-origin: bottom center; }
+  .sigmet-popup .maplibregl-popup-content { animation: cpPopIn var(--cp-dur) cubic-bezier(.4,0,.6,1) backwards; transform-origin: bottom center; }
   .sigmet-popup .maplibregl-popup-tip { animation: cpBackdropIn var(--cp-dur) ease backwards; }
   .sigmet-popup.is-closing .maplibregl-popup-content { animation: cpPopOut var(--cp-dur) cubic-bezier(.4,0,.2,1) forwards; }
   .sigmet-popup.is-closing .maplibregl-popup-tip { animation: cpBackdropOut var(--cp-dur) ease forwards; }
