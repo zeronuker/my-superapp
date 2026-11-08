@@ -1,10 +1,12 @@
-// Current tropical cyclones from GDACS (keyless, open to browsers): the list of storms, then for each storm that is near
+// Current tropical cyclones from GDACS (keyless; fetched via api/isigmet.js): the list of storms, then for each storm that is near
 // the picture's area its geometry file (about 460 KB: track, cone, wind areas). The maths is in utils/cyclones.js.
 
 import { parseStormList, summarizeStormGeometry, stormReachesArea } from '../utils/cyclones'
 import { unwrapLng } from '../utils/satSnapshot'
 
-const LIST_URL = 'https://www.gdacs.org/gdacsapi/api/events/geteventlist/EVENTS4APP?eventlist=TC'
+// Through our own function: GDACS answers browsers with a bot-check page (no CORS header), but answers servers.
+const LIST_URL = '/api/isigmet?gdacs=list'
+const geometryProxyUrl = url => `/api/isigmet?gdacs=${encodeURIComponent(url)}`
 const FETCH_MS = 30000
 const MAX_STORMS = 6                  // geometry files fetched per picture
 const NEAR_DEG = 40                   // a storm further than this from the area cannot reach it with its cone
@@ -48,7 +50,7 @@ export async function fetchStorms(area, signal) {
 
   const withGeometry = await Promise.all(near.map(async s => {
     try {
-      const summary = s.geometryUrl ? summarizeStormGeometry(await fetchJson(s.geometryUrl, signal), s.position) : EMPTY
+      const summary = s.geometryUrl ? summarizeStormGeometry(await fetchJson(geometryProxyUrl(s.geometryUrl), signal), s.position) : EMPTY
       return { ...s, summary }
     } catch (e) {
       if (signal?.aborted) throw e

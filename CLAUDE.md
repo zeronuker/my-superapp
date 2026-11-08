@@ -367,7 +367,10 @@ when asked. The service worker caches aggressively; users get an update prompt
   advisory time, distance to the route). Unlike CLOUD/WINDS it is NEVER saved into a briefing (storms change within
   hours): it is built from the picked briefing's route (or the region) each visit, held in memory while you switch
   views, needs internet, and the saved briefing window has no STORMS tab.
-  Data: GDACS (UN/EC; storm data from JTWC, NHC and others), keyless and open to browsers:
+  Data: GDACS (UN/EC; storm data from JTWC, NHC and others), keyless, but it now answers BROWSER requests with a bot-check
+  page / redirect and no CORS header (found 8 Nov 2026: the view said "unavailable"), while plain server requests get the JSON. So
+  `services/cycloneData.js` asks `/api/isigmet?gdacs=list|<geometry URL>` (the SIGMET function, which only fetches those two kinds of
+  GDACS URL; the project is at the function cap). Only storms GDACS has NAMED are listed (an invest like Windy's "94L" is not).
   `gdacs.org/gdacsapi/api/events/geteventlist/EVENTS4APP?eventlist=TC` lists current storms (filter `iscurrent`), and
   each storm's `url.geometry` file (~460 KB) has the track (32 two-point LineStrings that chain into ONE line from
   genesis to the end of the forecast; the `forecast` flag is a boolean, not the string 'True'), the cone

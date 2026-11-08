@@ -114,7 +114,7 @@ export default defineConfig({
             handler: 'NetworkFirst',
             options: {
               cacheName: 'sigmet-data',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 30 },
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 30 },
               networkTimeoutSeconds: 8,
             },
           },
