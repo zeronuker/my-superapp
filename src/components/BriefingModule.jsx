@@ -7,7 +7,8 @@ import { parseRoute } from '../utils/routeParse'
 import { ofpToFields } from '../utils/ofpParse'
 import { blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
 import { readOfpFile } from '../services/ofpFile'
-import { listInbox, fetchInboxOfp, removeInboxOfp } from '../services/cvrInbox'
+import FromCvr from './FromCvr'
+import { Dots } from './SyncStatus'
 import { icaoToFir } from '../data/firLookup'
 import { briefingRow, filterSaves, saveYM } from '../utils/savedBriefings'
 import { resolveLinks } from '../utils/briefingLink'
@@ -22,7 +23,7 @@ import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { syncBriefingsNow, syncLogsNow } from '../services/briefingCloud'
 import { CloudView, BriefingRowText } from './SavedBriefingsCloud'
 import { ModuleHeader } from './ModuleChrome'
-import { useTransitionAnim } from '../useTransitionAnim'
+import { useTransitionAnim, animDurationMs } from '../useTransitionAnim'
 import { SyncStatus, SyncBar, rowSyncing } from './SyncStatus'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import ExportBriefingButton from './ExportBriefingButton'
@@ -97,12 +98,11 @@ export default function BriefingModule() {
   const links = useMemo(() => resolveLinks(dutyLogs, saves), [dutyLogs, saves])
   const screenAnim = useTransitionAnim(screen, ['list', 'new'], animStyle)
   const fileRef = useRef(null)
+  const topRef = useRef(null)   // the FROM OFP | MANUAL switch, just above the OFP card
   const syncCode = useDutyLogStore(s => s.syncCode)
   const [syncBusy, setSyncBusy] = useState(false)
   const [syncError, setSyncError] = useState('')
   const [deletingId, setDeletingId] = useState(null)   // saved briefing awaiting delete confirmation
-  const [inbox, setInbox] = useState(null)             // From CVR: [{ id, label, sentAt }] once loaded
-  const [inboxBusy, setInboxBusy] = useState(null)     // id of the row being read
   // A row's SYNC: the saved briefings go up, then the duty logs too if that briefing is linked to one.
   const syncNow = async (saveId) => {
     setSyncError(''); setSyncBusy(true)
@@ -135,24 +135,20 @@ export default function BriefingModule() {
     setBusy(true); setImportError('')
     const r = await readOfpFile(file)
     setBusy(false)
-    await loadOfp(r)
+    if (r.ok) await applyOfp(r)
+    else setImportError(r.error)
   }
 
   // A row of the From CVR list: the XmlOFP the CVR bookmark sent, read like a chosen file. It stays in the inbox.
-  const pickInbox = async (id) => {
-    setInboxBusy(id); setImportError('')
-    try {
-      const text = await fetchInboxOfp(syncCode, id)
-      await loadOfp(await readOfpFile(new Blob([text])))
-    } catch (e) { setImportError(e.message) }
-    setInboxBusy(null)
-  }
-  const removeInbox = async (id) => {
-    try { await removeInboxOfp(syncCode, id); setInbox(list => list.filter(i => i.id !== id)) } catch (e) { setImportError(e.message) }
+  // FromCvr shows its own progress and errors; once it has shown ✓ the OFP opens and the page glides up to its card.
+  const readCvrText = (text) => readOfpFile(new Blob([text]))
+  const openCvrOfp = async (r) => {
+    setImportError('')
+    await applyOfp(r)
+    requestAnimationFrame(() => topRef.current?.scrollIntoView({ behavior: animDurationMs() ? 'smooth' : 'auto', block: 'start' }))
   }
 
-  const loadOfp = async (r) => {
-    if (!r.ok) { setImportError(r.error); return }
+  const applyOfp = async (r) => {
     const f = ofpToFields(r, ERA_MAX)
     setDep(f.dep); setArr(f.arr); setRouteText(f.routeText)
     setDestAlts(f.destAlts); setEnrouteCount(f.enrouteCount); setEnrouteAlts(f.enrouteAlts)
@@ -194,16 +190,6 @@ export default function BriefingModule() {
 
   const isOnline = useOnlineStatus()
   const ready = dep.length === 4 && arr.length === 4 && isOnline
-
-  // The From CVR list loads each time the New page opens (404 = the code has nothing in the cloud yet).
-  useEffect(() => {
-    if (screen !== 'new' || !syncCode || !isOnline) return
-    let dead = false
-    listInbox(syncCode)
-      .catch(e => (/no backup/.test(e.message) ? [] : Promise.reject(e)))
-      .then(items => { if (!dead) setInbox(items) }, e => { if (!dead) setImportError(e.message) })
-    return () => { dead = true }
-  }, [screen, syncCode, isOnline])
   // The Flight Details tab only for a flight that still is the imported OFP's (EDIT OFP can change dep/arr).
   const flightDetails = ofp?.details && ofp.details.dep === dep && ofp.details.arr === arr
     ? { ...ofp.details, flight: ofp.flight, info: ofp.info, depTz: ofp.depTz, arrTz: ofp.arrTz }
@@ -233,7 +219,7 @@ export default function BriefingModule() {
       <ModuleHeader title="NEW BRIEFING" subtitle="FLIGHT BRIEFING PACK"
         back={<button onClick={() => setScreen('list')} className="cp-btn" style={{ fontSize: 10, padding: '4px 9px', marginBottom: 8, letterSpacing: '0.1em' }}>‹ BACK</button>}
         action={<ResetButton onReset={handleReset} />} />
-      <div style={{ marginBottom: 14 }}>
+      <div ref={topRef} style={{ marginBottom: 14, scrollMarginTop: 12 }}>
         <Seg value={mode} onChange={setMode} options={[{ value: 'ofp', label: 'FROM OFP' }, { value: 'manual', label: 'MANUAL' }]} />
       </div>
       {fileInput}
@@ -244,7 +230,7 @@ export default function BriefingModule() {
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 14, margin: '10px 0 4px' }}>Import your OFP</div>
           <div style={{ fontSize: 11, color: 'var(--cp-dim)', marginBottom: 14 }}>XmlOFP (.txt, .xml) or PFP (.pdf). Read on this device, nothing is uploaded.</div>
           <button className="cp-btn" onClick={() => fileRef.current?.click()} disabled={busy} style={{ ...accentBtn, padding: '12px 22px' }}>
-            {busy ? 'READING…' : '⇪  IMPORT OFP'}
+            {busy ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span className="cp-spinner" aria-hidden="true" /><Dots>READING</Dots></span> : '⇪  IMPORT OFP'}
           </button>
           <Collapse open={!!importError}><div style={{ fontSize: 12, marginTop: 12, color: 'var(--cp-yellow)' }}>{importError}</div></Collapse>
         </div>
@@ -312,7 +298,7 @@ export default function BriefingModule() {
             </Row>
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button className="cp-btn" onClick={() => fileRef.current?.click()} disabled={busy} style={smallBtn}>{busy ? 'READING…' : 'CHANGE OFP'}</button>
+            <button className="cp-btn" onClick={() => fileRef.current?.click()} disabled={busy} style={{ ...smallBtn, display: 'inline-flex', alignItems: 'center', gap: 6 }}>{busy ? <><span className="cp-spinner" aria-hidden="true" /><Dots>READING</Dots></> : 'CHANGE OFP'}</button>
             <button className="cp-btn" onClick={() => setMode('manual')} style={smallBtn}>EDIT OFP</button>
           </div>
           <Collapse open={!!importError}><div style={{ fontSize: 12, marginTop: 10, color: 'var(--cp-yellow)' }}>{importError}</div></Collapse>
@@ -321,26 +307,7 @@ export default function BriefingModule() {
 
       {/* OFPs sent from the CVR site by the SuperApp OFP bookmark (Settings → Cloud Sync). */}
       {mode === 'ofp' && syncCode && (
-        <div style={panel}>
-          <span className="cp-label" style={{ margin: 0, color: 'var(--cp-acc)' }}>FROM CVR</span>
-          {!isOnline ? (
-            <div style={{ fontSize: 11, color: 'var(--cp-dim)', marginTop: 8 }}>Offline — connect to see the OFPs sent from CVR.</div>
-          ) : inbox === null ? (
-            <div style={{ fontSize: 11, color: 'var(--cp-dim)', marginTop: 8 }}>Loading…</div>
-          ) : inbox.length === 0 ? (
-            <div style={{ fontSize: 11, color: 'var(--cp-dim)', marginTop: 8 }}>Nothing sent yet. On cvr.batikair.com.my, tap the SuperApp OFP bookmark.</div>
-          ) : inbox.map(i => (
-            <div key={i.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--cp-border3)' }}>
-              <button className="cp-btn" onClick={() => pickInbox(i.id)} disabled={!!inboxBusy || busy}
-                style={{ ...smallBtn, flex: 1, textAlign: 'left', letterSpacing: '0.08em', fontSize: 12 }}>
-                {inboxBusy === i.id ? 'READING…' : i.label}
-                <span style={{ display: 'block', fontSize: 9, color: 'var(--cp-dim)', marginTop: 2 }}>SENT {new Date(i.sentAt).toUTCString().slice(5, 22).toUpperCase()}Z</span>
-              </button>
-              <button onClick={() => removeInbox(i.id)} title="Remove" aria-label={`Remove ${i.label}`}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--cp-dim)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
-            </div>
-          ))}
-        </div>
+        <FromCvr syncCode={syncCode} isOnline={isOnline} disabled={busy} readText={readCvrText} onLoaded={openCvrOfp} panelStyle={panel} buttonStyle={smallBtn} />
       )}
 
       {mode === 'manual' && (

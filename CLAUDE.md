@@ -189,7 +189,8 @@ when asked. The service worker caches aggressively; users get an update prompt
   (on 2026-10-25 it listed only flown flights).
 - **OFP from CVR, no file (`public/cvr-send.js`, `api/dutylog-sync.js` `&kind=ofp`,
   `services/cvrInbox.js`, Briefing New page "From CVR" list, Settings → Cloud Sync
-  COPY CVR BOOKMARK)** — the primary, no-download way to get an OFP before a flight.
+  COPY CVR BOOKMARK)** — gets an OFP into the Briefing tab with no file. Proven after
+  the flight; before it, only if the flight-day row carries a report number (see below).
   Settings makes a bookmarklet carrying this device's sync code + the app origin; run on
   cvr.batikair.com.my's Voyage Reports page (where the pilot is logged in) it loads
   `/cvr-send.js`, reads the flights off the page (`viewFlightPlan(reportId,'SECTOR','LABEL')`
@@ -202,8 +203,12 @@ when asked. The service worker caches aggressively; users get an update prompt
   It POSTs the XmlOFP to the OFP inbox (`dutylogs/<code>/ofps/<id>`), a new mode of
   `api/dutylog-sync.js` (no new function; CORS open to cvr.batikair.com.my for this mode only;
   the sync code alone authorises; refuses >900 kB). The Briefing tab's + NEW page shows a
-  **From CVR** list below IMPORT OFP; a row is read with the same `readOfpFile` as a file and
-  **stays until the pilot taps ×**. Only the XmlOFP is taken (not the PFP/PFB or the pictures).
+  **From CVR** list below IMPORT OFP (`FromCvr.jsx`); a row is read with the same
+  `readOfpFile` as a file and **stays until the pilot taps ×**. The list checks on open, on
+  REFRESH and whenever the app comes back to the screen (`visibilitychange`: the pilot sends
+  from Safari, then switches back). Both the list and the CVR panel show every step (spinner,
+  dots, sliding bar, ✓/✗) and hold each for ≥ 700 ms and a success for ~1.8 s on purpose,
+  so the pilot can read what happened. Only the XmlOFP is taken (not the PFP/PFB or the pictures).
   The one bit of parsing (`parseFlight`) is tested; the inbox mode is tested in
   `api/_dutylog-sync.test.js`. Both endpoints need the row's numeric report number
   (none, 0, another flight's or the app's flight code = 400/404). The list reads it from each

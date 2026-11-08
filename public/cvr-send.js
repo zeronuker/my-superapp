@@ -39,63 +39,131 @@
     .filter(Boolean)
     .filter((f, i, a) => a.findIndex(x => x.reportId === f.reportId) === i)   // one row per report
 
-  document.getElementById('cb-cvr')?.remove()
-  const box = document.createElement('div')
-  box.id = 'cb-cvr'
-  const list = flights.length
-    ? flights.map(f => `<button class="cb-f" data-id="${f.reportId}" style="display:block;width:100%;text-align:left;margin:0 0 6px;padding:10px;border-radius:6px;border:1px solid #3a4652;background:#0e141a;color:#e8eef3;font:13px ui-monospace,Menlo,monospace;cursor:pointer">${f.label}${f.hasPlan ? '' : ' <span style="color:#fbbf24">· not submitted</span>'}</button>`).join('')
-    : `<div style="font-size:12px;color:#9aa7b4;padding:8px 0">No flights with a report on this page. Open Voyage Reports and make sure your flights are listed, then tap the bookmark again.</div>`
-  box.innerHTML =
-    `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">` +
-      `<b style="letter-spacing:.12em;font-size:13px;color:#3fe0c5">SUPERAPP · SEND OFP</b>` +
-      `<button id="cb-close" style="background:none;border:0;color:#9aa7b4;font-size:22px;cursor:pointer">×</button></div>` +
-    `<div style="font-size:11px;color:#9aa7b4;margin-bottom:8px">Tap a flight to send its OFP to SuperApp.</div>` +
-    `<div id="cb-list" style="max-height:50vh;overflow:auto">${list}</div>` +
-    `<div id="cb-status" role="status" style="min-height:18px;font-size:13px;margin-top:10px;line-height:1.4"></div>`
-  Object.assign(box.style, {
-    position: 'fixed', top: '12px', left: '50%', transform: 'translateX(-50%)', zIndex: 2147483647,
-    width: 'min(360px, calc(100vw - 24px))', maxHeight: 'calc(100vh - 24px)', overflowY: 'auto', boxSizing: 'border-box',
-    padding: '14px', borderRadius: '10px', background: '#151d24', color: '#e8eef3',
-    border: '1px solid #3fe0c5', boxShadow: '0 10px 40px rgba(0,0,0,.6)', font: '14px -apple-system, system-ui, sans-serif',
-  })
-  document.body.appendChild(box)
-
-  const statusEl = box.querySelector('#cb-status')
-  const status = (text, color = '#e8eef3') => { statusEl.textContent = text; statusEl.style.color = color }
-  box.querySelector('#cb-close').onclick = () => box.remove()
-
-  const getJson = async (url) => { const r = await fetch(url, { headers: { Accept: 'application/json, text/plain, */*' } }); if (!r.ok) throw new Error(`CVR ${r.status}`); return r.json() }
-
-  async function send(f) {
-    status('Looking up the OFP…')
-    const q = new URLSearchParams({ reportId: f.reportId, sector: f.sector })
-    const d = await getJson('/VoyageReports/FlightPlanFiles?' + q)
-    const archive = (d.archives || []).find(a => a.matchesSector && a.readable) || (d.archives || []).find(a => a.readable)
-    const file = archive && (archive.files || []).find(x => x.name === 'XmlOFP.txt')
-    if (!file) throw new Error('No XmlOFP in this flight plan yet.')
-
-    status('Downloading the OFP…')
-    const fq = new URLSearchParams({ reportId: f.reportId, key: archive.objectKey, entry: file.path })
-    const r = await fetch('/VoyageReports/FlightPlanFile?' + fq, { headers: { Accept: '*/*' } })
-    if (!r.ok) throw new Error(`CVR download failed (${r.status}).`)
-    const text = await r.text()
-    if (!/<FlightPlan/.test(text)) throw new Error('That file was not an XmlOFP.')
-
-    if (cfg.dry) return status(`Dry run: ${f.label} — XmlOFP ${Math.round(text.length / 1024)} kB read, NOT sent.`, '#fbbf24')
-    status('Sending to SuperApp…')
-    const s = await fetch(`${cfg.api}/api/dutylog-sync?` + new URLSearchParams({ code: cfg.code, kind: 'ofp', id: 'cvr-' + f.reportId, label: f.label }), {
-      method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: text,
-    })
-    if (!s.ok) throw new Error(`SuperApp refused it (${s.status}): ${(await s.json().catch(() => ({}))).error || ''}`)
-    status(`${f.label} sent ✓ — in SuperApp: Briefing → + NEW → From CVR.`, '#22c55e')
+  // The panel's own animations (it lives on CVR's page, so it brings its own CSS; all off for reduced motion).
+  if (!document.getElementById('cb-cvr-css')) {
+    const css = document.createElement('style')
+    css.id = 'cb-cvr-css'
+    css.textContent = `
+      #cb-cvr { animation: cbin .25s ease-out }
+      #cb-cvr .cb-spin { display:inline-block; width:12px; height:12px; box-sizing:border-box; border:2px solid rgba(63,224,197,.25); border-top-color:#3fe0c5; border-radius:50%; animation: cbspin .8s linear infinite }
+      #cb-cvr .cb-bar { position:absolute; left:0; bottom:0; height:2px; width:35%; background:#3fe0c5; animation: cbbar 1.1s ease-in-out infinite }
+      #cb-cvr .cb-pop { animation: cbpop .45s ease-out }
+      #cb-cvr .cb-in { animation: cbfade .3s ease-out }
+      #cb-cvr .cb-dots span { animation: cbdot 1.2s infinite; opacity:.2 }
+      #cb-cvr .cb-dots span:nth-child(2) { animation-delay:.2s }
+      #cb-cvr .cb-dots span:nth-child(3) { animation-delay:.4s }
+      @keyframes cbspin { to { transform: rotate(360deg) } }
+      @keyframes cbbar { 0% { left:-35% } 100% { left:100% } }
+      @keyframes cbpop { 0% { transform:scale(.6); opacity:0 } 60% { transform:scale(1.15) } 100% { transform:scale(1); opacity:1 } }
+      @keyframes cbin { from { opacity:0; transform:translate(-50%, -8px) } to { opacity:1 } }
+      @keyframes cbfade { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:none } }
+      @keyframes cbdot { 0%, 80%, 100% { opacity:.2 } 40% { opacity:1 } }
+      @media (prefers-reduced-motion: reduce) { #cb-cvr, #cb-cvr * { animation: none !important } #cb-cvr .cb-dots span { opacity:1 } }`
+    document.head.appendChild(css)
   }
 
-  box.querySelectorAll('.cb-f').forEach(btn => {
-    btn.onclick = async () => {
-      const f = flights.find(x => x.reportId === btn.dataset.id)
-      box.querySelectorAll('.cb-f').forEach(b => (b.disabled = true))
-      try { await send(f) } catch (e) { status(e.message, '#f87171') }
-      box.querySelectorAll('.cb-f').forEach(b => (b.disabled = false))
+  // Each step stays on screen at least this long, so the pilot can read what is happening.
+  const MIN_STEP_MS = 700
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+  const atLeast = (p) => Promise.all([p, sleep(MIN_STEP_MS)]).then(([v]) => v)
+  const el = (tag, style = '', text = '') => { const e = document.createElement(tag); e.style.cssText = style; e.textContent = text; return e }
+  const dots = () => { const d = el('span'); d.className = 'cb-dots'; for (let i = 0; i < 3; i++) d.appendChild(el('span', '', '.')); return d }
+
+  document.getElementById('cb-cvr')?.remove()
+  const box = el('div', 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;' +
+    'width:min(360px, calc(100vw - 24px));max-height:calc(100vh - 24px);overflow-y:auto;box-sizing:border-box;padding:14px;' +
+    'border-radius:10px;background:#151d24;color:#e8eef3;border:1px solid #3fe0c5;box-shadow:0 10px 40px rgba(0,0,0,.6);' +
+    'font:14px -apple-system, system-ui, sans-serif')
+  box.id = 'cb-cvr'
+  const head = el('div', 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px')
+  head.appendChild(el('b', 'letter-spacing:.12em;font-size:13px;color:#3fe0c5', 'SUPERAPP · SEND OFP'))
+  const close = el('button', 'background:none;border:0;color:#9aa7b4;font-size:22px;cursor:pointer', '×')
+  close.onclick = () => box.remove()
+  head.appendChild(close)
+  box.appendChild(head)
+  box.appendChild(el('div', 'font-size:11px;color:#9aa7b4;margin-bottom:8px', flights.length
+    ? 'Tap a flight to send its OFP to SuperApp.'
+    : 'No flights with a report on this page. Open Voyage Reports and make sure your flights are listed, then tap the bookmark again.'))
+  const listEl = el('div', 'max-height:42vh;overflow:auto')
+  box.appendChild(listEl)
+  const stepsEl = el('div', 'margin-top:10px;font-size:13px;line-height:1.4')
+  stepsEl.setAttribute('role', 'status')
+  box.appendChild(stepsEl)
+  document.body.appendChild(box)
+
+  // The tapped flight's progress: one line per step — ○ waiting, spinner + dots while running, ✓ done, ✗ failed.
+  const STEPS = ['Finding the OFP on CVR', 'Downloading the OFP', cfg.dry ? 'Sending to SuperApp (dry run: skipped)' : 'Sending to SuperApp']
+  function showSteps(active, failed) {
+    stepsEl.replaceChildren(...STEPS.map((label, i) => {
+      const line = el('div', `display:flex;align-items:center;gap:8px;margin:4px 0;color:${i > active ? '#6b7785' : '#e8eef3'}`)
+      if (i === active) line.className = 'cb-in'   // only the step just reached animates in
+      let icon
+      if (i < active) { icon = el('span', 'color:#22c55e;width:12px;text-align:center', '✓'); if (i === active - 1) icon.className = 'cb-pop' }
+      else if (i === active && failed) icon = el('span', 'color:#f87171;width:12px;text-align:center', '✗')
+      else if (i === active) { icon = el('span'); icon.className = 'cb-spin' }
+      else icon = el('span', 'width:12px;text-align:center', '○')
+      const text = el('span', '', label)
+      if (i === active && !failed) text.appendChild(dots())
+      line.append(icon, text)
+      return line
+    }))
+  }
+  function finish(lines, color, bg) {
+    const card = el('div', `margin-top:10px;padding:10px 12px;border-radius:8px;border:1px solid ${color};background:${bg};color:${color};font-size:13px;line-height:1.5`)
+    card.className = 'cb-pop'
+    lines.forEach((t, i) => card.appendChild(el('div', i ? 'color:#c9d3dc;font-size:12px' : 'font-weight:700', t)))
+    stepsEl.appendChild(card)
+    card.scrollIntoView({ block: 'nearest' })
+  }
+
+  const getJson = async (url) => { const r = await fetch(url, { headers: { Accept: 'application/json, text/plain, */*' } }); if (!r.ok) throw new Error(`CVR answered ${r.status}.`); return r.json() }
+
+  async function send(f) {
+    let step = 0
+    const go = (i, work) => { step = i; showSteps(i); stepsEl.scrollIntoView({ block: 'nearest' }); return atLeast(work()) }
+    try {
+      const { archive, file } = await go(0, async () => {
+        const d = await getJson('/VoyageReports/FlightPlanFiles?' + new URLSearchParams({ reportId: f.reportId, sector: f.sector }))
+        const archive = (d.archives || []).find(a => a.matchesSector && a.readable) || (d.archives || []).find(a => a.readable)
+        const file = archive && (archive.files || []).find(x => x.name === 'XmlOFP.txt')
+        if (!file) throw new Error('CVR has no OFP for this flight yet.')
+        return { archive, file }
+      })
+      const text = await go(1, async () => {
+        const r = await fetch('/VoyageReports/FlightPlanFile?' + new URLSearchParams({ reportId: f.reportId, key: archive.objectKey, entry: file.path }), { headers: { Accept: '*/*' } })
+        if (!r.ok) throw new Error(`CVR download failed (${r.status}).`)
+        const t = await r.text()
+        if (!/<FlightPlan/.test(t)) throw new Error('That file was not an XmlOFP.')
+        return t
+      })
+      await go(2, async () => {
+        if (cfg.dry) return
+        const s = await fetch(`${cfg.api}/api/dutylog-sync?` + new URLSearchParams({ code: cfg.code, kind: 'ofp', id: 'cvr-' + f.reportId, label: f.label }), {
+          method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: text,
+        })
+        if (!s.ok) throw new Error(`SuperApp refused it (${s.status}): ${(await s.json().catch(() => ({}))).error || ''}`)
+      })
+      showSteps(STEPS.length)
+      if (cfg.dry) finish([`Dry run: ${f.label}`, `OFP read (${Math.round(text.length / 1024)} kB), not sent.`], '#fbbf24', 'rgba(251,191,36,.1)')
+      else finish([`✓ ${f.label} sent`, 'Now open SuperApp: Briefing → + NEW → From CVR.'], '#22c55e', 'rgba(34,197,94,.12)')
+    } catch (e) {
+      showSteps(step, true)
+      finish([`✗ Not sent`, e.message], '#f87171', 'rgba(248,113,113,.1)')
     }
+  }
+
+  const buttons = flights.map(f => {
+    const b = el('button', 'position:relative;overflow:hidden;display:block;width:100%;text-align:left;margin:0 0 6px;padding:10px;' +
+      'border-radius:6px;border:1px solid #3a4652;background:#0e141a;color:#e8eef3;font:13px ui-monospace,Menlo,monospace;cursor:pointer', f.label)
+    if (!f.hasPlan) b.appendChild(el('span', 'color:#fbbf24', ' · not submitted'))
+    b.onclick = async () => {
+      buttons.forEach(x => { x.disabled = true; x.style.opacity = x === b ? '1' : '.45'; x.style.borderColor = x === b ? '#3fe0c5' : '#3a4652' })
+      const bar = el('span'); bar.className = 'cb-bar'; b.appendChild(bar)
+      await send(f)
+      bar.remove()
+      buttons.forEach(x => { x.disabled = false; x.style.opacity = '1' })
+    }
+    listEl.appendChild(b)
+    return b
   })
 })()
