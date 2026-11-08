@@ -35,23 +35,20 @@ function StormDot({ storms }) {
 
 const VIEWS = [{ id: 'cloud', label: 'CLOUD' }, { id: 'winds', label: 'WINDS' }, { id: 'storms', label: 'STORMS' }]
 
-// One row of the box of choices: a small label, then the control.
-function Row({ label, children, action, last }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: last ? 0 : 10 }}>
-      <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.14em', color: 'var(--cp-dim)', minWidth: 62 }}>{label}</span>
-      {children}
-      {action && <span style={{ marginLeft: 'auto' }}>{action}</span>}
-    </div>
-  )
-}
+// The teal heading with a rule that the METAR/TAF, NOTAM and SIGMET input screens use for their sections.
+const SectionHeader = ({ title }) => (
+  <div className="cp-section-header">
+    <span className="cp-section-title">{title}</span>
+    <div className="cp-divider" />
+  </div>
+)
 
 // Still pictures of the sky for a route or a region: CLOUD (infrared satellite), WINDS (GFS winds aloft by flight
-// level) and STORMS (current tropical cyclones). The tabs pick the view; one box holds what to look at: a saved
+// level) and STORMS (current tropical cyclones). The tabs pick the view; one set of choices holds what to look at: a saved
 // briefing (the Duty Log's picker), or a region when none is picked, and the flight level for WINDS.
 // CLOUD and WINDS build their picture once per briefing, keep it in the briefing and show it offline; STORMS is
-// never kept. With no briefing a region still is shown (not kept). All views share the box. Nothing is downloaded
-// until the box's button (FETCH SATELLITE IMAGE, then RETAKE) is pressed: the shell counts presses per view and
+// never kept. With no briefing a region still is shown (not kept). All views share the choices. Nothing is downloaded
+// until the full-width button under them (FETCH SATELLITE IMAGE, then RETAKE) is pressed: the shell counts presses per view and
 // briefing / region (/ level) and hands the count to the view as `n`; a view reports back `{ hasPic, busy }`.
 export default function SatelliteViewer() {
   const saves = useCalculatorStore(s => s.briefing.saves)
@@ -93,7 +90,20 @@ export default function SatelliteViewer() {
   const press = () => setPresses(p => ({ ...p, [pressKey(view)]: (p[pressKey(view)] ?? 0) + 1 }))
   const cur = status[view] ?? { hasPic: false, busy: false }
   const fetchButton = isOnline && (
-    <button className="cp-btn" onClick={press} disabled={cur.busy}>{cur.hasPic ? 'RETAKE' : 'FETCH SATELLITE IMAGE'}</button>
+    <div style={{ marginBottom: 20 }}>
+      <button onClick={press} disabled={cur.busy} style={{
+        width: '100%', padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
+        border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)', borderRadius: 6,
+        cursor: cur.busy ? 'default' : 'pointer', fontFamily: mono, fontSize: 10,
+        letterSpacing: '0.16em', color: 'var(--cp-acc)', opacity: cur.busy ? 0.5 : 1 }}>
+        {cur.busy ? '⊙ FETCHING…' : cur.hasPic ? '⟳ RETAKE' : '⊕ FETCH SATELLITE IMAGE'}
+      </button>
+      {!cur.hasPic && !cur.busy && (
+        <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: '0.1em', color: 'var(--cp-dim)', textAlign: 'center', marginTop: 8 }}>
+          {view === 'winds' ? 'PICK A SOURCE AND LEVEL, THEN FETCH' : 'PICK A SOURCE, THEN FETCH'}
+        </div>
+      )}
+    </div>
   )
 
   const pickItems = saves.map(save => briefingItem({ save, auto: false, near: true }, null))   // newest first, as saved
@@ -104,43 +114,47 @@ export default function SatelliteViewer() {
 
       <BriefingTabBar tabs={VIEWS} active={view} onSelect={id => { setView(id); setSeen(s => ({ ...s, [id]: true })) }} />
 
-      <div style={{ border: '1px solid var(--cp-border)', borderRadius: 6, padding: '12px 14px', background: 'var(--cp-bg2)', marginBottom: 14 }}>
-        <Row label="BRIEFING" action={entry ? fetchButton : null} last={!!entry && view !== 'winds'}>
-          {entry ? (
-            <MenuChip label="BRIEFING" align="left" items={[
-              { heading: briefingName(entry) },
-              { label: 'Change…', onClick: () => setPickOpen(true) },
-              { label: 'Clear', onClick: () => setPickedId(''), color: 'var(--cp-red)' },
-            ]} />
-          ) : (
-            <>
-              <AddChip label="+ BRIEFING" onClick={() => setPickOpen(true)} />
-              <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', color: 'var(--cp-dim)' }}>OR CHOOSE A REGION</span>
-            </>
-          )}
-        </Row>
-
-        {!entry && (
-          <Row label="REGION" action={fetchButton} last={view !== 'winds'}>
-            <div className="cp-tab-bar" style={{ overflowX: 'auto', maxWidth: '100%' }}>
-              <Seg value={regionId} onChange={setRegionId}
-                options={SAT_REGIONS.map(r => ({
-                  value: r.id,
-                  label: <>{r.label}{view === 'storms' && <StormDot storms={stormsInRegion(stormList, r)} />}</>,
-                }))} />
-            </div>
-          </Row>
-        )}
-
-        {view === 'winds' && (
-          <Row label="LEVEL" last>
-            <div className="cp-tab-bar" style={{ overflowX: 'auto', maxWidth: '100%' }}>
-              <Seg value={fl} onChange={f => setLevelPick({ key, fl: f })}
-                options={WIND_LEVELS.map(l => ({ value: l.fl, label: `FL${l.fl}` }))} />
-            </div>
-          </Row>
+      <SectionHeader title="Source" />
+      <div className="cp-label" style={{ marginBottom: 4 }}>BRIEFING</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: entry ? 20 : 12 }}>
+        {entry ? (
+          <MenuChip label="BRIEFING" align="left" items={[
+            { heading: briefingName(entry) },
+            { label: 'Change…', onClick: () => setPickOpen(true) },
+            { label: 'Clear', onClick: () => setPickedId(''), color: 'var(--cp-red)' },
+          ]} />
+        ) : (
+          <>
+            <AddChip label="+ BRIEFING" onClick={() => setPickOpen(true)} />
+            <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', color: 'var(--cp-dim)' }}>OR CHOOSE A REGION</span>
+          </>
         )}
       </div>
+
+      {!entry && (
+        <>
+          <div className="cp-label" style={{ marginBottom: 4 }}>REGION</div>
+          <div className="cp-tab-bar" style={{ overflowX: 'auto', maxWidth: '100%', marginBottom: 20 }}>
+            <Seg value={regionId} onChange={setRegionId}
+              options={SAT_REGIONS.map(r => ({
+                value: r.id,
+                label: <>{r.label}{view === 'storms' && <StormDot storms={stormsInRegion(stormList, r)} />}</>,
+              }))} />
+          </div>
+        </>
+      )}
+
+      {view === 'winds' && (
+        <>
+          <SectionHeader title="Flight Level" />
+          <div className="cp-tab-bar" style={{ overflowX: 'auto', maxWidth: '100%', marginBottom: 20 }}>
+            <Seg value={fl} onChange={f => setLevelPick({ key, fl: f })}
+              options={WIND_LEVELS.map(l => ({ value: l.fl, label: `FL${l.fl}` }))} />
+          </div>
+        </>
+      )}
+
+      {fetchButton}
 
       {/* Every view stays mounted once opened, so switching back and forth keeps what each one shows. */}
       <div className={view === 'cloud' ? viewAnim.className : undefined} style={{ ...viewAnim.style, display: view === 'cloud' ? 'block' : 'none' }}>
