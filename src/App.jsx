@@ -331,7 +331,7 @@ export default function App() {
       )}
       <div style={{
         ...(isCalcFullScreen
-          ? { height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+          ? { height: `calc(100dvh / ${zoom})`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
           : { minHeight: '100vh' }),
         background: 'var(--cp-bg)',
         fontFamily: 'var(--cb-font-body)',
@@ -413,7 +413,7 @@ export default function App() {
               <LauncherGrid calcs={orderedCalcs} onSelect={handleSelectCalculator} />
             </>
           ) : (
-            <div className={isCalcFullScreen ? 'cp-card-bg2' : 'cp-card-bg2 cp-tool-card'} style={{
+            <div className={isCalcFullScreen ? 'cp-card-bg2 cp-pane' : 'cp-card-bg2 cp-tool-card cp-pane'} style={{
               border: '1px solid var(--cp-border)',
               borderRadius: 4,
               // Clip (not scroll) sideways overflow so the slide-in can never

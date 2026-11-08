@@ -4,7 +4,7 @@ import { ModuleHeader } from './ModuleChrome'
 import BriefingTabBar from './BriefingTabBar'
 import Seg from './Seg'
 import LinkPicker from './LinkPicker'
-import { LinkChip, LinkLine } from './LinkChips'
+import { AddChip, MenuChip } from './LinkChips'
 import { briefingItem, briefingName } from './linkItems'
 import CloudPane from './CloudPane'
 import WindPane from './WindPane'
@@ -106,10 +106,18 @@ export default function SatelliteViewer() {
 
       <div style={{ border: '1px solid var(--cp-border)', borderRadius: 6, padding: '12px 14px', background: 'var(--cp-bg2)', marginBottom: 14 }}>
         <Row label="BRIEFING" action={entry ? fetchButton : null} last={!!entry && view !== 'winds'}>
-          <LinkChip linked={!!entry} tone="mint" label="BRIEFING" emptyLabel="PICK A BRIEFING" onClick={() => setPickOpen(true)} />
-          {entry
-            ? <LinkLine text={briefingName(entry)} onChange={() => setPickOpen(true)} onUnlink={() => setPickedId('')} unlinkLabel="CLEAR" />
-            : <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', color: 'var(--cp-dim)' }}>OR CHOOSE A REGION</span>}
+          {entry ? (
+            <MenuChip label="BRIEFING" align="left" items={[
+              { heading: briefingName(entry) },
+              { label: 'Change…', onClick: () => setPickOpen(true) },
+              { label: 'Clear', onClick: () => setPickedId(''), color: 'var(--cp-red)' },
+            ]} />
+          ) : (
+            <>
+              <AddChip label="+ BRIEFING" onClick={() => setPickOpen(true)} />
+              <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', color: 'var(--cp-dim)' }}>OR CHOOSE A REGION</span>
+            </>
+          )}
         </Row>
 
         {!entry && (

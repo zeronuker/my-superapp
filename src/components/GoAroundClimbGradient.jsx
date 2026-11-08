@@ -3,6 +3,14 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { calcGoAroundClimbGradient } from '../utils/goAroundClimbGradient'
 import lookupTables from '../data/lookupTables.json'
+import { SectionHeader, ChoiceBtn } from './B737Parts'
+
+const StageRow = ({ label, value, unit = '%' }) => (
+  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--cp-dim)', marginBottom: 3 }}>
+    <span>{label}</span>
+    <span>{value == null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(2)}${unit}`}</span>
+  </div>
+)
 
 // Variant labels are shared with EDTO's picker (lookupTables displayName),
 // except CFM56-7B26 — its Go-Around Climb Gradient table is identical under
@@ -88,34 +96,6 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
   }, [goAround.weight, goAround.oat, goAround.pressureAltitude, goAround.speedOffset,
       goAround.bleedConfig, goAround.antiIce, goAround.icingConditions, goAround.variant, table])
 
-  const SectionHeader = ({ title }) => (
-    <div className="cp-section-header">
-      <span className="cp-section-title">{title}</span>
-      <div className="cp-divider" />
-    </div>
-  )
-
-  const ChoiceBtn = ({ active, onClick, children, accentColor }) => (
-    <button
-      onClick={onClick}
-      style={{
-        background: active ? 'var(--cp-accdim)' : 'transparent',
-        border: `1px solid ${active ? (accentColor || 'var(--cp-acc)') : 'var(--cp-border)'}`,
-        borderRadius: 4,
-        color: active ? (accentColor || 'var(--cp-acc)') : 'var(--cp-dim)',
-        fontFamily: 'var(--cb-font-mono)',
-        fontSize: 12,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        padding: '7px 18px',
-        cursor: 'pointer',
-        transition: 'all 0.15s',
-      }}
-    >
-      {children}
-    </button>
-  )
-
   const sel = {
     background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)',
     borderRadius: 4, color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)',
@@ -124,13 +104,6 @@ const GoAroundClimbGradient = forwardRef(function GoAroundClimbGradient(props, r
 
   const inputsComplete = goAround.weight && goAround.oat !== '' && goAround.pressureAltitude !== '' && goAround.speedOffset !== ''
   const r = goAround.results
-
-  const StageRow = ({ label, value, unit = '%' }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--cp-dim)', marginBottom: 3 }}>
-      <span>{label}</span>
-      <span>{value == null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(2)}${unit}`}</span>
-    </div>
-  )
 
   return (
     <div className="b737-shell">

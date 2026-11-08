@@ -137,6 +137,15 @@ const useDutyLogStore = create(persist(
     addCrew: (id) =>
       set((s) => ({ logs: mapLog(s.logs, id, (l) => ({ ...l, crew: [...l.crew, blankCrew()] })) })),
 
+    // Replaces this duty's crew with the filled-in rows of another duty's (new ids, so the two stay independent).
+    copyCrew: (id, fromId) =>
+      set((s) => {
+        const from = s.logs.find((l) => l.id === fromId)
+        if (!from) return s
+        const crew = from.crew.filter((c) => c.name.trim() || c.position.trim()).map((c) => ({ ...c, id: uid() }))
+        return { logs: mapLog(s.logs, id, (l) => ({ ...l, crew })) }
+      }),
+
     updateCrew: (id, cid, patch) =>
       set((s) => ({ logs: mapLog(s.logs, id, (l) => ({
         ...l,

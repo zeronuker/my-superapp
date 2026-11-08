@@ -25,9 +25,8 @@ function SubNav({ active, onChange }) {
   ]
   return (
     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-      <div style={{
+      <div className="cp-card-bg3" style={{
         display: 'inline-flex',
-        background: 'var(--cp-bg3)',
         border: '1px solid var(--cp-border)',
         borderRadius: 6,
         padding: 3,

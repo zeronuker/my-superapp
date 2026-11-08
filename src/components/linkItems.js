@@ -31,6 +31,20 @@ export function briefingItem({ save, auto, near }, takenBy) {
   }
 }
 
+// A duty whose crew list can be copied: the date and route to tell duties apart, the crew names to check it's the right one.
+export function crewItem(log) {
+  const crew = log.crew.filter(c => c.name.trim() || c.position.trim())
+  const stops = [log.sectors[0]?.from, ...log.sectors.map(s => s.dest)].filter((p, i, a) => p && p !== a[i - 1])
+  const names = crew.map(c => c.name.trim() || c.position.trim())
+  return {
+    key: log.id, near: true, best: false, takenBy: null,
+    title: join(log.date || 'UNDATED', stops.join(' → ') || '—'),
+    sub: names.join(', '),
+    tags: [{ text: `${crew.length} CREW`, kind: 'ofp' }],
+    search: [log.date, ...stops, ...crew.map(c => `${c.name} ${c.position}`)].filter(Boolean).join(' ').toLowerCase(),
+  }
+}
+
 export function sectorItem({ log, sector, auto, near }, takenBy) {
   const reg = ((log.aircraft || []).find(a => a.id === sector.aircraftId) ?? log.aircraft?.[0])?.reg
   return {

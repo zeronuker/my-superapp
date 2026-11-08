@@ -16,6 +16,7 @@ import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/mod
 
 const CACHE_KEY = SIGMET_CACHE_KEY
 const ERA_MAX = 5
+const monoInput = { fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.12em' }
 
 function saveCache(data) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch (_) {}
@@ -92,9 +93,8 @@ function FirSection({ chip, sigmets, now, collapsed, onToggle }) {
 }
 
 export default function SigmetViewer() {
-  const { briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(useShallow(s => ({
+  const { briefing, discardUnsavedBriefing } = useCalculatorStore(useShallow(s => ({
     briefing: s.briefing,
-    openBriefing: s.openBriefing,
     discardUnsavedBriefing: s.discardUnsavedBriefing,
   })))
   const hasUnsavedBriefing = !!briefing.data && !briefing.savedId
@@ -258,11 +258,11 @@ export default function SigmetViewer() {
       )}
 
       {/* ── Route ── */}
-      <SectionHeader title="Route (for auto-detecting FIRs)" />
+      <SectionHeader title="Route" />
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 20 }}>
         <div style={{ flex: 1 }}>
           <div className="cp-label" style={{ marginBottom: 4 }}>DEPARTURE</div>
-          <input className="cp-input" style={{ width: '100%', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+          <input className="cp-input" style={monoInput}
             placeholder="e.g. WMKK" value={dep} maxLength={4} onChange={e => setDep(upper(e.target.value))} />
         </div>
         <button onClick={() => { setDep(arr); setArr(dep) }} title="Swap" aria-label="Swap departure and arrival"
@@ -270,7 +270,7 @@ export default function SigmetViewer() {
             fontSize: 20, paddingBottom: 9, flexShrink: 0, fontFamily: 'var(--cb-font-mono)', lineHeight: 1 }}>⇄</button>
         <div style={{ flex: 1 }}>
           <div className="cp-label" style={{ marginBottom: 4 }}>ARRIVAL</div>
-          <input className="cp-input" style={{ width: '100%', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+          <input className="cp-input" style={monoInput}
             placeholder="e.g. RJBB" value={arr} maxLength={4} onChange={e => setArr(upper(e.target.value))} />
         </div>
       </div>
@@ -281,7 +281,7 @@ export default function SigmetViewer() {
         {[{ key: 'alt1', label: 'DEST ALT 1' }, { key: 'alt2', label: 'DEST ALT 2' }].map(({ key, label }) => (
           <div key={key}>
             <div className="cp-label" style={{ marginBottom: 4 }}>{label}</div>
-            <input className="cp-input" style={{ width: '100%', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+            <input className="cp-input" style={monoInput}
               placeholder="e.g. WSSS" value={destAlts[key]} maxLength={4}
               onChange={e => setDestAlts(p => ({ ...p, [key]: upper(e.target.value) }))} />
           </div>
@@ -291,7 +291,7 @@ export default function SigmetViewer() {
       {/* ── Enroute Alternates ── */}
       <EnrouteAlternates count={enrouteCount} alts={enrouteAlts} max={ERA_MAX}
         onChange={({ count, alts }) => { setEnrouteCount(count); setEnrouteAlts(alts) }}
-        inputStyle={{ width: '100%', fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+        inputStyle={monoInput}
         clean={upper} />
 
       {/* ── FIRs ── */}
@@ -324,7 +324,7 @@ export default function SigmetViewer() {
         <input className="cp-input" placeholder="Add ICAO airport or FIR code…" value={customInput}
           maxLength={4} onChange={e => setCustomInput(upper(e.target.value))}
           onKeyDown={e => e.key === 'Enter' && addCustom()}
-          style={{ flex: 1, fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.08em' }} />
+          style={{ flex: 1, ...monoInput }} />
         <button onClick={addCustom} disabled={!customInput} style={{
           background: 'rgba(var(--cp-acc-rgb,63,224,197),0.1)', border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.3)',
           borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontFamily: 'var(--cb-font-mono)', fontSize: 9,
@@ -343,14 +343,6 @@ export default function SigmetViewer() {
           cursor: chips.length ? 'pointer' : 'default', fontFamily: 'var(--cb-font-mono)', fontSize: 10,
           letterSpacing: '0.16em', color: 'var(--cp-acc)', opacity: chips.length ? 1 : 0.5 }}>
           {loading ? '⊙ FETCHING SIGMETs…' : '⊕ FETCH SIGMETs'}
-        </button>
-        <button onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts, firs: chips })}
-          disabled={!chips.length || !isOnline} title={!isOnline ? 'Offline — connect to generate a briefing' : undefined} style={{
-          padding: '12px 16px', background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
-          border: '2px solid var(--cp-green)',
-          borderRadius: 6, cursor: chips.length && isOnline ? 'pointer' : 'default', fontFamily: 'var(--cb-font-mono)',
-          fontSize: 10, letterSpacing: '0.16em', color: 'var(--cp-green)', opacity: chips.length && isOnline ? 1 : 0.5 }}>
-          ✈ BRIEFING
         </button>
       </div>
 

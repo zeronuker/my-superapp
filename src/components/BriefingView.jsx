@@ -37,6 +37,7 @@ import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { resolveLinks, rankSectors } from '../utils/briefingLink'
 import { writeLink, clearLink } from '../services/linkSave'
 import LinkPicker from './LinkPicker'
+import { AddChip, MenuChip } from './LinkChips'
 import { useScrollLock } from '../useScrollLock'
 import { sectorItem, briefingName, linkedSectorName } from './linkItems'
 
@@ -696,41 +697,6 @@ function SaveBeforeClosePrompt({ onSave, onDiscard, onCancel, closing }) {
   )
 }
 
-// ── The small chips on a saved briefing's info row: one opens a menu of actions ──
-const chipBase = { fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.08em', fontWeight: 500, cursor: 'pointer', padding: '5px 9px', borderRadius: 4, whiteSpace: 'nowrap' }
-const CHIP_ON = { color: 'var(--cp-acc)', background: 'var(--cp-accdim)', border: '1px solid var(--cp-acc)' }
-const CHIP_OFF = { color: 'var(--cp-dim)', background: 'transparent', border: '1px dashed var(--cp-border)' }
-// items: [{ label, onClick, color?, disabled? }]. `set` = solid chip (something is linked / added), else dashed.
-function MenuChip({ label, set, items, disabled }) {
-  const [open, setOpen] = useState(false)
-  const presence = usePresence(open)
-  return (
-    <div style={{ position: 'relative' }}>
-      <button onClick={() => !disabled && setOpen(o => !o)} disabled={disabled} aria-haspopup="menu" aria-expanded={open}
-        style={{ ...chipBase, ...(set ? CHIP_ON : CHIP_OFF), ...(disabled ? { opacity: 0.4, cursor: 'not-allowed' } : {}) }}>{label} ▾</button>
-      {presence.mounted && (
-        <>
-          {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />}
-          <div role="menu" className={`cp-drop-in${presence.closing ? ' is-closing' : ''}`} style={{
-            position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 10, minWidth: 180,
-            background: 'var(--cp-bg3)', border: '1px solid var(--cp-border)', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,0.4)', overflow: 'hidden',
-          }}>
-            {items.map(it => it.heading ? (
-              <div key={it.heading} style={{ padding: '8px 12px 2px', fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--cp-dim)' }}>{it.heading}</div>
-            ) : (
-              <button key={it.label} disabled={it.disabled} onClick={() => { setOpen(false); it.onClick() }} style={{
-                display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none',
-                cursor: it.disabled ? 'not-allowed' : 'pointer', opacity: it.disabled ? 0.4 : 1,
-                fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: it.color || 'var(--cp-txt)',
-              }}>{it.label}</button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
 export default function BriefingView() {
   const briefing = useCalculatorStore(s => s.briefing)
   const setBriefingData = useCalculatorStore(s => s.setBriefingData)
@@ -1191,20 +1157,24 @@ export default function BriefingView() {
                 {localEntry && (
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                     {link ? (
-                      <MenuChip label="DUTY LOG" set items={[
+                      <MenuChip label="DUTY LOG" items={[
                         ...(linkedSectorName(dutyLogs, link) ? [{ heading: linkedSectorName(dutyLogs, link) }] : []),
                         { label: 'Go to duty log', onClick: openLog },
                         { label: 'Change…', onClick: () => setPickOpen(true) },
                         { label: 'Unlink', onClick: unlink, color: 'var(--cp-red)' },
                       ]} />
                     ) : (
-                      <button onClick={() => setPickOpen(true)} style={{ ...chipBase, ...CHIP_OFF }}>+ DUTY LOG</button>
+                      <AddChip label="+ DUTY LOG" onClick={() => setPickOpen(true)} />
                     )}
-                    <MenuChip label={ofpBusy ? (ofpBusy === 'reading' ? 'READING…' : 'DRAWING…') : 'OFP'} set={!!flightDetails}
-                      disabled={isOffline || !!ofpBusy} items={[
-                        { label: 'Add OFP', onClick: () => ofpFileRef.current?.click(), disabled: !!flightDetails },
-                        { label: 'Change OFP', onClick: () => ofpFileRef.current?.click(), disabled: !flightDetails },
-                      ]} />
+                    {flightDetails ? (
+                      <MenuChip label={ofpBusy ? (ofpBusy === 'reading' ? 'READING…' : 'DRAWING…') : 'OFP'}
+                        disabled={isOffline || !!ofpBusy} items={[
+                          { label: 'Change OFP', onClick: () => ofpFileRef.current?.click() },
+                        ]} />
+                    ) : (
+                      <AddChip label={ofpBusy ? (ofpBusy === 'reading' ? 'READING…' : 'DRAWING…') : '+ OFP'}
+                        disabled={isOffline || !!ofpBusy} onClick={() => ofpFileRef.current?.click()} />
+                    )}
                   </div>
                 )}
               </div>

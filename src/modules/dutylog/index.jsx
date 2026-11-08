@@ -19,7 +19,7 @@ export default function DutyLogModule({ onOpenSettings, animStyle }) {
     updateLog, deleteLog,
     addAircraft, removeAircraft, updateAircraft,
     addSector, removeSector, updateSector,
-    addCrew, updateCrew, removeCrew,
+    addCrew, updateCrew, removeCrew, copyCrew,
     syncCode, lastSyncedAt, markSynced, replaceLogs, ensureDeviceId,
     viewCodeHistory, addViewCode, removeViewCode,
   } = useDutyLogStore()
@@ -88,7 +88,7 @@ export default function DutyLogModule({ onOpenSettings, animStyle }) {
     markSynced(code)
   }
 
-  const actions = { updateLog, deleteLog, addAircraft, removeAircraft, updateAircraft, addSector, removeSector, updateSector, addCrew, updateCrew, removeCrew }
+  const actions = { updateLog, deleteLog, addAircraft, removeAircraft, updateAircraft, addSector, removeSector, updateSector, addCrew, updateCrew, removeCrew, copyCrew }
 
   return (
     <div className="dutylog-shell">
@@ -199,10 +199,10 @@ export function DutyLogBackupSync() {
   return (
     <div>
       {/* Status card */}
-      <div style={{
+      <div className="cp-card-bg3" style={{
         position: 'relative', overflow: 'hidden',
         display: 'flex', alignItems: 'center', gap: 10,
-        background: 'var(--cp-bg3)', border: `1px solid ${busy ? 'var(--cp-acc)' : 'var(--cp-border)'}`,
+        border: `1px solid ${busy ? 'var(--cp-acc)' : 'var(--cp-border)'}`,
         borderRadius: 6, padding: '10px 12px', marginBottom: 14,
       }}>
         <div className={busy ? 'cp-pulse' : undefined} style={{

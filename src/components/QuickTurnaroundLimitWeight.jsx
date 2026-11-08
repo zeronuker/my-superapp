@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { calcQuickTurnaroundLimitWeight } from '../utils/quickTurnaroundLimitWeight'
 import lookupTables from '../data/lookupTables.json'
+import { SectionHeader, ChoiceBtn } from './B737Parts'
 
 // Accepts: 72500 · 72,500 · 72.500 · 72.5 · 72,5  (with or without "kg")
 function parseWeightInput(input) {
@@ -74,34 +75,6 @@ const QuickTurnaroundLimitWeight = forwardRef(function QuickTurnaroundLimitWeigh
   }, [quickTurnaround.oat, quickTurnaround.pressureAltitude, quickTurnaround.slopePercent,
       quickTurnaround.windComponent, quickTurnaround.landingWeight, quickTurnaround.brakeType,
       quickTurnaround.aircraft, table])
-
-  const SectionHeader = ({ title }) => (
-    <div className="cp-section-header">
-      <span className="cp-section-title">{title}</span>
-      <div className="cp-divider" />
-    </div>
-  )
-
-  const ChoiceBtn = ({ active, onClick, children, accentColor }) => (
-    <button
-      onClick={onClick}
-      style={{
-        background: active ? 'var(--cp-accdim)' : 'transparent',
-        border: `1px solid ${active ? (accentColor || 'var(--cp-acc)') : 'var(--cp-border)'}`,
-        borderRadius: 4,
-        color: active ? (accentColor || 'var(--cp-acc)') : 'var(--cp-dim)',
-        fontFamily: 'var(--cb-font-mono)',
-        fontSize: 12,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        padding: '7px 18px',
-        cursor: 'pointer',
-        transition: 'all 0.15s',
-      }}
-    >
-      {children}
-    </button>
-  )
 
   const inputsComplete = quickTurnaround.oat !== '' && quickTurnaround.pressureAltitude !== '' && quickTurnaround.landingWeight
   const r = quickTurnaround.results

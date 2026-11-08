@@ -23,7 +23,6 @@ import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
 // ── Constants ───────────────────────────────────────────────────────────────
-const HOURS_OPTIONS  = [1, 2, 3, 6, 12, 24]
 const ERA_MAX        = 5
 const CACHE_KEY      = METAR_CACHE_KEY
 
@@ -54,10 +53,9 @@ function saveCache(data) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function METARTAFCalculator() {
-  const { settings, briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(useShallow(s => ({
+  const { settings, briefing, discardUnsavedBriefing } = useCalculatorStore(useShallow(s => ({
     settings: s.settings,
     briefing: s.briefing,
-    openBriefing: s.openBriefing,
     discardUnsavedBriefing: s.discardUnsavedBriefing,
   })))
   const hasUnsavedBriefing = !!briefing.data && !briefing.savedId
@@ -69,7 +67,7 @@ export default function METARTAFCalculator() {
   const [destAlts,     setDestAlts]     = useState(cache?.destAlts     || { alt1: '', alt2: '' })
   const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount ?? 1)   // opens with one field; a saved 0 stays 0
   const [enrouteAlts,  setEnrouteAlts]  = useState(cache?.enrouteAlts  || Array(ERA_MAX).fill(''))
-  const [hours,        setHours]        = useState(cache?.hours        || settings.defaultHistory)
+  const hours = settings.defaultHistory
   const [results,      setResults]      = useState(cache?.results      || null)
   const [fetchedAt,    setFetchedAt]    = useState(cache?.fetchedAt    || null)
   const [snapshotAt,   setSnapshotAt]   = useState(cache?.snapshotAt   || null)
@@ -140,7 +138,6 @@ export default function METARTAFCalculator() {
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(1)
     setEnrouteAlts(Array(ERA_MAX).fill(''))
-    setHours(settings.defaultHistory)
     setResults(null)
     setFetchedAt(null)
     setSnapshotAt(null)
@@ -151,14 +148,6 @@ export default function METARTAFCalculator() {
   }
 
   useExpiry(fetchedAt, handleReset)
-
-  // ── Sync hours when defaultHistory setting changes (e.g. after import) ──
-  const prevDefaultHistory = useRef(settings.defaultHistory)
-  useEffect(() => {
-    if (settings.defaultHistory === prevDefaultHistory.current) return
-    prevDefaultHistory.current = settings.defaultHistory
-    setHours(settings.defaultHistory)
-  }, [settings.defaultHistory])
 
   // ── Build ordered target list ─────────────────────────────────────────
   const buildTargets = useCallback((s) => {
@@ -245,11 +234,6 @@ export default function METARTAFCalculator() {
 
   // ── Shared styles ──────────────────────────────────────────────────────
   const monoInput = { fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.12em' }
-  const sel = {
-    background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)',
-    borderRadius: 4, color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)',
-    fontSize: 12, padding: '7px 10px', outline: 'none', cursor: 'pointer',
-  }
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
@@ -321,34 +305,13 @@ export default function METARTAFCalculator() {
         inputStyle={monoInput} onEnter={handleFetch} />
 
       {/* ── CONTROLS ────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8,
-        paddingTop: 14, borderTop: '1px solid var(--cp-border3)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span className="cp-label">METAR HISTORY</span>
-          <select value={hours} onChange={e => setHours(Number(e.target.value))} style={sel}>
-            {HOURS_OPTIONS.map(h => <option key={h} value={h}>{h}H</option>)}
-          </select>
-        </div>
-
-        <button className="cp-btn" onClick={handleFetch}
-          disabled={!hasInput || loading}
-          style={{
-            marginLeft: 'auto',
-            borderColor: hasInput && !loading ? 'var(--cp-acc)' : undefined,
-            color:       hasInput && !loading ? 'var(--cp-acc)' : undefined,
-            opacity: loading ? 0.6 : 1,
-            padding: '12px 10px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em',
-          }}>
-          {loading ? 'FETCHING…' : '⟳  FETCH WEATHER'}
-        </button>
-        <button className="cp-btn" onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts })} disabled={!hasInput || isOffline} title={isOffline ? 'Offline — connect to generate a briefing' : undefined}
-          style={{
-            opacity: hasInput && !isOffline ? 1 : 0.4,
-            padding: '12px 10px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em',
-            border: '2px solid var(--cp-green)', color: 'var(--cp-green)',
-            background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
-          }}>
-          ✈ BRIEFING
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <button onClick={() => handleFetch()} disabled={!hasInput || loading} style={{
+          flex: 1, padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
+          border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)', borderRadius: 6,
+          cursor: hasInput ? 'pointer' : 'default', fontFamily: 'var(--cb-font-mono)', fontSize: 10,
+          letterSpacing: '0.16em', color: 'var(--cp-acc)', opacity: hasInput ? 1 : 0.5 }}>
+          {loading ? '⊙ FETCHING WEATHER…' : '⊕ FETCH WEATHER'}
         </button>
       </div>
 

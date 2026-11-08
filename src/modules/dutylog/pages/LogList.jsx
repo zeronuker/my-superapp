@@ -73,8 +73,8 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
   const synced = isLogSynced(log, lastSyncedAt)
   const syncing = !!syncCode && rowSyncing(syncBusy, synced)
   return (
-    <div onClick={() => onOpen(log.id)} style={{
-      display: 'flex', background: 'var(--cp-bg2)', border: `1px solid ${syncing ? 'var(--cp-acc)' : 'var(--cp-border2)'}`, borderRadius: 6,
+    <div onClick={() => onOpen(log.id)} className="cp-card-bg2" style={{
+      display: 'flex', border: `1px solid ${syncing ? 'var(--cp-acc)' : 'var(--cp-border2)'}`, borderRadius: 6,
       marginBottom: 9, cursor: 'pointer', position: 'relative', overflow: 'hidden',
     }}>
       <div style={{ width: 3, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
@@ -131,8 +131,8 @@ function LogCard({ log, onOpen, onDelete, syncCode, lastSyncedAt, onSyncNow, syn
 function ViewedLogRow({ log, onOpen, query, matchField }) {
   const n = log.sectors?.length || 0
   return (
-    <div onClick={() => onOpen(log)} style={{
-      display: 'flex', background: 'var(--cp-bg3)', border: '1px solid var(--cp-border2)', borderRadius: 4,
+    <div onClick={() => onOpen(log)} className="cp-card-bg3" style={{
+      display: 'flex', border: '1px solid var(--cp-border2)', borderRadius: 4,
       marginBottom: 7, cursor: 'pointer', overflow: 'hidden',
     }}>
       <div style={{ width: 3, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
@@ -183,7 +183,7 @@ function ReadOnlyField({ label, value, labelStyle, unit, unitPosition = 'suffix'
 function ViewedAircraft({ aircraft, index }) {
   const stripeColor = aircraftStripeColors[index % aircraftStripeColors.length]
   return (
-    <div style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, marginBottom: 9, background: 'var(--cp-bg2)' }}>
+    <div className="cp-card-bg2" style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, marginBottom: 9 }}>
       <div style={{ marginBottom: 8 }}>
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)',
           background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px' }}>
@@ -212,14 +212,14 @@ function ViewedSector({ sector, index, aircraftList }) {
   const hasRemark = (sector.remark || '').trim().length > 0
   const stripeColor = sectorRowColors[index % sectorRowColors.length]
 
-  const showAcftChip = aircraftList.length > 1
+  const showAcftChip = aircraftList.length > 0
   let selIndex = aircraftList.findIndex(a => a.id === sector.aircraftId)
   if (selIndex === -1) selIndex = 0
   const selAcft = aircraftList[selIndex]
   const acftColor = aircraftStripeColors[selIndex % aircraftStripeColors.length]
 
   return (
-    <div style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, marginBottom: 9, background: 'var(--cp-bg2)' }}>
+    <div className="cp-card-bg2" style={{ border: '1px solid var(--cp-border2)', borderLeft: `3px solid ${stripeColor}`, borderRadius: 6, padding: 10, marginBottom: 9 }}>
       <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-acc)',
           background: 'var(--cp-accdim)', borderRadius: 4, padding: '2px 7px' }}>

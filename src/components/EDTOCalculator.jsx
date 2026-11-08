@@ -3,6 +3,25 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { interpolateAltitude2D } from '../utils/interpolation'
 import lookupTables from '../data/lookupTables.json'
+import { SectionHeader, ChoiceBtn } from './B737Parts'
+
+const ResultCard = ({ title, value, unit, details, accentColor = 'var(--cp-acc)' }) => (
+  <div className="cp-card-bg3" style={{
+    border: '1px solid var(--cp-border2)',
+    borderLeft: `3px solid ${accentColor}`,
+    borderRadius: 4,
+    padding: 16,
+  }}>
+    <div className="cp-label" style={{ marginBottom: 10, minHeight: '2.6em', display: 'flex', alignItems: 'flex-start' }}>{title}</div>
+    <div style={{ fontSize: 32, fontWeight: 700, color: accentColor, fontFamily: "var(--cb-font-mono)", lineHeight: 1, marginBottom: 4 }}>
+      {value ?? '—'}
+    </div>
+    <div style={{ fontSize: 11, color: 'var(--cp-dim)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: details ? 12 : 0 }}>
+      {unit}
+    </div>
+    {details}
+  </div>
+)
 
 const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
   const {
@@ -111,52 +130,6 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
     setEDTOResults(lrcAltRaw + lrcPenalty, kiasResult)
     setCalcDetails({ lrcAltRaw, lrcPenalty, lrcInterp, kiasAltRaw, kiasPenalty, kiasInterp, kiasAvailable: !!kiasTable })
   }, [edto.weight, edto.isaDeviation, edto.variant, edto.antiIce, currentVariant])
-
-  const SectionHeader = ({ title }) => (
-    <div className="cp-section-header">
-      <span className="cp-section-title">{title}</span>
-      <div className="cp-divider" />
-    </div>
-  )
-
-  const ChoiceBtn = ({ active, onClick, children, accentColor }) => (
-    <button
-      onClick={onClick}
-      style={{
-        background: active ? 'var(--cp-accdim)' : 'transparent',
-        border: `1px solid ${active ? (accentColor || 'var(--cp-acc)') : 'var(--cp-border)'}`,
-        borderRadius: 4,
-        color: active ? (accentColor || 'var(--cp-acc)') : 'var(--cp-dim)',
-        fontFamily: "var(--cb-font-mono)",
-        fontSize: 12,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        padding: '7px 18px',
-        cursor: 'pointer',
-        transition: 'all 0.15s',
-      }}
-    >
-      {children}
-    </button>
-  )
-
-  const ResultCard = ({ title, value, unit, details, accentColor = 'var(--cp-acc)' }) => (
-    <div className="cp-card-bg3" style={{
-      border: '1px solid var(--cp-border2)',
-      borderLeft: `3px solid ${accentColor}`,
-      borderRadius: 4,
-      padding: 16,
-    }}>
-      <div className="cp-label" style={{ marginBottom: 10, minHeight: '2.6em', display: 'flex', alignItems: 'flex-start' }}>{title}</div>
-      <div style={{ fontSize: 32, fontWeight: 700, color: accentColor, fontFamily: "var(--cb-font-mono)", lineHeight: 1, marginBottom: 4 }}>
-        {value ?? '—'}
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--cp-dim)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: details ? 12 : 0 }}>
-        {unit}
-      </div>
-      {details}
-    </div>
-  )
 
   const breakdown = (interp, altRaw, penalty, finalVal, accentColor) => {
     if (!interp || finalVal === null) return null

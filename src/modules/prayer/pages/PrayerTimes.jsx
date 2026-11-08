@@ -52,10 +52,11 @@ function DayStrip({ selected, onChange }) {
           <button
             key={offset}
             onClick={() => onChange(offset)}
+            className="cp-card-bg3"
             style={{
               flex: 1, padding: '8px 4px', borderRadius: 6,
               border: `1px solid ${active ? 'var(--cp-acc)' : 'var(--cp-border2)'}`,
-              background: active ? 'rgba(var(--cp-acc-rgb,63,224,197),0.12)' : 'var(--cp-bg3)',
+              ...(active && { backgroundImage: 'linear-gradient(rgba(var(--cp-acc-rgb,63,224,197),0.12), rgba(var(--cp-acc-rgb,63,224,197),0.12))' }),
               cursor: 'pointer', textAlign: 'center',
             }}
           >

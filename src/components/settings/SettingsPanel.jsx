@@ -393,7 +393,8 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
   )
 
   // ── Tab button (strip = mobile top, rail = desktop left) ──
-  const TabButton = ({ tab, variant }) => {
+  // A function called inline, not a component: a component defined here would be rebuilt on every render and drop focus.
+  const renderTabButton = (tab, variant) => {
     const active = activeTab === tab.id
     const base = {
       cursor: 'pointer', background: active ? 'var(--cp-accdim)' : 'transparent',
@@ -402,7 +403,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
     }
     if (variant === 'rail') {
       return (
-        <button onClick={() => setActiveTab(tab.id)} aria-current={active}
+        <button key={tab.id} onClick={() => setActiveTab(tab.id)} aria-current={active}
           style={{ ...base, display: 'flex', alignItems: 'center', gap: 9, width: '100%',
             textAlign: 'left', border: 'none', borderRadius: 4, padding: '10px 12px', fontSize: 11 }}>
           <span style={{ fontSize: 14 }}>{tab.icon}</span>{tab.label}
@@ -410,7 +411,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
       )
     }
     return (
-      <button onClick={() => setActiveTab(tab.id)} aria-current={active}
+      <button key={tab.id} onClick={() => setActiveTab(tab.id)} aria-current={active}
         style={{ ...base, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
           gap: 4, border: 'none', borderBottom: `2px solid ${active ? 'var(--cp-acc)' : 'transparent'}`,
           padding: '10px 4px', minHeight: 52, fontSize: 9 }}>
@@ -434,7 +435,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <div style={{ width: 150, flexShrink: 0, borderRight: '1px solid var(--cp-border)',
             padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto' }}>
-            {SETTINGS_TABS.map(t => <TabButton key={t.id} tab={t} variant="rail" />)}
+            {SETTINGS_TABS.map(t => renderTabButton(t, 'rail'))}
           </div>
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px' }}>
             <div key={activeTab} className={tabAnim.className} style={tabAnim.style}>{tabContent}</div>
@@ -454,7 +455,7 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
       style={{ position: 'fixed', inset: 0, zIndex: 200, '--cf-c': '0px' }}>
       {header}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--cp-border)', flexShrink: 0 }}>
-        {SETTINGS_TABS.map(t => <TabButton key={t.id} tab={t} variant="strip" />)}
+        {SETTINGS_TABS.map(t => renderTabButton(t, 'strip'))}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px',
         paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}>

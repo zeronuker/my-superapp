@@ -354,8 +354,8 @@ function DeadReckoningNote() {
 function CurrentPositionPanel({ elapsedHours, position, elapsedNm, remainNm, fraction, onRefresh, isRefreshing }) {
   const pct = Math.round(fraction * 100)
   return (
-    <div style={{
-      background: T.bg1, border: `1px solid ${T.bord2}`,
+    <div className="cp-card-bg2" style={{
+      border: `1px solid ${T.bord2}`,
       borderRadius: 8, padding: '14px 16px',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
@@ -539,8 +539,7 @@ function FlightTimeBanner({ clockInfo, dep, dest, depTime, arrTime, timeZone }) 
   const timeLabel = timeZone === 'utc' ? 'UTC' : 'LOCAL'
 
   return (
-    <div style={{
-      background: T.bg1,
+    <div className="cp-card-bg2" style={{
       border: `1px solid ${T.bord2}`,
       borderRadius: 6,
       padding: '10px 12px',
@@ -867,8 +866,8 @@ export default function FlightPage({ settings }) {
         <div className="flight-results">
           {/* Qibla */}
           <Section title="QIBLA FROM CURRENT POSITION">
-            <div style={{
-              background: T.bg1, border: `1px solid ${T.bord2}`,
+            <div className="cp-card-bg2" style={{
+              border: `1px solid ${T.bord2}`,
               borderRadius: 6, padding: '12px 14px',
             }}>
               {/* Bearing readout */}

@@ -15,8 +15,8 @@ import { setLeaveGuard } from '../../../utils/leaveGuard'
 import { writeLink, clearLink, takeSnapshot, restoreSnapshot } from '../../../services/linkSave'
 import LinkPicker from '../../../components/LinkPicker'
 import LinkKeepPrompt from '../../../components/LinkKeepPrompt'
-import { LinkChip, LinkLine } from '../../../components/LinkChips'
-import { briefingItem, briefingName, linkedSectorName } from '../../../components/linkItems'
+import { AddChip, MenuChip } from '../../../components/LinkChips'
+import { briefingItem, briefingName, linkedSectorName, crewItem } from '../../../components/linkItems'
 
 const mono = 'var(--cb-font-mono)'
 
@@ -81,7 +81,7 @@ const badgeStyle = { fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', colo
 const rowStyle = (color, selected) => ({
   display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', cursor: 'pointer',
   ...frame(color, selected ? color : 'var(--cp-border2)', 4), borderRadius: 6,
-  padding: '9px 10px', background: selected ? `color-mix(in srgb, ${color} 12%, var(--cp-bg2))` : 'var(--cp-bg2)',
+  padding: '9px 10px', ...(selected && { backgroundImage: `linear-gradient(color-mix(in srgb, ${color} 12%, transparent), color-mix(in srgb, ${color} 12%, transparent))` }),
   fontFamily: mono, fontSize: 10, color: 'var(--cp-txt)',
 })
 // Border as separate width / style / colour props. A `border` shorthand next to a `borderLeft` longhand makes React drop the
@@ -102,13 +102,13 @@ const bigArrow = { width: 34, height: 30, display: 'grid', placeItems: 'center',
 const removeBtn = { fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', whiteSpace: 'nowrap', cursor: 'pointer', padding: '7px 9px', borderRadius: 5, color: 'var(--cp-red)', background: 'transparent', border: '1px solid color-mix(in srgb, var(--cp-red) 55%, transparent)' }
 
 // "Remove sector #3? … CANCEL  REMOVE" — nothing is deleted until REMOVE is tapped.
-function ConfirmRemove({ text, onCancel, onConfirm }) {
+function ConfirmRemove({ text, onCancel, onConfirm, action = 'REMOVE' }) {
   return (
     <div role="alertdialog" style={{ marginTop: 8, border: '1px solid var(--cp-red)', borderRadius: 6, padding: '8px 10px',
       background: 'color-mix(in srgb, var(--cp-red) 8%, var(--cp-bg2))', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       <span style={{ flex: 1, minWidth: 140, fontFamily: mono, fontSize: 10, color: 'var(--cp-txt)', lineHeight: 1.5 }}>{text}</span>
       <button onClick={onCancel} className="cp-btn" style={{ padding: '5px 9px', fontSize: 10 }}>CANCEL</button>
-      <button onClick={onConfirm} style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: '5px 10px', borderRadius: 5, border: '1px solid var(--cp-red)', background: '#b91c1c', color: '#fff' }}>REMOVE</button>
+      <button onClick={onConfirm} style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: '5px 10px', borderRadius: 5, border: '1px solid var(--cp-red)', background: '#b91c1c', color: '#fff' }}>{action}</button>
     </div>
   )
 }
@@ -117,7 +117,7 @@ function AircraftRow({ aircraft, index, onOpen }) {
   const color = aircraftStripeColors[index % aircraftStripeColors.length]
   const t = aircraftText(aircraft)
   return (
-    <button type="button" onClick={onOpen} aria-label={`open aircraft ${index + 1}`} style={{ ...rowStyle(color, false), padding: '6px 8px 6px 10px' }}>
+    <button type="button" className="cp-card-bg2" onClick={onOpen} aria-label={`open aircraft ${index + 1}`} style={{ ...rowStyle(color, false), padding: '6px 8px 6px 10px' }}>
       <span style={badgeStyle}>#{index + 1}</span>
       <span style={rowMain}><b style={{ fontWeight: 600 }}>{t.main}</b><span style={{ color: 'var(--cp-dim)' }}>{t.rest}</span></span>
       <span style={bigArrow} aria-hidden="true">▾</span>
@@ -140,7 +140,7 @@ function Aircraft({ logId, aircraft, index, total, actions, onClose, closing = f
   const f = (key) => (v) => set({ [key]: v })
   const stripeColor = aircraftStripeColors[index % aircraftStripeColors.length]
   return (
-    <div className={`dutylog-open cp-reveal-in${closing ? ' is-closing' : ''}`} style={{ ...frame(stripeColor, stripeColor, 5), borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
+    <div className={`dutylog-open cp-card-bg2 cp-reveal-in${closing ? ' is-closing' : ''}`} style={{ ...frame(stripeColor, stripeColor, 5), borderRadius: 6, padding: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ ...badgeStyle, color: 'var(--cp-txt)' }}>
           AIRCRAFT #{index + 1}
@@ -186,7 +186,7 @@ function Aircraft({ logId, aircraft, index, total, actions, onClose, closing = f
         <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed var(--cp-border2)' }}>
           <button onClick={() => setConfirming(true)} aria-label="remove aircraft" style={removeBtn}>✕ &nbsp;REMOVE AIRCRAFT</button>
           {confirming && (
-            <ConfirmRemove text={`Remove aircraft ${aircraft.reg || `#${index + 1}`}? Its sectors will be left without an aircraft.`}
+            <ConfirmRemove text={`Remove aircraft ${aircraft.reg || `#${index + 1}`}?`}
               onCancel={() => setConfirming(false)} onConfirm={() => actions.removeAircraft(logId, aircraft.id)} />
           )}
         </div>
@@ -198,7 +198,7 @@ function Aircraft({ logId, aircraft, index, total, actions, onClose, closing = f
 function SectorRow({ sector, index, selected, color, chip, chipColor, onSelect }) {
   const t = rowText(sector)
   return (
-    <button type="button" className="dutylog-srow" data-sector-id={sector.id} onClick={onSelect}
+    <button type="button" className="dutylog-srow cp-card-bg2" data-sector-id={sector.id} onClick={onSelect}
       aria-label={`open sector ${index + 1}`} aria-current={selected ? 'true' : undefined} style={rowStyle(color, selected)}>
       <span style={selected ? { ...badgeStyle, background: 'var(--cp-bg)' } : badgeStyle}>#{index + 1}</span>
       <span style={rowMain}><b style={{ fontWeight: 600 }}>{t.flight}</b> <span style={{ color: 'var(--cp-dim)' }}>{t.route}</span></span>
@@ -239,7 +239,8 @@ function SectorEditor({ logId, sector, index, total, color, actions, onRemarks, 
   const [confirming, setConfirming] = useState(false)
   const hasRemark = (sector.remark || '').trim().length > 0
 
-  const showAcftChip = aircraftList.length > 1
+  const showAcftChip = aircraftList.length > 0
+  const canSwap = aircraftList.length > 1
   let selIndex = aircraftList.findIndex(a => a.id === sector.aircraftId)
   if (selIndex === -1) selIndex = 0
   const selAcft = aircraftList[selIndex]
@@ -247,26 +248,35 @@ function SectorEditor({ logId, sector, index, total, color, actions, onRemarks, 
   const acftColor = aircraftStripeColors[selIndex % aircraftStripeColors.length]
 
   return (
-    <div className="dutylog-open cp-reveal-in" data-sector-editor style={{ ...frame(color, color, 5), borderRadius: 6, padding: 10, background: 'var(--cp-bg2)' }}>
+    <div className="dutylog-open cp-card-bg2 cp-reveal-in" data-sector-editor style={{ ...frame(color, color, 5), borderRadius: 6, padding: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ ...badgeStyle, color }}>
             SECTOR #{index + 1}
           </span>
           {showAcftChip && (
-            <button onClick={() => set({ aircraftId: otherAcft.id })} aria-label="swap aircraft for this sector"
+            <button onClick={() => canSwap && set({ aircraftId: otherAcft.id })} aria-label={canSwap ? 'swap aircraft for this sector' : 'aircraft for this sector'}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 5, cursor: canSwap ? 'pointer' : 'default',
                 fontFamily: mono, fontSize: 9, letterSpacing: '0.06em', fontWeight: 500,
                 padding: '2px 7px', borderRadius: 4, ...aircraftChip(acftColor),
               }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
               {(selAcft.reg || `ACFT ${selIndex + 1}`).toUpperCase()}
-              <span style={{ opacity: 0.6 }}>⇄</span>
+              {canSwap && <span style={{ opacity: 0.6 }}>⇄</span>}
             </button>
           )}
-          <LinkChip linked={!!link} tone="amber" label="BRIEFING" emptyLabel="LINK BRIEFING"
-            onClick={() => (link ? onOpenLink(link.saveId) : onPickLink(sector.id))} />
+          {link ? (
+            <MenuChip label="BRIEFING" align="left" items={[
+              { heading: link.name },
+              { label: 'Open briefing', onClick: () => onOpenLink(link.saveId) },
+              { label: 'Change…', onClick: () => onPickLink(sector.id) },
+              { label: 'Unlink', onClick: () => onUnlink(sector.id), color: 'var(--cp-red)' },
+            ]} />
+          ) : (
+            <AddChip label="+ BRIEFING" onClick={() => onPickLink(sector.id)} />
+          )}
+          <AddChip label={hasRemark ? 'REMARKS' : '+ REMARKS'} set={hasRemark} onClick={() => onRemarks(sector.id)} />
         </div>
       </div>
 
@@ -293,22 +303,6 @@ function SectorEditor({ logId, sector, index, total, color, actions, onRemarks, 
         <div style={{ flex: 1 }}><Field label="ALT" value={sector.engAlt} onChange={f('engAlt')} numeric unit="FL" unitPosition="prefix" /></div>
         <div style={{ flex: 1 }}><Field label="IAS" value={sector.engIas} onChange={f('engIas')} numeric unit="KTS" /></div>
       </div>
-
-      <button onClick={() => onRemarks(sector.id)} style={{
-        width: '100%', marginTop: 9, fontFamily: mono, fontSize: 9, letterSpacing: '0.1em', cursor: 'pointer',
-        borderRadius: 6, padding: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        color: hasRemark ? 'var(--cp-acc)' : 'var(--cp-muted)',
-        border: `1px ${hasRemark ? 'solid var(--cp-acc)' : 'dashed var(--cp-border)'}`,
-        background: hasRemark ? 'var(--cp-accdim)' : 'transparent',
-      }}>
-        {hasRemark ? 'REMARKS' : '+ ADD REMARKS'}
-      </button>
-
-      {link && (
-        <LinkLine style={{ marginTop: 8, textAlign: 'center' }}
-          text={`Briefing linked by you · ${link.name}`}
-          onChange={() => onPickLink(sector.id)} onUnlink={() => onUnlink(sector.id)} />
-      )}
 
       <SectorFooter index={index} total={total} onPrev={onPrev} onNext={onNext} onRemove={total > 1 ? () => setConfirming(true) : null} />
       {confirming && (
@@ -442,6 +436,19 @@ export default function LogEditor({ log, actions, onBack }) {
     : []
   const pickBriefing = (saveId) => { writeLink(log.id, pickSid, saveId); setPickOpen(false) }
   const unlink = (sid) => clearLink(log.id, sid)
+
+  // Copy crew from another duty: pick it from the list, then confirm first if this duty already has crew filled in.
+  const [crewPickOpen, setCrewPickOpen] = useState(false)
+  const [crewFromId, setCrewFromId] = useState(null)
+  const crewFilled = (l) => l.crew.some(c => c.name.trim() || c.position.trim())
+  const crewItems = allLogs.filter(l => l.id !== log.id && crewFilled(l))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.updatedAt - a.updatedAt).map(crewItem)
+  const crewFrom = allLogs.find(l => l.id === crewFromId)
+  const pickCrew = (fromId) => {
+    setCrewPickOpen(false)
+    if (crewFilled(log)) setCrewFromId(fromId)
+    else actions.copyCrew(log.id, fromId)
+  }
 
   // Leaving after an edit asks, for each link the log had when opened, whether to keep it. The snapshot is
   // what UNDO CHANGES puts back: the log, and every link field in the app.
@@ -605,7 +612,7 @@ export default function LogEditor({ log, actions, onBack }) {
           return (
             <Fragment key={sec.id}>
               <SectorRow sector={sec} index={i} selected={i === selIndex} color={color}
-                chip={air.length > 1 ? (air[ai]?.reg || `ACFT ${ai + 1}`).toUpperCase() : null} chipColor={acftColor}
+                chip={air.length > 0 ?(air[ai]?.reg || `ACFT ${ai + 1}`).toUpperCase() : null} chipColor={acftColor}
                 onSelect={() => { setSelSid(sec.id); showEditor() }} />
               {i === selIndex && (
                 <SectorEditor logId={log.id} sector={sec} index={i} total={log.sectors.length} color={color}
@@ -618,14 +625,24 @@ export default function LogEditor({ log, actions, onBack }) {
         })}
       </div>
 
-      <div style={secLabel}>NOTES</div>
+      <div style={secLabel}>DUTY NOTES</div>
       <textarea className="cp-input" rows={3} style={{ resize: 'vertical' }}
         value={log.notes} onChange={(e) => f('notes')(e.target.value)} />
 
       <div style={{ ...secLabel, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>CREW</span>
-        <button onClick={() => actions.addCrew(log.id)} className="cp-btn" style={{ padding: '4px 8px' }}>+ ADD</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <AddChip label="COPY CREW" disabled={!crewItems.length} onClick={() => setCrewPickOpen(true)} />
+          <button onClick={() => actions.addCrew(log.id)} className="cp-btn" style={addBtnStyle(false)}>+ ADD CREW</button>
+        </div>
       </div>
+      {crewFrom && (
+        <div style={{ marginBottom: 8 }}>
+          <ConfirmRemove action="REPLACE" text={`Replace the crew on this duty with the crew from ${crewItem(crewFrom).title}?`}
+            onCancel={() => setCrewFromId(null)}
+            onConfirm={() => { actions.copyCrew(log.id, crewFromId); setCrewFromId(null) }} />
+        </div>
+      )}
       <div className="dutylog-crew-header-single" style={{ gridTemplateColumns: '1fr 80px auto', gap: 7, marginBottom: 4 }}>
         <label style={lblStyle}>Name</label>
         <label style={lblStyle}>Position</label>
@@ -652,6 +669,10 @@ export default function LogEditor({ log, actions, onBack }) {
         subtitle={pickSector ? `SECTOR #${log.sectors.indexOf(pickSector) + 1} · ${pickSector.fltNo || '—'} · ${log.date || 'UNDATED'}` : ''}
         searchHint="Search flight, route, tail…" allLabel="SHOW ALL BRIEFINGS"
         items={pickItems} onPick={pickBriefing} onCancel={() => setPickOpen(false)} />
+
+      <LinkPicker open={crewPickOpen} title="COPY CREW" subtitle={`INTO ${log.date || 'UNDATED'}`}
+        searchHint="Search date, route, crew name…" allLabel=""
+        items={crewItems} onPick={pickCrew} onCancel={() => setCrewPickOpen(false)} />
 
       <LinkKeepPrompt open={!!ask} title={ask?.title} subtitle={ask?.subtitle} rows={ask?.rows ?? []}
         onConfirm={confirmLeave} onUndo={undoEdits} />

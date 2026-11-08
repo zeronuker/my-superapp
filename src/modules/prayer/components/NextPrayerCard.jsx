@@ -37,7 +37,7 @@ export default function NextPrayerCard({ times }) {
   const s = Math.floor((diffMs % 60_000) / 1_000)
 
   return (
-    <div style={{
+    <div className="cp-card-bg2" style={{
       margin: '16px 0',
       background: 'linear-gradient(135deg, rgba(var(--cp-acc-rgb,63,224,197),0.1) 0%, rgba(59,141,255,0.07) 100%)',
       border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.25)',

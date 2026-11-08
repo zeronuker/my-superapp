@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { calcBrakeCoolingSchedule } from '../utils/brakeCoolingSchedule'
 import lookupTables from '../data/lookupTables.json'
+import { SectionHeader, ChoiceBtn } from './B737Parts'
 
 // Accepts: 72500 · 72,500 · 72.500 · 72.5 · 72,5  (with or without "kg")
 function parseWeightInput(input) {
@@ -106,39 +107,11 @@ const BrakeCoolingSchedule = forwardRef(function BrakeCoolingSchedule(props, ref
     setBrakeCoolingField({ residualEnergy: r.totalEnergy.toFixed(1), taxiDistance: '' })
   }
 
-  const SectionHeader = ({ title }) => (
-    <div className="cp-section-header">
-      <span className="cp-section-title">{title}</span>
-      <div className="cp-divider" />
-    </div>
-  )
-
   const sel = {
     background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)',
     borderRadius: 4, color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)',
     fontSize: 13, padding: '8px 10px', outline: 'none', cursor: 'pointer', width: '100%',
   }
-
-  const ChoiceBtn = ({ active, onClick, children, accentColor }) => (
-    <button
-      onClick={onClick}
-      style={{
-        background: active ? 'var(--cp-accdim)' : 'transparent',
-        border: `1px solid ${active ? (accentColor || 'var(--cp-acc)') : 'var(--cp-border)'}`,
-        borderRadius: 4,
-        color: active ? (accentColor || 'var(--cp-acc)') : 'var(--cp-dim)',
-        fontFamily: 'var(--cb-font-mono)',
-        fontSize: 12,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        padding: '7px 18px',
-        cursor: 'pointer',
-        transition: 'all 0.15s',
-      }}
-    >
-      {children}
-    </button>
-  )
 
   let step = 1
   const stepAircraft = step++

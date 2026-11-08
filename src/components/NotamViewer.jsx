@@ -4,7 +4,6 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { lookupAirport } from '../data/airports'
 import { haptic } from '../utils/haptic'
-import { useOnlineStatus } from '../utils/useOnlineStatus'
 import ResetButton from './ResetButton'
 import SnapshotBanner from './SnapshotBanner'
 import CopyAirportsButton from './CopyAirportsButton'
@@ -138,17 +137,15 @@ function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function NotamViewer() {
-  const { sortMode, briefing, openBriefing, discardUnsavedBriefing } = useCalculatorStore(useShallow(s => ({
+  const { sortMode, briefing, discardUnsavedBriefing } = useCalculatorStore(useShallow(s => ({
     sortMode: s.settings.notamSort || 'relevance',
     briefing: s.briefing,
-    openBriefing: s.openBriefing,
     discardUnsavedBriefing: s.discardUnsavedBriefing,
   })))
   const hasUnsavedBriefing = !!briefing.data && !briefing.savedId
   const notamFocus = useCalculatorStore(s => s.notamFocus)
   const setNotamFocus = useCalculatorStore(s => s.setNotamFocus)
 
-  const isOnline       = useOnlineStatus()
   const [cache]        = useState(() => loadWithExpiry(CACHE_KEY))
   // Inputs (mirror METAR/TAF)
   const [dep,          setDep]          = useState(cache?.dep          || '')
@@ -439,12 +436,11 @@ export default function NotamViewer() {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-        <input value={customInput} onChange={e => setCustomInput(upper(e.target.value, 6))}
-          onKeyDown={e => e.key === 'Enter' && addCustom()} placeholder="Add specific airport or FIR…"
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <input className="cp-input" value={customInput} onChange={e => setCustomInput(upper(e.target.value, 6))}
+          onKeyDown={e => e.key === 'Enter' && addCustom()} placeholder="Add ICAO airport or FIR code…"
           autoComplete="off" autoCapitalize="characters" spellCheck="false"
-          style={{ flex: 1, background: T.bg1, border: `1px solid ${T.bord2}`, borderRadius: 6,
-            color: T.ink, fontFamily: T.mono, fontSize: 12, padding: '7px 10px', outline: 'none', letterSpacing: '0.08em' }} />
+          style={{ flex: 1, ...monoInput }} />
         <button onClick={addCustom} disabled={!customInput} style={{
           background: 'rgba(var(--cp-acc-rgb,63,224,197),0.1)', border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.3)',
           borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontFamily: T.mono, fontSize: 9,
@@ -465,14 +461,6 @@ export default function NotamViewer() {
           cursor: targets.length ? 'pointer' : 'default', fontFamily: T.mono, fontSize: 10,
           letterSpacing: '0.16em', color: T.acc, opacity: targets.length ? 1 : 0.5 }}>
           {loading ? '⊙ FETCHING NOTAMs…' : '⊕ FETCH NOTAMs'}
-        </button>
-        <button onClick={() => openBriefing({ dep, arr, destAlts, enrouteCount, enrouteAlts, firs: extraChips.filter(c => c.type === 'fir') })}
-          disabled={!targets.length || !isOnline} title={!isOnline ? 'Offline — connect to generate a briefing' : undefined} style={{
-          padding: '12px 16px', background: 'color-mix(in srgb, var(--cp-green) 18%, transparent)',
-          border: '2px solid var(--cp-green)',
-          borderRadius: 6, cursor: targets.length && isOnline ? 'pointer' : 'default', fontFamily: T.mono,
-          fontSize: 10, letterSpacing: '0.16em', color: 'var(--cp-green)', opacity: targets.length && isOnline ? 1 : 0.5 }}>
-          ✈ BRIEFING
         </button>
       </div>
 
