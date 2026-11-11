@@ -29,8 +29,9 @@
  * Map pieces are stored as parts/<n> (as they always were); the others as parts/sat-<n> and parts/wind-<n>.
  *
  * OFP inbox (&kind=ofp): the CVR bookmark (public/cvr-send.js, run on cvr.batikair.com.my) drops a flight's
- * XmlOFP here so the app can import it; the app deletes it once imported. Like a mailbox, the code alone is
- * enough for all four calls (no owner check), and the code must already exist.
+ * XmlOFP here so the app can import it; it stays until the pilot removes it. Like a mailbox, the code alone is
+ * enough for all four calls (no owner check), and the code must already exist. The text is stored gzipped
+ * (base64, about a tenth of its size), so a long flight's OFP still fits one document.
  * POST   ...&kind=ofp&id=ID&label=LABEL  body: the XmlOFP as text/plain   (CORS open to the CVR site only)
  * GET    ...&kind=ofp                    -> { items: [{ id, label, sentAt }] }  newest first
  * GET    ...&kind=ofp&id=ID              -> { text, label, sentAt }
@@ -39,10 +40,12 @@
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
+import { gzipSync, gunzipSync } from 'node:zlib'
 import { rateLimited } from './_rateLimit.js'
 
 const CODE_RE = /^[A-Z0-9]{4,8}(-[A-Z0-9]{4,8}){1,3}$/
 const MAX_PAYLOAD_BYTES = 900_000 // Firestore doc limit is 1 MiB
+const MAX_OFP_BYTES = 4_000_000   // an XmlOFP as sent (Vercel refuses bodies over ~4.5 MB); it is stored gzipped
 const BRIEFING_ID_RE = /^[A-Za-z0-9-]{1,64}$/
 // How many pieces each picture may have, by kind (a piece is up to 700 000 characters).
 const MAX_PIECES = { map: 50, sat: 10, wind: 10 }
@@ -182,14 +185,17 @@ async function handleOfp(req, res, ref) {
       }
       const doc = await ofps.doc(id).get()
       if (!doc.exists) return res.status(404).json({ error: 'OFP not found' })
-      const { text, label, sentAt } = doc.data()
-      return res.status(200).json({ text, label, sentAt })
+      const { gz, text, label, sentAt } = doc.data()
+      // `text`: an OFP stored before they were gzipped.
+      return res.status(200).json({ text: gz ? gunzipSync(Buffer.from(gz, 'base64')).toString() : text, label, sentAt })
     }
     if (req.method === 'POST') {
       const text = req.body
       if (typeof text !== 'string' || !text) return res.status(400).json({ error: 'OFP text required' })
-      if (Buffer.byteLength(text) > MAX_PAYLOAD_BYTES) return res.status(413).json({ error: 'OFP too large' })
-      await ofps.doc(id).set({ text, label: String(req.query.label ?? '').slice(0, 60), sentAt: Date.now() })
+      if (Buffer.byteLength(text) > MAX_OFP_BYTES) return res.status(413).json({ error: 'OFP too large' })
+      const gz = gzipSync(text).toString('base64')
+      if (gz.length > MAX_PAYLOAD_BYTES) return res.status(413).json({ error: 'OFP too large' })
+      await ofps.doc(id).set({ gz, label: String(req.query.label ?? '').slice(0, 60), sentAt: Date.now() })
       return res.status(200).json({ ok: true })
     }
     if (req.method === 'DELETE') {

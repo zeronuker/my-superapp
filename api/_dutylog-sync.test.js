@@ -146,8 +146,21 @@ describe('OFP inbox (kind=ofp)', () => {
     expect((await ofp('POST', {}, { body: 'x' })).code).toBe(400)
     expect((await ofp('POST', { id: '../x' }, { body: 'x' })).code).toBe(400)
     expect((await ofp('POST', { id: 'a' }, { body: '' })).code).toBe(400)
-    expect((await ofp('POST', { id: 'a' }, { body: 'x'.repeat(950_000) })).code).toBe(413)
+    expect((await ofp('POST', { id: 'a' }, { body: 'x'.repeat(4_100_000) })).code).toBe(413)
     expect((await ofp('GET', { id: 'nope' })).code).toBe(404)
+  })
+
+  it('stores an OFP gzipped, so one bigger than a document still fits and comes back whole', async () => {
+    const big = '<FlightPlan>' + Array.from({ length: 30_000 }, (_, n) => `<Waypoint id="${n}" name="FIX${n}"/>`).join('') + 'é</FlightPlan>'
+    expect(big.length).toBeGreaterThan(1_000_000)
+    expect((await ofp('POST', { id: 'long' }, { body: big })).code).toBe(200)
+    expect(fb.docs.get(`dutylogs/${CODE}/ofps/long`).gz.length).toBeLessThan(900_000)
+    expect((await ofp('GET', { id: 'long' })).body.text).toBe(big)
+  })
+
+  it('still reads an OFP stored before they were gzipped', async () => {
+    fb.docs.set(`dutylogs/${CODE}/ofps/old`, { text: '<FlightPlan/>', label: 'OD1', sentAt: 1 })
+    expect((await ofp('GET', { id: 'old' })).body.text).toBe('<FlightPlan/>')
   })
 })
 

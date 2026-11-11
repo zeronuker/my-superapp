@@ -39,13 +39,15 @@ export default function FromCvr({ syncCode, isOnline, disabled, readText, onLoad
     setChecking(true); setError(''); setNote('')
     try {
       const list = await atLeast(listInbox(syncCode).catch(e => (/no backup/.test(e.message) ? [] : Promise.reject(e))))
-      const added = seen.current ? list.filter(i => !seen.current.has(i.id)).map(i => i.id) : []
+      // An OFP sent again (a revised one) keeps its id but has a new sent time: that is NEW too.
+      const key = (i) => `${i.id}:${i.sentAt}`
+      const added = seen.current ? list.filter(i => !seen.current.has(key(i))).map(i => i.id) : []
       if (seen.current) {
         setNote(added.length ? `✓ ${added.length} NEW` : '✓ UP TO DATE')
         clearTimeout(noteTimer.current)
         noteTimer.current = setTimeout(() => setNote(''), DONE_MS)
       }
-      seen.current = new Set(list.map(i => i.id))
+      seen.current = new Set(list.map(key))
       setFresh(new Set(added))
       setGone(new Set())
       setItems(list)
@@ -91,7 +93,6 @@ export default function FromCvr({ syncCode, isOnline, disabled, readText, onLoad
       setGone(g => new Set(g).add(id))
       await sleep(animDurationMs())
       setItems(list => list.filter(i => i.id !== id))
-      seen.current?.delete(id)
     } catch (e) { setError(e.message) }
     setRow(null)
     busy.current = false

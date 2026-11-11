@@ -11,33 +11,64 @@
 // Flight Plan button (viewFlightPlan(reportId,'SECTOR','LABEL')) or, when that button is not shown yet, from
 // its other report buttons (viewReportDetails / sendReportEmail / ExportReportPdf?reportId=) — so a flight-day
 // row that is not submitted yet is tried too (whether CVR serves its OFP before submission is what that tests).
+// A row it cannot send (no report number, or flight text it cannot read) is listed in the panel with the reason
+// and what its buttons call, so a flight-day row is never silently left out.
 // It drops the XmlOFP into the SuperApp OFP inbox (/api/dutylog-sync?kind=ofp).
 // The bookmark sets window.__cbCvr = { api: <SuperApp origin>, code: <sync code>, dry?: true }.
 // The endpoints are not documented: if CVR changes them this shows CVR's error; importing a file still works.
 (() => {
-  // One roster row -> { reportId, sector, label, hasPlan }, or null. `attrs` is the row's onclick/href values
-  // joined, `text` its text ("OD1703 | TWU BKI | 07-Nov-2026 | …"). The one piece of parsing, so it has a test.
+  // One roster row -> a flight { reportId, sector, label, hasPlan }, or { skip: why, label, has } for a row that
+  // cannot be sent, or null for an empty row. `attrs` is the row's onclick/href values joined, `text` its text
+  // ("OD1703 | TWU BKI | 07-Nov-2026 | …"). Tested.
   function parseRow(attrs, text) {
-    const fp = /viewFlightPlan\(\s*(\d+)\s*,\s*'([^']*)'\s*,\s*'([^']*)'/.exec(attrs || '')
+    attrs = attrs || ''
+    const fp = /viewFlightPlan\(\s*(\d+)\s*,\s*'([^']*)'\s*,\s*'([^']*)'/.exec(attrs)
     if (fp) return { reportId: fp[1], sector: fp[2], label: fp[3], hasPlan: true }
-    const id = /(?:viewReportDetails|sendReportEmail)\(\s*(\d+)|reportId=(\d+)/.exec(attrs || '')
-    const t = /([A-Z0-9]{2}\d{1,4})\s*\|\s*([A-Z]{3})\s+([A-Z]{3})\s*\|\s*(\d{2}-[A-Za-z]{3}-\d{4})/.exec((text || '').replace(/\s+/g, ' '))
-    if (!id || !t) return null
-    return { reportId: id[1] || id[2], sector: t[1] + t[2] + t[3], label: `${t[1]} ${t[2]}-${t[3]} ${t[4]}`, hasPlan: false }
+    const id = /(?:viewReportDetails|sendReportEmail)\(\s*(\d+)|reportId=(\d+)/.exec(attrs)
+    const clean = (text || '').replace(/\s+/g, ' ').trim()
+    const t = /([A-Z0-9]{2}\d{1,4})\s*\|\s*([A-Z]{3})\s+([A-Z]{3})\s*\|\s*(\d{2}-[A-Za-z]{3}-\d{4})/.exec(clean)
+    const label = t ? `${t[1]} ${t[2]}-${t[3]} ${t[4]}` : clean.slice(0, 48)
+    if (id && t) return { reportId: id[1] || id[2], sector: t[1] + t[2] + t[3], label, hasPlan: false }
+    if (!label) return null
+    // What the row's buttons call: a screenshot of the panel then shows what a flight-day row carries.
+    const has = [...new Set(attrs.match(/[A-Za-z_]\w*(?=\s*\()|\/\w+\/\w+(?=\?)/g) || [])].filter(n => n !== 'stopPropagation' && n !== 'void')
+    return { skip: id ? 'its flight text could not be read' : 'no report number yet', label, has }
+  }
+
+  // FlightPlanFiles' archives -> the package to take and its XmlOFP. A revised OFP is a new package
+  // (flightplans/<time><flight><sector>/<OFP number>.zip), so of this sector's packages the highest OFP number
+  // wins. Throws saying which part is missing. `unsure`: the report's only package, but not marked as this
+  // sector (taken, with a warning; with several packages and none for this sector, nothing is taken). Tested.
+  function pickOfp(archives, sector) {
+    const all = archives || []
+    if (!all.length) throw new Error('CVR has no flight plan package for this flight yet.')
+    const ofpNo = a => Number(/(\d+)\.zip$/i.exec(a.objectKey || '')?.[1]) || 0
+    let mine = all.filter(a => a.matchesSector || (sector && (a.objectKey || '').toUpperCase().includes(sector.toUpperCase())))
+    const unsure = !mine.length && all.length === 1
+    if (unsure) mine = all
+    if (!mine.length) throw new Error(`CVR has ${all.length} packages for this report, none of them for this sector.`)
+    const archive = mine.filter(a => a.readable).sort((a, b) => ofpNo(b) - ofpNo(a))[0]
+    if (!archive) throw new Error('CVR has the package but says it cannot be read yet.')
+    const file = (archive.files || []).find(x => /^xmlofp\.(txt|xml)$/i.test(x.name || ''))
+    if (!file) throw new Error('The package has no XmlOFP. It holds: ' + ((archive.files || []).map(x => x.name).join(', ') || 'nothing'))
+    return { archive, file, ofpNo: ofpNo(archive) || null, unsure }
   }
   globalThis.__cbParseRow = parseRow
+  globalThis.__cbPickOfp = pickOfp
   if (typeof document === 'undefined') return
 
   const cfg = globalThis.__cbCvr || {}
   if (location.hostname !== 'cvr.batikair.com.my') { alert('Open cvr.batikair.com.my (Voyage Reports) first, then tap the bookmark again.'); return }
   if (!cfg.api || !cfg.code) { alert('This bookmark is incomplete. Copy it again from SuperApp → Settings → Cloud Sync.'); return }
 
-  const flights = [...document.querySelectorAll('.roster-item')]
+  const rows = [...document.querySelectorAll('.roster-item')]
     .map(row => parseRow(
       [...row.querySelectorAll('[onclick],[href]')].map(e => e.getAttribute('onclick') || e.getAttribute('href')).join(' '),
       row.textContent))
     .filter(Boolean)
-    .filter((f, i, a) => a.findIndex(x => x.reportId === f.reportId) === i)   // one row per report
+  // One row per report and sector (a report can hold more than one sector).
+  const flights = rows.filter(r => !r.skip).filter((f, i, a) => a.findIndex(x => x.reportId === f.reportId && x.sector === f.sector) === i)
+  const skipped = rows.filter(r => r.skip).filter((s, i, a) => a.findIndex(x => x.label === s.label) === i)
 
   // The panel's own animations (it lives on CVR's page, so it brings its own CSS; all off for reduced motion).
   if (!document.getElementById('cb-cvr-css')) {
@@ -86,6 +117,14 @@
     : 'No flights with a report on this page. Open Voyage Reports and make sure your flights are listed, then tap the bookmark again.'))
   const listEl = el('div', 'max-height:42vh;overflow:auto')
   box.appendChild(listEl)
+  // Rows that cannot be sent, newest first as on the page: why, and what the row's buttons call.
+  if (skipped.length) {
+    const sk = el('div', 'margin-top:8px;padding-top:8px;border-top:1px solid #3a4652;font-size:11px;line-height:1.5;color:#9aa7b4;overflow-wrap:anywhere')
+    sk.appendChild(el('div', 'color:#fbbf24', `Cannot send (${skipped.length}):`))
+    skipped.slice(0, 6).forEach(s => sk.appendChild(el('div', '', `${s.label}: ${s.skip}. ${s.has.length ? `Row has: ${s.has.join(', ')}` : 'Row has no buttons'}.`)))
+    if (skipped.length > 6) sk.appendChild(el('div', '', `…and ${skipped.length - 6} more`))
+    box.appendChild(sk)
+  }
   const stepsEl = el('div', 'margin-top:10px;font-size:13px;line-height:1.4')
   stepsEl.setAttribute('role', 'status')
   box.appendChild(stepsEl)
@@ -116,36 +155,46 @@
     card.scrollIntoView({ block: 'nearest' })
   }
 
-  const getJson = async (url) => { const r = await fetch(url, { headers: { Accept: 'application/json, text/plain, */*' } }); if (!r.ok) throw new Error(`CVR answered ${r.status}.`); return r.json() }
+  // An expired login answers with the sign-in page (HTML, status 200) instead of the data.
+  const RELOGIN = 'CVR did not answer with flight plan data. Your CVR login may have expired: reload this page, sign in, then tap the bookmark again.'
+  // A refused request: the status and the start of what CVR said, short enough to read (and screenshot) here.
+  const refused = async (r) => {
+    const said = (await r.text().catch(() => '')).replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140)
+    return new Error(`CVR answered ${r.status}${said ? `: ${said}` : '.'}` + (r.status === 401 || r.status === 403 ? ' Reload this page, sign in again, then retry.' : ''))
+  }
+  const getJson = async (url) => {
+    const r = await fetch(url, { headers: { Accept: 'application/json, text/plain, */*' } })
+    if (!r.ok) throw await refused(r)
+    return r.json().catch(() => { throw new Error(RELOGIN) })
+  }
 
   async function send(f) {
     let step = 0
     const go = (i, work) => { step = i; showSteps(i); stepsEl.scrollIntoView({ block: 'nearest' }); return atLeast(work()) }
     try {
-      const { archive, file } = await go(0, async () => {
-        const d = await getJson('/VoyageReports/FlightPlanFiles?' + new URLSearchParams({ reportId: f.reportId, sector: f.sector }))
-        const archive = (d.archives || []).find(a => a.matchesSector && a.readable) || (d.archives || []).find(a => a.readable)
-        const file = archive && (archive.files || []).find(x => x.name === 'XmlOFP.txt')
-        if (!file) throw new Error('CVR has no OFP for this flight yet.')
-        return { archive, file }
-      })
+      const { archive, file, ofpNo, unsure } = await go(0, async () =>
+        pickOfp((await getJson('/VoyageReports/FlightPlanFiles?' + new URLSearchParams({ reportId: f.reportId, sector: f.sector }))).archives, f.sector))
+      const label = f.label + (ofpNo ? ` · OFP ${ofpNo}` : '')
       const text = await go(1, async () => {
         const r = await fetch('/VoyageReports/FlightPlanFile?' + new URLSearchParams({ reportId: f.reportId, key: archive.objectKey, entry: file.path }), { headers: { Accept: '*/*' } })
-        if (!r.ok) throw new Error(`CVR download failed (${r.status}).`)
+        if (!r.ok) throw await refused(r)
         const t = await r.text()
-        if (!/<FlightPlan/.test(t)) throw new Error('That file was not an XmlOFP.')
+        if (!/<FlightPlan/.test(t)) throw new Error(/<html|<!doctype/i.test(t.slice(0, 500)) ? RELOGIN : 'That file was not an XmlOFP.')
         return t
       })
       await go(2, async () => {
         if (cfg.dry) return
-        const s = await fetch(`${cfg.api}/api/dutylog-sync?` + new URLSearchParams({ code: cfg.code, kind: 'ofp', id: 'cvr-' + f.reportId, label: f.label }), {
+        // One inbox entry per report and sector; sending a revised OFP replaces it.
+        const id = `cvr-${f.reportId}-${f.sector.replace(/[^A-Za-z0-9]/g, '')}`.slice(0, 64)
+        const s = await fetch(`${cfg.api}/api/dutylog-sync?` + new URLSearchParams({ code: cfg.code, kind: 'ofp', id, label }), {
           method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: text,
         })
         if (!s.ok) throw new Error(`SuperApp refused it (${s.status}): ${(await s.json().catch(() => ({}))).error || ''}`)
       })
       showSteps(STEPS.length)
-      if (cfg.dry) finish([`Dry run: ${f.label}`, `OFP read (${Math.round(text.length / 1024)} kB), not sent.`], '#fbbf24', 'rgba(251,191,36,.1)')
-      else finish([`✓ ${f.label} sent`, 'Now open SuperApp: Briefing → + NEW → From CVR.'], '#22c55e', 'rgba(34,197,94,.12)')
+      const check = unsure ? ['CVR did not mark this package as this sector: check the flight on the OFP card.'] : []
+      if (cfg.dry) finish([`Dry run: ${label}`, `OFP read (${Math.round(text.length / 1024)} kB), not sent.`, ...check], '#fbbf24', 'rgba(251,191,36,.1)')
+      else finish([`✓ ${label} sent`, 'Now open SuperApp: Briefing → + NEW → From CVR.', ...check], '#22c55e', 'rgba(34,197,94,.12)')
     } catch (e) {
       showSteps(step, true)
       finish([`✗ Not sent`, e.message], '#f87171', 'rgba(248,113,113,.1)')

@@ -202,14 +202,22 @@ when asked. The service worker caches aggressively; users get an update prompt
   used). Same-origin, so the login cookie rides along: no password, no token stored, no zip.
   It POSTs the XmlOFP to the OFP inbox (`dutylogs/<code>/ofps/<id>`), a new mode of
   `api/dutylog-sync.js` (no new function; CORS open to cvr.batikair.com.my for this mode only;
-  the sync code alone authorises; refuses >900 kB). The Briefing tab's + NEW page shows a
+  the sync code alone authorises; the text is stored gzipped as base64, about a tenth of its
+  size, and refused over 4 MB as sent; an entry's id is `cvr-<report number>-<sector>`, so a
+  revised OFP sent again replaces it and shows as NEW). The Briefing tab's + NEW page shows a
   **From CVR** list below IMPORT OFP (`FromCvr.jsx`); a row is read with the same
   `readOfpFile` as a file and **stays until the pilot taps ×**. The list checks on open, on
   REFRESH and whenever the app comes back to the screen (`visibilitychange`: the pilot sends
   from Safari, then switches back). Both the list and the CVR panel show every step (spinner,
   dots, sliding bar, ✓/✗) and hold each for ≥ 700 ms and a success for ~1.8 s on purpose,
   so the pilot can read what happened. Only the XmlOFP is taken (not the PFP/PFB or the pictures).
-  The one bit of parsing (`parseFlight`) is tested; the inbox mode is tested in
+  Its two bits of logic are tested (`src/utils/cvrSend.test.js`): `parseRow` (a roster row to a
+  flight, or to a "cannot send" line with the reason and what the row's buttons call, listed in
+  the panel so a flight-day row is never silently left out) and `pickOfp` (of this sector's
+  packages the highest OFP number, i.e. the newest revision; never another sector's when there
+  are several; each missing part has its own message). An expired CVR login (the sign-in page
+  instead of data) and a refused request (status + the start of CVR's answer) are said in plain
+  words. The inbox mode is tested in
   `api/_dutylog-sync.test.js`. Both endpoints need the row's numeric report number
   (none, 0, another flight's or the app's flight code = 400/404). The list reads it from each
   `.roster-item`'s Flight Plan button, or, when that is not shown yet, from its
