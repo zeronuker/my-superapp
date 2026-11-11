@@ -215,7 +215,8 @@ when asked. The service worker caches aggressively; users get an update prompt
   flight, or to a "cannot send" line with the reason and what the row's buttons call, listed in
   the panel so a flight-day row is never silently left out) and `pickOfp` (of this sector's
   packages the highest OFP number, i.e. the newest revision; never another sector's when there
-  are several; each missing part has its own message). An expired CVR login (the sign-in page
+  are several; each missing part has its own message, followed by the `message` field of CVR's
+  own answer, `{ groupId, found, message, archives }`, when it has one). An expired CVR login (the sign-in page
   instead of data) and a refused request (status + the start of CVR's answer) are said in plain
   words. The inbox mode is tested in
   `api/_dutylog-sync.test.js`. Both endpoints need the row's numeric report number

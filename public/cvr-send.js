@@ -172,8 +172,11 @@
     let step = 0
     const go = (i, work) => { step = i; showSteps(i); stepsEl.scrollIntoView({ block: 'nearest' }); return atLeast(work()) }
     try {
-      const { archive, file, ofpNo, unsure } = await go(0, async () =>
-        pickOfp((await getJson('/VoyageReports/FlightPlanFiles?' + new URLSearchParams({ reportId: f.reportId, sector: f.sector }))).archives, f.sector))
+      const { archive, file, ofpNo, unsure } = await go(0, async () => {
+        const d = await getJson('/VoyageReports/FlightPlanFiles?' + new URLSearchParams({ reportId: f.reportId, sector: f.sector }))
+        // CVR's answer carries its own `message`: when nothing can be taken, show that too.
+        try { return pickOfp(d.archives, f.sector) } catch (e) { throw new Error(e.message + (d.message ? ` CVR says: ${String(d.message).slice(0, 140)}` : '')) }
+      })
       const label = f.label + (ofpNo ? ` · OFP ${ofpNo}` : '')
       const text = await go(1, async () => {
         const r = await fetch('/VoyageReports/FlightPlanFile?' + new URLSearchParams({ reportId: f.reportId, key: archive.objectKey, entry: file.path }), { headers: { Accept: '*/*' } })
