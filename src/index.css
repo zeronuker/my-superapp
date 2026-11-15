@@ -814,6 +814,14 @@ html[data-hico="true"] .cp-input:focus {
 
 /* The header and nav bar are fixed at the top (App.jsx). --cb-chrome-h / --cb-chrome-px are set from their
    height; --cb-top-chrome is what elements that stick to the top add to their own offset. scroll-padding-top
-   makes scrolling something into view stop below them. */
-:root { --cb-top-chrome: var(--cb-chrome-h, 0px); }
+   makes scrolling something into view stop below them. Held sideways on a phone (the same test as the
+   "Phone landscape" rule above) the screen is too short for that, so there they scroll away like the page
+   and every offset is 0. */
+.cb-top-chrome { position: sticky; top: 0; z-index: 30; flex-shrink: 0; }
+:root { --cb-top-chrome-base: var(--cb-chrome-h, 0px); --cb-top-chrome: var(--cb-top-chrome-base); }
 html { scroll-padding-top: var(--cb-chrome-px, 0px); }
+@media (orientation: landscape) and (max-height: 500px) {
+  .cb-top-chrome { position: static; }
+  :root { --cb-top-chrome-base: 0px; }
+  html { scroll-padding-top: 0; }
+}

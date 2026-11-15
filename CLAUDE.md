@@ -102,11 +102,13 @@ api/
   worker precaches the build output.
 
 - **Fixed header (`App.jsx`)** — the logo header and the top nav bar (◄ HOME / tab bar / grouped nav) sit in one
-  `position: sticky; top: 0; z-index: 30` block, so they stay in view on every screen. Its height is published as
-  `--cb-chrome-h` (app pixels) and `--cb-chrome-px` (screen pixels); `--cb-top-chrome` (index.css) is what anything
+  `.cb-top-chrome` block (sticky, z-index 30), so they stay in view on every screen EXCEPT a phone held sideways
+  (`landscape` + `max-height: 500px`, like the Duty Log's phone-landscape rule: 110 px of 390 was too much), where
+  they scroll away and every offset is 0 (an iPad in landscape keeps them fixed). Its height is published as
+  `--cb-chrome-h` (app pixels) and `--cb-chrome-px` (screen pixels); `--cb-top-chrome` (index.css, built from `--cb-top-chrome-base`) is what anything
   else that sticks to the top adds to its own offset (FTL result panel, Duty Log editor), and `html`'s
   `scroll-padding-top` keeps scrolled-into-view things below it. New sticky-to-top elements must use it. The
-  landscape-compact pane is zoomed 0.82, so it rescales `--cb-top-chrome`. On a phone the block is 110 px
+  landscape-compact pane is zoomed 0.82, so it rescales `--cb-top-chrome` from `--cb-top-chrome-base`. On a phone the block is 110 px
   (launcher), 125 px (tabs) or 187 px (grouped); both bars must keep opaque backgrounds.
 
 ## Deploy

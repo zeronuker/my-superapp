@@ -359,10 +359,10 @@ export default function App() {
         ...zoomStyle,
       }}>
 
-        {/* Header + top navigation: one block that stays fixed at the top while the page scrolls.
-            Both have opaque backgrounds, so nothing shows through. z-index 30: above the page's
-            own menus (10), below every pop-up window (400+). */}
-        <div ref={chromeRef} style={{ position: 'sticky', top: 0, zIndex: 30, flexShrink: 0 }}>
+        {/* Header + top navigation: one block that stays fixed at the top while the page scrolls (index.css
+            .cb-top-chrome; not on a phone held sideways). Both have opaque backgrounds, so nothing shows
+            through. z-index 30: above the page's own menus (10), below every pop-up window (400+). */}
+        <div ref={chromeRef} className="cb-top-chrome">
         {/* ── Header ──────────────────────────────────────────────────── */}
         <header style={{
           // Top 11px matches the status-bar band + top-edge strip (surface-0), then
@@ -446,7 +446,7 @@ export default function App() {
               ...(isCalcFullScreen
                 ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px' }
                 : { padding: landscapeCompact ? '16px' : '24px', zoom: landscapeCompact ? 0.82 : undefined,
-                    ...(landscapeCompact ? { '--cb-top-chrome': 'calc(var(--cb-chrome-h, 0px) / 0.82)' } : {}) }),
+                    ...(landscapeCompact ? { '--cb-top-chrome': 'calc(var(--cb-top-chrome-base, 0px) / 0.82)' } : {}) }),
             }}>
               <div key={activeCalculator}
                 className={toolAnim.className}
