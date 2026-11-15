@@ -4,7 +4,7 @@ import { addEnroute, removeEnroute } from '../utils/enrouteAlts'
 // "+ ADD" (same look as the Duty Log's "+ NEW") adds a field, the red × inside a
 // field removes it. State is { count, alts } — see utils/enrouteAlts.js.
 // `clean` shapes what is typed (default: upper-case); `onEnter` runs on the Enter key.
-export default function EnrouteAlternates({ count, alts, max, onChange, inputStyle, onEnter, clean = v => v.toUpperCase() }) {
+export default function EnrouteAlternates({ count, alts, max = Infinity, onChange, inputStyle, onEnter, clean = v => v.toUpperCase() }) {
   const atMax = count >= max
 
   return (

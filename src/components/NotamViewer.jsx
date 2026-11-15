@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
+import { padEnroute } from '../utils/enrouteAlts'
 import { fetchNotams, parseMixedNotams, autoDetectFirs } from '../services/notamAPI'
 import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
@@ -23,7 +24,6 @@ const T = {
   green: '#22c55e', orange: 'var(--cp-orange, #fb923c)',
 }
 
-const ERA_MAX = 5
 const CACHE_KEY = NOTAM_CACHE_KEY
 function saveCache(data) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch (_) {}
@@ -152,7 +152,7 @@ export default function NotamViewer() {
   const [arr,          setArr]          = useState(cache?.arr          || '')
   const [destAlts,     setDestAlts]     = useState(cache?.destAlts     || { alt1: '', alt2: '' })
   const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount ?? 1)   // opens with one field; a saved 0 stays 0
-  const [enrouteAlts,  setEnrouteAlts]  = useState(cache?.enrouteAlts  || Array(ERA_MAX).fill(''))
+  const [enrouteAlts,  setEnrouteAlts]  = useState(cache?.enrouteAlts  || padEnroute([]))
   const [extraChips,   setExtraChips]   = useState(cache?.extraChips   || [])
   const [customInput,  setCustomInput]  = useState('')
   const [detecting,    setDetecting]    = useState(false)
@@ -215,7 +215,7 @@ export default function NotamViewer() {
     setArr(data.arr)
     setDestAlts(data.destAlts)
     setEnrouteCount(data.enrouteCount)
-    setEnrouteAlts(Array.from({ length: ERA_MAX }, (_, i) => data.enrouteAlts[i] || ''))
+    setEnrouteAlts(padEnroute(data.enrouteAlts))
     // FIRs were likely derived from the old route (auto-detect or manual) and
     // go stale once it's replaced — manually-added standalone airports aren't
     // route-derived, so they're left alone.
@@ -226,7 +226,7 @@ export default function NotamViewer() {
     setDep(''); setArr('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(1)
-    setEnrouteAlts(Array(ERA_MAX).fill(''))
+    setEnrouteAlts(padEnroute([]))
     setExtraChips([])
     setNotams(null)
     setSavedRaw(null)
@@ -403,7 +403,7 @@ export default function NotamViewer() {
       </div>
 
       {/* ── ENROUTE ALTERNATES ── */}
-      <EnrouteAlternates count={enrouteCount} alts={enrouteAlts} max={ERA_MAX}
+      <EnrouteAlternates count={enrouteCount} alts={enrouteAlts}
         onChange={({ count, alts }) => { setEnrouteCount(count); setEnrouteAlts(alts) }}
         inputStyle={monoInput} clean={upper} onEnter={handleFetch} />
 

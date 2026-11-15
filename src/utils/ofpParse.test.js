@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOfpXml, parseOfpPdf, ofpRouteText, ofpToFields, parseFplBlock } from './ofpParse'
+import { parseOfpXml, parseOfpPdf, ofpRouteText, ofpToFields, parseFplBlock, parseEnrouteAlts } from './ofpParse'
 import { parseRoute } from './routeParse'
 
 // Made-up OFP shaped like the company's XmlOFP (ARINC 633): the filed flight
@@ -298,5 +298,70 @@ describe('parseFplBlock', () => {
   it('returns ok:false for text that is not a flight plan', () => {
     expect(parseFplBlock('just some notes').ok).toBe(false)
     expect(parseFplBlock('').ok).toBe(false)
+  })
+})
+
+describe('parseFplBlock with the Flight Remarks', () => {
+  const FPL = `(FPL-MXD821-IS
+-B38M/M-SDFGHIRWY/LB1
+-RKSI0040
+-N0474F340 BOPTA3H BOPTA Z51 BEDES Y711 SAROX SAROX1G
+-WMKK0559 WMKP WMKJ
+-PBN/A1B1C1D1O1S2T1 DOF/260526 REG/9MLRK EET/RJJJ0105 RCAA0120 WMFC0554
+-E/0756 P/TBN R/E S/M J/L D/4 184 YELLOW A/WHITE MAROON C/TBN)`
+  const REMARKS = `
+ FLIGHT REMARKS:
+OCC CONTACT :+60376220187(OCC) / +60193246147(OCC) / +60196653928(FD)
+ENROUTE ALT : RKSI ZSPD RCTP RPLL VVDN VVTS WMKK
+NOTES 1     : HW05/T24/Q1012/FLP05/DRY/RWY16L-OPT
+NOTES 2     : PADD 50KGS`
+  const FIVE = ['ZSPD', 'RCTP', 'RPLL', 'VVDN', 'VVTS']
+
+  it('reads the enroute alternates under the flight plan, leaving out departure, arrival and destination alternates', () => {
+    expect(parseFplBlock(FPL + '\n' + REMARKS).enroute).toEqual(FIVE)
+  })
+  it('does not pick up words from the notes when the line breaks were lost', () => {
+    const flatRemarks = REMARKS.trim().replace(/\n/g, ' ')
+    expect(flatRemarks).toContain('WMKK NOTES 1')
+    expect(parseFplBlock(FPL + '\n' + flatRemarks).enroute).toEqual(FIVE)
+  })
+  it('accepts the remarks pasted above the flight plan', () => {
+    expect(parseFplBlock(REMARKS + '\n' + FPL).enroute).toEqual(FIVE)
+  })
+  it('has no limit on how many it reads', () => {
+    const many = 'ENROUTE ALT : AAAA BBBB CCCC DDDD EEEE FFFF GGGG HHHH WMKK'
+    expect(parseFplBlock(FPL + '\n' + many).enroute).toHaveLength(8)
+  })
+  it('is null (not an empty list) when no ENROUTE ALT line was pasted, so the form keeps its own', () => {
+    expect(parseFplBlock(FPL).enroute).toBeNull()
+  })
+  it('an ENROUTE ALT line naming nothing new is an empty list', () => {
+    expect(parseFplBlock(FPL + '\nENROUTE ALT : RKSI WMKK').enroute).toEqual([])
+  })
+  it('takes the last flight plan when two were pasted, and never the first one\'s remarks', () => {
+    const second = FPL.replace('RKSI0040', 'WSSS0100').replace('-WMKK0559 WMKP WMKJ', '-WMKK0200 WMKP')
+    const r = parseFplBlock(FPL + '\n' + REMARKS + '\n' + second)
+    expect(r.dep).toBe('WSSS')
+    expect(r.destAlts).toEqual({ alt1: 'WMKP', alt2: '' })
+    expect(r.enroute).toBeNull()
+    expect(parseFplBlock(FPL + '\n' + REMARKS + '\n' + second + '\nENROUTE ALT : WIII WMKK').enroute).toEqual(['WIII'])
+  })
+})
+
+describe('parseEnrouteAlts (remarks pasted on their own)', () => {
+  it('reads the line and leaves out the airports given', () => {
+    expect(parseEnrouteAlts('ENROUTE ALT : RKSI ZSPD RCTP WMKK', ['RKSI', 'WMKK'])).toEqual(['ZSPD', 'RCTP'])
+  })
+  it('is null with no such line', () => {
+    expect(parseEnrouteAlts('NOTES 1 : DRY')).toBeNull()
+  })
+})
+
+describe('ofpToFields enroute alternates', () => {
+  it('keeps every enroute alternate when no cap is given', () => {
+    const many = ['AAAA', 'BBBB', 'CCCC', 'DDDD', 'EEEE', 'FFFF', 'GGGG']
+    const f = ofpToFields({ ...parseOfpXml(XML), enrouteAlts: many })
+    expect(f.enrouteCount).toBe(7)
+    expect(f.enrouteAlts).toEqual(many)
   })
 })

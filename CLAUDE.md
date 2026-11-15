@@ -141,6 +141,13 @@ when asked. The service worker caches aggressively; users get an update prompt
   function asks autorouter's flight-plan parser for each fix's position (parse
   only, never files), and the Dark map draws the line. Fixes autorouter lacks
   go in `src/data/fixOverrides.js`. SIDs/STARs and airway bends are not drawn.
+  The manual form has ONE paste box (`RouteInput.jsx`, grows with its text) for either that route or the OFP's
+  `(FPL-…)` block with the Flight Remarks (`parseFplBlock` / `parseEnrouteAlts` in `utils/ofpParse.js`): it fills
+  departure, arrival, destination alternates, FIRs and the enroute alternates (the `ENROUTE ALT` line minus
+  dep/arr/dest alts) and sends the route as names only. The whole text is re-read at every change; what it finds
+  replaces the form's values, what it does not find (e.g. no ENROUTE ALT line yet) is left alone. Several flight
+  plans pasted: the last wins, with only the remarks under it. Enroute alternates have NO limit anywhere (the old
+  cap of 5 is gone from Briefing, METAR/TAF, NOTAM and SIGMET; `padEnroute` keeps the state array at least 5 long).
 - **OFP import (`BriefingModule.jsx` IMPORT OFP, `utils/ofpParse.js`,
   `utils/pdfText.js`, `services/ofpFile.js`)** — on the Briefing tab. Reads the
   company XmlOFP (ARINC 633 `.txt`/`.xml`) or the PFP

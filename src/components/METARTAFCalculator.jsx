@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { padEnroute } from '../utils/enrouteAlts'
 import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { haptic } from '../utils/haptic'
@@ -23,7 +24,6 @@ import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
 // ── Constants ───────────────────────────────────────────────────────────────
-const ERA_MAX        = 5
 const CACHE_KEY      = METAR_CACHE_KEY
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ export default function METARTAFCalculator() {
   const [arr,          setArr]          = useState(cache?.arr          || '')
   const [destAlts,     setDestAlts]     = useState(cache?.destAlts     || { alt1: '', alt2: '' })
   const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount ?? 1)   // opens with one field; a saved 0 stays 0
-  const [enrouteAlts,  setEnrouteAlts]  = useState(cache?.enrouteAlts  || Array(ERA_MAX).fill(''))
+  const [enrouteAlts,  setEnrouteAlts]  = useState(cache?.enrouteAlts  || padEnroute([]))
   const hours = settings.defaultHistory
   const [results,      setResults]      = useState(cache?.results      || null)
   const [fetchedAt,    setFetchedAt]    = useState(cache?.fetchedAt    || null)
@@ -129,7 +129,7 @@ export default function METARTAFCalculator() {
     setArr(data.arr)
     setDestAlts(data.destAlts)
     setEnrouteCount(data.enrouteCount)
-    setEnrouteAlts(Array.from({ length: ERA_MAX }, (_, i) => data.enrouteAlts[i] || ''))
+    setEnrouteAlts(padEnroute(data.enrouteAlts))
   }
 
   // ── Reset this tab (scope: 'module' default, or 'all' for all 3) ────────
@@ -137,7 +137,7 @@ export default function METARTAFCalculator() {
     setDep(''); setArr('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(1)
-    setEnrouteAlts(Array(ERA_MAX).fill(''))
+    setEnrouteAlts(padEnroute([]))
     setResults(null)
     setFetchedAt(null)
     setSnapshotAt(null)
@@ -300,7 +300,7 @@ export default function METARTAFCalculator() {
       </div>
 
       {/* ── ENROUTE ALTERNATES ───────────────────────────────────────────── */}
-      <EnrouteAlternates count={enrouteCount} alts={enrouteAlts} max={ERA_MAX}
+      <EnrouteAlternates count={enrouteCount} alts={enrouteAlts}
         onChange={({ count, alts }) => { setEnrouteCount(count); setEnrouteAlts(alts) }}
         inputStyle={monoInput} onEnter={handleFetch} />
 
