@@ -227,3 +227,22 @@ export function ofpToFields(r, eraMax = 5) {
     enrouteAlts: Array.from({ length: eraMax }, (_, i) => enroute[i] ?? ''),
   }
 }
+
+// Parse just the ICAO flight plan block ("(FPL-…)") pasted on its own — the Briefing manual form's
+// "paste flight plan" box. Fills departure, arrival, destination alternates, the route as filed
+// (names only, no coordinates) and the FIRs from the EET/ list. A trailing ")" is added if missing.
+// Returns { ok: false } when no valid (FPL-…) block is found.
+export function parseFplBlock(text) {
+  let t = String(text || '')
+  if (/\(FPL-/.test(t) && !/\)/.test(t)) t += ')'
+  const f = readFlight(t)
+  if (!f) return { ok: false }
+  return {
+    ok: true,
+    dep: f.dep,
+    arr: f.arr,
+    destAlts: { alt1: f.destAlts[0] ?? '', alt2: f.destAlts[1] ?? '' },
+    routeText: f.route,
+    firs: listFirs([], f),
+  }
+}

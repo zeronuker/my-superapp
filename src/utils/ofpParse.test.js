@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOfpXml, parseOfpPdf, ofpRouteText, ofpToFields } from './ofpParse'
+import { parseOfpXml, parseOfpPdf, ofpRouteText, ofpToFields, parseFplBlock } from './ofpParse'
 import { parseRoute } from './routeParse'
 
 // Made-up OFP shaped like the company's XmlOFP (ARINC 633): the filed flight
@@ -262,5 +262,41 @@ describe('details for the Flight Details tab', () => {
   })
   it('is passed on by ofpToFields', () => {
     expect(ofpToFields(parseOfpPdf(PDF)).details.arr).toBe('WPDL')
+  })
+})
+
+
+describe('parseFplBlock', () => {
+  const FPL = `(FPL-MXD821-IS
+-B38M/M-SDFGHIRWY/LB1
+-RKSI0040
+-N0474F340 BOPTA3H BOPTA Z51 BEDES Y711 KANKA/N0468F360 Y711 MUGUS Y742 SALMI Q11 TACLE Q12 KABAM N892 MABLI L635 DOVOL/N0464F360 Y334 PADLI Y343 SAROX SAROX1G
+-WMKK0559 WMKP WMKJ
+-PBN/A1B1C1D1O1S2T1 DOF/260526 REG/9MLRK EET/RJJJ0105 RCAA0120 RPHI0223 ZJSA0323 VVHM0330 WSJC0439 WMFC0554 SEL/DKFP CODE/750424 RMK/TCAS II EQUIPPED
+-E/0756 P/TBN R/E S/M J/L D/4 184 YELLOW A/WHITE MAROON C/TBN)`
+
+  it('pulls departure, arrival, alternates, route and FIRs from the pasted block', () => {
+    const r = parseFplBlock(FPL)
+    expect(r.ok).toBe(true)
+    expect(r.dep).toBe('RKSI')
+    expect(r.arr).toBe('WMKK')
+    expect(r.destAlts).toEqual({ alt1: 'WMKP', alt2: 'WMKJ' })
+    expect(r.routeText.startsWith('RKSI ')).toBe(true)
+    expect(r.routeText.endsWith(' WMKK')).toBe(true)
+    expect(r.routeText).toContain('SAROX1G')
+    const firIcaos = r.firs.map(f => f.icao)
+    for (const fir of ['RJJJ', 'RCAA', 'RPHI', 'ZJSA', 'VVHM', 'WSJC', 'WMFC']) expect(firIcaos).toContain(fir)
+  })
+
+  it('still parses when the closing ) was not copied', () => {
+    const r = parseFplBlock(FPL.slice(0, -1))
+    expect(r.ok).toBe(true)
+    expect(r.dep).toBe('RKSI')
+    expect(r.arr).toBe('WMKK')
+  })
+
+  it('returns ok:false for text that is not a flight plan', () => {
+    expect(parseFplBlock('just some notes').ok).toBe(false)
+    expect(parseFplBlock('').ok).toBe(false)
   })
 })

@@ -4,7 +4,7 @@ import { useCalculatorStore } from '../store/calculatorStore'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import { BRIEFING_SETUP_CACHE_KEY } from '../utils/moduleCacheKeys'
 import { parseRoute } from '../utils/routeParse'
-import { ofpToFields } from '../utils/ofpParse'
+import { ofpToFields, parseFplBlock } from '../utils/ofpParse'
 import { blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
 import { readOfpFile } from '../services/ofpFile'
 import FromCvr from './FromCvr'
@@ -88,6 +88,7 @@ export default function BriefingModule() {
   const [firs,         setFirs]         = useState(cache?.firs || [])
   const [importedAt,   setImportedAt]   = useState(cache?.fetchedAt || null)
   const [firInput,     setFirInput]     = useState('')
+  const [fplNote,      setFplNote]      = useState('')   // result of the "paste flight plan" box
   const [detecting,    setDetecting]    = useState(false)
   const [busy,        setBusy]         = useState(false)
   const [importError,  setImportError]  = useState('')
@@ -163,6 +164,19 @@ export default function BriefingModule() {
     setOfp({ flight: f.flight, info: f.info, details: f.details, filedRoute: f.filedRoute, depTz, arrTz })
     setImportedAt(Date.now())
     setMode('ofp')
+  }
+
+  // The "paste flight plan" box: a pasted ICAO (FPL-…) block fills departure, arrival, route,
+  // destination alternates and FIRs. Route is names only (no coordinates), as when a route is typed.
+  const fillFromFpl = (text) => {
+    const r = parseFplBlock(text)
+    if (!r.ok) {
+      setFplNote(/\(?FPL-/i.test(text) ? "Couldn't read it — paste the whole (FPL-…) block." : '')
+      return
+    }
+    setDep(r.dep); setArr(r.arr); setRouteText(r.routeText); setDestAlts(r.destAlts); setFirs(r.firs)
+    const alts = [r.destAlts.alt1, r.destAlts.alt2].filter(Boolean).join('/')
+    setFplNote(`✓ Filled ${r.dep} → ${r.arr}${alts ? `, alt ${alts}` : ''}${r.firs.length ? `, ${r.firs.length} FIR${r.firs.length > 1 ? 's' : ''}` : ''}. Check below.`)
   }
 
   const addFir = () => {
@@ -312,6 +326,14 @@ export default function BriefingModule() {
 
       {mode === 'manual' && (
         <>
+          <SectionHeader title="Paste flight plan (optional)" />
+          <textarea className="cp-input" rows={3} spellCheck={false} autoCapitalize="characters"
+            placeholder="Paste the (FPL-…) block to auto-fill departure, arrival, route, alternates and FIRs"
+            onChange={e => fillFromFpl(e.target.value)}
+            style={{ ...monoInput, width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 11, lineHeight: 1.5, marginBottom: 8 }} />
+          {fplNote && <div role="status" style={{ fontSize: 11, marginBottom: 18,
+            color: fplNote.startsWith('✓') ? 'var(--cp-green)' : 'var(--cp-yellow)' }}>{fplNote}</div>}
+
           <SectionHeader title="Route" />
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 20 }}>
             <div style={{ flex: 1 }}>
