@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseOfpXml, parseOfpPdf, ofpRouteText, ofpToFields, parseFplBlock, parseEnrouteAlts } from './ofpParse'
+import { parseOfpXml, parseOfpPdf, ofpRouteText, ofpToFields, parseFplBlock, parseEnrouteAlts, pasteFill } from './ofpParse'
 import { parseRoute } from './routeParse'
 
 // Made-up OFP shaped like the company's XmlOFP (ARINC 633): the filed flight
@@ -363,5 +363,42 @@ describe('ofpToFields enroute alternates', () => {
     const f = ofpToFields({ ...parseOfpXml(XML), enrouteAlts: many })
     expect(f.enrouteCount).toBe(7)
     expect(f.enrouteAlts).toEqual(many)
+  })
+})
+
+describe('pasteFill (what the paste box sets)', () => {
+  const FPL = `(FPL-MXD821-IS
+-B38M/M-SDFGHIRWY/LB1
+-RKSI0040
+-N0474F340 BOPTA3H BOPTA Z51 SAROX1G
+-WMKK0559 WMKP WMKJ
+-PBN/A1B1C1D1O1S2T1 DOF/260526 EET/RJJJ0105 RCAA0120 WMFC0554
+-E/0756 P/TBN)`
+  const REM = 'ENROUTE ALT : RKSI ZSPD RCTP WMKK'
+
+  it('flight plan with remarks: fills everything including the enroute alternates', () => {
+    const p = pasteFill(FPL + '\n' + REM)
+    expect([p.dep, p.arr, p.destAlts, p.enroute]).toEqual(['RKSI', 'WMKK', { alt1: 'WMKP', alt2: 'WMKJ' }, ['ZSPD', 'RCTP']])
+    expect(p.firs.length).toBeGreaterThan(0)
+  })
+  it('flight plan WITHOUT remarks clears the enroute alternates, so an earlier flight\'s never stay', () => {
+    const p = pasteFill(FPL)
+    expect(p.dep).toBe('RKSI')
+    expect(p.enroute).toEqual([])
+  })
+  it('remarks pasted afterwards fill them in again', () => {
+    expect(pasteFill(FPL).enroute).toEqual([])
+    expect(pasteFill(FPL + '\n' + REM).enroute).toEqual(['ZSPD', 'RCTP'])
+  })
+  it('remarks on their own set only the enroute alternates, leaving out the known airports', () => {
+    expect(pasteFill(REM, ['RKSI', 'WMKK'])).toEqual({ enroute: ['ZSPD', 'RCTP'] })
+  })
+  it('a plain route sets only departure and arrival, and never touches the enroute alternates', () => {
+    expect(pasteFill('WMKK KIMAT1A KIMAT Y344 VPK RCQC')).toEqual({ dep: 'WMKK', arr: 'RCQC' })
+  })
+  it('a half-typed or unreadable paste sets nothing (nothing is cleared either)', () => {
+    expect(pasteFill('(FPL-MXD821-IS')).toEqual({})
+    expect(pasteFill('some notes')).toEqual({})
+    expect(pasteFill('')).toEqual({})
   })
 })

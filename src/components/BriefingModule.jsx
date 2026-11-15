@@ -5,7 +5,7 @@ import { useCalculatorStore } from '../store/calculatorStore'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import { BRIEFING_SETUP_CACHE_KEY } from '../utils/moduleCacheKeys'
 import { parseRoute } from '../utils/routeParse'
-import { ofpToFields, parseFplBlock, parseEnrouteAlts } from '../utils/ofpParse'
+import { ofpToFields, parseFplBlock, pasteFill } from '../utils/ofpParse'
 import { blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
 import { readOfpFile } from '../services/ofpFile'
 import FromCvr from './FromCvr'
@@ -166,21 +166,16 @@ export default function BriefingModule() {
   }
 
   // The one paste box: an ICAO (FPL-…) block (with or without the Flight Remarks, pasted together or one after
-  // the other) or a plain route. The whole text is read again at every change; whatever it finds replaces what
-  // is in the form, and what it does not find (e.g. no ENROUTE ALT line yet) is left alone. The route is names
-  // only (no coordinates), as when a route is typed.
+  // the other) or a plain route. The whole text is read again at every change and what it finds replaces what
+  // is in the form (see pasteFill). A flight plan with no remarks clears the enroute alternates, so an earlier
+  // flight's never stay. The route is names only (no coordinates), as when a route is typed.
   const applyPaste = (text) => {
     setRouteText(text)
-    const f = parseFplBlock(text)
-    if (f.ok) {
-      setDep(f.dep); setArr(f.arr); setDestAlts(f.destAlts); setFirs(f.firs)
-      if (f.enroute) { setEnrouteCount(f.enroute.length); setEnrouteAlts(padEnroute(f.enroute)) }
-      return
-    }
-    const remarks = parseEnrouteAlts(text, [dep, arr, destAlts.alt1, destAlts.alt2])   // Flight Remarks on their own
-    if (remarks?.length) { setEnrouteCount(remarks.length); setEnrouteAlts(padEnroute(remarks)) }
-    const r = parseRoute(text)
-    if (r.ok) { setDep(r.dep); setArr(r.arr) }
+    const p = pasteFill(text, [dep, arr, destAlts.alt1, destAlts.alt2])
+    if (p.dep) { setDep(p.dep); setArr(p.arr) }
+    if (p.destAlts) setDestAlts(p.destAlts)
+    if (p.firs) setFirs(p.firs)
+    if (p.enroute) { setEnrouteCount(Math.max(1, p.enroute.length)); setEnrouteAlts(padEnroute(p.enroute)) }
   }
 
   const addFir = () => {

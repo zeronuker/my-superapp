@@ -17,6 +17,7 @@
 
 import { icaoToFir, FIR_BY_PREFIX } from '../data/firLookup.js'
 import { xmlDetails, pdfDetails } from './ofpDetails.js'
+import { parseRoute } from './routeParse'
 
 // Filed ICAO flight plan, e.g.
 //   (FPL-MXD372-IS / -B738/M-SDF / -WMKK1815 / -N0461F350 ... / -WPDL0353 WAAA WATT / -PBN/...)
@@ -269,4 +270,21 @@ export function parseFplBlock(text) {
     firs: listFirs([], f),
     enroute: parseEnrouteAlts(starts.length === 1 ? t : t.slice(last), [f.dep, f.arr, ...f.destAlts]),
   }
+}
+
+// What the Briefing form's single paste box sets from the pasted text: only the keys to set are returned.
+//  - a flight plan: departure, arrival, destination alternates, FIRs and `enroute`. With no ENROUTE ALT line
+//    (flight plan pasted without its remarks) `enroute` is [] so the form never keeps the enroute alternates of
+//    an earlier flight; paste the remarks too (together or after) and they fill in.
+//  - Flight Remarks on their own: `enroute` only (`known` = airports already in the form, left out).
+//  - a plain route: departure and arrival.
+export function pasteFill(text, known = []) {
+  const f = parseFplBlock(text)
+  if (f.ok) return { dep: f.dep, arr: f.arr, destAlts: f.destAlts, firs: f.firs, enroute: f.enroute ?? [] }
+  const patch = {}
+  const remarks = parseEnrouteAlts(text, known)
+  if (remarks?.length) patch.enroute = remarks
+  const r = parseRoute(text)
+  if (r.ok) { patch.dep = r.dep; patch.arr = r.arr }
+  return patch
 }

@@ -45,7 +45,7 @@ export default function RouteInput({ value, onChange, dep, arr, known = [], labe
     if ((dep || '') !== fpl.dep || (arr || '') !== fpl.arr) {
       note = { warn: true, text: `This flight plan is ${fpl.dep} → ${fpl.arr}, but Departure/Arrival below differ, so its route will not be drawn.` }
     } else {
-      note = { ok: true, text: `✓ Read ${bits.join(' · ')}. Check below.${fpl.enroute ? '' : ' No ENROUTE ALT line yet: paste the Flight Remarks to add enroute alternates.'}` }
+      note = { ok: true, text: `✓ Read ${bits.join(' · ')}. Check below.${fpl.enroute ? '' : ' No ENROUTE ALT line, so the enroute alternates are empty: paste the Flight Remarks to add them.'}` }
     }
   } else if (/\(FPL-/i.test(value)) {
     note = { warn: true, text: "Couldn't read the flight plan. Paste the whole (FPL-…) block, from \"(FPL-\" to the closing \")\"." }
