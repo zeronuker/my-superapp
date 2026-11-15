@@ -608,7 +608,7 @@ html[data-hico="true"] .cp-input:focus {
     column-gap: 14px; row-gap: 6px; align-items: start;
   }
   .dutylog-sector-list > .dutylog-srow { grid-column: 1; }
-  .dutylog-sector-list > .dutylog-open { grid-column: 2; grid-row: 1 / -1; position: sticky; top: 8px; }
+  .dutylog-sector-list > .dutylog-open { grid-column: 2; grid-row: 1 / -1; position: sticky; top: calc(var(--cb-top-chrome, 0px) + 8px); }
 }
 
 /* ── Currency: one column on phones, two from 768px (inputs + rate source left, list right) ── */
@@ -810,4 +810,18 @@ html[data-hico="true"] .cp-input:focus {
 @media (max-width: 340px) {
   .cp-main { padding-left: 8px !important; padding-right: 8px !important; }
   .cp-tool-card { padding: 8px !important; }
+}
+
+/* The header and nav bar are fixed at the top (App.jsx). --cb-chrome-h / --cb-chrome-px are set from their
+   height; --cb-top-chrome is what elements that stick to the top add to their own offset. scroll-padding-top
+   makes scrolling something into view stop below them. Held sideways on a phone (the same test as the
+   "Phone landscape" rule above) the screen is too short for that, so there they scroll away like the page
+   and every offset is 0. */
+.cb-top-chrome { position: sticky; top: 0; z-index: 30; flex-shrink: 0; }
+:root { --cb-top-chrome-base: var(--cb-chrome-h, 0px); --cb-top-chrome: var(--cb-top-chrome-base); }
+html { scroll-padding-top: var(--cb-chrome-px, 0px); }
+@media (orientation: landscape) and (max-height: 500px) {
+  .cb-top-chrome { position: static; }
+  :root { --cb-top-chrome-base: 0px; }
+  html { scroll-padding-top: 0; }
 }

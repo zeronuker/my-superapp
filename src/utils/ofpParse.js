@@ -17,6 +17,7 @@
 
 import { icaoToFir, FIR_BY_PREFIX } from '../data/firLookup.js'
 import { xmlDetails, pdfDetails } from './ofpDetails.js'
+import { parseRoute } from './routeParse'
 
 // Filed ICAO flight plan, e.g.
 //   (FPL-MXD372-IS / -B738/M-SDF / -WMKK1815 / -N0461F350 ... / -WPDL0353 WAAA WATT / -PBN/...)
@@ -211,7 +212,8 @@ export const ofpRouteText = r =>
   [r.dep, ...r.points.map(p => `${p.name}:${p.lat}:${p.lon}`), r.arr].join(' ')
 
 /** The values a tab's boxes take (enroute capped at the tab's `eraMax` fields). */
-export function ofpToFields(r, eraMax = 5) {
+// `eraMax` is an optional cap on the enroute alternates (none by default); the list is padded with empty slots to at least 5.
+export function ofpToFields(r, eraMax = Infinity) {
   const enroute = r.enrouteAlts.slice(0, eraMax)
   return {
     dep: r.dep,
@@ -224,18 +226,40 @@ export function ofpToFields(r, eraMax = 5) {
     firs: r.firs,
     destAlts: { alt1: r.destAlts[0] ?? '', alt2: r.destAlts[1] ?? '' },
     enrouteCount: enroute.length,
-    enrouteAlts: Array.from({ length: eraMax }, (_, i) => enroute[i] ?? ''),
+    enrouteAlts: Array.from({ length: Math.max(Number.isFinite(eraMax) ? eraMax : 5, enroute.length) }, (_, i) => enroute[i] ?? ''),
   }
 }
 
-// Parse just the ICAO flight plan block ("(FPL-…)") pasted on its own — the Briefing manual form's
-// "paste flight plan" box. Fills departure, arrival, destination alternates, the route as filed
-// (names only, no coordinates) and the FIRs from the EET/ list. A trailing ")" is added if missing.
-// Returns { ok: false } when no valid (FPL-…) block is found.
+// "ENROUTE ALT : RKSI ZSPD RCTP RPLL VVDN VVTS WMKK" (Flight Remarks): the 4-letter codes straight after the
+// colon, minus `exclude` (departure, arrival, destination alternates). It stops at the first word that is not
+// a 4-letter code, so a copy that lost its line breaks ("… WMKK NOTES 1 : …") picks up nothing from the notes.
+// The last such line in the text wins. Returns null when there is no ENROUTE ALT line at all.
+export function parseEnrouteAlts(text, exclude = []) {
+  const m = [...String(text || '').matchAll(/ENROUTE ALT[ \t]*:[ \t]*([^\n\r<]*)/g)].at(-1)
+  if (!m) return null
+  const seen = new Set(exclude.filter(Boolean))
+  const out = []
+  for (const w of m[1].trim().split(/\s+/)) {
+    if (!/^[A-Z]{4}$/.test(w)) break
+    if (!seen.has(w)) { seen.add(w); out.push(w) }
+  }
+  return out
+}
+
+// Parse pasted OFP text — the ICAO flight plan block "(FPL-…)", with or without the Flight Remarks under it —
+// for the Briefing form's single paste box. Gives departure, arrival, destination alternates, the route as filed
+// (names only, no coordinates), the FIRs from the EET/ list, and `enroute`: the enroute alternates from the
+// ENROUTE ALT remark, or null when no such line was pasted (so the caller leaves the form's own ones alone).
+// If several flight plans were pasted, the last one wins and only the remarks under it count; with one, its
+// remarks may sit above or below it. A missing closing ")" is tolerated. Returns { ok: false } with no valid block.
 export function parseFplBlock(text) {
-  let t = String(text || '')
-  if (/\(FPL-/.test(t) && !/\)/.test(t)) t += ')'
-  const f = readFlight(t)
+  const t = String(text || '')
+  const starts = [...t.matchAll(/\(FPL-/g)].map(m => m.index)
+  if (!starts.length) return { ok: false }
+  const last = starts.at(-1)
+  let block = t.slice(last)
+  if (!/\)/.test(block)) block += ')'
+  const f = readFlight(block)
   if (!f) return { ok: false }
   return {
     ok: true,
@@ -244,5 +268,23 @@ export function parseFplBlock(text) {
     destAlts: { alt1: f.destAlts[0] ?? '', alt2: f.destAlts[1] ?? '' },
     routeText: f.route,
     firs: listFirs([], f),
+    enroute: parseEnrouteAlts(starts.length === 1 ? t : t.slice(last), [f.dep, f.arr, ...f.destAlts]),
   }
+}
+
+// What the Briefing form's single paste box sets from the pasted text: only the keys to set are returned.
+//  - a flight plan: departure, arrival, destination alternates, FIRs and `enroute`. With no ENROUTE ALT line
+//    (flight plan pasted without its remarks) `enroute` is [] so the form never keeps the enroute alternates of
+//    an earlier flight; paste the remarks too (together or after) and they fill in.
+//  - Flight Remarks on their own: `enroute` only (`known` = airports already in the form, left out).
+//  - a plain route: departure and arrival.
+export function pasteFill(text, known = []) {
+  const f = parseFplBlock(text)
+  if (f.ok) return { dep: f.dep, arr: f.arr, destAlts: f.destAlts, firs: f.firs, enroute: f.enroute ?? [] }
+  const patch = {}
+  const remarks = parseEnrouteAlts(text, known)
+  if (remarks?.length) patch.enroute = remarks
+  const r = parseRoute(text)
+  if (r.ok) { patch.dep = r.dep; patch.arr = r.arr }
+  return patch
 }

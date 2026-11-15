@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { padEnroute } from '../utils/enrouteAlts'
 import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import { BRIEFING_SETUP_CACHE_KEY } from '../utils/moduleCacheKeys'
 import { parseRoute } from '../utils/routeParse'
-import { ofpToFields, parseFplBlock } from '../utils/ofpParse'
+import { ofpToFields, parseFplBlock, pasteFill } from '../utils/ofpParse'
 import { blockMinutes, fmtHm, ofpWarning } from '../utils/ofpTimes'
 import { readOfpFile } from '../services/ofpFile'
 import FromCvr from './FromCvr'
@@ -33,7 +34,6 @@ import MonthBrowser from './MonthBrowser'
 // the summary, open the Briefing. Opening it also fills the METAR/TAF, NOTAM
 // and SIGMET tabs (briefingSync.js), so they show the same flight.
 const CACHE_KEY = BRIEFING_SETUP_CACHE_KEY
-const ERA_MAX = 5
 
 function saveCache(data) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch (_) {}
@@ -84,11 +84,10 @@ export default function BriefingModule() {
   const [routeText,    setRouteText]    = useState(cache?.routeText || '')
   const [destAlts,     setDestAlts]     = useState(cache?.destAlts || { alt1: '', alt2: '' })
   const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount ?? 1)
-  const [enrouteAlts,  setEnrouteAlts]  = useState(cache?.enrouteAlts || Array(ERA_MAX).fill(''))
+  const [enrouteAlts,  setEnrouteAlts]  = useState(cache?.enrouteAlts || padEnroute([]))
   const [firs,         setFirs]         = useState(cache?.firs || [])
   const [importedAt,   setImportedAt]   = useState(cache?.fetchedAt || null)
   const [firInput,     setFirInput]     = useState('')
-  const [fplNote,      setFplNote]      = useState('')   // result of the "paste flight plan" box
   const [detecting,    setDetecting]    = useState(false)
   const [busy,        setBusy]         = useState(false)
   const [importError,  setImportError]  = useState('')
@@ -122,7 +121,7 @@ export default function BriefingModule() {
     setMode('ofp'); setOfp(null)
     setDep(''); setArr(''); setRouteText('')
     setDestAlts({ alt1: '', alt2: '' })
-    setEnrouteCount(1); setEnrouteAlts(Array(ERA_MAX).fill(''))
+    setEnrouteCount(1); setEnrouteAlts(padEnroute([]))
     setFirs([]); setFirInput(''); setImportedAt(null); setImportError('')
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
   }
@@ -150,7 +149,7 @@ export default function BriefingModule() {
   }
 
   const applyOfp = async (r) => {
-    const f = ofpToFields(r, ERA_MAX)
+    const f = ofpToFields(r)
     setDep(f.dep); setArr(f.arr); setRouteText(f.routeText)
     setDestAlts(f.destAlts); setEnrouteCount(f.enrouteCount); setEnrouteAlts(f.enrouteAlts)
     setFirs(f.firs ?? [])
@@ -166,17 +165,17 @@ export default function BriefingModule() {
     setMode('ofp')
   }
 
-  // The "paste flight plan" box: a pasted ICAO (FPL-…) block fills departure, arrival, route,
-  // destination alternates and FIRs. Route is names only (no coordinates), as when a route is typed.
-  const fillFromFpl = (text) => {
-    const r = parseFplBlock(text)
-    if (!r.ok) {
-      setFplNote(/\(?FPL-/i.test(text) ? "Couldn't read it — paste the whole (FPL-…) block." : '')
-      return
-    }
-    setDep(r.dep); setArr(r.arr); setRouteText(r.routeText); setDestAlts(r.destAlts); setFirs(r.firs)
-    const alts = [r.destAlts.alt1, r.destAlts.alt2].filter(Boolean).join('/')
-    setFplNote(`✓ Filled ${r.dep} → ${r.arr}${alts ? `, alt ${alts}` : ''}${r.firs.length ? `, ${r.firs.length} FIR${r.firs.length > 1 ? 's' : ''}` : ''}. Check below.`)
+  // The one paste box: an ICAO (FPL-…) block (with or without the Flight Remarks, pasted together or one after
+  // the other) or a plain route. The whole text is read again at every change and what it finds replaces what
+  // is in the form (see pasteFill). A flight plan with no remarks clears the enroute alternates, so an earlier
+  // flight's never stay. The route is names only (no coordinates), as when a route is typed.
+  const applyPaste = (text) => {
+    setRouteText(text)
+    const p = pasteFill(text, [dep, arr, destAlts.alt1, destAlts.alt2])
+    if (p.dep) { setDep(p.dep); setArr(p.arr) }
+    if (p.destAlts) setDestAlts(p.destAlts)
+    if (p.firs) setFirs(p.firs)
+    if (p.enroute) { setEnrouteCount(Math.max(1, p.enroute.length)); setEnrouteAlts(padEnroute(p.enroute)) }
   }
 
   const addFir = () => {
@@ -208,7 +207,9 @@ export default function BriefingModule() {
   const flightDetails = ofp?.details && ofp.details.dep === dep && ofp.details.arr === arr
     ? { ...ofp.details, flight: ofp.flight, info: ofp.info, depTz: ofp.depTz, arrTz: ofp.arrTz }
     : null
-  const openIt = () => ready && openBriefing({ dep, arr, routeText, destAlts, enrouteCount, enrouteAlts, firs, flightDetails })
+  // A pasted flight plan is sent as its route (names only), not as the whole pasted text.
+  const pastedFpl = useMemo(() => parseFplBlock(routeText), [routeText])
+  const openIt = () => ready && openBriefing({ dep, arr, routeText: pastedFpl.ok ? pastedFpl.routeText : routeText, destAlts, enrouteCount, enrouteAlts, firs, flightDetails })
 
   const parsed = useMemo(() => parseRoute(routeText), [routeText])
   const found = useMemo(() => filterSaves(saves, query), [saves, query])
@@ -326,13 +327,9 @@ export default function BriefingModule() {
 
       {mode === 'manual' && (
         <>
-          <SectionHeader title="Paste flight plan (optional)" />
-          <textarea className="cp-input" rows={3} spellCheck={false} autoCapitalize="characters"
-            placeholder="Paste the (FPL-…) block to auto-fill departure, arrival, route, alternates and FIRs"
-            onChange={e => fillFromFpl(e.target.value)}
-            style={{ ...monoInput, width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 11, lineHeight: 1.5, marginBottom: 8 }} />
-          {fplNote && <div role="status" style={{ fontSize: 11, marginBottom: 18,
-            color: fplNote.startsWith('✓') ? 'var(--cp-green)' : 'var(--cp-yellow)' }}>{fplNote}</div>}
+          <SectionHeader title="Paste flight plan or route (optional)" />
+          <RouteInput value={routeText} onChange={applyPaste} dep={dep} arr={arr}
+            known={[dep, arr, destAlts.alt1, destAlts.alt2]} label={ofp?.filedRoute} />
 
           <SectionHeader title="Route" />
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 20 }}>
@@ -351,7 +348,6 @@ export default function BriefingModule() {
             </div>
           </div>
 
-          <RouteInput value={routeText} onChange={setRouteText} onAirports={(d, a) => { setDep(d); setArr(a) }} dep={dep} arr={arr} label={ofp?.filedRoute} />
 
           <SectionHeader title="Destination Alternates" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
@@ -364,7 +360,7 @@ export default function BriefingModule() {
             ))}
           </div>
 
-          <EnrouteAlternates count={enrouteCount} alts={enrouteAlts} max={ERA_MAX}
+          <EnrouteAlternates count={enrouteCount} alts={enrouteAlts}
             onChange={({ count, alts }) => { setEnrouteCount(count); setEnrouteAlts(alts) }} inputStyle={monoInput} />
 
           {/* Laid out like the FIR block on the NOTAM and SIGMET tabs: auto-detect, the chips, then the add box. */}

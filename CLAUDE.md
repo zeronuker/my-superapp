@@ -101,6 +101,16 @@ api/
   offline and avoid triggering network calls that prompt the user. The service
   worker precaches the build output.
 
+- **Fixed header (`App.jsx`)** — the logo header and the top nav bar (◄ HOME / tab bar / grouped nav) sit in one
+  `.cb-top-chrome` block (sticky, z-index 30), so they stay in view on every screen EXCEPT a phone held sideways
+  (`landscape` + `max-height: 500px`, like the Duty Log's phone-landscape rule: 110 px of 390 was too much), where
+  they scroll away and every offset is 0 (an iPad in landscape keeps them fixed). Its height is published as
+  `--cb-chrome-h` (app pixels) and `--cb-chrome-px` (screen pixels); `--cb-top-chrome` (index.css, built from `--cb-top-chrome-base`) is what anything
+  else that sticks to the top adds to its own offset (FTL result panel, Duty Log editor), and `html`'s
+  `scroll-padding-top` keeps scrolled-into-view things below it. New sticky-to-top elements must use it. The
+  landscape-compact pane is zoomed 0.82, so it rescales `--cb-top-chrome` from `--cb-top-chrome-base`. On a phone the block is 110 px
+  (launcher), 125 px (tabs) or 187 px (grouped); both bars must keep opaque backgrounds.
+
 ## Deploy
 
 Push to `master` → Vercel builds and deploys automatically. Commit/push only
@@ -141,6 +151,14 @@ when asked. The service worker caches aggressively; users get an update prompt
   function asks autorouter's flight-plan parser for each fix's position (parse
   only, never files), and the Dark map draws the line. Fixes autorouter lacks
   go in `src/data/fixOverrides.js`. SIDs/STARs and airway bends are not drawn.
+  The manual form has ONE paste box (`RouteInput.jsx`, grows with its text) for either that route or the OFP's
+  `(FPL-…)` block with the Flight Remarks (`parseFplBlock` / `parseEnrouteAlts` in `utils/ofpParse.js`): it fills
+  departure, arrival, destination alternates, FIRs and the enroute alternates (the `ENROUTE ALT` line minus
+  dep/arr/dest alts) and sends the route as names only. The whole text is re-read at every change; what it finds
+  replaces the form's values (`pasteFill`); a flight plan with no ENROUTE ALT line CLEARS the enroute alternates
+  so an earlier flight's never stay (paste the remarks too, together or after). Several flight plans pasted: the
+  last wins, with only the remarks under it. Enroute alternates have NO limit anywhere (the old
+  cap of 5 is gone from Briefing, METAR/TAF, NOTAM and SIGMET; `padEnroute` keeps the state array at least 5 long).
 - **OFP import (`BriefingModule.jsx` IMPORT OFP, `utils/ofpParse.js`,
   `utils/pdfText.js`, `services/ofpFile.js`)** — on the Briefing tab. Reads the
   company XmlOFP (ARINC 633 `.txt`/`.xml`) or the PFP

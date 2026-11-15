@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { padEnroute } from '../utils/enrouteAlts'
 import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
 import { icaoToFir } from '../data/firLookup'
@@ -15,7 +16,6 @@ import SnapshotBanner from './SnapshotBanner'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
 
 const CACHE_KEY = SIGMET_CACHE_KEY
-const ERA_MAX = 5
 const monoInput = { fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.12em' }
 
 function saveCache(data) {
@@ -104,7 +104,7 @@ export default function SigmetViewer() {
   const [arr, setArr] = useState(cache?.arr || '')
   const [destAlts, setDestAlts] = useState(cache?.destAlts || { alt1: '', alt2: '' })
   const [enrouteCount, setEnrouteCount] = useState(cache?.enrouteCount ?? 1)   // opens with one field; a saved 0 stays 0
-  const [enrouteAlts, setEnrouteAlts] = useState(cache?.enrouteAlts || Array(ERA_MAX).fill(''))
+  const [enrouteAlts, setEnrouteAlts] = useState(cache?.enrouteAlts || padEnroute([]))
   const [chips, setChips] = useState(cache?.chips || [])
   const [customInput, setCustomInput] = useState('')
   const [detecting, setDetecting] = useState(false)
@@ -158,7 +158,7 @@ export default function SigmetViewer() {
     setArr(data.arr)
     setDestAlts(data.destAlts)
     setEnrouteCount(data.enrouteCount)
-    setEnrouteAlts(Array.from({ length: ERA_MAX }, (_, i) => data.enrouteAlts[i] || ''))
+    setEnrouteAlts(padEnroute(data.enrouteAlts))
     // FIRs were likely derived from the old route (auto-detect or manual) and
     // go stale once it's replaced — leave any manually-added standalone
     // entries alone since we can't tell them apart from route-derived ones.
@@ -168,7 +168,7 @@ export default function SigmetViewer() {
     setDep(''); setArr('')
     setDestAlts({ alt1: '', alt2: '' })
     setEnrouteCount(1)
-    setEnrouteAlts(Array(ERA_MAX).fill(''))
+    setEnrouteAlts(padEnroute([]))
     setChips([]); setCustomInput('')
     setSigmets(null); setFetchedAt(null); setSnapshotAt(null); setError('')
     try { localStorage.removeItem(CACHE_KEY) } catch (_) {}
@@ -289,7 +289,7 @@ export default function SigmetViewer() {
       </div>
 
       {/* ── Enroute Alternates ── */}
-      <EnrouteAlternates count={enrouteCount} alts={enrouteAlts} max={ERA_MAX}
+      <EnrouteAlternates count={enrouteCount} alts={enrouteAlts}
         onChange={({ count, alts }) => { setEnrouteCount(count); setEnrouteAlts(alts) }}
         inputStyle={monoInput}
         clean={upper} />

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { addEnroute, removeEnroute, activeEnroute } from './enrouteAlts'
+import { addEnroute, removeEnroute, activeEnroute, padEnroute } from './enrouteAlts'
 
 const five = (...v) => [...v, '', '', '', '', ''].slice(0, 5)
 
@@ -65,5 +65,24 @@ describe('activeEnroute', () => {
   it('copes with missing input', () => {
     expect(activeEnroute(undefined, undefined)).toEqual([])
     expect(activeEnroute(2, [])).toEqual([])
+  })
+})
+
+describe('no limit on enroute alternates', () => {
+  it('adds past 5 when no max is given, growing the array', () => {
+    const r = addEnroute(5, five('A', 'B', 'C', 'D', 'E'))
+    expect(r.count).toBe(6)
+    expect(r.alts).toEqual(['A', 'B', 'C', 'D', 'E', ''])
+  })
+  it('keeps adding one at a time', () => {
+    let st = { count: 0, alts: padEnroute([]) }
+    for (let i = 0; i < 12; i++) st = addEnroute(st.count, st.alts)
+    expect(st.count).toBe(12)
+    expect(st.alts).toHaveLength(12)
+  })
+  it('padEnroute pads to 5 but never cuts a longer list', () => {
+    expect(padEnroute(['A'])).toEqual(['A', '', '', '', ''])
+    expect(padEnroute(['A', 'B', 'C', 'D', 'E', 'F', 'G'])).toHaveLength(7)
+    expect(padEnroute(undefined)).toEqual(['', '', '', '', ''])
   })
 })
