@@ -832,7 +832,7 @@ export default function FTLCalculator() {
         </div>
 
         {/* ── RIGHT: Result ─────────────────────────────────────────────── */}
-        <div style={{ position: 'sticky', top: 24 }}>
+        <div style={{ position: 'sticky', top: 'calc(var(--cb-top-chrome, 0px) + 24px)' }}>
 
           <div className="cp-section-header" style={{ marginBottom: 16 }}>
             <span className="cp-section-title">RESULT</span>

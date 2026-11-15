@@ -290,6 +290,25 @@ export default function App() {
   const [zoomSupported] = React.useState(() => {
     try { return window.CSS?.supports?.('zoom', '1.1') ?? true } catch { return true }
   })
+  // The header and the nav bar under it stay fixed at the top (see the wrapper below). Their height is
+  // published as CSS variables so what else sticks to the top (the FTL result panel, the Duty Log editor) and
+  // what scrolls into view (html's scroll-padding-top) stops below them instead of sliding underneath.
+  // --cb-chrome-h is in the app's own (zoomed) pixels; --cb-chrome-px is on-screen pixels.
+  const chromeRef = React.useRef(null)
+  React.useLayoutEffect(() => {
+    const el = chromeRef.current
+    if (!el) return undefined
+    const publish = () => {
+      const root = document.documentElement.style
+      root.setProperty('--cb-chrome-h', `${el.offsetHeight}px`)
+      root.setProperty('--cb-chrome-px', `${Math.round(el.getBoundingClientRect().height)}px`)
+    }
+    publish()
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(publish)
+    ro?.observe(el)
+    window.addEventListener('resize', publish)
+    return () => { ro?.disconnect(); window.removeEventListener('resize', publish) }
+  }, [])
   const zoomStyle = zoom === 1 ? {} : zoomSupported
     ? { zoom }
     : { transform: `scale(${zoom})`, transformOrigin: 'top left',
@@ -340,6 +359,10 @@ export default function App() {
         ...zoomStyle,
       }}>
 
+        {/* Header + top navigation: one block that stays fixed at the top while the page scrolls.
+            Both have opaque backgrounds, so nothing shows through. z-index 30: above the page's
+            own menus (10), below every pop-up window (400+). */}
+        <div ref={chromeRef} style={{ position: 'sticky', top: 0, zIndex: 30, flexShrink: 0 }}>
         {/* ── Header ──────────────────────────────────────────────────── */}
         <header style={{
           // Top 11px matches the status-bar band + top-edge strip (surface-0), then
@@ -391,6 +414,7 @@ export default function App() {
         {navStyle === 'launcher' && !isLauncherHome && (
           <LauncherBackBar calc={currentCalc} onHome={() => guardLeave(() => setActiveCalculator(null))} />
         )}
+        </div>
 
         {/* ── Main content ─────────────────────────────────────────────── */}
         <main
@@ -421,7 +445,8 @@ export default function App() {
               overflowX: 'clip',
               ...(isCalcFullScreen
                 ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px' }
-                : { padding: landscapeCompact ? '16px' : '24px', zoom: landscapeCompact ? 0.82 : undefined }),
+                : { padding: landscapeCompact ? '16px' : '24px', zoom: landscapeCompact ? 0.82 : undefined,
+                    ...(landscapeCompact ? { '--cb-top-chrome': 'calc(var(--cb-chrome-h, 0px) / 0.82)' } : {}) }),
             }}>
               <div key={activeCalculator}
                 className={toolAnim.className}
