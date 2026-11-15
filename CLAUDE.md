@@ -189,8 +189,8 @@ when asked. The service worker caches aggressively; users get an update prompt
   (on 2026-10-25 it listed only flown flights).
 - **OFP from CVR, no file (`public/cvr-send.js`, `api/dutylog-sync.js` `&kind=ofp`,
   `services/cvrInbox.js`, Briefing New page "From CVR" list, Settings → Cloud Sync
-  COPY CVR BOOKMARK)** — gets an OFP into the Briefing tab with no file. Proven after
-  the flight; before it, only if the flight-day row carries a report number (see below).
+  COPY CVR BOOKMARK)** — gets an OFP into the Briefing tab with no file. Works after
+  the flight only: before the report is submitted CVR gives no way to the OFP (see below).
   Settings makes a bookmarklet carrying this device's sync code + the app origin; run on
   cvr.batikair.com.my's Voyage Reports page (where the pilot is logged in) it loads
   `/cvr-send.js`, reads the flights off the page (`viewFlightPlan(reportId,'SECTOR','LABEL')`
@@ -223,9 +223,12 @@ when asked. The service worker caches aggressively; users get an update prompt
   (none, 0, another flight's or the app's flight code = 400/404). The list reads it from each
   `.roster-item`'s Flight Plan button, or, when that is not shown yet, from its
   `viewReportDetails` / `sendReportEmail` / `ExportReportPdf?reportId=` buttons (flight from
-  the row text, marked "not submitted"). Future dates list 0 flights, but the pilot sees a
-  flight-day row with the OFP number before submitting: whether it has a report number and
-  CVR serves its OFP before submission is UNPROVEN until a flight day (checked 2026-11-08).
+  the row text, marked "not submitted"). Future dates list 0 flights. Before-flight is a DEAD END (tested on the
+  flight day, OD670 KUL-KMG, 14 Nov 2026): a "Not Submitted" row has NO buttons at all (no
+  Flight Plan, no report number anywhere on the page) and its ▾ details show only flight,
+  aircraft, times and crew. The number on the row is the OFP number, not the report number.
+  Before the flight the pilot imports the OFP file (IMPORT OFP). Do not chase this again unless
+  CVR's page changes.
 - **Flight Details tab (`FlightDetailsTab.jsx`, `utils/ofpDetails.js`,
   `utils/flightDetailsCalc.js`)** — the briefing overlay's first tab, only for a
   briefing started from an imported OFP (`route.flightDetails`, built in

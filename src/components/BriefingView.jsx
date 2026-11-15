@@ -28,6 +28,7 @@ import WindyRouteMap, { hasWindyLoadedBefore } from './WindyRouteMap'
 import CartoRouteMap, { hasCartoLoadedBefore, sigmetPopupEl } from './CartoRouteMap'
 import OfflineCoastlineMap from './OfflineCoastlineMap'
 import FlightDetailsTab from './FlightDetailsTab'
+import FromCvr from './FromCvr'
 import SavedSatellite from './SavedSatellite'
 import BriefingTabBar from './BriefingTabBar'
 import Seg from './Seg'
@@ -737,6 +738,7 @@ export default function BriefingView() {
   const tabAnim = useTransitionAnim(activeTab, tabs.map(t => t.id), animStyle)
   const setActiveCalculator = useCalculatorStore(s => s.setActiveCalculator)
   const dutyLogs = useDutyLogStore(s => s.logs)
+  const syncCode = useDutyLogStore(s => s.syncCode)
   const setEditingId = useDutyLogStore(s => s.setEditingId)
   const setFocusSectorId = useDutyLogStore(s => s.setFocusSectorId)
   const links = useMemo(() => resolveLinks(dutyLogs, saves), [dutyLogs, saves])
@@ -766,12 +768,24 @@ export default function BriefingView() {
   if (ofpAsk) ofpAskShown.current = ofpAsk
   const ofpAskPresence = usePresence(!!ofpAsk)
   const [ofpJob, setOfpJob] = useState(null)        // { f, fd, pts }: the map is being redrawn
+  const [cvrOpen, setCvrOpen] = useState(false)     // the "From CVR" picker (reuses the + NEW page's FromCvr list)
+  const cvrPresence = usePresence(cvrOpen)
 
   const startOfp = (f) => {
     setOfpAsk(null)
     const fd = flightDetailsFrom(f, lookupAirport(f.dep)?.tz ?? null, lookupAirport(f.arr)?.tz ?? null)
     setOfpJob({ f, fd, pts: ofpWaypoints(f) })
     setOfpBusy('drawing')
+  }
+
+  // A CVR OFP chosen in the picker: read like a file, then the same mismatch check and attach as pickOfp.
+  const onCvrLoaded = (r) => {
+    setCvrOpen(false)
+    if (!localEntry) return
+    const f = ofpToFields(r)
+    const warn = ofpMismatch(localEntry.route, f)
+    if (warn) { setOfpAsk({ f, warn, fromCvr: true }); return }
+    startOfp(f)
   }
   const pickOfp = async (e) => {
     const file = e.target.files?.[0]
@@ -1166,15 +1180,11 @@ export default function BriefingView() {
                     ) : (
                       <AddChip label="+ DUTY LOG" onClick={() => setPickOpen(true)} />
                     )}
-                    {flightDetails ? (
-                      <MenuChip label={ofpBusy ? (ofpBusy === 'reading' ? 'READING…' : 'DRAWING…') : 'OFP'}
-                        disabled={isOffline || !!ofpBusy} items={[
-                          { label: 'Change OFP', onClick: () => ofpFileRef.current?.click() },
-                        ]} />
-                    ) : (
-                      <AddChip label={ofpBusy ? (ofpBusy === 'reading' ? 'READING…' : 'DRAWING…') : '+ OFP'}
-                        disabled={isOffline || !!ofpBusy} onClick={() => ofpFileRef.current?.click()} />
-                    )}
+                    <MenuChip label={ofpBusy ? (ofpBusy === 'reading' ? 'READING…' : 'DRAWING…') : (flightDetails ? 'OFP' : '+ OFP')}
+                      disabled={isOffline || !!ofpBusy} items={[
+                        { label: flightDetails ? 'Change OFP — file' : 'Import file', onClick: () => ofpFileRef.current?.click() },
+                        { label: 'From CVR', onClick: () => setCvrOpen(true), disabled: !syncCode },
+                      ]} />
                   </div>
                 )}
               </div>
@@ -1282,7 +1292,17 @@ export default function BriefingView() {
 
     {ofpAskPresence.mounted && ofpAskShown.current && <OfpMismatchPrompt closing={ofpAskPresence.closing}
       warn={ofpAskShown.current.warn} onAdd={() => startOfp(ofpAskShown.current.f)}
-      onAnother={() => { setOfpAsk(null); ofpFileRef.current?.click() }} onCancel={() => setOfpAsk(null)} />}
+      onAnother={() => { const cvr = ofpAskShown.current.fromCvr; setOfpAsk(null); cvr ? setCvrOpen(true) : ofpFileRef.current?.click() }} onCancel={() => setOfpAsk(null)} />}
+    {cvrPresence.mounted && (
+      <BriefingPromptModal onDismiss={() => setCvrOpen(false)} closing={cvrPresence.closing}>
+        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--cp-acc)', marginBottom: 12 }}>
+          Add OFP from CVR
+        </div>
+        <FromCvr syncCode={syncCode} isOnline={!isOffline} disabled={!!ofpBusy}
+          readText={text => readOfpFile(new Blob([text]))} onLoaded={onCvrLoaded}
+          panelStyle={{}} buttonStyle={{ padding: '8px 12px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em' }} />
+      </BriefingPromptModal>
+    )}
 
     {capPresence.mounted && (
       <CapReachedPrompt
