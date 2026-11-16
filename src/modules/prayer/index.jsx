@@ -15,6 +15,7 @@ import FlightPage              from './pages/Flight'
 import { T }                   from './components/tokens'
 import { TabIcon }             from '../../components/TabIcon'
 import { useTransitionAnim }   from '../../useTransitionAnim'
+import { SettingsRow, SettingsNote, Seg } from '@brand/SettingsWindow'
 
 // ── Sub-nav ──────────────────────────────────────────────────────────────────
 function SubNav({ active, onChange }) {
@@ -133,59 +134,29 @@ export function PrayerSettings() {
     { value: 'uaq',          label: 'Umm Al-Qura (Makkah)' },
   ]
 
-  const seg = (options, value, key) => (
-    <div style={{ display: 'flex', border: '1px solid var(--cp-border)',
-      borderRadius: 4, overflow: 'hidden' }}>
-      {options.map((o, i) => {
-        const active = value === o.value
-        return (
-          <button key={o.value} onClick={() => updatePrayerSettings({ [key]: o.value })} style={{
-            flex: 1, background: active ? 'var(--cp-accdim)' : 'transparent',
-            border: 'none', borderRight: i < options.length - 1 ? '1px solid var(--cp-border)' : 'none',
-            color: active ? 'var(--cp-acc)' : 'var(--cp-dim)',
-            fontFamily: 'var(--cb-font-mono)', fontSize: 10, letterSpacing: '0.1em',
-            padding: '5px 8px', cursor: 'pointer', whiteSpace: 'nowrap',
-          }}>
-            {o.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Calculation method */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <span className="cp-label" style={{ flexShrink: 0 }}>METHOD</span>
+    <>
+      <SettingsRow label="Method" hint="How prayer times are calculated" wide>
         <select
+          className="cbs-select"
           value={settings.calculationMethod}
           onChange={e => updatePrayerSettings({ calculationMethod: e.target.value })}
-          style={{
-            background: 'var(--cp-bginput)', border: '1px solid var(--cp-border)',
-            borderRadius: 4, color: 'var(--cp-txt)', fontFamily: 'var(--cb-font-mono)',
-            fontSize: 10, padding: '5px 8px', outline: 'none', cursor: 'pointer',
-          }}
         >
           {METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
-      </div>
-
-      {/* Madhab */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <span className="cp-label" style={{ flexShrink: 0 }}>MADHAB (ASR)</span>
-        {seg([{ value: 'shafi', label: "SHAFI'I" }, { value: 'hanafi', label: 'HANAFI' }],
-          settings.madhab, 'madhab')}
-      </div>
-
-      <div style={{ paddingTop: 4, borderTop: '1px solid var(--cp-border3)' }}>
-        <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9,
-          color: 'var(--cp-dim)', letterSpacing: '0.08em', lineHeight: 2 }}>
-          CLOCK FORMAT: SET IN APPEARANCE<br />
-          ONLINE: ALADHAN API · OFFLINE: ADHAN.JS<br />
-          PRAYER DATA CACHED FOR 7 DAYS
-        </div>
-      </div>
-    </div>
+      </SettingsRow>
+      <SettingsRow label="Madhab (Asr)">
+        <Seg
+          label="Madhab"
+          options={[{ value: 'shafi', label: "Shafi'i" }, { value: 'hanafi', label: 'Hanafi' }]}
+          value={settings.madhab}
+          onChange={v => updatePrayerSettings({ madhab: v })}
+        />
+      </SettingsRow>
+      <SettingsNote>
+        Clock format is set in Appearance. Online times come from the Aladhan API, offline from adhan.js;
+        prayer data is kept for 7 days.
+      </SettingsNote>
+    </>
   )
 }

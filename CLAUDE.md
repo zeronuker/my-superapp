@@ -8,7 +8,7 @@ Guidance for working in this repository.
 plus a prayer-times module. Single-page app, tabbed calculators, deployed to
 Vercel (auto-deploys from `master`).
 
-Current version: **v3.7** — driven by `src/changelog.js`'s `current: true`
+Current version: **v3.10** — driven by `src/changelog.js`'s `current: true`
 entry (`currentVersion(CHANGELOG)` in `App.jsx`); also keep `package.json`'s
 `version` and `README.md`'s "Current version" line in sync with it.
 
@@ -97,6 +97,10 @@ api/
   to the shared `<ResetButton onReset={...}>` component (see
   `CurrencyCalculator.jsx` for the pattern). Also add the new id to a group in
   `NAV_GROUPS` (Navigation.jsx) so it appears in grouped navigation.
+- **Settings** (`components/settings/SettingsPanel.jsx`) is the brand kit's shared `SettingsWindow`
+  (`@brand/SettingsWindow`, same in every ClaudeBorne app): tabs Appearance / Navigation / Tools (incl.
+  Prayer) / About, built from `SettingsSection` / `SettingsRow` / `Seg` / `Switch` / `Reveal`. Its colours
+  come from the `--cp-*` tokens via the `.cbs` block at the end of `index.css`.
 - **Offline**: this is a PWA. Anything that fetches must degrade gracefully when
   offline and avoid triggering network calls that prompt the user. The service
   worker precaches the build output.

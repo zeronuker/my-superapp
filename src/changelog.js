@@ -338,7 +338,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: "v3.9", date: "Nov 2026", current: true,
+    v: "v3.9", date: "Nov 2026",
     title: "Satellite module",
     notes: [
       "NEW: Satellite tab in Flight Data: cloud, winds-aloft and storm pictures for a route or region, fetched on demand with a button.",
@@ -349,6 +349,16 @@ export const CHANGELOG = [
       "FIX: Retaken pictures offer SYNC again; pickers show 5 per page sized to the screen and centre correctly on iPad landscape.",
       "FIX: iOS no longer zooms in when you tap an input.",
       "IMP: Smooth animations for Satellite views, NOTAM/SIGMET results, errors and B737 result cards.",
+    ],
+  },
+  {
+    v: "v3.10", date: "Nov 2026", current: true,
+    title: "New Settings window",
+    notes: [
+      "IMP: Settings has the new ClaudeBorne layout shared by every app: tabs down the left with a short hint under each, the chosen tab on the right; full screen on a phone with a slim icon column.",
+      "IMP: Four tabs instead of five: Prayer settings now sit in Tools, beside METAR/TAF, NOTAM and Currency.",
+      "IMP: On/off settings are switches. Settings that need another one on (animation style and speed, haptic strength, tab position) fold away and back.",
+      "IMP: Changing tab follows your Animation style and speed; the tab highlight glides to the tab you pick.",
     ],
   },
 ]

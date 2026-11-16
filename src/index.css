@@ -825,3 +825,21 @@ html { scroll-padding-top: var(--cb-chrome-px, 0px); }
   :root { --cb-top-chrome-base: 0px; }
   html { scroll-padding-top: 0; }
 }
+
+/* ── Settings window (brand-kit SettingsWindow) ──────────────────────────
+   Feed it this app's own tokens, so the user's accent, light/dark and high
+   contrast all reach Settings; --ios-edge keeps the phone header clear of the
+   iPadOS top-edge strip. */
+.cbs, .cbs-scrim {
+  --cbs-acc:    var(--cp-acc);
+  --cbs-face:   var(--cp-bg2);
+  --cbs-rail:   var(--cp-bg);
+  --cbs-sel:    var(--cp-bg3);
+  --cbs-field:  var(--cp-bginput);
+  --cbs-ink:    var(--cp-txt);
+  --cbs-ink-2:  var(--cp-muted);
+  --cbs-dim:    var(--cp-dim);
+  --cbs-line:   var(--cp-border2);
+  --cbs-line-2: var(--cp-border);
+  --cbs-top:    var(--ios-edge, 0px);
+}

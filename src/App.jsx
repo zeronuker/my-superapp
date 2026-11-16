@@ -509,16 +509,7 @@ export default function App() {
       {/* ── Settings overlay ─────────────────────────────────────────── */}
       {settingsPresence.mounted && (
         <>
-          <div
-            className={`cp-backdrop-in${settingsPresence.closing ? ' is-closing' : ''}`}
-            onClick={() => setSettingsOpen(false)}
-            style={{
-              position: 'fixed', inset: 0,
-              background: 'rgba(0,0,0,0.45)',
-              zIndex: 100,
-              backdropFilter: 'blur(2px)',
-            }}
-          />
+          {/* the brand SettingsWindow brings its own dimmed backdrop */}
           <SettingsPanel
             onThemeChange={handleThemeChange}
             settings={settings}
