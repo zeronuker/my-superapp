@@ -27,7 +27,7 @@ export default function EnrouteAlternates({ count, alts, max = Infinity, onChang
       {count > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
           {Array.from({ length: count }, (_, i) => (
-            <div key={i}>
+            <div key={i} className="cp-chip-in">
               <div className="cp-label" style={{ marginBottom: 4 }}>ERA {i + 1}</div>
               <div style={{ position: 'relative' }}>
                 <input className="cp-input" style={{ ...inputStyle, paddingRight: 34 }}

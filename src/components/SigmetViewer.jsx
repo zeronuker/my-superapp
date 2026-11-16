@@ -14,6 +14,7 @@ import SigmetCard from './SigmetCard'
 import Collapse from './Collapse'
 import SnapshotBanner from './SnapshotBanner'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
+import { showAlert } from '../alertBus'
 
 const CACHE_KEY = SIGMET_CACHE_KEY
 const monoInput = { fontFamily: 'var(--cb-font-mono)', letterSpacing: '0.12em' }
@@ -209,6 +210,7 @@ export default function SigmetViewer() {
       setSigmets(filtered)
       setFetchedAt(Date.now())
       setSnapshotAt(null)
+      showAlert('SIGMETs fetched')
     } catch (e) {
       setError(`Failed to fetch SIGMETs: ${e.message}`)
     } finally {
@@ -337,7 +339,7 @@ export default function SigmetViewer() {
       </Collapse>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <button onClick={handleFetch} disabled={loading || !chips.length} style={{
+        <button className={`cp-fetch-btn${loading ? ' busy' : ''}`} onClick={handleFetch} disabled={loading || !chips.length} style={{
           flex: 1, padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
           border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)', borderRadius: 6,
           cursor: chips.length ? 'pointer' : 'default', fontFamily: 'var(--cb-font-mono)', fontSize: 10,

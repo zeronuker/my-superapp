@@ -15,6 +15,8 @@ import { useOnlineStatus } from './utils/useOnlineStatus'
 import TabLoading from './components/TabLoading'
 import DashboardHome from './components/DashboardHome'
 import SettingsPanel from './components/settings/SettingsPanel'
+import LiveAlertHost from './LiveAlert'
+import { showAlert } from './alertBus'
 import { APP_VERSION, resolveAccentId } from './appConstants'
 import { useTransitionAnim, usePresence, ANIM_SPEED_MS } from './useTransitionAnim'
 import { useScrollLock } from './useScrollLock'
@@ -105,6 +107,12 @@ export default function App() {
   })))
 
   const isOnline = useOnlineStatus()
+  // "Back online" pill when the connection returns (not on first load)
+  const wasOnline = React.useRef(isOnline)
+  React.useEffect(() => {
+    if (isOnline && !wasOnline.current) showAlert('Back online')
+    wasOnline.current = isOnline
+  }, [isOnline])
   useMETARBadge()
   const update = useUpdate('superapp')
 
@@ -502,6 +510,8 @@ export default function App() {
           ⊘ OFFLINE — SHOWING CACHED DATA
         </div>
       )}
+
+      <LiveAlertHost />
 
       {/* ── Update prompt ────────────────────────────────────────────── */}
       <UpdatePrompt ready={!showSplash} update={update} />

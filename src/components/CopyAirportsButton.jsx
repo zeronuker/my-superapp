@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY } from '../utils/moduleCacheKeys'
 import { activeEnroute } from '../utils/enrouteAlts'
+import { showAlert } from '../alertBus'
 
 const CACHE_KEYS = { metar: METAR_CACHE_KEY, notam: NOTAM_CACHE_KEY }
 const ARM_TIMEOUT = 4000
@@ -42,7 +43,7 @@ export default function CopyAirportsButton({ sourceModule, sourceLabel, onApply 
     clearTimeout(timerRef.current)
     setArmed(false)
     const data = readOtherAirports(sourceModule)
-    if (data) onApply(data)
+    if (data) { onApply(data); showAlert(`Airports copied from ${sourceLabel}`) }
   }
 
   const colors = armed

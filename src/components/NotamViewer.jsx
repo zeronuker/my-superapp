@@ -15,6 +15,7 @@ import SourceChip from './SourceChip'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import { getRoleStyle } from '../utils/metarSeverity'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
+import { showAlert } from '../alertBus'
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const T = {
@@ -300,6 +301,7 @@ export default function NotamViewer() {
         setLoading(false)
         setManualFetch(false)
         haptic('medium')
+        showAlert('NOTAMs fetched')
       }
 
       // The animation always finishes before results are revealed.
@@ -455,7 +457,7 @@ export default function NotamViewer() {
 
       {/* ── Fetch ── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <button onClick={() => handleFetch()} disabled={loading || !targets.length} style={{
+        <button className={`cp-fetch-btn${loading ? ' busy' : ''}`} onClick={() => handleFetch()} disabled={loading || !targets.length} style={{
           flex: 1, padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
           border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)', borderRadius: 6,
           cursor: targets.length ? 'pointer' : 'default', fontFamily: T.mono, fontSize: 10,

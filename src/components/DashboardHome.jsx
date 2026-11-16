@@ -1,6 +1,7 @@
 import React from 'react'
 import usePrayerStore from '../modules/prayer/store/prayerStore'
 import { METAR_CACHE_KEY } from '../utils/moduleCacheKeys'
+import RollDigits from '../RollDigits'
 
 // ── Dashboard Home ──────────────────────────────────────────────────────────
 export default function DashboardHome({ onSelect, widgets = { utc: true, prayer: true, metar: true } }) {
@@ -94,7 +95,7 @@ export default function DashboardHome({ onSelect, widgets = { utc: true, prayer:
             color: 'var(--cp-dim)', marginBottom: 6 }}>UTC / ZULU</div>
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 'clamp(12px, 4vw, 22px)', fontWeight: 700,
             color: 'var(--cp-acc)', letterSpacing: '0.02em', lineHeight: 1,
-            fontVariantNumeric: 'tabular-nums' }}>{utcStr}</div>
+            fontVariantNumeric: 'tabular-nums' }}><RollDigits text={utcStr} /></div>
           <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)',
             letterSpacing: '0.06em', marginTop: 5 }}>{utcDate}</div>
         </div>
@@ -107,7 +108,7 @@ export default function DashboardHome({ onSelect, widgets = { utc: true, prayer:
               color: 'var(--cp-dim)', marginBottom: 6 }}>NEXT PRAYER</div>
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 'clamp(12px, 4vw, 16px)', fontWeight: 700,
               color: 'var(--cp-acc)', letterSpacing: '0.04em', lineHeight: 1,
-              fontVariantNumeric: 'tabular-nums' }}>{nextPrayer.countdown}</div>
+              fontVariantNumeric: 'tabular-nums' }}><RollDigits text={nextPrayer.countdown} /></div>
             <div style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 9, color: 'var(--cp-dim)',
               letterSpacing: '0.1em', marginTop: 5 }}>{nextPrayer.label}</div>
           </div>

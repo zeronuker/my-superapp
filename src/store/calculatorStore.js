@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { makeBriefingId, autoBriefingName, sortByNewest, pickNextAfterDelete } from '../utils/savedBriefings'
 import { loadSaves, idbBackend, isQuotaError, loadCloudState, saveCloudState } from '../services/briefingStorage'
 import { syncSnapshotCaches } from '../services/briefingSync'
+import { showAlert } from '../alertBus'
 
 // Named, manually-managed saves (unlike every cb-*-cache key, which is a
 // single slot with a 12h auto-expiry) — never expires, capped, only changed
@@ -308,6 +309,7 @@ export const useCalculatorStore = create((set, get) => ({
         savedId: s.briefing.data === data ? entry.id : s.briefing.savedId,
       },
     }))
+    showAlert('Briefing saved')
     return { ok: true }
   },
   setBriefingCloud: (cloud) => {

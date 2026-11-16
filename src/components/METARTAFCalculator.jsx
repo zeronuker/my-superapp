@@ -22,6 +22,7 @@ import SourceChip from './SourceChip'
 import Collapse from './Collapse'
 import { loadWithExpiry, useExpiry } from '../utils/cacheExpiry'
 import { METAR_CACHE_KEY, NOTAM_CACHE_KEY, SIGMET_CACHE_KEY } from '../utils/moduleCacheKeys'
+import { showAlert } from '../alertBus'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const CACHE_KEY      = METAR_CACHE_KEY
@@ -206,6 +207,7 @@ export default function METARTAFCalculator() {
       setLoading(false)
       setManualFetch(false)
       haptic(hasError ? 'heavy' : 'medium')
+      showAlert(hasError ? 'Weather fetched with errors' : 'Weather fetched')
     }
 
     // The animation always finishes before results are revealed — unless a
@@ -306,7 +308,7 @@ export default function METARTAFCalculator() {
 
       {/* ── CONTROLS ────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <button onClick={() => handleFetch()} disabled={!hasInput || loading} style={{
+        <button className={`cp-fetch-btn${loading ? ' busy' : ''}`} onClick={() => handleFetch()} disabled={!hasInput || loading} style={{
           flex: 1, padding: '12px', background: 'rgba(var(--cp-acc-rgb,63,224,197),0.12)',
           border: '1px solid rgba(var(--cp-acc-rgb,63,224,197),0.35)', borderRadius: 6,
           cursor: hasInput ? 'pointer' : 'default', fontFamily: 'var(--cb-font-mono)', fontSize: 10,
@@ -353,8 +355,10 @@ export default function METARTAFCalculator() {
       {manualFetch && <RadarSweepLoader targets={activeTargets} />}
 
       {/* ── RESULTS ─────────────────────────────────────────────────────── */}
-      {results && !manualFetch && orderedKeys.map(key => (
-        <AirportCard key={key} data={results[key]} now={now} />
+      {results && !manualFetch && orderedKeys.map((key, i) => (
+        <div key={key} className="cp-result-in" style={{ '--i': i }}>
+          <AirportCard data={results[key]} now={now} />
+        </div>
       ))}
 
       {!results && !loading && (
