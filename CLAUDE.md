@@ -240,7 +240,8 @@ when asked. The service worker caches aggressively; users get an update prompt
   frosted glass, spring motion), ALWAYS dark with the mint accent whatever Settings say (CVR's page cannot read the
   app's storage; following Settings would mean baking theme/accent into the bookmark text, not done). It starts as a
   dot, grows into a FIXED-size panel centred in the window (376 × 560 px, smaller on a small screen, `calc(100dvh - 40px)`),
-  and × shrinks it to a pill at the top centre with the result (tap to reopen). The header, the month + progress bar (top)
+  and – shrinks it to a pill at the top centre with the result (+ reopens it). × (header and pill) closes it for good;
+  closing mid-send stops the flights not yet started (the one in flight finishes, what was sent stays in the inbox). The header, the month + progress bar (top)
   and the summary + buttons (foot) stay put; only the list of flights scrolls, to the newest row while sending. One row per flight (spinner,
   ✓ sent, – already there, ↻ a revised OFP, ✕ with the reason), a segmented progress bar, SENT / HAVE IT / FAILED
   tiles, RETRY FAILED (a re-run: sent ones are skipped) and OPEN SUPERAPP (`window.open(api)`: in the same browser

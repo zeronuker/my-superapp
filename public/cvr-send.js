@@ -21,8 +21,8 @@
 //
 // The panel is SuperApp's ClaudeBorne look with the OxygenOS feel (see src/oxygen.css): square corners, the brand grid and
 // gradient stripe, mono labels, frosted glass, spring motion. It always uses the dark theme and mint accent, whatever the
-// app's Settings say (CVR's page cannot read the app's storage). It starts as a dot, grows into the panel, and × shrinks it
-// to a pill that shows the result; tapping the pill opens it again.
+// app's Settings say (CVR's page cannot read the app's storage). It starts as a dot, grows into the panel, and – shrinks it
+// to a pill that shows the result (+ opens it again); × closes it for good and stops any flights not yet started.
 (() => {
   // One roster row -> a flight { reportId, sector, label, hasPlan }, or { skip: why, label, has } for a row that
   // cannot be sent, or null for an empty row. `attrs` is the row's onclick/href values joined, `text` its text
@@ -128,7 +128,7 @@
     }
     #cb-cvr.open { width:min(376px, calc(100vw - 20px)); height:min(560px, calc(100vh - 40px)); height:min(560px, calc(100dvh - 40px)); border-radius:8px;
       box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 4px rgba(0,0,0,.25),0 22px 50px rgba(0,0,0,.45),0 0 40px color-mix(in srgb,var(--mint) 12%,transparent); }
-    #cb-cvr.mini { top:14px; transform:translate(-50%,0); width:min(238px, calc(100vw - 20px)); height:34px; border-radius:17px; background:var(--grad) top/100% 2px no-repeat, rgba(4,7,14,.96); }
+    #cb-cvr.mini { top:14px; transform:translate(-50%,0); width:min(272px, calc(100vw - 20px)); height:34px; border-radius:17px; background:var(--grad) top/100% 2px no-repeat, rgba(4,7,14,.96); }
     #cb-cvr .hd { flex:none; display:flex; align-items:center; gap:10px; height:34px; padding:0 9px; white-space:nowrap; }
     #cb-cvr.open .hd { height:40px; border-bottom:1px solid var(--line); }
     #cb-cvr .dot { flex:none; width:16px; height:16px; border-radius:50%; background:var(--grad); box-shadow:0 0 12px color-mix(in srgb,var(--mint) 65%,transparent); }
@@ -143,6 +143,7 @@
       font-family:inherit; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center; opacity:0; transition:transform .35s var(--sp),border-color .15s,color .15s,opacity .3s .3s; }
     #cb-cvr.open .x, #cb-cvr.mini .x { opacity:1; }
     #cb-cvr .x:hover { border-color:var(--mint); color:var(--mint); }
+    #cb-cvr .x.cl:hover { border-color:var(--red); color:var(--red); }
     #cb-cvr .x:active { transform:scale(.88); }
     #cb-cvr .stack { flex:1; min-height:0; display:flex; flex-direction:column; opacity:0; transition:opacity .4s var(--ea) .3s; }
     #cb-cvr.open .stack { opacity:1; }
@@ -243,8 +244,15 @@
   const ttl = h('span', 'ttl')
   const x = h('button', 'x', '–')
   x.setAttribute('aria-label', 'Minimise')
+  // × closes the panel for good. Closing while sending stops the flights not yet started (a flight already
+  // in flight finishes; what was sent stays in the inbox).
+  let closed = false
+  const dismiss = () => { closed = true; box.remove() }
+  const xc = h('button', 'x cl', '×')
+  xc.setAttribute('aria-label', 'Close')
+  xc.onclick = dismiss
   const hd = h('div', 'hd')
-  hd.append(dot, ttl, x)
+  hd.append(dot, ttl, x, xc)
   // Fixed size, centred in the window: the header, the progress (top) and the summary (foot) stay put; only the list scrolls.
   const top = h('div', 'top')
   const rowsEl = h('div')               // what a (re)run fills; the "cannot send" list stays below it
@@ -283,7 +291,7 @@
   }
   const btn = (label, cls, onclick) => { const b = h('button', 'btn ' + cls, label); b.onpointerdown = ripple; b.onclick = onclick; return b }
   const acts = (...b) => { const a = h('div', 'acts'); a.append(...b); return a }
-  const close = () => btn('CLOSE', '', () => box.remove())
+  const close = () => btn('CLOSE', '', dismiss)
   const count = (e, to) => { let i = 0; e.textContent = 0; if (!to) return; const t = setInterval(() => { e.textContent = ++i; if (i >= to) clearInterval(t) }, 120) }
 
   // A message card in the list (nothing to send, login expired, SuperApp unreachable), its buttons in the foot.
@@ -397,6 +405,7 @@
     let inbox = []
     try { inbox = await listInbox() } catch (e) {
       // A dry run sends nothing, so it can go on without the list.
+      if (closed) return
       if (!cfg.dry) {
         card('bad', '⚠', 'NOT SENT', e.message, [close(), btn('TRY AGAIN', 'pri', start)])
         set('· NOT SENT', 'not sent', 'bad')
@@ -406,11 +415,13 @@
     const n = { sent: 0, dry: 0, skip: 0, fail: 0 }
     const segs = [...segsEl.children]
     for (let i = 0; i < flights.length; i++) {
+      if (closed) return
       const f = flights[i]
       const show = flightRow(f)
       segs[i].classList.add('cur')
       let r, err
       try { r = await sendFlight(f, inbox) } catch (e) { err = e }
+      if (closed) return
       segs[i].classList.remove('cur')
       if (err) {
         n.fail++
