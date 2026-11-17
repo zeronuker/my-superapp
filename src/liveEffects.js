@@ -7,7 +7,7 @@ const animOn = () => {
 }
 
 // Controls that ripple on tap. oxygen.css gives them position:relative + overflow:hidden.
-const RIPPLE_TARGETS = '.cp-launch-card, .cp-btn:not(.cp-settings-btn), .cp-tab, .cp-mode-btn'
+const RIPPLE_TARGETS = '.cp-launch-card, .cp-btn:not(.cp-settings-btn), .cp-tab, .cp-mode-btn, .cp-sub'
 
 function installRipple() {
   document.addEventListener('pointerdown', (e) => {

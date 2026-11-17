@@ -229,6 +229,9 @@ export default function App() {
     document.documentElement.setAttribute('data-hico', settings.highContrast ? 'true' : 'false')
   }, [settings.highContrast])
 
+  // A module opens at its top: the window keeps its scroll offset when the content swaps (iPad launcher is tall enough to scroll)
+  React.useEffect(() => { window.scrollTo(0, 0) }, [activeCalculator])
+
   // Tabs / grouped styles must never sit on the empty launcher "home" state
   React.useEffect(() => {
     if (navStyle !== 'launcher' && !activeCalculator) {

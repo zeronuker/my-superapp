@@ -260,6 +260,10 @@ input::placeholder, textarea::placeholder { color: var(--cp-dim); opacity: 1; }
   border-color: var(--cp-border);
   border-bottom: 1px solid var(--cp-bg2);
 }
+/* Top tab bar: eLogbook's boxed tabs. The active tab is drawn by the gliding highlight (.cp-bf-ind in
+   oxygen.css), so its own fill and border go transparent. */
+.cp-tab.cp-tab-glide { position: relative; z-index: 1; border-bottom: 1px solid var(--cp-border2); border-radius: 5px 5px 0 0; }
+.cp-tab.cp-tab-glide.active, .cp-tab.cp-tab-glide.active:hover { background: transparent; border-color: transparent; }
 
 /* ── Table ── */
 .cp-table { border-collapse: collapse; width: 100%; font-size: 13px; }
@@ -455,25 +459,17 @@ html[data-reduce-motion="true"] * { transition: none !important; }
 
 /* ── Accent themes ──
    Hex values match elogbook's ACCENT_PRESETS (src/SettingsModal.jsx) so both
-   apps offer the same 10 accents. "gradient" and "mint" share one color and
-   need no override block — they fall through to the --cp-acc default above. */
-:root[data-accent="blue"]    { --cp-acc: #3B8DFF; --cp-acc2: #1F76E8; --cp-accdim: #0d2840; }
-:root[data-accent="violet"]  { --cp-acc: #5B6BFF; --cp-acc2: #4554DA; --cp-accdim: #15173d; }
-:root[data-accent="amber"]   { --cp-acc: #FFB37C; --cp-acc2: #f59e0b; --cp-accdim: #2a1700; }
+   apps offer the same 5 accents. "gradient" needs no override block — it falls
+   through to the --cp-acc default above. */
+:root[data-accent="violet"]  { --cp-acc: #a855f7; --cp-acc2: #9333ea; --cp-accdim: #2a1442; }
 :root[data-accent="emerald"] { --cp-acc: #10d983; --cp-acc2: #059669; --cp-accdim: #052e1f; }
 :root[data-accent="rose"]    { --cp-acc: #f43f5e; --cp-acc2: #e11d48; --cp-accdim: #2a0a10; }
-:root[data-accent="cyan"]    { --cp-acc: #06b6d4; --cp-acc2: #0891b2; --cp-accdim: #062a30; }
 :root[data-accent="gold"]    { --cp-acc: #eab308; --cp-acc2: #ca8a04; --cp-accdim: #2a2000; }
-:root[data-accent="coral"]   { --cp-acc: #f97316; --cp-acc2: #ea580c; --cp-accdim: #2a1200; }
 
-:root[data-theme="light"][data-accent="blue"]    { --cp-acc: #0065f3; --cp-acc2: #086aeb; --cp-accdim: #d4eaf8; }
-:root[data-theme="light"][data-accent="violet"]  { --cp-acc: #4759ff; --cp-acc2: #3a4be5; --cp-accdim: #ede9fe; }
-:root[data-theme="light"][data-accent="amber"]   { --cp-acc: #b94e00; --cp-acc2: #9f6400; --cp-accdim: #fef3c7; }
+:root[data-theme="light"][data-accent="violet"]  { --cp-acc: #7e22ce; --cp-acc2: #6b21a8; --cp-accdim: #f3e8ff; }
 :root[data-theme="light"][data-accent="emerald"] { --cp-acc: #007d48; --cp-acc2: #007f57; --cp-accdim: #d1fae5; }
 :root[data-theme="light"][data-accent="rose"]    { --cp-acc: #e10027; --cp-acc2: #dc0d3b; --cp-accdim: #ffe4e6; }
-:root[data-theme="light"][data-accent="cyan"]    { --cp-acc: #00798d; --cp-acc2: #007996; --cp-accdim: #cffafe; }
 :root[data-theme="light"][data-accent="gold"]    { --cp-acc: #8c6a00; --cp-acc2: #966500; --cp-accdim: #fef9c3; }
-:root[data-theme="light"][data-accent="coral"]   { --cp-acc: #bd4e00; --cp-acc2: #c84500; --cp-accdim: #ffedd5; }
 
 /* Window frame (brand-kit ChamferFrame): the fill is the card colour; the line is the brand gradient,
    or the chosen accent when it is not the gradient. */
@@ -481,14 +477,10 @@ html[data-reduce-motion="true"] * { transition: none !important; }
 :root[data-accent]:not([data-accent="gradient"]) { --cf-line: var(--cp-acc); }
 
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme])[data-accent="blue"]    { --cp-acc: #0065f3; --cp-acc2: #086aeb; --cp-accdim: #d4eaf8; }
-  :root:not([data-theme])[data-accent="violet"]  { --cp-acc: #4759ff; --cp-acc2: #3a4be5; --cp-accdim: #ede9fe; }
-  :root:not([data-theme])[data-accent="amber"]   { --cp-acc: #b94e00; --cp-acc2: #9f6400; --cp-accdim: #fef3c7; }
+  :root:not([data-theme])[data-accent="violet"]  { --cp-acc: #7e22ce; --cp-acc2: #6b21a8; --cp-accdim: #f3e8ff; }
   :root:not([data-theme])[data-accent="emerald"] { --cp-acc: #007d48; --cp-acc2: #007f57; --cp-accdim: #d1fae5; }
   :root:not([data-theme])[data-accent="rose"]    { --cp-acc: #e10027; --cp-acc2: #dc0d3b; --cp-accdim: #ffe4e6; }
-  :root:not([data-theme])[data-accent="cyan"]    { --cp-acc: #00798d; --cp-acc2: #007996; --cp-accdim: #cffafe; }
   :root:not([data-theme])[data-accent="gold"]    { --cp-acc: #8c6a00; --cp-acc2: #966500; --cp-accdim: #fef9c3; }
-  :root:not([data-theme])[data-accent="coral"]   { --cp-acc: #bd4e00; --cp-acc2: #c84500; --cp-accdim: #ffedd5; }
 }
 
 /* ── Card style (flat / elevated / glass) ── */

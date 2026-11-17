@@ -156,6 +156,20 @@
 .cp-bf-ind-go { transition: transform calc(var(--oxy-d) * 2.2) var(--oxy-spring), width calc(var(--oxy-d) * 1.8) var(--oxy-ease); }
 .cp-bf-tab:hover { color: var(--cp-muted) !important; }
 
+/* Grouped nav's sub-tabs: the accent underline glides (and follows onto a wrapped line), a tap ripples and
+   squishes the label (the ripple is in liveEffects.js; overflow clips it to the button) */
+.cp-sub-ind {
+  position: absolute; left: 0; top: 0; height: 2px; z-index: 0; pointer-events: none; background: var(--cp-acc);
+}
+.cp-sub-ind-go { transition: transform calc(var(--oxy-d) * 2.2) var(--oxy-spring), width calc(var(--oxy-d) * 1.8) var(--oxy-ease); }
+.cp-sub { overflow: hidden; border-radius: 3px; }
+.cp-sub:hover { color: var(--cp-muted) !important; }
+.cp-sub[aria-selected="true"]:hover { color: var(--cp-acc) !important; }
+@media (prefers-reduced-motion: no-preference) {
+  .cp-sub { transition: color .15s, transform calc(var(--oxy-d) * 1.4) var(--oxy-spring) !important; }
+  .cp-sub:active { transform: scale(.94); }
+}
+
 /* ── 10. Live-alert pill: a dot grows into a pill, holds, shrinks back (LiveAlert.jsx) ── */
 .live-alert {
   position: fixed; z-index: 10001; left: 50%; transform: translateX(-50%);

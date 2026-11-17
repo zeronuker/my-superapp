@@ -25,7 +25,7 @@ export const DEFAULT_SETTINGS = {
   tabPosition:    'top',      // 'top' | 'bottom'  (only used when navStyle === 'tabs')
   notamSort:      'relevance',// 'relevance' | 'category'  (NOTAM sort within a location)
   themeMode:      'dark',     // 'dark' | 'light' | 'auto'  (auto follows system)
-  accentColor:    'teal',     // 'teal' | 'amber' | 'cyan' | 'violet' | 'green'
+  accentColor:    'teal',     // 'gradient' | 'emerald' | 'gold' | 'rose' | 'violet' (old ids resolve via appConstants)
   highContrast:   false,      // cockpit / bright-light readability mode
   cardStyle:      'elevated', // 'flat' | 'elevated' | 'glass'
   iconSet:        'classic',  // 'classic' (emoji) | image set id from ICON_SETS

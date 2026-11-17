@@ -9,6 +9,7 @@
  */
 
 import { TabIcon } from './TabIcon'
+import { useGlide } from './useGlide'
 
 // Category map for 'grouped' mode. New modules must be added to a group here
 // to appear in grouped navigation. `iconId` points at a representative member
@@ -21,21 +22,29 @@ export const NAV_GROUPS = [
 ]
 
 // ── Tabs (top or bottom) ──────────────────────────────────────────────────────
+// Top: eLogbook's boxed tabs with a highlight that glides to the active one (useGlide.jsx), no baseline under
+// them. Bottom keeps the plain active-tab style.
 export function TabBar({ calcs, activeId, onSelect, position = 'top' }) {
+  const { rowRef, indicator } = useGlide(activeId)
+  const glide = position === 'top'
   const bar = (
     <div className="cp-tab-bar" style={{
-      maxWidth: 960, margin: '0 auto', display: 'flex', gap: 4,
+      maxWidth: 960, margin: '0 auto', display: 'flex',
       flexWrap: 'nowrap', overflowX: 'auto',
-      paddingTop: position === 'top' ? 12 : 6,
-      paddingBottom: position === 'top' ? 1 : 6,
+      paddingTop: glide ? 12 : 6,
+      paddingBottom: glide ? 0 : 6,
     }}>
-      {calcs.map(calc => (
-        <button key={calc.id} onClick={() => onSelect(calc.id)}
-          className={`cp-tab${activeId === calc.id ? ' active' : ''}`}>
-          <TabIcon id={calc.id} emoji={calc.icon} size={26} style={{ marginRight: 6 }} />
-          {calc.name}
-        </button>
-      ))}
+      <div ref={rowRef} role={glide ? 'tablist' : undefined} style={{ position: 'relative', display: 'flex', gap: 4, flex: '0 0 auto', alignItems: 'flex-end' }}>
+        {glide && indicator}
+        {calcs.map(calc => (
+          <button key={calc.id} onClick={() => onSelect(calc.id)}
+            role={glide ? 'tab' : undefined} aria-selected={glide ? activeId === calc.id : undefined}
+            className={`cp-tab${glide ? ' cp-tab-glide' : ''}${activeId === calc.id ? ' active' : ''}`}>
+            <TabIcon id={calc.id} emoji={calc.icon} size={26} style={{ marginRight: 6 }} />
+            {calc.name}
+          </button>
+        ))}
+      </div>
     </div>
   )
 
@@ -51,9 +60,7 @@ export function TabBar({ calcs, activeId, onSelect, position = 'top' }) {
     )
   }
   return (
-    <nav aria-label="Calculators" style={{
-      background: 'var(--cp-bg3)', borderBottom: '1px solid var(--cp-border)', padding: '0 24px',
-    }}>
+    <nav aria-label="Calculators" style={{ background: 'var(--cp-bg3)', padding: '0 24px' }}>
       {bar}
     </nav>
   )
@@ -69,53 +76,63 @@ export function GroupedNav({ calcs, activeId, onSelect }) {
     .filter(g => g.calcs.length > 0)
 
   const activeGroup = groups.find(g => g.calcs.some(c => c.id === activeId)) || groups[0]
+  const { rowRef, indicator } = useGlide(activeGroup?.id)
+  const sub = useGlide(activeId, { underline: true })
 
   return (
-    <nav aria-label="Calculators" style={{
-      background: 'var(--cp-bg3)', borderBottom: '1px solid var(--cp-border)', padding: '0 16px',
-    }}>
-      <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        {/* Category row */}
-        <div style={{ display: 'flex', gap: 4, paddingTop: 8 }}>
-          {groups.map(g => {
-            const on = g.id === activeGroup?.id
-            return (
-              <button key={g.id} onClick={() => onSelect(g.calcs[0].id)} style={{
-                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                background: on ? 'var(--cp-accdim)' : 'transparent',
-                border: 'none', borderBottom: `2px solid ${on ? 'var(--cp-acc)' : 'transparent'}`,
-                borderTopLeftRadius: 4, borderTopRightRadius: 4,
-                padding: '8px 4px', minHeight: 48, cursor: 'pointer',
-                fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em',
-                color: on ? 'var(--cp-acc)' : 'var(--cp-dim)', transition: 'all 0.12s',
-              }}>
-                <TabIcon id={g.iconId} emoji={g.icon} size={26} />{g.label}
-              </button>
-            )
-          })}
+    <nav aria-label="Calculators" style={{ background: 'var(--cp-bg3)' }}>
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px' }}>
+        {/* Category row: boxed tabs, the highlight glides to the active group (useGlide.jsx). The clipping box
+            keeps its glow from reaching the sub-row. */}
+        <div style={{ paddingTop: 8, overflow: 'hidden' }}>
+          <div ref={rowRef} role="tablist" style={{ position: 'relative', display: 'flex', gap: 4, alignItems: 'stretch' }}>
+            {indicator}
+            {groups.map(g => {
+              const on = g.id === activeGroup?.id
+              return (
+                <button key={g.id} role="tab" aria-selected={on} onClick={() => onSelect(g.calcs[0].id)} style={{
+                  position: 'relative', zIndex: 1,
+                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                  background: 'transparent',
+                  border: `1px solid ${on ? 'transparent' : 'var(--cp-border2)'}`,
+                  borderRadius: '5px 5px 0 0',
+                  padding: '8px 4px', minHeight: 48, cursor: 'pointer',
+                  fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em',
+                  color: on ? 'var(--cp-acc)' : 'var(--cp-dim)', transition: 'color 0.15s',
+                }}>
+                  <TabIcon id={g.iconId} emoji={g.icon} size={26} />{g.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
+      </div>
 
-        {/* Sub-row — only when the active group has more than one tool */}
-        {activeGroup && activeGroup.calcs.length > 1 && (
-          <div style={{ display: 'flex', gap: '2px 10px', flexWrap: 'wrap',
-            padding: '8px 0 9px', borderTop: '1px solid var(--cp-border3)' }}>
+      {/* Sub-row — only when the active group has more than one tool. It is the page's own color, full width,
+          the same as the active tab above it, so the tab flows down into it with no step between them. */}
+      {activeGroup && activeGroup.calcs.length > 1 && (
+        <div style={{ background: 'var(--cp-bg)', padding: '0 16px' }}>
+          <div ref={sub.rowRef} role="tablist" style={{ position: 'relative', display: 'flex', gap: '2px 10px', flexWrap: 'wrap',
+            maxWidth: 960, margin: '0 auto', padding: '8px 0 9px' }}>
+            {sub.indicator}
             {activeGroup.calcs.map(c => {
               const on = c.id === activeId
               return (
-                <button key={c.id} onClick={() => onSelect(c.id)} style={{
+                <button key={c.id} role="tab" aria-selected={on} className="cp-sub" onClick={() => onSelect(c.id)} style={{
+                  position: 'relative', zIndex: 1,
                   whiteSpace: 'nowrap', background: 'transparent', border: 'none',
                   cursor: 'pointer', padding: '3px 4px',
                   fontFamily: 'var(--cb-font-mono)', fontSize: 11, letterSpacing: '0.08em',
                   color: on ? 'var(--cp-acc)' : 'var(--cp-dim)',
-                  borderBottom: `2px solid ${on ? 'var(--cp-acc)' : 'transparent'}`,
+                  borderBottom: '2px solid transparent', transition: 'color 0.15s',
                 }}>
                   {c.name}
                 </button>
               )
             })}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </nav>
   )
 }

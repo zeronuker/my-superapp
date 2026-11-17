@@ -1,34 +1,17 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useGlide } from './useGlide'
 
 // Folder-style tabs (eLogbook's tab bar): the saved briefing window's sections, and the Satellite tab's views.
-// The highlight under the active tab is one moving element (.cp-bf-ind in oxygen.css) that glides between tabs
-// and bleeds 1px over the row's divider line; the tabs themselves never move, so hovering one shows no line.
+// The highlight under the active tab is one moving element (.cp-bf-ind in oxygen.css, see useGlide.jsx); the tabs
+// themselves never move, so hovering one shows no line. There is no baseline under the row, and the gap below it
+// sits outside the clipping box, so the highlight's glow stops at the tab's edge like eLogbook's.
 // `counts` is an optional { tabId: number } badge.
 export default function BriefingTabBar({ tabs, active, onSelect, counts = {} }) {
-  const rowRef = useRef(null)
-  const [ind, setInd] = useState(null)
-  const [armed, setArmed] = useState(false) // first placement is instant, later moves glide
-
-  useLayoutEffect(() => {
-    const row = rowRef.current
-    const measure = () => {
-      const el = row.querySelector('[aria-selected="true"]')
-      const next = el ? { left: el.offsetLeft, width: el.offsetWidth } : null
-      setInd(p => (p && next && p.left === next.left && p.width === next.width ? p : next))
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(row)
-    document.fonts?.ready.then(measure)
-    return () => ro.disconnect()
-  }, [active]) // tab or badge width changes are caught by the ResizeObserver
-
-  useEffect(() => { setArmed(true) }, [])
+  const { rowRef, indicator } = useGlide(active)
 
   return (
-    <div style={{ overflowX: 'auto', overflowY: 'hidden' }}>
-      <div ref={rowRef} role="tablist" style={{ position: 'relative', display: 'flex', gap: 4, alignItems: 'flex-end', borderBottom: '1px solid var(--cp-border2)', marginBottom: 16 }}>
-        {ind && <i className={`cp-bf-ind${armed ? ' cp-bf-ind-go' : ''}`} aria-hidden="true" style={{ width: ind.width, transform: `translateX(${ind.left}px)` }} />}
+    <div style={{ overflowX: 'auto', overflowY: 'hidden', marginBottom: 16 }}>
+      <div ref={rowRef} role="tablist" style={{ position: 'relative', display: 'flex', gap: 4, alignItems: 'flex-end' }}>
+        {indicator}
         {tabs.map(tab => {
           const isActive = active === tab.id
           return (
