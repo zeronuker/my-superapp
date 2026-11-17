@@ -111,9 +111,11 @@ export function GroupedNav({ calcs, activeId, onSelect }) {
       {/* Sub-row — only when the active group has more than one tool. It is the page's own color, full width,
           the same as the active tab above it, so the tab flows down into it with no step between them. */}
       {activeGroup && activeGroup.calcs.length > 1 && (
-        <div style={{ background: 'var(--cp-bg)', padding: '0 16px' }}>
+        <div style={{ background: 'var(--cp-bg)' }}>
+          {/* same width and side padding as the category row, so the first sub-tab lines up with the first tab */}
+          <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 16px' }}>
           <div ref={sub.rowRef} role="tablist" style={{ position: 'relative', display: 'flex', gap: '2px 10px', flexWrap: 'wrap',
-            maxWidth: 960, margin: '0 auto', padding: '8px 0 9px' }}>
+            padding: '8px 0 9px' }}>
             {sub.indicator}
             {activeGroup.calcs.map(c => {
               const on = c.id === activeId
@@ -130,6 +132,7 @@ export function GroupedNav({ calcs, activeId, onSelect }) {
                 </button>
               )
             })}
+          </div>
           </div>
         </div>
       )}
