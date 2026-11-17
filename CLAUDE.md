@@ -239,7 +239,9 @@ when asked. The service worker caches aggressively; users get an update prompt
   ClaudeBorne + the OxygenOS feel (square corners, brand grid and gradient stripe, Tourney wordmark, mono labels,
   frosted glass, spring motion), ALWAYS dark with the mint accent whatever Settings say (CVR's page cannot read the
   app's storage; following Settings would mean baking theme/accent into the bookmark text, not done). It starts as a
-  dot, grows into the panel, and × shrinks it to a pill with the result (tap to reopen). One row per flight (spinner,
+  dot, grows into a FIXED-size panel centred in the window (376 × 560 px, smaller on a small screen, `calc(100dvh - 40px)`),
+  and × shrinks it to a pill at the top centre with the result (tap to reopen). The header, the month + progress bar (top)
+  and the summary + buttons (foot) stay put; only the list of flights scrolls, to the newest row while sending. One row per flight (spinner,
   ✓ sent, – already there, ↻ a revised OFP, ✕ with the reason), a segmented progress bar, SENT / HAVE IT / FAILED
   tiles, RETRY FAILED (a re-run: sent ones are skipped) and OPEN SUPERAPP (`window.open(api)`: in the same browser
   it opens the app with its data, but an iPad home-screen PWA keeps separate storage, so from Safari it opens the web

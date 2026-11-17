@@ -117,19 +117,19 @@
       --s1:#141a2e; --s2:#1b2340; --mint:#3FE0C5; --blue:#3B8DFF; --grad:linear-gradient(135deg,#3FE0C5 0%,#3B8DFF 55%,#5B6BFF 100%);
       --ink:#e8ecf5; --dim:#9aa5c0; --line:rgba(255,255,255,.1); --line2:rgba(255,255,255,.16); --green:#4ade80; --yellow:#fcd34d; --red:#f87171;
       --sp:cubic-bezier(.34,1.56,.64,1); --ea:cubic-bezier(.22,1,.36,1);
-      position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:2147483647; width:34px; overflow:hidden; border-radius:17px;
+      position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:2147483647; width:34px; height:34px; display:flex; flex-direction:column; overflow:hidden; border-radius:17px;
       font:400 12px/1.4 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; color:var(--ink);
       background:var(--grad) top/100% 2px no-repeat, linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px) 0 0/24px 24px,
         linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px) 0 0/24px 24px, color-mix(in srgb,var(--s1) 93%,transparent);
       backdrop-filter:blur(18px) saturate(170%); -webkit-backdrop-filter:blur(18px) saturate(170%);
       border:1px solid var(--line2);
       box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 4px rgba(0,0,0,.25),0 22px 50px rgba(0,0,0,.45);
-      transition:width .7s var(--sp),border-radius .5s var(--ea),box-shadow .5s var(--ea);
+      transition:width .7s var(--sp),height .7s var(--sp),top .7s var(--ea),transform .7s var(--ea),border-radius .5s var(--ea),box-shadow .5s var(--ea);
     }
-    #cb-cvr.open { width:min(376px, calc(100vw - 20px)); border-radius:8px;
+    #cb-cvr.open { width:min(376px, calc(100vw - 20px)); height:min(560px, calc(100vh - 40px)); height:min(560px, calc(100dvh - 40px)); border-radius:8px;
       box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 4px rgba(0,0,0,.25),0 22px 50px rgba(0,0,0,.45),0 0 40px color-mix(in srgb,var(--mint) 12%,transparent); }
-    #cb-cvr.mini { width:min(238px, calc(100vw - 20px)); border-radius:17px; background:var(--grad) top/100% 2px no-repeat, rgba(4,7,14,.96); }
-    #cb-cvr .hd { display:flex; align-items:center; gap:10px; height:34px; padding:0 9px; white-space:nowrap; }
+    #cb-cvr.mini { top:14px; transform:translate(-50%,0); width:min(238px, calc(100vw - 20px)); height:34px; border-radius:17px; background:var(--grad) top/100% 2px no-repeat, rgba(4,7,14,.96); }
+    #cb-cvr .hd { flex:none; display:flex; align-items:center; gap:10px; height:34px; padding:0 9px; white-space:nowrap; }
     #cb-cvr.open .hd { height:40px; border-bottom:1px solid var(--line); }
     #cb-cvr .dot { flex:none; width:16px; height:16px; border-radius:50%; background:var(--grad); box-shadow:0 0 12px color-mix(in srgb,var(--mint) 65%,transparent); }
     #cb-cvr .dot.warn { background:var(--yellow); box-shadow:0 0 12px rgba(252,211,77,.6); }
@@ -144,14 +144,19 @@
     #cb-cvr.open .x, #cb-cvr.mini .x { opacity:1; }
     #cb-cvr .x:hover { border-color:var(--mint); color:var(--mint); }
     #cb-cvr .x:active { transform:scale(.88); }
-    #cb-cvr .body { display:grid; grid-template-rows:0fr; transition:grid-template-rows .7s var(--ea); }
-    #cb-cvr.open .body { grid-template-rows:1fr; }
-    #cb-cvr .body > div { overflow:hidden; min-height:0; }
-    #cb-cvr .in { padding:12px 12px 14px; max-height:calc(100vh - 80px); overflow-y:auto; }
+    #cb-cvr .stack { flex:1; min-height:0; display:flex; flex-direction:column; opacity:0; transition:opacity .4s var(--ea) .3s; }
+    #cb-cvr.open .stack { opacity:1; }
+    #cb-cvr .top { flex:none; padding:12px 12px 0; }
+    #cb-cvr .top:empty, #cb-cvr .foot:empty { display:none; }
+    #cb-cvr .list { flex:1; min-height:0; overflow-y:auto; padding:2px 12px 4px; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.22) transparent;
+      -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 8px,#000 calc(100% - 12px),transparent 100%); mask-image:linear-gradient(to bottom,transparent 0,#000 8px,#000 calc(100% - 12px),transparent 100%); }
+    #cb-cvr .list::-webkit-scrollbar { width:6px; }
+    #cb-cvr .list::-webkit-scrollbar-thumb { background:rgba(255,255,255,.22); border-radius:3px; }
+    #cb-cvr .foot { flex:none; padding:8px 12px 14px; border-top:1px solid var(--line); }
     #cb-cvr .sec { display:flex; align-items:center; gap:10px; margin-bottom:10px; font-size:11px; letter-spacing:.2em; color:var(--mint); white-space:nowrap; }
     #cb-cvr .sec i { flex:1; height:1px; background:var(--line2); }
     #cb-cvr .sec span:last-child { color:var(--dim); letter-spacing:.12em; }
-    #cb-cvr .segs { display:flex; gap:4px; margin-bottom:12px; }
+    #cb-cvr .segs { display:flex; gap:3px; margin-bottom:10px; }
     #cb-cvr .seg { position:relative; flex:1; min-width:3px; height:6px; border-radius:1px; background:rgba(255,255,255,.1); overflow:hidden; transition:background .4s var(--ea),box-shadow .4s var(--ea); }
     #cb-cvr .seg.on { background:var(--mint); box-shadow:0 0 10px color-mix(in srgb,var(--mint) 70%,transparent); }
     #cb-cvr .seg.skip { background:#5d6a8f; }
@@ -186,7 +191,7 @@
     #cb-cvr .tg.ok { color:var(--mint); border-color:color-mix(in srgb,var(--mint) 40%,transparent); background:color-mix(in srgb,var(--mint) 9%,transparent); }
     #cb-cvr .tg.warn { color:var(--yellow); border-color:color-mix(in srgb,var(--yellow) 40%,transparent); background:color-mix(in srgb,var(--yellow) 9%,transparent); }
     #cb-cvr .tg.bad { color:var(--red); border-color:color-mix(in srgb,var(--red) 40%,transparent); background:color-mix(in srgb,var(--red) 9%,transparent); }
-    #cb-cvr .sum { margin-top:12px; animation:cbri .6s var(--sp); }
+    #cb-cvr .sum { animation:cbri .6s var(--sp); }
     #cb-cvr .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
     #cb-cvr .tile { position:relative; overflow:hidden; padding:12px 6px 9px; text-align:center; border-radius:4px; background:color-mix(in srgb,var(--s2) 70%,transparent); border:1px solid var(--line); box-shadow:inset 0 1px 0 rgba(255,255,255,.06); }
     #cb-cvr .tile * { text-align:center; }
@@ -240,14 +245,15 @@
   x.setAttribute('aria-label', 'Minimise')
   const hd = h('div', 'hd')
   hd.append(dot, ttl, x)
-  const inner = h('div', 'in')
-  const main = h('div')                 // what a (re)run fills; the "cannot send" list stays below it
-  inner.appendChild(main)
-  const clip = h('div')
-  clip.appendChild(inner)
-  const body = h('div', 'body')
-  body.appendChild(clip)
-  box.append(hd, body)
+  // Fixed size, centred in the window: the header, the progress (top) and the summary (foot) stay put; only the list scrolls.
+  const top = h('div', 'top')
+  const rowsEl = h('div')               // what a (re)run fills; the "cannot send" list stays below it
+  const list = h('div', 'list')
+  list.appendChild(rowsEl)
+  const foot = h('div', 'foot')
+  const stack = h('div', 'stack')
+  stack.append(top, list, foot)
+  box.append(hd, stack)
   document.body.appendChild(box)
 
   // The header: SUPERAPP wordmark + what it is doing, or (minimised) the short result. `tone`: '' | 'warn' | 'bad'.
@@ -280,13 +286,15 @@
   const close = () => btn('CLOSE', '', () => box.remove())
   const count = (e, to) => { let i = 0; e.textContent = 0; if (!to) return; const t = setInterval(() => { e.textContent = ++i; if (i >= to) clearInterval(t) }, 120) }
 
-  // A full-width message card (nothing to send, login expired, SuperApp unreachable).
-  function card(tone, glyph, title, text, ...buttons) {
+  // A message card in the list (nothing to send, login expired, SuperApp unreachable), its buttons in the foot.
+  // `keep`: add it under the rows already shown instead of replacing them.
+  function card(tone, glyph, title, text, buttons, keep) {
     const c = h('div', 'card' + (tone === 'bad' ? ' r' : ''))
     c.append(h('div', 'big', glyph), h('p', '', title), h('small', '', text))
-    const wrap = h('div')
-    wrap.append(c, acts(...buttons))
-    return wrap
+    if (keep) rowsEl.appendChild(c)
+    else { top.replaceChildren(); rowsEl.replaceChildren(c) }
+    foot.replaceChildren(acts(...buttons))
+    list.scrollTop = list.scrollHeight
   }
 
   // Rows that cannot be sent, newest first as on the page: why, and what the row's buttons call.
@@ -295,7 +303,7 @@
     sk.appendChild(h('b', '', `CANNOT SEND (${skipped.length})`))
     skipped.slice(0, 6).forEach(s => sk.appendChild(h('div', '', `${s.label}: ${s.skip}. ${s.has.length ? `Row has: ${s.has.join(', ')}` : 'Row has no buttons'}.`)))
     if (skipped.length > 6) sk.appendChild(h('div', '', `…and ${skipped.length - 6} more`))
-    inner.appendChild(sk)
+    list.appendChild(sk)
   }
 
   // An expired login answers with the sign-in page (HTML, status 200) instead of the data. Expired / refused logins
@@ -347,7 +355,7 @@
   }
 
   // One flight's row in the list; the returned function shows its outcome.
-  function flightRow(list, f) {
+  function flightRow(f) {
     const p = splitLabel(f.label)
     const row = h('div', 'row')
     row.dataset.k = 'run'
@@ -357,23 +365,25 @@
     rt.append(h('b', '', p.flight), h('span', '', [p.route, p.date].filter(Boolean).join(' · ')))
     const tg = h('span', 'tg')
     row.append(ic, rt, tg)
-    list.appendChild(row)
-    row.scrollIntoView({ block: 'nearest' })
+    rowsEl.appendChild(row)
+    list.scrollTop = list.scrollHeight
     return (kind, tag, why = '', warn = false) => {
       row.dataset.k = ic.dataset.s = kind
       ic.textContent = { ok: '✓', dry: '✓', skip: '–', fail: '✕' }[kind]
       tg.textContent = tag
       tg.className = 'tg ' + ({ ok: 'ok', dry: 'warn', fail: 'bad' }[kind] || '')
       if (why) rt.appendChild(h('span', 'why' + (warn ? ' warn' : ''), why))
-      row.scrollIntoView({ block: 'nearest' })
+      list.scrollTop = list.scrollHeight
     }
   }
 
   async function start() {
-    main.replaceChildren()
+    rowsEl.replaceChildren()
+    top.replaceChildren()
+    foot.replaceChildren()
     set('· SEND OFP', 'sending…')
     if (!flights.length) {
-      main.appendChild(card('warn', '∅', `NO FLIGHTS DATED ${monthName}`, `Open Voyage Reports, make sure ${monthName.charAt(0) + monthName.slice(1).toLowerCase()} is listed, then tap the bookmark again.`, close()))
+      card('warn', '∅', `NO FLIGHTS DATED ${monthName}`, `Open Voyage Reports, make sure ${monthName.charAt(0) + monthName.slice(1).toLowerCase()} is listed, then tap the bookmark again.`, [close()])
       set('· SEND OFP', 'nothing to send', 'warn')
       return
     }
@@ -382,14 +392,13 @@
     sec.append(h('span', '', monthName), h('i'), cnt)
     const segsEl = h('div', 'segs')
     flights.forEach(() => segsEl.appendChild(h('div', 'seg')))
-    const list = h('div')
-    main.append(sec, segsEl, list)
+    top.append(sec, segsEl)
 
     let inbox = []
     try { inbox = await listInbox() } catch (e) {
       // A dry run sends nothing, so it can go on without the list.
       if (!cfg.dry) {
-        main.replaceChildren(card('bad', '⚠', 'NOT SENT', e.message, close(), btn('TRY AGAIN', 'pri', start)))
+        card('bad', '⚠', 'NOT SENT', e.message, [close(), btn('TRY AGAIN', 'pri', start)])
         set('· NOT SENT', 'not sent', 'bad')
         return
       }
@@ -398,7 +407,7 @@
     const segs = [...segsEl.children]
     for (let i = 0; i < flights.length; i++) {
       const f = flights[i]
-      const show = flightRow(list, f)
+      const show = flightRow(f)
       segs[i].classList.add('cur')
       let r, err
       try { r = await sendFlight(f, inbox) } catch (e) { err = e }
@@ -417,7 +426,7 @@
       state.pill = `${i + 1} / ${flights.length}`
       paint()
       if (err?.fatal) {
-        main.appendChild(card('bad', '⚠', 'YOUR CVR LOGIN EXPIRED', 'Reload this page, sign in, then tap the bookmark again.', close(), btn('RELOAD PAGE', 'pri', () => location.reload())))
+        card('bad', '⚠', 'YOUR CVR LOGIN EXPIRED', 'Reload this page, sign in, then tap the bookmark again.', [close(), btn('RELOAD PAGE', 'pri', () => location.reload())], true)
         set('· NOT SENT', 'login expired', 'bad')
         return
       }
@@ -432,8 +441,7 @@
     const note = h('div', 'note', cfg.dry ? 'Dry run: nothing was sent to SuperApp.' : 'Open SuperApp, then Briefing › + NEW › From CVR.' + (n.fail ? ' Retry the failed ones.' : ''))
     const open = btn('OPEN SUPERAPP', 'pri', () => window.open(cfg.api, '_blank', 'noopener'))
     sum.append(tiles, note, acts(...(n.fail ? [btn('RETRY FAILED', '', start)] : []), open))
-    main.appendChild(sum)
-    sum.scrollIntoView({ block: 'nearest' })
+    foot.appendChild(sum)
     const done = cfg.dry ? n.dry : n.sent
     const pill = [...(done || !n.fail ? [done ? `${done} ${cfg.dry ? 'read' : 'sent'}` : 'up to date'] : []), ...(n.fail ? [`${n.fail} failed`] : [])].join(' · ')
     set(n.fail ? '· DONE WITH ERRORS' : cfg.dry ? '· DRY RUN' : '· ALL SENT', pill, n.fail ? 'warn' : '')
