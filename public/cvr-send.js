@@ -18,6 +18,11 @@
 // It drops each XmlOFP into the SuperApp OFP inbox (/api/dutylog-sync?kind=ofp), one flight after another.
 // The bookmark sets window.__cbCvr = { api: <SuperApp origin>, code: <sync code>, dry?: true }.
 // The endpoints are not documented: if CVR changes them this shows CVR's error; importing a file still works.
+//
+// The panel is SuperApp's ClaudeBorne look with the OxygenOS feel (see src/oxygen.css): square corners, the brand grid and
+// gradient stripe, mono labels, frosted glass, spring motion. It always uses the dark theme and mint accent, whatever the
+// app's Settings say (CVR's page cannot read the app's storage). It starts as a dot, grows into the panel, and × shrinks it
+// to a pill that shows the result; tapping the pill opens it again.
 (() => {
   // One roster row -> a flight { reportId, sector, label, hasPlan }, or { skip: why, label, has } for a row that
   // cannot be sent, or null for an empty row. `attrs` is the row's onclick/href values joined, `text` its text
@@ -65,6 +70,14 @@
   }
   const inMonth = (label, now) => { const d = labelMonth(label); return !!d && d.month === now.getMonth() && d.year === now.getFullYear() }
 
+  // "OD1703 TWU-BKI 07-Nov-2026" -> the panel row's parts { flight: 'OD1703', route: 'TWU › BKI', date: '07 NOV' }; a label
+  // in any other shape is shown whole as the flight. Tested.
+  function splitLabel(label) {
+    const s = (label || '').trim()
+    const m = /^(\S+)\s+(\S+)\s+(\d{2})-([A-Za-z]{3})-\d{4}$/.exec(s)
+    return m ? { flight: m[1], route: m[2].replace(/-/g, ' › '), date: `${m[3]} ${m[4].toUpperCase()}` } : { flight: s, route: '', date: '' }
+  }
+
   // The inbox entry's id for a flight: one per report and sector, so a revised OFP replaces it.
   const inboxId = f => `cvr-${f.reportId}-${f.sector.replace(/[^A-Za-z0-9]/g, '')}`.slice(0, 64)
   // The inbox (items: [{ id, label }]) already holds this flight with this same OFP number (its label ends " · OFP n"). Tested.
@@ -76,6 +89,7 @@
   globalThis.__cbParseRow = parseRow
   globalThis.__cbPickOfp = pickOfp
   globalThis.__cbInMonth = inMonth
+  globalThis.__cbSplitLabel = splitLabel
   globalThis.__cbAlreadySent = alreadySent
   if (typeof document === 'undefined') return
 
@@ -84,7 +98,7 @@
   if (!cfg.api || !cfg.code) { alert('This bookmark is incomplete. Copy it again from SuperApp → Settings → Cloud Sync.'); return }
 
   const now = new Date()
-  const monthName = now.toLocaleString('en', { month: 'long', year: 'numeric' })
+  const monthName = now.toLocaleString('en', { month: 'long', year: 'numeric' }).toUpperCase()
   const rows = [...document.querySelectorAll('.roster-item')]
     .map(row => parseRow(
       [...row.querySelectorAll('[onclick],[href]')].map(e => e.getAttribute('onclick') || e.getAttribute('href')).join(' '),
@@ -95,89 +109,209 @@
   // A row with no readable date is kept in the list: it cannot be told apart from this month's.
   const skipped = rows.filter(r => r.skip && (!labelMonth(r.label) || inMonth(r.label, now))).filter((s, i, a) => a.findIndex(x => x.label === s.label) === i)
 
-  // The panel's own animations (it lives on CVR's page, so it brings its own CSS; all off for reduced motion).
-  if (!document.getElementById('cb-cvr-css')) {
-    const css = document.createElement('style')
-    css.id = 'cb-cvr-css'
-    css.textContent = `
-      #cb-cvr { animation: cbin .25s ease-out }
-      #cb-cvr .cb-spin { display:inline-block; width:12px; height:12px; box-sizing:border-box; border:2px solid rgba(63,224,197,.25); border-top-color:#3fe0c5; border-radius:50%; animation: cbspin .8s linear infinite }
-      #cb-cvr .cb-pop { animation: cbpop .45s ease-out }
-      @keyframes cbspin { to { transform: rotate(360deg) } }
-      @keyframes cbpop { 0% { transform:scale(.6); opacity:0 } 60% { transform:scale(1.15) } 100% { transform:scale(1); opacity:1 } }
-      @keyframes cbin { from { opacity:0; transform:translate(-50%, -8px) } to { opacity:1 } }
-      @media (prefers-reduced-motion: reduce) { #cb-cvr, #cb-cvr * { animation: none !important } }`
-    document.head.appendChild(css)
+  // ── The panel. It lives on CVR's page, so it brings its own CSS, scoped under #cb-cvr and written out in full
+  // (CVR's own button/font rules must not leak in). Colours are SuperApp's dark theme tokens. ──
+  const CSS = `
+    #cb-cvr, #cb-cvr * { box-sizing: border-box; margin: 0; letter-spacing: normal; text-transform: none; text-align: left; }
+    #cb-cvr {
+      --s1:#141a2e; --s2:#1b2340; --mint:#3FE0C5; --blue:#3B8DFF; --grad:linear-gradient(135deg,#3FE0C5 0%,#3B8DFF 55%,#5B6BFF 100%);
+      --ink:#e8ecf5; --dim:#9aa5c0; --line:rgba(255,255,255,.1); --line2:rgba(255,255,255,.16); --green:#4ade80; --yellow:#fcd34d; --red:#f87171;
+      --sp:cubic-bezier(.34,1.56,.64,1); --ea:cubic-bezier(.22,1,.36,1);
+      position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:2147483647; width:34px; overflow:hidden; border-radius:17px;
+      font:400 12px/1.4 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; color:var(--ink);
+      background:var(--grad) top/100% 2px no-repeat, linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px) 0 0/24px 24px,
+        linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px) 0 0/24px 24px, color-mix(in srgb,var(--s1) 93%,transparent);
+      backdrop-filter:blur(18px) saturate(170%); -webkit-backdrop-filter:blur(18px) saturate(170%);
+      border:1px solid var(--line2);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 4px rgba(0,0,0,.25),0 22px 50px rgba(0,0,0,.45);
+      transition:width .7s var(--sp),border-radius .5s var(--ea),box-shadow .5s var(--ea);
+    }
+    #cb-cvr.open { width:min(376px, calc(100vw - 20px)); border-radius:8px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 4px rgba(0,0,0,.25),0 22px 50px rgba(0,0,0,.45),0 0 40px color-mix(in srgb,var(--mint) 12%,transparent); }
+    #cb-cvr.mini { width:min(238px, calc(100vw - 20px)); border-radius:17px; background:var(--grad) top/100% 2px no-repeat, rgba(4,7,14,.96); }
+    #cb-cvr .hd { display:flex; align-items:center; gap:10px; height:34px; padding:0 9px; white-space:nowrap; }
+    #cb-cvr.open .hd { height:40px; border-bottom:1px solid var(--line); }
+    #cb-cvr .dot { flex:none; width:16px; height:16px; border-radius:50%; background:var(--grad); box-shadow:0 0 12px color-mix(in srgb,var(--mint) 65%,transparent); }
+    #cb-cvr .dot.warn { background:var(--yellow); box-shadow:0 0 12px rgba(252,211,77,.6); }
+    #cb-cvr .dot.bad { background:var(--red); box-shadow:0 0 12px rgba(248,113,113,.6); }
+    #cb-cvr .ttl { flex:1; min-width:0; display:flex; align-items:baseline; gap:9px; opacity:0; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:var(--ink); transition:opacity .4s var(--ea) .25s; }
+    #cb-cvr.open .ttl, #cb-cvr.mini .ttl { opacity:1; }
+    #cb-cvr .wm { font:800 16px/1 'Tourney', system-ui, sans-serif; letter-spacing:.08em; color:var(--mint); }
+    @supports ((-webkit-background-clip:text) or (background-clip:text)) { #cb-cvr .wm { background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; } }
+    #cb-cvr .sub { font-size:11px; letter-spacing:.2em; color:var(--dim); }
+    #cb-cvr .x { flex:none; width:24px; height:24px; padding:0; border-radius:4px; border:1px solid var(--line2); background:transparent; color:var(--dim); cursor:pointer;
+      font-family:inherit; font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center; opacity:0; transition:transform .35s var(--sp),border-color .15s,color .15s,opacity .3s .3s; }
+    #cb-cvr.open .x, #cb-cvr.mini .x { opacity:1; }
+    #cb-cvr .x:hover { border-color:var(--mint); color:var(--mint); }
+    #cb-cvr .x:active { transform:scale(.88); }
+    #cb-cvr .body { display:grid; grid-template-rows:0fr; transition:grid-template-rows .7s var(--ea); }
+    #cb-cvr.open .body { grid-template-rows:1fr; }
+    #cb-cvr .body > div { overflow:hidden; min-height:0; }
+    #cb-cvr .in { padding:12px 12px 14px; max-height:calc(100vh - 80px); overflow-y:auto; }
+    #cb-cvr .sec { display:flex; align-items:center; gap:10px; margin-bottom:10px; font-size:11px; letter-spacing:.2em; color:var(--mint); white-space:nowrap; }
+    #cb-cvr .sec i { flex:1; height:1px; background:var(--line2); }
+    #cb-cvr .sec span:last-child { color:var(--dim); letter-spacing:.12em; }
+    #cb-cvr .segs { display:flex; gap:4px; margin-bottom:12px; }
+    #cb-cvr .seg { position:relative; flex:1; min-width:3px; height:6px; border-radius:1px; background:rgba(255,255,255,.1); overflow:hidden; transition:background .4s var(--ea),box-shadow .4s var(--ea); }
+    #cb-cvr .seg.on { background:var(--mint); box-shadow:0 0 10px color-mix(in srgb,var(--mint) 70%,transparent); }
+    #cb-cvr .seg.skip { background:#5d6a8f; }
+    #cb-cvr .seg.dry { background:var(--yellow); }
+    #cb-cvr .seg.fail { background:var(--red); box-shadow:0 0 10px rgba(248,113,113,.6); }
+    #cb-cvr .seg.cur::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(63,224,197,.9),transparent); transform:translateX(-100%); animation:cbsw 1s linear infinite; }
+    @keyframes cbsw { to { transform:translateX(100%); } }
+    @keyframes cbri { from { opacity:0; transform:translateY(14px) scale(.97); } }
+    @keyframes cbpop { 0% { transform:scale(.4); opacity:0; } 100% { transform:scale(1); opacity:1; } }
+    @keyframes cbspin { to { transform:rotate(360deg); } }
+    @keyframes cbrp { to { transform:scale(1); opacity:0; } }
+    #cb-cvr .row { position:relative; overflow:hidden; display:flex; align-items:center; gap:10px; padding:8px 10px 8px 14px; margin-bottom:6px; border-radius:4px;
+      background:color-mix(in srgb,var(--s2) 70%,transparent); border:1px solid var(--line); box-shadow:inset 0 1px 0 rgba(255,255,255,.05); animation:cbri .55s var(--sp) backwards; }
+    #cb-cvr .row::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--line2); transition:background .3s; }
+    #cb-cvr .row[data-k=run]::before { background:var(--mint); }
+    #cb-cvr .row[data-k=ok]::before { background:var(--green); }
+    #cb-cvr .row[data-k=dry]::before { background:var(--yellow); }
+    #cb-cvr .row[data-k=skip]::before { background:#5d6a8f; }
+    #cb-cvr .row[data-k=fail]::before { background:var(--red); }
+    #cb-cvr .ic { flex:none; width:20px; height:20px; border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:12px; border:1px solid var(--line2); color:var(--dim); }
+    #cb-cvr .ic[data-s=run] { border:2px solid rgba(63,224,197,.25); border-top-color:var(--mint); border-radius:50%; animation:cbspin .8s linear infinite; }
+    #cb-cvr .ic[data-s=ok] { background:color-mix(in srgb,var(--green) 16%,transparent); border-color:color-mix(in srgb,var(--green) 50%,transparent); color:var(--green); animation:cbpop .45s var(--sp); }
+    #cb-cvr .ic[data-s=dry] { background:color-mix(in srgb,var(--yellow) 14%,transparent); border-color:color-mix(in srgb,var(--yellow) 50%,transparent); color:var(--yellow); animation:cbpop .45s var(--sp); }
+    #cb-cvr .ic[data-s=skip] { background:rgba(255,255,255,.06); animation:cbpop .45s var(--sp); }
+    #cb-cvr .ic[data-s=fail] { background:color-mix(in srgb,var(--red) 16%,transparent); border-color:color-mix(in srgb,var(--red) 50%,transparent); color:var(--red); animation:cbpop .45s var(--sp); }
+    #cb-cvr .rt { flex:1; min-width:0; line-height:1.35; }
+    #cb-cvr .rt b { display:block; font-weight:500; font-size:13px; letter-spacing:.06em; color:var(--ink); }
+    #cb-cvr .rt span { display:block; font-size:11px; color:var(--dim); letter-spacing:.1em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #cb-cvr .rt .why { white-space:normal; letter-spacing:.02em; margin-top:2px; color:var(--red); overflow-wrap:anywhere; }
+    #cb-cvr .rt .why.warn { color:var(--yellow); }
+    #cb-cvr .tg { flex:none; font-size:11px; letter-spacing:.08em; padding:2px 7px; border-radius:3px; border:1px solid var(--line2); color:var(--dim); }
+    #cb-cvr .tg.ok { color:var(--mint); border-color:color-mix(in srgb,var(--mint) 40%,transparent); background:color-mix(in srgb,var(--mint) 9%,transparent); }
+    #cb-cvr .tg.warn { color:var(--yellow); border-color:color-mix(in srgb,var(--yellow) 40%,transparent); background:color-mix(in srgb,var(--yellow) 9%,transparent); }
+    #cb-cvr .tg.bad { color:var(--red); border-color:color-mix(in srgb,var(--red) 40%,transparent); background:color-mix(in srgb,var(--red) 9%,transparent); }
+    #cb-cvr .sum { margin-top:12px; animation:cbri .6s var(--sp); }
+    #cb-cvr .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    #cb-cvr .tile { position:relative; overflow:hidden; padding:12px 6px 9px; text-align:center; border-radius:4px; background:color-mix(in srgb,var(--s2) 70%,transparent); border:1px solid var(--line); box-shadow:inset 0 1px 0 rgba(255,255,255,.06); }
+    #cb-cvr .tile * { text-align:center; }
+    #cb-cvr .tile.g::before { content:""; position:absolute; left:0; right:0; top:0; height:2px; background:var(--grad); }
+    #cb-cvr .tile b { display:block; font-size:26px; font-weight:500; line-height:1.1; font-variant-numeric:tabular-nums; color:var(--ink); }
+    #cb-cvr .tile span { font-size:11px; letter-spacing:.18em; color:var(--dim); }
+    #cb-cvr .tile.g b { color:var(--mint); text-shadow:0 0 14px color-mix(in srgb,var(--mint) 55%,transparent); }
+    #cb-cvr .tile.r b { color:var(--red); }
+    #cb-cvr .note { font-size:11px; color:var(--dim); line-height:1.55; margin-top:10px; letter-spacing:.03em; }
+    #cb-cvr .acts { display:flex; gap:8px; margin-top:12px; }
+    #cb-cvr .btn { position:relative; overflow:hidden; flex:1; padding:9px 8px; border-radius:4px; border:1px solid var(--line2); background:transparent; color:var(--ink); cursor:pointer;
+      font:400 12px/1.2 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; letter-spacing:.1em; text-align:center;
+      transition:transform .45s var(--sp),box-shadow .3s var(--ea),border-color .15s,color .15s,background .15s; }
+    #cb-cvr .btn:hover { transform:translateY(-1px); border-color:var(--blue); box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 6px 18px rgba(0,0,0,.3); }
+    #cb-cvr .btn:active { transform:scale(.96); }
+    #cb-cvr .btn.pri { border-color:var(--mint); color:var(--mint); background:#0d2840; }
+    #cb-cvr .btn.pri:hover { border-color:var(--mint); box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 6px 22px color-mix(in srgb,var(--mint) 22%,transparent); }
+    #cb-cvr .rip { position:absolute; border-radius:50%; pointer-events:none; transform:scale(0); background:color-mix(in srgb,var(--mint) 30%,transparent); animation:cbrp .8s var(--ea) forwards; }
+    #cb-cvr .card { text-align:center; padding:14px 8px 4px; animation:cbri .6s var(--sp); --c:var(--yellow); }
+    #cb-cvr .card.r { --c:var(--red); }
+    #cb-cvr .card * { text-align:center; }
+    #cb-cvr .card .big { width:52px; height:52px; margin:0 auto 12px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--c);
+      background:color-mix(in srgb,var(--c) 10%,transparent); border:1px solid color-mix(in srgb,var(--c) 45%,transparent); box-shadow:0 0 28px color-mix(in srgb,var(--c) 22%,transparent); }
+    #cb-cvr .card p { font-size:12px; letter-spacing:.14em; color:var(--ink); margin-bottom:5px; }
+    #cb-cvr .card small { display:block; font-size:11px; color:var(--dim); line-height:1.55; overflow-wrap:anywhere; }
+    #cb-cvr .cant { margin-top:12px; padding-top:10px; border-top:1px solid var(--line); font-size:11px; line-height:1.55; color:var(--dim); overflow-wrap:anywhere; }
+    #cb-cvr .cant b { display:block; font-weight:500; letter-spacing:.14em; color:var(--yellow); margin-bottom:2px; }
+    @media (prefers-reduced-motion: reduce) { #cb-cvr, #cb-cvr * { animation-duration:.01ms !important; transition-duration:.01ms !important; } }`
+  document.getElementById('cb-cvr-css')?.remove()
+  const style = document.createElement('style')
+  style.id = 'cb-cvr-css'
+  style.textContent = CSS
+  document.head.appendChild(style)
+  if (!document.getElementById('cb-cvr-font')) {
+    const font = document.createElement('link')
+    font.id = 'cb-cvr-font'
+    font.rel = 'stylesheet'
+    font.href = 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Tourney:wght@800&display=swap'
+    document.head.appendChild(font)
   }
 
-  const el = (tag, style = '', text = '') => { const e = document.createElement(tag); e.style.cssText = style; e.textContent = text; return e }
+  const h = (tag, cls = '', text = '') => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e }
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
   document.getElementById('cb-cvr')?.remove()
-  const box = el('div', 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;' +
-    'width:min(360px, calc(100vw - 24px));max-height:calc(100vh - 24px);overflow-y:auto;box-sizing:border-box;padding:14px;' +
-    'border-radius:10px;background:#151d24;color:#e8eef3;border:1px solid #3fe0c5;box-shadow:0 10px 40px rgba(0,0,0,.6);' +
-    'font:14px -apple-system, system-ui, sans-serif')
+  const box = h('div')
   box.id = 'cb-cvr'
-  const head = el('div', 'display:flex;justify-content:space-between;align-items:center;margin-bottom:10px')
-  head.appendChild(el('b', 'letter-spacing:.12em;font-size:13px;color:#3fe0c5', 'SUPERAPP · SEND OFP'))
-  const close = el('button', 'background:none;border:0;color:#9aa7b4;font-size:22px;cursor:pointer', '×')
-  close.onclick = () => box.remove()
-  head.appendChild(close)
-  box.appendChild(head)
-  box.appendChild(el('div', 'font-size:11px;color:#9aa7b4;margin-bottom:8px', flights.length
-    ? `Sending ${flights.length} flight${flights.length === 1 ? '' : 's'} from ${monthName}. Flights SuperApp already has are skipped.`
-    : `No flights dated ${monthName} on this page. Open Voyage Reports, make sure ${monthName} is listed, then tap the bookmark again.`))
-  const listEl = el('div', 'max-height:42vh;overflow:auto')
-  box.appendChild(listEl)
-  // Rows that cannot be sent, newest first as on the page: why, and what the row's buttons call.
-  if (skipped.length) {
-    const sk = el('div', 'margin-top:8px;padding-top:8px;border-top:1px solid #3a4652;font-size:11px;line-height:1.5;color:#9aa7b4;overflow-wrap:anywhere')
-    sk.appendChild(el('div', 'color:#fbbf24', `Cannot send (${skipped.length}):`))
-    skipped.slice(0, 6).forEach(s => sk.appendChild(el('div', '', `${s.label}: ${s.skip}. ${s.has.length ? `Row has: ${s.has.join(', ')}` : 'Row has no buttons'}.`)))
-    if (skipped.length > 6) sk.appendChild(el('div', '', `…and ${skipped.length - 6} more`))
-    box.appendChild(sk)
-  }
-  const stepsEl = el('div', 'margin-top:10px;font-size:13px;line-height:1.4')
-  stepsEl.setAttribute('role', 'status')
-  box.appendChild(stepsEl)
+  const dot = h('span', 'dot')
+  const ttl = h('span', 'ttl')
+  const x = h('button', 'x', '–')
+  x.setAttribute('aria-label', 'Minimise')
+  const hd = h('div', 'hd')
+  hd.append(dot, ttl, x)
+  const inner = h('div', 'in')
+  const main = h('div')                 // what a (re)run fills; the "cannot send" list stays below it
+  inner.appendChild(main)
+  const clip = h('div')
+  clip.appendChild(inner)
+  const body = h('div', 'body')
+  body.appendChild(clip)
+  box.append(hd, body)
   document.body.appendChild(box)
 
-  // One line per flight: ○ waiting, spinner while running, ✓ sent, – skipped, ✗ failed.
-  function flightLine(f) {
-    const line = el('div', 'display:flex;align-items:flex-start;gap:8px;margin:4px 0;font:12px ui-monospace,Menlo,monospace;overflow-wrap:anywhere;color:#6b7785')
-    const icon = el('span', 'width:12px;text-align:center;flex:none', '○')
-    const text = el('span', '', f.label)
-    line.append(icon, text)
-    listEl.appendChild(line)
-    return (kind, note = '') => {
-      const [mark, color] = { sent: ['✓', '#22c55e'], dry: ['✓', '#fbbf24'], skip: ['–', '#9aa7b4'], fail: ['✗', '#f87171'] }[kind] || []
-      let glyph
-      if (mark) { glyph = el('span', `color:${color}`, mark); glyph.className = 'cb-pop' } else { glyph = el('span'); glyph.className = 'cb-spin' }
-      icon.replaceChildren(glyph)
-      line.style.color = kind === 'skip' ? '#9aa7b4' : '#e8eef3'
-      text.textContent = f.label + note
-      line.scrollIntoView({ block: 'nearest' })
-    }
+  // The header: SUPERAPP wordmark + what it is doing, or (minimised) the short result. `tone`: '' | 'warn' | 'bad'.
+  const state = { sub: '· SEND OFP', pill: 'sending…', tone: '' }
+  function paint() {
+    dot.className = 'dot' + (state.tone ? ' ' + state.tone : '')
+    ttl.replaceChildren(...(box.classList.contains('mini')
+      ? [h('span', '', state.pill)]
+      : [h('span', 'wm', 'SUPERAPP'), h('span', 'sub', state.sub)]))
   }
-  function finish(lines, color, bg) {
-    const card = el('div', `margin-top:10px;padding:10px 12px;border-radius:8px;border:1px solid ${color};background:${bg};color:${color};font-size:13px;line-height:1.5`)
-    card.className = 'cb-pop'
-    lines.forEach((t, i) => card.appendChild(el('div', i ? 'color:#c9d3dc;font-size:12px' : 'font-weight:700', t)))
-    stepsEl.appendChild(card)
-    card.scrollIntoView({ block: 'nearest' })
+  const set = (sub, pill, tone = '') => { Object.assign(state, { sub, pill, tone }); paint() }
+  x.onclick = () => {
+    const mini = box.classList.toggle('mini')
+    box.classList.toggle('open', !mini)
+    x.textContent = mini ? '+' : '–'
+    x.setAttribute('aria-label', mini ? 'Open' : 'Minimise')
+    paint()
+  }
+  paint()
+  setTimeout(() => box.classList.add('open'), 200)   // dot → panel
+
+  function ripple(e) {
+    const b = e.currentTarget, q = b.getBoundingClientRect(), s = Math.max(q.width, q.height) * 2.2, d = h('span', 'rip')
+    d.style.cssText = `width:${s}px;height:${s}px;left:${e.clientX - q.left - s / 2}px;top:${e.clientY - q.top - s / 2}px`
+    b.appendChild(d)
+    setTimeout(() => d.remove(), 800)
+  }
+  const btn = (label, cls, onclick) => { const b = h('button', 'btn ' + cls, label); b.onpointerdown = ripple; b.onclick = onclick; return b }
+  const acts = (...b) => { const a = h('div', 'acts'); a.append(...b); return a }
+  const close = () => btn('CLOSE', '', () => box.remove())
+  const count = (e, to) => { let i = 0; e.textContent = 0; if (!to) return; const t = setInterval(() => { e.textContent = ++i; if (i >= to) clearInterval(t) }, 120) }
+
+  // A full-width message card (nothing to send, login expired, SuperApp unreachable).
+  function card(tone, glyph, title, text, ...buttons) {
+    const c = h('div', 'card' + (tone === 'bad' ? ' r' : ''))
+    c.append(h('div', 'big', glyph), h('p', '', title), h('small', '', text))
+    const wrap = h('div')
+    wrap.append(c, acts(...buttons))
+    return wrap
   }
 
-  // An expired login answers with the sign-in page (HTML, status 200) instead of the data.
+  // Rows that cannot be sent, newest first as on the page: why, and what the row's buttons call.
+  if (skipped.length) {
+    const sk = h('div', 'cant')
+    sk.appendChild(h('b', '', `CANNOT SEND (${skipped.length})`))
+    skipped.slice(0, 6).forEach(s => sk.appendChild(h('div', '', `${s.label}: ${s.skip}. ${s.has.length ? `Row has: ${s.has.join(', ')}` : 'Row has no buttons'}.`)))
+    if (skipped.length > 6) sk.appendChild(h('div', '', `…and ${skipped.length - 6} more`))
+    inner.appendChild(sk)
+  }
+
+  // An expired login answers with the sign-in page (HTML, status 200) instead of the data. Expired / refused logins
+  // stop the whole run (`fatal`): every other flight would fail the same way.
+  const fatal = (e) => Object.assign(e, { fatal: true })
   const RELOGIN = 'CVR did not answer with flight plan data. Your CVR login may have expired: reload this page, sign in, then tap the bookmark again.'
-  // A refused request: the status and the start of what CVR said, short enough to read (and screenshot) here.
+  // A refused request: the status and the start of what CVR said, short enough to read here.
   const refused = async (r) => {
     const said = (await r.text().catch(() => '')).replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140)
-    return new Error(`CVR answered ${r.status}${said ? `: ${said}` : '.'}` + (r.status === 401 || r.status === 403 ? ' Reload this page, sign in again, then retry.' : ''))
+    const e = new Error(`CVR answered ${r.status}${said ? `: ${said}` : '.'}` + (r.status === 401 || r.status === 403 ? ' Reload this page, sign in again, then retry.' : ''))
+    return r.status === 401 || r.status === 403 ? fatal(e) : e
   }
   const getJson = async (url) => {
     const r = await fetch(url, { headers: { Accept: 'application/json, text/plain, */*' } })
     if (!r.ok) throw await refused(r)
-    return r.json().catch(() => { throw new Error(RELOGIN) })
+    return r.json().catch(() => { throw fatal(new Error(RELOGIN)) })
   }
 
   // What SuperApp's inbox holds now: [{ id, label, sentAt }].
@@ -189,46 +323,120 @@
   }
 
   // One flight: find its OFP, skip it if the inbox has that OFP number, else download and send it.
-  // Returns { kind: 'sent' | 'dry' | 'skip', note }; throws with the reason when it cannot.
+  // Returns { kind: 'sent' | 'dry' | 'skip', ofpNo, revised, warn }; throws with the reason when it cannot.
   async function sendFlight(f, inbox) {
     const d = await getJson('/VoyageReports/FlightPlanFiles?' + new URLSearchParams({ reportId: f.reportId, sector: f.sector }))
     let picked
     // CVR's answer carries its own `message`: when nothing can be taken, show that too.
     try { picked = pickOfp(d.archives, f.sector) } catch (e) { throw new Error(e.message + (d.message ? ` CVR says: ${String(d.message).slice(0, 140)}` : '')) }
     const { archive, file, ofpNo, unsure } = picked
-    if (alreadySent(inbox, f, ofpNo)) return { kind: 'skip', note: ` · OFP ${ofpNo} already sent` }
+    if (alreadySent(inbox, f, ofpNo)) return { kind: 'skip', ofpNo }
+    const revised = inbox.some(i => i.id === inboxId(f))   // the inbox has this flight with an older OFP
     const label = f.label + (ofpNo ? ` · OFP ${ofpNo}` : '')
     const r = await fetch('/VoyageReports/FlightPlanFile?' + new URLSearchParams({ reportId: f.reportId, key: archive.objectKey, entry: file.path }), { headers: { Accept: '*/*' } })
     if (!r.ok) throw await refused(r)
     const text = await r.text()
-    if (!/<FlightPlan/.test(text)) throw new Error(/<html|<!doctype/i.test(text.slice(0, 500)) ? RELOGIN : 'That file was not an XmlOFP.')
-    const note = (ofpNo ? ` · OFP ${ofpNo}` : '') + (unsure ? ' · CVR did not mark this package as this sector: check the flight on the OFP card' : '')
-    if (cfg.dry) return { kind: 'dry', note: note + ` · ${Math.round(text.length / 1024)} kB, not sent` }
+    if (!/<FlightPlan/.test(text)) throw /<html|<!doctype/i.test(text.slice(0, 500)) ? fatal(new Error(RELOGIN)) : new Error('That file was not an XmlOFP.')
+    const warn = unsure ? 'CVR did not mark this package as this sector: check the flight on the OFP card.' : ''
+    if (cfg.dry) return { kind: 'dry', ofpNo, revised, warn, kb: Math.round(text.length / 1024) }
     const s = await fetch(`${cfg.api}/api/dutylog-sync?` + new URLSearchParams({ code: cfg.code, kind: 'ofp', id: inboxId(f), label }), {
       method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: text,
     })
     if (!s.ok) throw new Error(`SuperApp refused it (${s.status}): ${(await s.json().catch(() => ({}))).error || ''}`)
-    return { kind: 'sent', note }
+    return { kind: 'sent', ofpNo, revised, warn }
   }
 
-  async function run() {
+  // One flight's row in the list; the returned function shows its outcome.
+  function flightRow(list, f) {
+    const p = splitLabel(f.label)
+    const row = h('div', 'row')
+    row.dataset.k = 'run'
+    const ic = h('span', 'ic')
+    ic.dataset.s = 'run'
+    const rt = h('div', 'rt')
+    rt.append(h('b', '', p.flight), h('span', '', [p.route, p.date].filter(Boolean).join(' · ')))
+    const tg = h('span', 'tg')
+    row.append(ic, rt, tg)
+    list.appendChild(row)
+    row.scrollIntoView({ block: 'nearest' })
+    return (kind, tag, why = '', warn = false) => {
+      row.dataset.k = ic.dataset.s = kind
+      ic.textContent = { ok: '✓', dry: '✓', skip: '–', fail: '✕' }[kind]
+      tg.textContent = tag
+      tg.className = 'tg ' + ({ ok: 'ok', dry: 'warn', fail: 'bad' }[kind] || '')
+      if (why) rt.appendChild(h('span', 'why' + (warn ? ' warn' : ''), why))
+      row.scrollIntoView({ block: 'nearest' })
+    }
+  }
+
+  async function start() {
+    main.replaceChildren()
+    set('· SEND OFP', 'sending…')
+    if (!flights.length) {
+      main.appendChild(card('warn', '∅', `NO FLIGHTS DATED ${monthName}`, `Open Voyage Reports, make sure ${monthName.charAt(0) + monthName.slice(1).toLowerCase()} is listed, then tap the bookmark again.`, close()))
+      set('· SEND OFP', 'nothing to send', 'warn')
+      return
+    }
+    const sec = h('div', 'sec')
+    const cnt = h('span', '', `0 / ${flights.length}`)
+    sec.append(h('span', '', monthName), h('i'), cnt)
+    const segsEl = h('div', 'segs')
+    flights.forEach(() => segsEl.appendChild(h('div', 'seg')))
+    const list = h('div')
+    main.append(sec, segsEl, list)
+
     let inbox = []
     try { inbox = await listInbox() } catch (e) {
       // A dry run sends nothing, so it can go on without the list.
-      if (!cfg.dry) { finish(['✗ Nothing sent', e.message], '#f87171', 'rgba(248,113,113,.1)'); return }
+      if (!cfg.dry) {
+        main.replaceChildren(card('bad', '⚠', 'NOT SENT', e.message, close(), btn('TRY AGAIN', 'pri', start)))
+        set('· NOT SENT', 'not sent', 'bad')
+        return
+      }
     }
     const n = { sent: 0, dry: 0, skip: 0, fail: 0 }
-    for (const f of flights) {
-      const mark = flightLine(f)
-      mark('run')
-      try { const r = await sendFlight(f, inbox); n[r.kind]++; mark(r.kind, r.note) }
-      catch (e) { n.fail++; mark('fail', ` — ${e.message}`) }
+    const segs = [...segsEl.children]
+    for (let i = 0; i < flights.length; i++) {
+      const f = flights[i]
+      const show = flightRow(list, f)
+      segs[i].classList.add('cur')
+      let r, err
+      try { r = await sendFlight(f, inbox) } catch (e) { err = e }
+      segs[i].classList.remove('cur')
+      if (err) {
+        n.fail++
+        show('fail', 'FAILED', err.fatal ? 'Login expired.' : err.message)
+        segs[i].classList.add('fail')
+      } else {
+        n[r.kind]++
+        const tag = (r.revised ? '↻ ' : '') + (r.ofpNo ? `OFP ${r.ofpNo}` : r.kind === 'dry' ? 'READ' : 'SENT')
+        show(r.kind === 'sent' ? 'ok' : r.kind, tag, r.kind === 'dry' ? `${r.kb} kB read, not sent.${r.warn ? ' ' + r.warn : ''}` : r.warn, true)
+        segs[i].classList.add({ sent: 'on', dry: 'dry', skip: 'skip' }[r.kind])
+      }
+      cnt.textContent = `${i + 1} / ${flights.length}`
+      state.pill = `${i + 1} / ${flights.length}`
+      paint()
+      if (err?.fatal) {
+        main.appendChild(card('bad', '⚠', 'YOUR CVR LOGIN EXPIRED', 'Reload this page, sign in, then tap the bookmark again.', close(), btn('RELOAD PAGE', 'pri', () => location.reload())))
+        set('· NOT SENT', 'login expired', 'bad')
+        return
+      }
     }
-    const done = cfg.dry ? `${n.dry} read (dry run, nothing sent)` : `${n.sent} sent`
-    const lines = [`${n.fail ? '' : '✓ '}${done}, ${n.skip} already there${n.fail ? `, ${n.fail} failed` : ''}`]
-    if (n.sent) lines.push('Now open SuperApp: Briefing → + NEW → From CVR.')
-    if (n.fail) lines.push('Tap the bookmark again to retry the failed ones.')
-    finish(lines, n.fail ? '#fbbf24' : '#22c55e', n.fail ? 'rgba(251,191,36,.1)' : 'rgba(34,197,94,.12)')
+
+    const sum = h('div', 'sum')
+    const tiles = h('div', 'tiles')
+    const tile = (cls, label, value) => { const t = h('div', 'tile ' + cls), b = h('b'); t.append(b, h('span', '', label)); tiles.appendChild(t); count(b, value) }
+    tile('g', cfg.dry ? 'READ' : 'SENT', cfg.dry ? n.dry : n.sent)
+    tile('', 'HAVE IT', n.skip)
+    tile(n.fail ? 'r' : '', 'FAILED', n.fail)
+    const note = h('div', 'note', cfg.dry ? 'Dry run: nothing was sent to SuperApp.' : 'Open SuperApp, then Briefing › + NEW › From CVR.' + (n.fail ? ' Retry the failed ones.' : ''))
+    const open = btn('OPEN SUPERAPP', 'pri', () => window.open(cfg.api, '_blank', 'noopener'))
+    sum.append(tiles, note, acts(...(n.fail ? [btn('RETRY FAILED', '', start)] : []), open))
+    main.appendChild(sum)
+    sum.scrollIntoView({ block: 'nearest' })
+    const done = cfg.dry ? n.dry : n.sent
+    const pill = [...(done || !n.fail ? [done ? `${done} ${cfg.dry ? 'read' : 'sent'}` : 'up to date'] : []), ...(n.fail ? [`${n.fail} failed`] : [])].join(' · ')
+    set(n.fail ? '· DONE WITH ERRORS' : cfg.dry ? '· DRY RUN' : '· ALL SENT', pill, n.fail ? 'warn' : '')
   }
-  if (flights.length) run()
+  start()
 })()

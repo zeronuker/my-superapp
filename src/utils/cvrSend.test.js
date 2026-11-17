@@ -3,12 +3,13 @@ import { describe, it, expect, beforeAll } from 'vitest'
 // public/cvr-send.js runs from a bookmark on the CVR site; with no document it only exposes its
 // its bits of logic: reading a flight off a Voyage Reports roster row, choosing the package to take,
 // which flights are this month's and which the inbox already holds.
-let parseRow, pickOfp, inMonth, alreadySent
+let parseRow, pickOfp, inMonth, splitLabel, alreadySent
 beforeAll(async () => {
   await import('../../public/cvr-send.js')
   parseRow = globalThis.__cbParseRow
   pickOfp = globalThis.__cbPickOfp
   inMonth = globalThis.__cbInMonth
+  splitLabel = globalThis.__cbSplitLabel
   alreadySent = globalThis.__cbAlreadySent
 })
 
@@ -49,6 +50,16 @@ describe('cvr-send.js inMonth', () => {
     expect(inMonth('Flight OD391', nov)).toBe(false)
     expect(inMonth('OD1 07-Xyz-2026', nov)).toBe(false)
     expect(inMonth('', nov)).toBe(false)
+  })
+})
+
+describe('cvr-send.js splitLabel', () => {
+  it('splits a flight label into the panel row\'s parts', () => {
+    expect(splitLabel('OD1703 TWU-BKI 07-Nov-2026')).toEqual({ flight: 'OD1703', route: 'TWU › BKI', date: '07 NOV' })
+  })
+  it('shows a label in any other shape whole', () => {
+    expect(splitLabel('Flight OD391')).toEqual({ flight: 'Flight OD391', route: '', date: '' })
+    expect(splitLabel('')).toEqual({ flight: '', route: '', date: '' })
   })
 })
 

@@ -235,8 +235,17 @@ when asked. The service worker caches aggressively; users get an update prompt
   REFRESH and whenever the app comes back to the screen (`visibilitychange`: the pilot sends
   from Safari, then switches back). The list shows 5 rows a page with the saved briefings' PREV / NEXT
   footer (`paginate`, back to page 1 on each check). The list shows every step (spinner, dots, sliding bar,
-  ✓/✗), holding each for ≥ 700 ms and a success for ~1.8 s on purpose; the CVR panel (a batch now) shows one
-  line per flight (spinner, ✓ sent, – already there, ✗ with the reason) and a summary, with no hold.
+  ✓/✗), holding each for ≥ 700 ms and a success for ~1.8 s on purpose. The CVR panel (a batch) has no hold: it is
+  ClaudeBorne + the OxygenOS feel (square corners, brand grid and gradient stripe, Tourney wordmark, mono labels,
+  frosted glass, spring motion), ALWAYS dark with the mint accent whatever Settings say (CVR's page cannot read the
+  app's storage; following Settings would mean baking theme/accent into the bookmark text, not done). It starts as a
+  dot, grows into the panel, and × shrinks it to a pill with the result (tap to reopen). One row per flight (spinner,
+  ✓ sent, – already there, ↻ a revised OFP, ✕ with the reason), a segmented progress bar, SENT / HAVE IT / FAILED
+  tiles, RETRY FAILED (a re-run: sent ones are skipped) and OPEN SUPERAPP (`window.open(api)`: in the same browser
+  it opens the app with its data, but an iPad home-screen PWA keeps separate storage, so from Safari it opens the web
+  app WITHOUT this device's sync code). An expired/refused CVR login (`fatal`) stops the run with a RELOAD PAGE card.
+  Its CSS is scoped under `#cb-cvr` and fully written out so CVR's own styles don't leak in; Tourney / JetBrains Mono
+  come from Google Fonts (system fallback). `splitLabel` (label → flight / route / date) is tested.
   The inbox mode allows 60 requests a minute (20 for other modes) so a month of flights fits.
   Only the XmlOFP is taken (not the PFP/PFB or the pictures).
   Its bits of logic are tested (`src/utils/cvrSend.test.js`): `inMonth` and `alreadySent` (above), `parseRow` (a roster row to a
