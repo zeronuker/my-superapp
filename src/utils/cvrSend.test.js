@@ -1,12 +1,15 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 
 // public/cvr-send.js runs from a bookmark on the CVR site; with no document it only exposes its
-// two bits of logic: reading a flight off a Voyage Reports roster row, and choosing the package to take.
-let parseRow, pickOfp
+// its bits of logic: reading a flight off a Voyage Reports roster row, choosing the package to take,
+// which flights are this month's and which the inbox already holds.
+let parseRow, pickOfp, inMonth, alreadySent
 beforeAll(async () => {
   await import('../../public/cvr-send.js')
   parseRow = globalThis.__cbParseRow
   pickOfp = globalThis.__cbPickOfp
+  inMonth = globalThis.__cbInMonth
+  alreadySent = globalThis.__cbAlreadySent
 })
 
 const TEXT = '\n  OD1703 |\n TWU   BKI | 07-Nov-2026 | PIC AMIR RASHID … 9M-LNQ 140706 Submitted'
@@ -31,6 +34,37 @@ describe('cvr-send.js parseRow', () => {
     expect(parseRow('viewReportDetails(156400) /VoyageReports/ExportReportPdf?reportId=156400', 'Flight OD391'))
       .toEqual({ skip: 'its flight text could not be read', label: 'Flight OD391', has: ['viewReportDetails', '/VoyageReports/ExportReportPdf'] })
     expect(parseRow('', '')).toBeNull()
+  })
+})
+
+describe('cvr-send.js inMonth', () => {
+  const nov = new Date(2026, 10, 17)
+  it('true only for a date in the same month and year', () => {
+    expect(inMonth('OD1703 TWU-BKI 07-Nov-2026', nov)).toBe(true)
+    expect(inMonth('OD1703 TWU-BKI 30-NOV-2026', nov)).toBe(true)
+    expect(inMonth('OD1703 TWU-BKI 31-Oct-2026', nov)).toBe(false)
+    expect(inMonth('OD1703 TWU-BKI 07-Nov-2025', nov)).toBe(false)
+  })
+  it('false when the label has no readable date', () => {
+    expect(inMonth('Flight OD391', nov)).toBe(false)
+    expect(inMonth('OD1 07-Xyz-2026', nov)).toBe(false)
+    expect(inMonth('', nov)).toBe(false)
+  })
+})
+
+describe('cvr-send.js alreadySent', () => {
+  const f = { reportId: '156328', sector: 'OD1703TWUBKI' }
+  const inbox = [{ id: 'cvr-156328-OD1703TWUBKI', label: 'OD1703 TWU-BKI 07-Nov-2026 · OFP 140706' }]
+  it('skips only the same OFP number for the same flight', () => {
+    expect(alreadySent(inbox, f, 140706)).toBe(true)
+    expect(alreadySent(inbox, f, 140911)).toBe(false)   // revised OFP: sent again
+  })
+  it('sends a flight the inbox does not have, or an OFP with no number', () => {
+    expect(alreadySent([], f, 140706)).toBe(false)
+    expect(alreadySent(undefined, f, 140706)).toBe(false)
+    expect(alreadySent(inbox, { reportId: '1', sector: 'OD1TWUBKI' }, 140706)).toBe(false)
+    expect(alreadySent(inbox, f, null)).toBe(false)
+    expect(alreadySent([{ id: inbox[0].id, label: 'OD1703 TWU-BKI 07-Nov-2026' }], f, 140706)).toBe(false)
   })
 })
 

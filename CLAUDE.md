@@ -216,7 +216,10 @@ when asked. The service worker caches aggressively; users get an update prompt
   Settings makes a bookmarklet carrying this device's sync code + the app origin; run on
   cvr.batikair.com.my's Voyage Reports page (where the pilot is logged in) it loads
   `/cvr-send.js`, reads the flights off the page (`viewFlightPlan(reportId,'SECTOR','LABEL')`
-  buttons), and on a tap fetches the OFP via the CVR WEBSITE's own two endpoints —
+  buttons) and, with no further tap, sends every flight dated in the CURRENT CALENDAR MONTH (device clock; the
+  date is the row's dd-Mon-yyyy, `inMonth`), one after another. A flight whose inbox entry already has the same OFP
+  number is skipped (`alreadySent`: the entry's label ends " · OFP n", the inbox list is fetched first; a revised OFP
+  has a new number, so it is sent again and replaces the entry). Per flight it fetches the OFP via the CVR WEBSITE's own two endpoints —
   `GET /VoyageReports/FlightPlanFiles?reportId=&sector=` then
   `GET /VoyageReports/FlightPlanFile?reportId=&key=<objectKey>&entry=<...XmlOFP.txt>` — which
   return the XmlOFP **already decrypted as plain text** (the company app's
@@ -230,10 +233,13 @@ when asked. The service worker caches aggressively; users get an update prompt
   **From CVR** list below IMPORT OFP (`FromCvr.jsx`); a row is read with the same
   `readOfpFile` as a file and **stays until the pilot taps ×**. The list checks on open, on
   REFRESH and whenever the app comes back to the screen (`visibilitychange`: the pilot sends
-  from Safari, then switches back). Both the list and the CVR panel show every step (spinner,
-  dots, sliding bar, ✓/✗) and hold each for ≥ 700 ms and a success for ~1.8 s on purpose,
-  so the pilot can read what happened. Only the XmlOFP is taken (not the PFP/PFB or the pictures).
-  Its two bits of logic are tested (`src/utils/cvrSend.test.js`): `parseRow` (a roster row to a
+  from Safari, then switches back). The list shows 5 rows a page with the saved briefings' PREV / NEXT
+  footer (`paginate`, back to page 1 on each check). The list shows every step (spinner, dots, sliding bar,
+  ✓/✗), holding each for ≥ 700 ms and a success for ~1.8 s on purpose; the CVR panel (a batch now) shows one
+  line per flight (spinner, ✓ sent, – already there, ✗ with the reason) and a summary, with no hold.
+  The inbox mode allows 60 requests a minute (20 for other modes) so a month of flights fits.
+  Only the XmlOFP is taken (not the PFP/PFB or the pictures).
+  Its bits of logic are tested (`src/utils/cvrSend.test.js`): `inMonth` and `alreadySent` (above), `parseRow` (a roster row to a
   flight, or to a "cannot send" line with the reason and what the row's buttons call, listed in
   the panel so a flight-day row is never silently left out) and `pickOfp` (of this sector's
   packages the highest OFP number, i.e. the newest revision; never another sector's when there

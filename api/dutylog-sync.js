@@ -221,8 +221,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end()
 
   // A briefing sync sends one request per changed briefing, so it gets a bigger allowance.
+  // The CVR bookmark sends a month of OFPs in one go (a list call, then one POST per flight).
   const isBriefing = req.query.kind === 'briefing'
-  if (rateLimited(req, res, { limit: isBriefing ? 150 : 20, windowMs: 60_000 })) return
+  const limit = isBriefing ? 150 : req.query.kind === 'ofp' ? 60 : 20
+  if (rateLimited(req, res, { limit, windowMs: 60_000 })) return
 
   const code = String(req.query.code || '').toUpperCase()
   if (!CODE_RE.test(code)) {

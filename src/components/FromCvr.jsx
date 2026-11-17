@@ -3,16 +3,19 @@ import { listInbox, fetchInboxOfp, removeInboxOfp } from '../services/cvrInbox'
 import { Dots, SyncBar } from './SyncStatus'
 import Collapse from './Collapse'
 import { animDurationMs } from '../useTransitionAnim'
+import { paginate } from '../utils/monthGroups'
 
 // The Briefing New page's "From CVR" list: OFPs the CVR bookmark (public/cvr-send.js) sent to this
 // device's sync code. It checks on open, whenever the app comes back to the screen (the pilot sends
 // from Safari, then switches back), and on REFRESH. Tapping a row downloads it, reads it like an
 // imported file (`readText(text)` -> readOfpFile's result), shows ✓ on the row, and only then hands it
 // to `onLoaded(r)` — opening it puts the tall OFP card above this list and pushes the row off screen.
-// × removes a row. Each step stays on screen for at least MIN_STEP_MS and a success for DONE_MS, so the
+// × removes a row. 5 rows a page with the saved briefings' PREV / NEXT footer (back to page 1 on each check).
+// Each step stays on screen for at least MIN_STEP_MS and a success for DONE_MS, so the
 // pilot can read what happened.
 const MIN_STEP_MS = 700
 const DONE_MS = 1800
+const PAGE_SIZE = 5   // like the saved briefings list
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 const atLeast = (p, ms = MIN_STEP_MS) => Promise.all([p, sleep(ms)]).then(([v]) => v)
 const sentAt = (ms) => `SENT ${new Date(ms).toUTCString().slice(5, 22).toUpperCase()}Z`
@@ -28,6 +31,7 @@ export default function FromCvr({ syncCode, isOnline, disabled, readText, onLoad
   const [row, setRow] = useState(null)               // { id, step: 'downloading' | 'reading' | 'done' | 'removing' }
   const [gone, setGone] = useState(() => new Set())  // removed rows, folding away
   const [fresh, setFresh] = useState(() => new Set()) // rows that arrived since the last check
+  const [page, setPage] = useState(1)
   const seen = useRef(null)
   const busy = useRef(false)
   const noteTimer = useRef(null)
@@ -50,6 +54,7 @@ export default function FromCvr({ syncCode, isOnline, disabled, readText, onLoad
       seen.current = new Set(list.map(key))
       setFresh(new Set(added))
       setGone(new Set())
+      setPage(1)
       setItems(list)
     } catch (e) { setError(e.message) }
     setChecking(false)
@@ -105,6 +110,9 @@ export default function FromCvr({ syncCode, isOnline, disabled, readText, onLoad
         <Dots>{{ downloading: 'DOWNLOADING', reading: 'READING OFP', removing: 'REMOVING' }[step]}</Dots>
       </span>
 
+  const { shown, pages, cur } = paginate(items || [], page, PAGE_SIZE)
+  const navBtn = { ...buttonStyle, fontSize: 10, letterSpacing: '0.16em', padding: '4px 10px' }
+
   return (
     <div style={{ ...panelStyle, position: 'relative', overflow: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
@@ -126,7 +134,7 @@ export default function FromCvr({ syncCode, isOnline, disabled, readText, onLoad
         checking && <div role="status" style={{ ...line, color: 'var(--cp-acc)' }}><span className="cp-spinner" aria-hidden="true" /><Dots>CHECKING FOR OFPS SENT FROM CVR</Dots></div>
       ) : items.length === 0 ? (
         <div style={line}>Nothing sent yet. On cvr.batikair.com.my, tap the SuperApp OFP bookmark, then come back here.</div>
-      ) : items.map(i => {
+      ) : shown.map(i => {
         const mine = row?.id === i.id
         return (
           <Collapse key={i.id} open={!gone.has(i.id)}>
@@ -150,6 +158,19 @@ export default function FromCvr({ syncCode, isOnline, disabled, readText, onLoad
           </Collapse>
         )
       })}
+
+      {isOnline && pages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 12 }}>
+          <button className="cp-btn" onClick={() => setPage(cur - 1)} disabled={cur === 1 || !!row}
+            style={{ ...navBtn, opacity: cur === 1 ? 0.4 : 1 }}>‹ PREV</button>
+          <div style={{ textAlign: 'center', fontFamily: mono }}>
+            <div style={{ fontSize: 13 }}>{(cur - 1) * PAGE_SIZE + 1}–{Math.min(items.length, cur * PAGE_SIZE)} of {items.length}</div>
+            <div style={{ fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.08em' }}>PAGE {cur} OF {pages}</div>
+          </div>
+          <button className="cp-btn" onClick={() => setPage(cur + 1)} disabled={cur === pages || !!row}
+            style={{ ...navBtn, opacity: cur === pages ? 0.4 : 1 }}>NEXT ›</button>
+        </div>
+      )}
 
       <Collapse open={!!error}><div style={{ fontSize: 12, marginTop: 10, color: 'var(--cp-yellow)' }}>{error}</div></Collapse>
       <SyncBar active={checking && items !== null} />

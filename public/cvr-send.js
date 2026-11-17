@@ -1,19 +1,21 @@
 // CVR → SuperApp. Loaded by the "SuperApp OFP" bookmark (made in Settings → Cloud Sync) on
 // cvr.batikair.com.my's Voyage Reports page, where the pilot is already logged in.
 //
+// One tap sends every flight on the page dated in the CURRENT CALENDAR MONTH (device clock; the date is the
+// dd-Mon-yyyy in the row) to the SuperApp OFP inbox. A flight whose inbox entry already has the same OFP number
+// is skipped; a revised OFP (new number) is sent again and replaces the old entry.
+//
 // It uses the CVR WEBSITE's own two endpoints — the same ones the page's "Flight Plan" button calls —
 // which return the OFP already decrypted as plain text (the company app's /api/eff/download-zip gives a
 // ZipCrypto-ENCRYPTED zip instead, which a browser can't open):
 //   GET /VoyageReports/FlightPlanFiles?reportId=<id>&sector=<sector>   -> { archives:[{ objectKey, files:[{name,path,folder}] }] }
 //   GET /VoyageReports/FlightPlanFile?reportId=<id>&key=<objectKey>&entry=<path to XmlOFP.txt>  -> the XmlOFP text
 // Same-origin, so the site's login cookie rides along — no password, no token kept here.
-// The flights come straight off the page, so the pilot just taps one. A row's report number comes from its
-// Flight Plan button (viewFlightPlan(reportId,'SECTOR','LABEL')) or, when that button is not shown yet, from
-// its other report buttons (viewReportDetails / sendReportEmail / ExportReportPdf?reportId=) — so a flight-day
-// row that is not submitted yet is tried too (whether CVR serves its OFP before submission is what that tests).
+// A row's report number comes from its Flight Plan button (viewFlightPlan(reportId,'SECTOR','LABEL')) or, when that
+// button is not shown yet, from its other report buttons (viewReportDetails / sendReportEmail / ExportReportPdf?reportId=).
 // A row it cannot send (no report number, or flight text it cannot read) is listed in the panel with the reason
 // and what its buttons call, so a flight-day row is never silently left out.
-// It drops the XmlOFP into the SuperApp OFP inbox (/api/dutylog-sync?kind=ofp).
+// It drops each XmlOFP into the SuperApp OFP inbox (/api/dutylog-sync?kind=ofp), one flight after another.
 // The bookmark sets window.__cbCvr = { api: <SuperApp origin>, code: <sync code>, dry?: true }.
 // The endpoints are not documented: if CVR changes them this shows CVR's error; importing a file still works.
 (() => {
@@ -53,22 +55,45 @@
     if (!file) throw new Error('The package has no XmlOFP. It holds: ' + ((archive.files || []).map(x => x.name).join(', ') || 'nothing'))
     return { archive, file, ofpNo: ofpNo(archive) || null, unsure }
   }
+
+  // The label's date ("… 07-Nov-2026") is in the given calendar month. A label with no readable date is not. Tested.
+  const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+  function labelMonth(label) {
+    const m = /\d{2}-([A-Za-z]{3})-(\d{4})/.exec(label || '')
+    const i = m ? MONTHS.indexOf(m[1].toLowerCase()) : -1
+    return i < 0 ? null : { month: i, year: Number(m[2]) }
+  }
+  const inMonth = (label, now) => { const d = labelMonth(label); return !!d && d.month === now.getMonth() && d.year === now.getFullYear() }
+
+  // The inbox entry's id for a flight: one per report and sector, so a revised OFP replaces it.
+  const inboxId = f => `cvr-${f.reportId}-${f.sector.replace(/[^A-Za-z0-9]/g, '')}`.slice(0, 64)
+  // The inbox (items: [{ id, label }]) already holds this flight with this same OFP number (its label ends " · OFP n"). Tested.
+  function alreadySent(items, f, ofpNo) {
+    const item = (items || []).find(i => i.id === inboxId(f))
+    return !!ofpNo && Number(/ · OFP (\d+)$/.exec(item?.label || '')?.[1]) === ofpNo
+  }
+
   globalThis.__cbParseRow = parseRow
   globalThis.__cbPickOfp = pickOfp
+  globalThis.__cbInMonth = inMonth
+  globalThis.__cbAlreadySent = alreadySent
   if (typeof document === 'undefined') return
 
   const cfg = globalThis.__cbCvr || {}
   if (location.hostname !== 'cvr.batikair.com.my') { alert('Open cvr.batikair.com.my (Voyage Reports) first, then tap the bookmark again.'); return }
   if (!cfg.api || !cfg.code) { alert('This bookmark is incomplete. Copy it again from SuperApp → Settings → Cloud Sync.'); return }
 
+  const now = new Date()
+  const monthName = now.toLocaleString('en', { month: 'long', year: 'numeric' })
   const rows = [...document.querySelectorAll('.roster-item')]
     .map(row => parseRow(
       [...row.querySelectorAll('[onclick],[href]')].map(e => e.getAttribute('onclick') || e.getAttribute('href')).join(' '),
       row.textContent))
     .filter(Boolean)
-  // One row per report and sector (a report can hold more than one sector).
-  const flights = rows.filter(r => !r.skip).filter((f, i, a) => a.findIndex(x => x.reportId === f.reportId && x.sector === f.sector) === i)
-  const skipped = rows.filter(r => r.skip).filter((s, i, a) => a.findIndex(x => x.label === s.label) === i)
+  // One row per report and sector (a report can hold more than one sector); only this month's.
+  const flights = rows.filter(r => !r.skip && inMonth(r.label, now)).filter((f, i, a) => a.findIndex(x => x.reportId === f.reportId && x.sector === f.sector) === i)
+  // A row with no readable date is kept in the list: it cannot be told apart from this month's.
+  const skipped = rows.filter(r => r.skip && (!labelMonth(r.label) || inMonth(r.label, now))).filter((s, i, a) => a.findIndex(x => x.label === s.label) === i)
 
   // The panel's own animations (it lives on CVR's page, so it brings its own CSS; all off for reduced motion).
   if (!document.getElementById('cb-cvr-css')) {
@@ -77,28 +102,15 @@
     css.textContent = `
       #cb-cvr { animation: cbin .25s ease-out }
       #cb-cvr .cb-spin { display:inline-block; width:12px; height:12px; box-sizing:border-box; border:2px solid rgba(63,224,197,.25); border-top-color:#3fe0c5; border-radius:50%; animation: cbspin .8s linear infinite }
-      #cb-cvr .cb-bar { position:absolute; left:0; bottom:0; height:2px; width:35%; background:#3fe0c5; animation: cbbar 1.1s ease-in-out infinite }
       #cb-cvr .cb-pop { animation: cbpop .45s ease-out }
-      #cb-cvr .cb-in { animation: cbfade .3s ease-out }
-      #cb-cvr .cb-dots span { animation: cbdot 1.2s infinite; opacity:.2 }
-      #cb-cvr .cb-dots span:nth-child(2) { animation-delay:.2s }
-      #cb-cvr .cb-dots span:nth-child(3) { animation-delay:.4s }
       @keyframes cbspin { to { transform: rotate(360deg) } }
-      @keyframes cbbar { 0% { left:-35% } 100% { left:100% } }
       @keyframes cbpop { 0% { transform:scale(.6); opacity:0 } 60% { transform:scale(1.15) } 100% { transform:scale(1); opacity:1 } }
       @keyframes cbin { from { opacity:0; transform:translate(-50%, -8px) } to { opacity:1 } }
-      @keyframes cbfade { from { opacity:0; transform:translateY(-6px) } to { opacity:1; transform:none } }
-      @keyframes cbdot { 0%, 80%, 100% { opacity:.2 } 40% { opacity:1 } }
-      @media (prefers-reduced-motion: reduce) { #cb-cvr, #cb-cvr * { animation: none !important } #cb-cvr .cb-dots span { opacity:1 } }`
+      @media (prefers-reduced-motion: reduce) { #cb-cvr, #cb-cvr * { animation: none !important } }`
     document.head.appendChild(css)
   }
 
-  // Each step stays on screen at least this long, so the pilot can read what is happening.
-  const MIN_STEP_MS = 700
-  const sleep = (ms) => new Promise(r => setTimeout(r, ms))
-  const atLeast = (p) => Promise.all([p, sleep(MIN_STEP_MS)]).then(([v]) => v)
   const el = (tag, style = '', text = '') => { const e = document.createElement(tag); e.style.cssText = style; e.textContent = text; return e }
-  const dots = () => { const d = el('span'); d.className = 'cb-dots'; for (let i = 0; i < 3; i++) d.appendChild(el('span', '', '.')); return d }
 
   document.getElementById('cb-cvr')?.remove()
   const box = el('div', 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147483647;' +
@@ -113,8 +125,8 @@
   head.appendChild(close)
   box.appendChild(head)
   box.appendChild(el('div', 'font-size:11px;color:#9aa7b4;margin-bottom:8px', flights.length
-    ? 'Tap a flight to send its OFP to SuperApp.'
-    : 'No flights with a report on this page. Open Voyage Reports and make sure your flights are listed, then tap the bookmark again.'))
+    ? `Sending ${flights.length} flight${flights.length === 1 ? '' : 's'} from ${monthName}. Flights SuperApp already has are skipped.`
+    : `No flights dated ${monthName} on this page. Open Voyage Reports, make sure ${monthName} is listed, then tap the bookmark again.`))
   const listEl = el('div', 'max-height:42vh;overflow:auto')
   box.appendChild(listEl)
   // Rows that cannot be sent, newest first as on the page: why, and what the row's buttons call.
@@ -130,22 +142,22 @@
   box.appendChild(stepsEl)
   document.body.appendChild(box)
 
-  // The tapped flight's progress: one line per step — ○ waiting, spinner + dots while running, ✓ done, ✗ failed.
-  const STEPS = ['Finding the OFP on CVR', 'Downloading the OFP', cfg.dry ? 'Sending to SuperApp (dry run: skipped)' : 'Sending to SuperApp']
-  function showSteps(active, failed) {
-    stepsEl.replaceChildren(...STEPS.map((label, i) => {
-      const line = el('div', `display:flex;align-items:center;gap:8px;margin:4px 0;color:${i > active ? '#6b7785' : '#e8eef3'}`)
-      if (i === active) line.className = 'cb-in'   // only the step just reached animates in
-      let icon
-      if (i < active) { icon = el('span', 'color:#22c55e;width:12px;text-align:center', '✓'); if (i === active - 1) icon.className = 'cb-pop' }
-      else if (i === active && failed) icon = el('span', 'color:#f87171;width:12px;text-align:center', '✗')
-      else if (i === active) { icon = el('span'); icon.className = 'cb-spin' }
-      else icon = el('span', 'width:12px;text-align:center', '○')
-      const text = el('span', '', label)
-      if (i === active && !failed) text.appendChild(dots())
-      line.append(icon, text)
-      return line
-    }))
+  // One line per flight: ○ waiting, spinner while running, ✓ sent, – skipped, ✗ failed.
+  function flightLine(f) {
+    const line = el('div', 'display:flex;align-items:flex-start;gap:8px;margin:4px 0;font:12px ui-monospace,Menlo,monospace;overflow-wrap:anywhere;color:#6b7785')
+    const icon = el('span', 'width:12px;text-align:center;flex:none', '○')
+    const text = el('span', '', f.label)
+    line.append(icon, text)
+    listEl.appendChild(line)
+    return (kind, note = '') => {
+      const [mark, color] = { sent: ['✓', '#22c55e'], dry: ['✓', '#fbbf24'], skip: ['–', '#9aa7b4'], fail: ['✗', '#f87171'] }[kind] || []
+      let glyph
+      if (mark) { glyph = el('span', `color:${color}`, mark); glyph.className = 'cb-pop' } else { glyph = el('span'); glyph.className = 'cb-spin' }
+      icon.replaceChildren(glyph)
+      line.style.color = kind === 'skip' ? '#9aa7b4' : '#e8eef3'
+      text.textContent = f.label + note
+      line.scrollIntoView({ block: 'nearest' })
+    }
   }
   function finish(lines, color, bg) {
     const card = el('div', `margin-top:10px;padding:10px 12px;border-radius:8px;border:1px solid ${color};background:${bg};color:${color};font-size:13px;line-height:1.5`)
@@ -168,54 +180,55 @@
     return r.json().catch(() => { throw new Error(RELOGIN) })
   }
 
-  async function send(f) {
-    let step = 0
-    const go = (i, work) => { step = i; showSteps(i); stepsEl.scrollIntoView({ block: 'nearest' }); return atLeast(work()) }
-    try {
-      const { archive, file, ofpNo, unsure } = await go(0, async () => {
-        const d = await getJson('/VoyageReports/FlightPlanFiles?' + new URLSearchParams({ reportId: f.reportId, sector: f.sector }))
-        // CVR's answer carries its own `message`: when nothing can be taken, show that too.
-        try { return pickOfp(d.archives, f.sector) } catch (e) { throw new Error(e.message + (d.message ? ` CVR says: ${String(d.message).slice(0, 140)}` : '')) }
-      })
-      const label = f.label + (ofpNo ? ` · OFP ${ofpNo}` : '')
-      const text = await go(1, async () => {
-        const r = await fetch('/VoyageReports/FlightPlanFile?' + new URLSearchParams({ reportId: f.reportId, key: archive.objectKey, entry: file.path }), { headers: { Accept: '*/*' } })
-        if (!r.ok) throw await refused(r)
-        const t = await r.text()
-        if (!/<FlightPlan/.test(t)) throw new Error(/<html|<!doctype/i.test(t.slice(0, 500)) ? RELOGIN : 'That file was not an XmlOFP.')
-        return t
-      })
-      await go(2, async () => {
-        if (cfg.dry) return
-        // One inbox entry per report and sector; sending a revised OFP replaces it.
-        const id = `cvr-${f.reportId}-${f.sector.replace(/[^A-Za-z0-9]/g, '')}`.slice(0, 64)
-        const s = await fetch(`${cfg.api}/api/dutylog-sync?` + new URLSearchParams({ code: cfg.code, kind: 'ofp', id, label }), {
-          method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: text,
-        })
-        if (!s.ok) throw new Error(`SuperApp refused it (${s.status}): ${(await s.json().catch(() => ({}))).error || ''}`)
-      })
-      showSteps(STEPS.length)
-      const check = unsure ? ['CVR did not mark this package as this sector: check the flight on the OFP card.'] : []
-      if (cfg.dry) finish([`Dry run: ${label}`, `OFP read (${Math.round(text.length / 1024)} kB), not sent.`, ...check], '#fbbf24', 'rgba(251,191,36,.1)')
-      else finish([`✓ ${label} sent`, 'Now open SuperApp: Briefing → + NEW → From CVR.', ...check], '#22c55e', 'rgba(34,197,94,.12)')
-    } catch (e) {
-      showSteps(step, true)
-      finish([`✗ Not sent`, e.message], '#f87171', 'rgba(248,113,113,.1)')
-    }
+  // What SuperApp's inbox holds now: [{ id, label, sentAt }].
+  async function listInbox() {
+    const r = await fetch(`${cfg.api}/api/dutylog-sync?` + new URLSearchParams({ code: cfg.code, kind: 'ofp' }))
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(`SuperApp refused the list (${r.status}): ${d.error || ''}`)
+    return d.items || []
   }
 
-  const buttons = flights.map(f => {
-    const b = el('button', 'position:relative;overflow:hidden;display:block;width:100%;text-align:left;margin:0 0 6px;padding:10px;' +
-      'border-radius:6px;border:1px solid #3a4652;background:#0e141a;color:#e8eef3;font:13px ui-monospace,Menlo,monospace;cursor:pointer', f.label)
-    if (!f.hasPlan) b.appendChild(el('span', 'color:#fbbf24', ' · not submitted'))
-    b.onclick = async () => {
-      buttons.forEach(x => { x.disabled = true; x.style.opacity = x === b ? '1' : '.45'; x.style.borderColor = x === b ? '#3fe0c5' : '#3a4652' })
-      const bar = el('span'); bar.className = 'cb-bar'; b.appendChild(bar)
-      await send(f)
-      bar.remove()
-      buttons.forEach(x => { x.disabled = false; x.style.opacity = '1' })
+  // One flight: find its OFP, skip it if the inbox has that OFP number, else download and send it.
+  // Returns { kind: 'sent' | 'dry' | 'skip', note }; throws with the reason when it cannot.
+  async function sendFlight(f, inbox) {
+    const d = await getJson('/VoyageReports/FlightPlanFiles?' + new URLSearchParams({ reportId: f.reportId, sector: f.sector }))
+    let picked
+    // CVR's answer carries its own `message`: when nothing can be taken, show that too.
+    try { picked = pickOfp(d.archives, f.sector) } catch (e) { throw new Error(e.message + (d.message ? ` CVR says: ${String(d.message).slice(0, 140)}` : '')) }
+    const { archive, file, ofpNo, unsure } = picked
+    if (alreadySent(inbox, f, ofpNo)) return { kind: 'skip', note: ` · OFP ${ofpNo} already sent` }
+    const label = f.label + (ofpNo ? ` · OFP ${ofpNo}` : '')
+    const r = await fetch('/VoyageReports/FlightPlanFile?' + new URLSearchParams({ reportId: f.reportId, key: archive.objectKey, entry: file.path }), { headers: { Accept: '*/*' } })
+    if (!r.ok) throw await refused(r)
+    const text = await r.text()
+    if (!/<FlightPlan/.test(text)) throw new Error(/<html|<!doctype/i.test(text.slice(0, 500)) ? RELOGIN : 'That file was not an XmlOFP.')
+    const note = (ofpNo ? ` · OFP ${ofpNo}` : '') + (unsure ? ' · CVR did not mark this package as this sector: check the flight on the OFP card' : '')
+    if (cfg.dry) return { kind: 'dry', note: note + ` · ${Math.round(text.length / 1024)} kB, not sent` }
+    const s = await fetch(`${cfg.api}/api/dutylog-sync?` + new URLSearchParams({ code: cfg.code, kind: 'ofp', id: inboxId(f), label }), {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: text,
+    })
+    if (!s.ok) throw new Error(`SuperApp refused it (${s.status}): ${(await s.json().catch(() => ({}))).error || ''}`)
+    return { kind: 'sent', note }
+  }
+
+  async function run() {
+    let inbox = []
+    try { inbox = await listInbox() } catch (e) {
+      // A dry run sends nothing, so it can go on without the list.
+      if (!cfg.dry) { finish(['✗ Nothing sent', e.message], '#f87171', 'rgba(248,113,113,.1)'); return }
     }
-    listEl.appendChild(b)
-    return b
-  })
+    const n = { sent: 0, dry: 0, skip: 0, fail: 0 }
+    for (const f of flights) {
+      const mark = flightLine(f)
+      mark('run')
+      try { const r = await sendFlight(f, inbox); n[r.kind]++; mark(r.kind, r.note) }
+      catch (e) { n.fail++; mark('fail', ` — ${e.message}`) }
+    }
+    const done = cfg.dry ? `${n.dry} read (dry run, nothing sent)` : `${n.sent} sent`
+    const lines = [`${n.fail ? '' : '✓ '}${done}, ${n.skip} already there${n.fail ? `, ${n.fail} failed` : ''}`]
+    if (n.sent) lines.push('Now open SuperApp: Briefing → + NEW → From CVR.')
+    if (n.fail) lines.push('Tap the bookmark again to retry the failed ones.')
+    finish(lines, n.fail ? '#fbbf24' : '#22c55e', n.fail ? 'rgba(251,191,36,.1)' : 'rgba(34,197,94,.12)')
+  }
+  if (flights.length) run()
 })()
