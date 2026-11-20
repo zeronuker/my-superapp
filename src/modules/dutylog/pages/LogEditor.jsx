@@ -13,6 +13,7 @@ import { resolveLinks, rankBriefings } from '../../../utils/briefingLink'
 import { editedParts, linksToAsk } from '../../../utils/logEdits'
 import { setLeaveGuard } from '../../../utils/leaveGuard'
 import { writeLink, clearLink, takeSnapshot, restoreSnapshot } from '../../../services/linkSave'
+import AutoGrowTextarea from '../components/AutoGrowTextarea'
 import LinkPicker from '../../../components/LinkPicker'
 import LinkKeepPrompt from '../../../components/LinkKeepPrompt'
 import { AddChip, MenuChip } from '../../../components/LinkChips'
@@ -352,8 +353,8 @@ function RemarksModal({ sector, index, onSave, onCancel, closing }) {
         <div style={{ fontFamily: mono, fontSize: 9, letterSpacing: '0.08em', color: 'var(--cp-dim)', marginBottom: 10 }}>
           FREE TEXT · SAVED WITH THIS SECTOR
         </div>
-        <textarea ref={taRef} className="cp-input" value={text} onChange={(e) => setText(e.target.value)}
-          style={{ minHeight: 120, resize: 'vertical', lineHeight: 1.5 }} />
+        <AutoGrowTextarea ref={taRef} className="cp-input" value={text} onChange={(e) => setText(e.target.value)}
+          style={{ minHeight: 120, lineHeight: 1.5 }} />
         <div style={{ display: 'flex', gap: 8, marginTop: 11 }}>
           <button onClick={onCancel} className="cp-btn" style={{ flex: 1 }}>CANCEL</button>
           <button onClick={() => onSave(text)} className="cp-btn"
@@ -626,7 +627,7 @@ export default function LogEditor({ log, actions, onBack }) {
       </div>
 
       <div style={secLabel}>DUTY NOTES</div>
-      <textarea className="cp-input" rows={3} style={{ resize: 'vertical' }}
+      <AutoGrowTextarea className="cp-input" rows={3}
         value={log.notes} onChange={(e) => f('notes')(e.target.value)} />
 
       <div style={{ ...secLabel, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
