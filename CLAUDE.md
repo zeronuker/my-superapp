@@ -68,6 +68,8 @@ src/
   data/ftlTables.js           # CAAM FTL lookup tables + helpers (pure, tested)
   data/airports.js + .json    # worldwide ICAO airport DB (shared: Flight tab +
                               #   NOTAM). Regenerate: node scripts/generate-airports.mjs
+  data/iata.json              # IATA -> ICAO for those airports (CVR labels use IATA).
+                              #   Regenerate: node scripts/generate-iata.mjs
   store/calculatorStore.js    # global UI state, settings
   modules/prayer/             # self-contained module (own store/hooks/services/pages)
   modules/dutylog/            # self-contained module (own store/components/pages)
@@ -98,9 +100,16 @@ api/
   `CurrencyCalculator.jsx` for the pattern). Also add the new id to a group in
   `NAV_GROUPS` (Navigation.jsx) so it appears in grouped navigation.
 - **Settings** (`components/settings/SettingsPanel.jsx`) is the brand kit's shared `SettingsWindow`
-  (`@brand/SettingsWindow`, same in every ClaudeBorne app): tabs Appearance / Navigation / Tools (incl.
-  Prayer) / About, built from `SettingsSection` / `SettingsRow` / `Seg` / `Switch` / `Reveal`. Its colours
-  come from the `--cp-*` tokens via the `.cbs` block at the end of `index.css`.
+  (`@brand/SettingsWindow`, same in every ClaudeBorne app): tabs Appearance / Navigation / Modules (id `tools`;
+  incl. Prayer) / About, built from `SettingsSection` / `SettingsRow` / `Seg` / `Switch` / `Reveal`. Its colours
+  come from the `--cp-*` tokens via the `.cbs` block at the end of `index.css`. Navigation → Layout: Style, then (TABS
+  only) Tab position and Tab order, then Default tab (the tool that opens at start and the fallback for tabs/grouped;
+  the launcher always opens on the home grid). There is no "remember last tab" any more. The tab icons live in the
+  brand kit's `SettingsWindow.jsx`, so an icon fix is pushed to the brand-kit repo and the pointer bumped here.
+- **Tab highlight (`components/useGlide.jsx`)** — the gliding highlight under the active tab (top tab bar, grouped nav,
+  saved-briefing / Satellite folder tabs) is placed from `getBoundingClientRect` converted back with the tab's
+  rendered/layout width ratio, NOT from `offsetLeft`: under the app's CSS `zoom` (Settings → Font size) iPad Safari
+  returns `offsetLeft` already scaled, which pushed the highlight off its tab.
 - **Offline**: this is a PWA. Anything that fetches must degrade gracefully when
   offline and avoid triggering network calls that prompt the user. The service
   worker precaches the build output.
@@ -240,13 +249,16 @@ when asked. The service worker caches aggressively; users get an update prompt
   frosted glass, spring motion), ALWAYS dark with the mint accent whatever Settings say (CVR's page cannot read the
   app's storage; following Settings would mean baking theme/accent into the bookmark text, not done). It starts as a
   dot, grows into a FIXED-size panel centred in the window (376 × 560 px, smaller on a small screen, `calc(100dvh - 40px)`),
-  and – shrinks it to a pill at the top centre with the result (+ reopens it). × (header and pill) closes it for good;
-  closing mid-send stops the flights not yet started (the one in flight finishes, what was sent stays in the inbox). The header, the month + progress bar (top)
+  and – shrinks it to a pill at the top centre with the result (+ reopens it). There is no × in the header: CLOSE shrinks
+  it back to the dot and removes it (`dismiss`). While sending the foot holds a CLOSE (it stops the flights not yet
+  started: the one in flight finishes, what was sent stays in the inbox); when the run ends with no failure the summary's
+  CLOSE drains over 5 s (the fill is the countdown, the number pops each second) and then closes, and a tap anywhere on
+  the panel closes it at once; with failures the panel stays (RETRY FAILED + CLOSE, no countdown). The header, the month + progress bar (top)
   and the summary + buttons (foot) stay put; only the list of flights scrolls, to the newest row while sending. One row per flight (spinner,
   ✓ sent, – already there, ↻ a revised OFP, ✕ with the reason), a segmented progress bar, SENT / HAVE IT / FAILED
-  tiles, RETRY FAILED (a re-run: sent ones are skipped) and OPEN SUPERAPP (`window.open(api)`: in the same browser
-  it opens the app with its data, but an iPad home-screen PWA keeps separate storage, so from Safari it opens the web
-  app WITHOUT this device's sync code). An expired/refused CVR login (`fatal`) stops the run with a RELOAD PAGE card.
+  tiles and RETRY FAILED (a re-run: sent ones are skipped). There is no "open SuperApp" button: a bookmarklet cannot
+  launch an installed iPad home-screen PWA (a link opens Safari, whose storage has no sync code), so the note tells the
+  pilot to open it from the home screen. An expired/refused CVR login (`fatal`) stops the run with a RELOAD PAGE card.
   Its CSS is scoped under `#cb-cvr` and fully written out so CVR's own styles don't leak in; Tourney / JetBrains Mono
   come from Google Fonts (system fallback). `splitLabel` (label → flight / route / date) is tested.
   The inbox mode allows 60 requests a minute (20 for other modes) so a month of flights fits.
@@ -287,8 +299,13 @@ when asked. The service worker caches aggressively; users get an update prompt
   alternate and EDTO status (PDF); commercial flight number (XmlOFP).
 - **Add OFP to a saved briefing (`BriefingView.jsx` OFP ▾ chip, `utils/ofpAttach.js`, store `attachOfp`)** — on the info
   row of the pilot's own saved briefings (not cloud copies), beside the DUTY LOG chip (a menu: Go to duty log / Change… /
-  Unlink). OFP ▾ has Add OFP (no OFP yet) and Change OFP (one already there); disabled offline, since the map picture
-  is redrawn from CARTO. The file is read on the device (`readOfpFile`); a different dep/arr asks "Add anyway?".
+  Unlink). The OFP chip follows the same rule as the DUTY LOG one (`LinkChips.jsx`): dashed "+ OFP ▾" while the save has no
+  OFP (`MenuChip`'s `empty`), solid "OFP ▾" once it has. Its menu is Import file (Change OFP — file once one is there) and
+  From CVR; disabled offline, since the map picture is redrawn from CARTO. The file is read on the device
+  (`readOfpFile`); a different dep/arr asks "Add anyway?". The From CVR picker passes `prefer` to `FromCvr`, which orders
+  the rows with `utils/cvrRank.js`: same dep/arr and same date as the save first, then same dep/arr, each newest flight
+  first. A CVR label names airports by IATA, so `data/iata.json` (IATA → ICAO, `node scripts/generate-iata.mjs`) maps
+  them; the save's date is its OFP STD (else the day it was saved), matched as the UTC or the departure-local date.
   Only the Flight Details (`route.flightDetails`) and the route's waypoints (`route.routeText`, `data.routeFixes`)
   change: everything else in the save (name, airports, alternates, FIRs, weather/NOTAM/SIGMET, Satellite pictures) is
   left as saved, and the OFP's own alternates/FIRs are ignored. The live map is shown for a moment, photographed with
@@ -296,7 +313,8 @@ when asked. The service worker caches aggressively; users get an update prompt
   (`mapSnapshot`/`mapView`); if the photo fails nothing changes. `ofpAt` on the save (also in `briefingRow`) makes the
   next cloud SYNC resend the briefing and its map (`planSync`/`pushOne`).
 - **Duty Log editor layout (`modules/dutylog/pages/LogEditor.jsx`, `utils/sectorNav.js`, `.dutylog-*` rules in
-  `index.css`)** — sectors are one-line rows. Aircraft are always-open cards on a wide screen (`useWide()`, the same test as the CSS: two side by side, a single one centered at half width, no fold arrow) and one-line rows on a phone (always start closed; a big ▾ / ▴ button opens and folds them, reg · type · config on the row); REMOVE AIRCRAFT sits at the card's foot, REMOVE SECTOR at the left of the sector footer (‹ SECTOR x of y › on the right), both asking CANCEL / REMOVE first, so delete is never beside the fold button; unselected sector rows show no icon, the selected one a ●; each aircraft card is framed in its aircraft colour;
+  `index.css`)** — the Remarks window and DUTY NOTES use `AutoGrowTextarea`: it keeps its starting height, grows with
+  the text up to 1.5x that, then scrolls (no drag-resize handle). Sectors are one-line rows. Aircraft are always-open cards on a wide screen (`useWide()`, the same test as the CSS: two side by side, a single one centered at half width, no fold arrow) and one-line rows on a phone (always start closed; a big ▾ / ▴ button opens and folds them, reg · type · config on the row); REMOVE AIRCRAFT sits at the card's foot, REMOVE SECTOR at the left of the sector footer (‹ SECTOR x of y › on the right), both asking CANCEL / REMOVE first, so delete is never beside the fold button; unselected sector rows show no icon, the selected one a ●; each aircraft card is framed in its aircraft colour;
   sector: flight, route, aircraft chip), ONE sector open at a time. Wide screens (landscape or ≥640px): the rows in a
   left column, the open sector's editor in a right column that stays in view (`position: sticky`); phone: the editor
   opens in place between the rows. The editor ends with ‹ SECTOR x of y › (buttons only, no keyboard arrows); ENG OUT is
