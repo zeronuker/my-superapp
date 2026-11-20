@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { computeFTL } from '../utils/ftlCalculator'
+import { computeFTL, diffMins } from '../utils/ftlCalculator'
+
+// FTLCalculator.jsx uses this for the delay length; a missing export once crashed the tab.
+describe('diffMins', () => {
+  it('measures a delay across midnight', () => {
+    expect(diffMins('22:10', '03:15')).toBe(5 * 60 + 5)
+  })
+})
 
 const base = {
   reportTime: '0900', sectors: 1, crewType: '2crew', acclimatised: true,

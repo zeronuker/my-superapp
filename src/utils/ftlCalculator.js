@@ -60,7 +60,7 @@ function toHHMM(totalMins) {
   return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
 }
 
-function diffMins(from, to) {
+export function diffMins(from, to) {
   let d = toMins(to) - toMins(from)
   if (d < 0) d += 1440
   return d

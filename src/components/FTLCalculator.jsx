@@ -5,7 +5,7 @@ import ResetButton from './ResetButton'
 import Collapse from './Collapse'
 import Seg from './Seg'
 import {
-  normalizeTime, parseDur, fmtDur, parseOffset, fmtOffset, convertClock, computeFTL,
+  normalizeTime, parseDur, fmtDur, parseOffset, fmtOffset, convertClock, computeFTL, diffMins,
 } from '../utils/ftlCalculator'
 
 // ── Shared UI primitives ──────────────────────────────────────────────────────
