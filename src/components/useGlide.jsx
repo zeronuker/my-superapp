@@ -15,7 +15,16 @@ export function useGlide(active, { underline = false } = {}) {
     if (!row) return // a row that is only shown sometimes
     const measure = () => {
       const el = row.querySelector('[aria-selected="true"]')
-      const next = el ? { left: el.offsetLeft, width: el.offsetWidth, bottom: el.offsetTop + el.offsetHeight } : null
+      // Position from on-screen rects, converted back to the row's own pixels with the tab's rendered/layout width
+      // ratio. offsetLeft/offsetTop are not reliable under the app's CSS `zoom` (Font size setting): iPad Safari
+      // returns them already scaled, which pushed the highlight off its tab. offsetWidth is fine there.
+      let next = null
+      if (el) {
+        const rr = row.getBoundingClientRect(), tr = el.getBoundingClientRect()
+        const k = el.offsetWidth ? tr.width / el.offsetWidth : 1
+        const px = n => Math.round(n * 10) / 10
+        next = { left: px((tr.left - rr.left) / k), width: el.offsetWidth, bottom: px((tr.bottom - rr.top) / k) }
+      }
       setInd(p => (p && next && p.left === next.left && p.width === next.width && p.bottom === next.bottom ? p : next))
     }
     measure()
