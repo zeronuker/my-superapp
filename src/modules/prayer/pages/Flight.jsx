@@ -35,6 +35,39 @@ function lngStr(lng) {
   return `${lng >= 0 ? 'E' : 'W'} ${String(deg).padStart(3, '0')}° ${min.toFixed(2)}'`
 }
 
+// Top-down aeroplane silhouette, nose up, centred on 0,0 (about 76 x 68 units). Shared by the cabin dial and the
+// plane that rides the flight timelines.
+function PlaneShape() {
+  return (
+    <>
+      <path d="M0,-34 C3,-34 5,-30 5,-20 L5,28 C5,30 3,32 0,32 C-3,32 -5,30 -5,28 L-5,-20 C-5,-30 -3,-34 0,-34 Z" />
+      <path d="M-5,-8 L-38,4 L-38,10 L-5,4 Z" />
+      <path d="M5,-8 L38,4 L38,10 L5,4 Z" />
+      <path d="M-4,22 L-20,30 L-20,34 L-4,28 Z" />
+      <path d="M4,22 L20,30 L20,34 L4,28 Z" />
+    </>
+  )
+}
+
+// The plane on a timeline: `rotate` 90 = nose right (horizontal bar), 180 = nose down (vertical line).
+function TimelinePlane({ rotate, style }) {
+  return (
+    <svg width={26} height={24} viewBox="-40 -36 80 72" aria-hidden="true"
+      style={{ position: 'absolute', transform: `translate(-50%, -50%) rotate(${rotate}deg)`, pointerEvents: 'none', zIndex: 2, ...style }}>
+      <g fill="var(--cp-acc)" stroke={T.bg1} strokeWidth={5} paintOrder="stroke"><PlaneShape /></g>
+    </svg>
+  )
+}
+
+// Tab / Shift+Tab hop straight to the next / previous text field of the form, skipping the buttons between them
+// (swap, mode toggles) that would otherwise take a Tab press each with no visible change.
+function tabBetweenFields(e) {
+  if (e.key !== 'Tab') return
+  const inputs = [...e.currentTarget.closest('.flight-form').querySelectorAll('input')]
+  const next = inputs[inputs.indexOf(e.currentTarget) + (e.shiftKey ? -1 : 1)]
+  if (next) { e.preventDefault(); next.focus() }
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 function Section({ title, children }) {
   return (
@@ -72,6 +105,7 @@ function Field({ label, value, onChange, placeholder, unit, type = 'text', input
                 : e.target.value
             )}
             placeholder={placeholder}
+            onKeyDown={tabBetweenFields}
             autoComplete="off" autoCorrect="off"
             autoCapitalize={type === 'text' && !inlineSuffix ? 'characters' : 'off'}
             spellCheck="false"
@@ -276,6 +310,7 @@ function HorizontalTimeline({ dep, dest, depClock, arrClock, rows, totalHours, e
           <div style={{ position: 'absolute', left: HEND, width: (pctOf(elapsedHours) / 100) * span, top: cy - 1, height: 2, borderRadius: 1, background: 'var(--cp-acc)' }} />
           <span style={{ ...ring(HEND, T.ink, false), opacity: 0.6 }} />
           <span style={ring(w - HEND, T.border, true)} />
+          <TimelinePlane rotate={90} style={{ left: xOf(elapsedHours), top: cy }} />
 
           <svg width={w} height={height} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none', overflow: 'visible' }}>
             {items.map(({ mx, cx, above }, i) => {
@@ -453,11 +488,7 @@ function CabinDirectionDial({ cabin }) {
 
         {/* ── Airplane top-down silhouette (nose = up) ── */}
         <g transform={`translate(${cx}, ${cy})`} opacity={0.65} fill="var(--cp-muted)">
-          <path d="M0,-34 C3,-34 5,-30 5,-20 L5,28 C5,30 3,32 0,32 C-3,32 -5,30 -5,28 L-5,-20 C-5,-30 -3,-34 0,-34 Z" />
-          <path d="M-5,-8 L-38,4 L-38,10 L-5,4 Z" />
-          <path d="M5,-8 L38,4 L38,10 L5,4 Z" />
-          <path d="M-4,22 L-20,30 L-20,34 L-4,28 Z" />
-          <path d="M4,22 L20,30 L20,34 L4,28 Z" />
+          <PlaneShape />
         </g>
 
         {/* Direction arrow (rotates around centre) */}
@@ -615,6 +646,7 @@ export default function FlightPage({ settings }) {
   const timelineContainerRef = useRef(null)
   const markerRefs = useRef([])
   const [segments, setSegments] = useState([])
+  const [planeY, setPlaneY] = useState(null)   // where the plane sits on the vertical timeline (px from its top)
 
   const depClock = result ? formatInTz(new Date(result.depInstantMs), prayerTzId, timeFmt) : ''
   const arrClock = result
@@ -658,6 +690,7 @@ export default function FlightPage({ settings }) {
   useLayoutEffect(() => {
     if (!result || !timelineContainerRef.current) {
       setSegments([])
+      setPlaneY(null)
       return
     }
     const measure = () => {
@@ -682,6 +715,15 @@ export default function FlightPage({ settings }) {
         segs.push({ top, height, accent: i + 1 <= currentIdx })
       }
       setSegments(segs)
+
+      // The plane: between the marker it last passed and the next one, in proportion to the time between them.
+      const seg = Math.min(Math.max(currentIdx, 0), anchors.length - 2)
+      const a = boxes[seg], b = boxes[seg + 1]
+      if (a && b) {
+        const frac = Math.min(1, Math.max(0, (result.elapsedHours - anchors[seg]) / ((anchors[seg + 1] - anchors[seg]) || 1)))
+        const mid = box => (box.top + box.bottom) / 2
+        setPlaneY(mid(a) + frac * (mid(b) - mid(a)))
+      }
     }
     measure()
     window.addEventListener('resize', measure)
@@ -966,6 +1008,8 @@ export default function FlightPage({ settings }) {
                   background: seg.accent ? 'var(--cp-acc)' : T.bord2,
                 }} />
               ))}
+
+              {planeY != null && <TimelinePlane rotate={180} style={{ left: 10.5, top: planeY }} />}
 
               <TimelineEndpoint
                 label={dep} time={depClock} isDeparture marginBottom={rowGaps[0]}
