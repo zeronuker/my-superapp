@@ -97,7 +97,7 @@ function Field({ label, value, onChange, placeholder, unit, type = 'text', input
             )}
             placeholder={placeholder}
             autoComplete="off" autoCorrect="off"
-            autoCapitalize={type === 'text' && !inlineSuffix ? 'characters' : 'off'}
+            autoCapitalize="off"   // not "characters": that latches Shift on the iPad, so Tab arrived as Shift+Tab (backwards); onChange uppercases
             spellCheck="false"
             className="cp-input"
             style={{
