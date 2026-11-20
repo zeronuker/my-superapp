@@ -600,6 +600,26 @@ export default function FlightPage({ settings }) {
     isStale,
   } = useFlight()
 
+  // TEMPORARY (Tab-key investigation on iPad): tap the banner 5 times to show a strip that logs Tab presses and focus moves.
+  const [dbg, setDbg] = useState(false)
+  const [lines, setLines] = useState([])
+  const taps = useRef({ n: 0, t: 0 })
+  const who = el => (el ? (el.placeholder || el.title || (el.tagName + ' ' + (el.textContent || '').trim().slice(0, 12))) : 'none')
+  const note = s => { if (dbg) setLines(l => [...l.slice(-13), s]) }
+  const bannerTap = () => {
+    const now = Date.now()
+    taps.current = { n: now - taps.current.t < 2000 ? taps.current.n + 1 : 1, t: now }
+    if (taps.current.n >= 5) { taps.current.n = 0; setDbg(d => !d); setLines([]) }
+  }
+  const dbgHandlers = {
+    onKeyDownCapture: e => {
+      note(`key ${e.key} shift=${e.shiftKey} in ${who(e.target)}`)
+      if (e.key === 'Tab') setTimeout(() => note(`  after Tab: ${who(document.activeElement)}`), 120)
+    },
+    onFocusCapture: e => note(`focus ${who(e.target)}`),
+    onBlurCapture: e => note(`blur ${who(e.target)} -> ${who(e.relatedTarget)}`),
+  }
+
   // Purely cosmetic delay so CALCULATE visibly "does work" even though the
   // underlying math is instant — otherwise results swap in with no feedback
   // that anything happened.
@@ -722,10 +742,10 @@ export default function FlightPage({ settings }) {
 
   return (
     <div className={`flight-page${result ? ' has-result' : ''}`}>
-      <div className="flight-form">
+      <div className="flight-form" {...dbgHandlers}>
 
       {/* Offline / manual detection banner */}
-      <div style={{
+      <div onClick={bannerTap} style={{
         display: 'flex', alignItems: 'flex-start', gap: 8,
         background: isOffline
           ? 'rgba(var(--cp-acc-rgb,63,224,197),0.06)'
@@ -749,6 +769,12 @@ export default function FlightPage({ settings }) {
           </div>
         </div>
       </div>
+
+      {dbg && (
+        <pre style={{ margin: '0 0 12px', padding: 8, background: '#000', color: '#7CFC00', fontSize: 11, lineHeight: 1.4, whiteSpace: 'pre-wrap', border: '1px solid #7CFC00' }}>
+          {lines.length ? lines.join('\n') : 'DEBUG ON: tap a field, press Tab'}
+        </pre>
+      )}
 
       {/* Route */}
       <Section title="ROUTE">
