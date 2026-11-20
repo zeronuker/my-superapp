@@ -59,15 +59,6 @@ function TimelinePlane({ rotate, style }) {
   )
 }
 
-// Tab / Shift+Tab hop straight to the next / previous text field of the form, skipping the buttons between them
-// (swap, mode toggles) that would otherwise take a Tab press each with no visible change.
-function tabBetweenFields(e) {
-  if (e.key !== 'Tab') return
-  const inputs = [...e.currentTarget.closest('.flight-form').querySelectorAll('input')]
-  const next = inputs[inputs.indexOf(e.currentTarget) + (e.shiftKey ? -1 : 1)]
-  if (next) { e.preventDefault(); next.focus() }
-}
-
 // ── Sub-components ────────────────────────────────────────────────────────────
 function Section({ title, children }) {
   return (
@@ -105,7 +96,6 @@ function Field({ label, value, onChange, placeholder, unit, type = 'text', input
                 : e.target.value
             )}
             placeholder={placeholder}
-            onKeyDown={tabBetweenFields}
             autoComplete="off" autoCorrect="off"
             autoCapitalize={type === 'text' && !inlineSuffix ? 'characters' : 'off'}
             spellCheck="false"
@@ -772,8 +762,11 @@ export default function FlightPage({ settings }) {
             />
             <AirportTag airport={depAirport} icao={dep} />
           </div>
+          {/* tabIndex -1 on the buttons between the fields: Tab goes field to field (a button in between took the
+              focus and closed the iPad keyboard). */}
           <button
             onClick={() => setInputs({ dep: dest, dest: dep })}
+            tabIndex={-1}
             title="Swap departure and destination"
             style={{
               fontFamily: T.mono, fontSize: 14, color: T.dim,
@@ -796,7 +789,7 @@ export default function FlightPage({ settings }) {
         {/* ── Time mode toggle ── */}
         <div style={{ display: 'flex', gap: 6 }}>
           {[['duration', 'DURATION'], ['clock', 'CLOCK TIME']].map(([id, label]) => (
-            <button key={id} onClick={() => setInputs({ mode: id })} style={seg(mode === id)}>{label}</button>
+            <button key={id} tabIndex={-1} onClick={() => setInputs({ mode: id })} style={seg(mode === id)}>{label}</button>
           ))}
         </div>
 
@@ -810,7 +803,7 @@ export default function FlightPage({ settings }) {
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {[['utc', 'UTC / ZULU'], ['local', 'LOCAL']].map(([id, label]) => (
-                <button key={id} onClick={() => setInputs({ timeZone: id })} style={seg(timeZone === id)}>{label}</button>
+                <button key={id} tabIndex={-1} onClick={() => setInputs({ timeZone: id })} style={seg(timeZone === id)}>{label}</button>
               ))}
             </div>
             {clockInfo && <FlightTimeBanner
