@@ -29,6 +29,7 @@ import CartoRouteMap, { hasCartoLoadedBefore, sigmetPopupEl } from './CartoRoute
 import OfflineCoastlineMap from './OfflineCoastlineMap'
 import FlightDetailsTab from './FlightDetailsTab'
 import FromCvr from './FromCvr'
+import { briefingDates } from '../utils/cvrRank'
 import SavedSatellite from './SavedSatellite'
 import BriefingTabBar from './BriefingTabBar'
 import Seg from './Seg'
@@ -1181,7 +1182,7 @@ export default function BriefingView() {
                       <AddChip label="+ DUTY LOG" onClick={() => setPickOpen(true)} />
                     )}
                     <MenuChip label={ofpBusy ? (ofpBusy === 'reading' ? 'READING…' : 'DRAWING…') : (flightDetails ? 'OFP' : '+ OFP')}
-                      disabled={isOffline || !!ofpBusy} items={[
+                      empty={!flightDetails && !ofpBusy} disabled={isOffline || !!ofpBusy} items={[
                         { label: flightDetails ? 'Change OFP — file' : 'Import file', onClick: () => ofpFileRef.current?.click() },
                         { label: 'From CVR', onClick: () => setCvrOpen(true), disabled: !syncCode },
                       ]} />
@@ -1300,6 +1301,7 @@ export default function BriefingView() {
         </div>
         <FromCvr syncCode={syncCode} isOnline={!isOffline} disabled={!!ofpBusy}
           readText={text => readOfpFile(new Blob([text]))} onLoaded={onCvrLoaded}
+          prefer={localEntry && { dep: localEntry.route.dep, arr: localEntry.route.arr, dates: briefingDates(localEntry, lookupAirport(localEntry.route.dep)?.tz) }}
           panelStyle={{}} buttonStyle={{ padding: '8px 12px', fontSize: 10, borderRadius: 6, letterSpacing: '0.16em' }} />
       </BriefingPromptModal>
     )}

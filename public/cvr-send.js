@@ -22,7 +22,7 @@
 // The panel is SuperApp's ClaudeBorne look with the OxygenOS feel (see src/oxygen.css): square corners, the brand grid and
 // gradient stripe, mono labels, frosted glass, spring motion. It always uses the dark theme and mint accent, whatever the
 // app's Settings say (CVR's page cannot read the app's storage). It starts as a dot, grows into the panel, and – shrinks it
-// to a pill that shows the result (+ opens it again); × closes it for good and stops any flights not yet started.
+// to a pill that shows the result (+ opens it again); CLOSE (after a 5 s countdown, or a tap on the panel) shrinks it to the dot and removes it; closing mid-send stops any flights not yet started.
 (() => {
   // One roster row -> a flight { reportId, sector, label, hasPlan }, or { skip: why, label, has } for a row that
   // cannot be sent, or null for an empty row. `attrs` is the row's onclick/href values joined, `text` its text
@@ -124,8 +124,9 @@
       backdrop-filter:blur(18px) saturate(170%); -webkit-backdrop-filter:blur(18px) saturate(170%);
       border:1px solid var(--line2);
       box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 4px rgba(0,0,0,.25),0 22px 50px rgba(0,0,0,.45);
-      transition:width .7s var(--sp),height .7s var(--sp),top .7s var(--ea),transform .7s var(--ea),border-radius .5s var(--ea),box-shadow .5s var(--ea);
+      transition:width .7s var(--sp),height .7s var(--sp),top .7s var(--ea),transform .7s var(--ea),border-radius .5s var(--ea),box-shadow .5s var(--ea),opacity .3s var(--ea) .4s;
     }
+    #cb-cvr.gone { opacity:0; pointer-events:none; }
     #cb-cvr.open { width:min(376px, calc(100vw - 20px)); height:min(560px, calc(100vh - 40px)); height:min(560px, calc(100dvh - 40px)); border-radius:8px;
       box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 4px rgba(0,0,0,.25),0 22px 50px rgba(0,0,0,.45),0 0 40px color-mix(in srgb,var(--mint) 12%,transparent); }
     #cb-cvr.mini { top:14px; transform:translate(-50%,0); width:min(272px, calc(100vw - 20px)); height:34px; border-radius:17px; background:var(--grad) top/100% 2px no-repeat, rgba(4,7,14,.96); }
@@ -210,6 +211,12 @@
     #cb-cvr .btn:active { transform:scale(.96); }
     #cb-cvr .btn.pri { border-color:var(--mint); color:var(--mint); background:#0d2840; }
     #cb-cvr .btn.pri:hover { border-color:var(--mint); box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 6px 22px color-mix(in srgb,var(--mint) 22%,transparent); }
+    #cb-cvr .cdf { position:absolute; inset:0; background:color-mix(in srgb,var(--mint) 22%,transparent); transform-origin:left center; transition:transform 5s linear; }
+    #cb-cvr .cdf.run { transform:scaleX(0); }
+    #cb-cvr .cdl { position:relative; display:inline-flex; gap:8px; justify-content:center; }
+    #cb-cvr .cdn { display:inline-block; min-width:1.2em; font-weight:500; text-align:center; }
+    #cb-cvr .cdn.tick { animation:cbtk .3s var(--sp); }
+    @keyframes cbtk { from { transform:scale(1.6); opacity:.3; } }
     #cb-cvr .rip { position:absolute; border-radius:50%; pointer-events:none; transform:scale(0); background:color-mix(in srgb,var(--mint) 30%,transparent); animation:cbrp .8s var(--ea) forwards; }
     #cb-cvr .card { text-align:center; padding:14px 8px 4px; animation:cbri .6s var(--sp); --c:var(--yellow); }
     #cb-cvr .card.r { --c:var(--red); }
@@ -244,15 +251,19 @@
   const ttl = h('span', 'ttl')
   const x = h('button', 'x', '–')
   x.setAttribute('aria-label', 'Minimise')
-  // × closes the panel for good. Closing while sending stops the flights not yet started (a flight already
-  // in flight finishes; what was sent stays in the inbox).
-  let closed = false
-  const dismiss = () => { closed = true; box.remove() }
-  const xc = h('button', 'x cl', '×')
-  xc.setAttribute('aria-label', 'Close')
-  xc.onclick = dismiss
+  // CLOSE shrinks the panel back to the dot and removes it for good. Closing while sending stops the flights
+  // not yet started (a flight already in flight finishes; what was sent stays in the inbox).
+  let closed = false, cdTimer
+  const dismiss = () => {
+    if (closed) return
+    closed = true
+    clearInterval(cdTimer)
+    box.classList.remove('open', 'mini')
+    box.classList.add('gone')
+    setTimeout(() => box.remove(), 800)
+  }
   const hd = h('div', 'hd')
-  hd.append(dot, ttl, x, xc)
+  hd.append(dot, ttl, x)
   // Fixed size, centred in the window: the header, the progress (top) and the summary (foot) stay put; only the list scrolls.
   const top = h('div', 'top')
   const rowsEl = h('div')               // what a (re)run fills; the "cannot send" list stays below it
@@ -292,6 +303,22 @@
   const btn = (label, cls, onclick) => { const b = h('button', 'btn ' + cls, label); b.onpointerdown = ripple; b.onclick = onclick; return b }
   const acts = (...b) => { const a = h('div', 'acts'); a.append(...b); return a }
   const close = () => btn('CLOSE', '', dismiss)
+  // CLOSE that drains over 5 s and then closes the panel; a tap anywhere on the panel closes it at once.
+  function countdownClose() {
+    const b = btn('', 'pri', dismiss)
+    const fill = h('i', 'cdf'), num = h('span', 'cdn', '5'), lab = h('span', 'cdl')
+    lab.append('CLOSE', num)
+    b.append(fill, lab)
+    let left = 5
+    setTimeout(() => fill.classList.add('run'), 60)
+    cdTimer = setInterval(() => {
+      if (--left <= 0) return dismiss()
+      num.textContent = left
+      num.classList.remove('tick'); void num.offsetWidth; num.classList.add('tick')
+    }, 1000)
+    box.addEventListener('click', dismiss, { once: true })
+    return b
+  }
   const count = (e, to) => { let i = 0; e.textContent = 0; if (!to) return; const t = setInterval(() => { e.textContent = ++i; if (i >= to) clearInterval(t) }, 120) }
 
   // A message card in the list (nothing to send, login expired, SuperApp unreachable), its buttons in the foot.
@@ -401,6 +428,7 @@
     const segsEl = h('div', 'segs')
     flights.forEach(() => segsEl.appendChild(h('div', 'seg')))
     top.append(sec, segsEl)
+    foot.replaceChildren(acts(close()))   // while sending: stops the flights not yet started
 
     let inbox = []
     try { inbox = await listInbox() } catch (e) {
@@ -449,10 +477,10 @@
     tile('g', cfg.dry ? 'READ' : 'SENT', cfg.dry ? n.dry : n.sent)
     tile('', 'HAVE IT', n.skip)
     tile(n.fail ? 'r' : '', 'FAILED', n.fail)
-    const note = h('div', 'note', cfg.dry ? 'Dry run: nothing was sent to SuperApp.' : 'Open SuperApp, then Briefing › + NEW › From CVR.' + (n.fail ? ' Retry the failed ones.' : ''))
-    const open = btn('OPEN SUPERAPP', 'pri', () => window.open(cfg.api, '_blank', 'noopener'))
-    sum.append(tiles, note, acts(...(n.fail ? [btn('RETRY FAILED', '', start)] : []), open))
-    foot.appendChild(sum)
+    const note = h('div', 'note', cfg.dry ? 'Dry run: nothing was sent to SuperApp.' : 'Open SuperApp from your home screen, then Briefing › + NEW › From CVR.' + (n.fail ? ' Retry the failed ones.' : ''))
+    // Any failure keeps the panel open (RETRY FAILED + CLOSE); otherwise it closes itself after 5 s.
+    sum.append(tiles, note, acts(...(n.fail ? [btn('RETRY FAILED', '', start), btn('CLOSE', 'pri', dismiss)] : [countdownClose()])))
+    foot.replaceChildren(sum)
     const done = cfg.dry ? n.dry : n.sent
     const pill = [...(done || !n.fail ? [done ? `${done} ${cfg.dry ? 'read' : 'sent'}` : 'up to date'] : []), ...(n.fail ? [`${n.fail} failed`] : [])].join(' · ')
     set(n.fail ? '· DONE WITH ERRORS' : cfg.dry ? '· DRY RUN' : '· ALL SENT', pill, n.fail ? 'warn' : '')

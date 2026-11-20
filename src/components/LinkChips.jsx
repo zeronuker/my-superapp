@@ -18,13 +18,14 @@ export function AddChip({ label, onClick, disabled, set }) {
 }
 
 // items: [{ label, onClick, color?, disabled? } | { heading }]. `align` is the side of the chip the menu lines up with.
-export function MenuChip({ label, items, disabled, align = 'right' }) {
+// `empty` = nothing attached yet (the menu offers ways to add it): dashed like AddChip instead of solid.
+export function MenuChip({ label, items, disabled, align = 'right', empty }) {
   const [open, setOpen] = useState(false)
   const presence = usePresence(open)
   return (
     <div style={{ position: 'relative' }}>
       <button onClick={() => !disabled && setOpen(o => !o)} disabled={disabled} aria-haspopup="menu" aria-expanded={open}
-        style={{ ...chipBase, ...CHIP_ON, ...(disabled ? CHIP_DISABLED : {}) }}>{label} ▾</button>
+        style={{ ...chipBase, ...(empty ? CHIP_OFF : CHIP_ON), ...(disabled ? CHIP_DISABLED : {}) }}>{label} ▾</button>
       {presence.mounted && (
         <>
           {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />}

@@ -4,6 +4,7 @@ import { Dots, SyncBar } from './SyncStatus'
 import Collapse from './Collapse'
 import { animDurationMs } from '../useTransitionAnim'
 import { paginate } from '../utils/monthGroups'
+import { rankCvr } from '../utils/cvrRank'
 
 // The Briefing New page's "From CVR" list: OFPs the CVR bookmark (public/cvr-send.js) sent to this
 // device's sync code. It checks on open, whenever the app comes back to the screen (the pilot sends
@@ -23,7 +24,8 @@ const sentAt = (ms) => `SENT ${new Date(ms).toUTCString().slice(5, 22).toUpperCa
 const mono = 'var(--cb-font-mono)'
 const line = { fontSize: 11, color: 'var(--cp-dim)', marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }
 
-export default function FromCvr({ syncCode, isOnline, disabled, readText, onLoaded, panelStyle, buttonStyle }) {
+// `prefer` ({ dep, arr, dates }, from a saved briefing) puts the flights most likely to be its own first.
+export default function FromCvr({ syncCode, isOnline, disabled, readText, onLoaded, panelStyle, buttonStyle, prefer }) {
   const [items, setItems] = useState(null)          // [{ id, label, sentAt }] once loaded
   const [checking, setChecking] = useState(false)
   const [note, setNote] = useState('')               // after a check: '✓ UP TO DATE' / '✓ 1 NEW'
@@ -110,7 +112,8 @@ export default function FromCvr({ syncCode, isOnline, disabled, readText, onLoad
         <Dots>{{ downloading: 'DOWNLOADING', reading: 'READING OFP', removing: 'REMOVING' }[step]}</Dots>
       </span>
 
-  const { shown, pages, cur } = paginate(items || [], page, PAGE_SIZE)
+  const ordered = prefer && items ? rankCvr(items, prefer) : items || []
+  const { shown, pages, cur } = paginate(ordered, page, PAGE_SIZE)
   const navBtn = { ...buttonStyle, fontSize: 10, letterSpacing: '0.16em', padding: '4px 10px' }
 
   return (
