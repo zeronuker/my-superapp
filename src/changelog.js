@@ -353,12 +353,18 @@ export const CHANGELOG = [
   },
   {
     v: "v3.10", date: "Nov 2026", current: true,
-    title: "New Settings window",
+    title: "OFP from CVR & Duty Log redesign",
     notes: [
-      "IMP: Settings has the new ClaudeBorne layout shared by every app: tabs down the left with a short hint under each, the chosen tab on the right; full screen on a phone with a slim icon column.",
-      "IMP: Four tabs instead of five: Prayer settings now sit in Tools, beside METAR/TAF, NOTAM and Currency.",
-      "IMP: On/off settings are switches. Settings that need another one on (animation style and speed, haptic strength, tab position) fold away and back.",
-      "IMP: Changing tab follows your Animation style and speed; the tab highlight glides to the tab you pick.",
+      "NEW: Get an OFP from CVR with a bookmark (Settings → Cloud Sync): on the CVR Voyage Reports page one tap sends the month's OFPs to the Briefing's From CVR list, with step-by-step progress, retry for failed ones and revised OFPs replacing old ones.",
+      "NEW: Briefing: add or change an OFP on a saved briefing, from a file or From CVR; Flight Details and the route map update.",
+      "NEW: Briefing: one paste box reads a flight plan (with or without remarks) or a route and fills departure, arrival, alternates, FIRs and enroute alternates; the limit of 5 enroute alternates is gone.",
+      "IMP: Duty Log redesigned: one-line aircraft and sector rows with one open editor, colour-coded sectors, ENG OUT always shown, and remove buttons that ask first.",
+      "IMP: New Settings window in the shared ClaudeBorne layout: tabs down the left, full screen on a phone; Tools is now Modules with Prayer settings inside it, and tab order sits under Style.",
+      "IMP: Five accents (same as eLogbook) and eLogbook-style tabs with a gliding highlight; the header and nav bar stay fixed while the page scrolls (except on a phone held sideways).",
+      "FIX: The Satellite STORMS view said \"cyclone data unavailable\" after GDACS blocked browser requests; it now reads GDACS through the app's own server function.",
+      "FIX: FTL crashed when Delayed Reporting had a report time.",
+      "FIX: Prayer flight tab on iPad: Tab now hops between fields instead of closing the keyboard.",
+      "IMP: OxygenOS-style motion and depth layer; pop-ups with text fields centre above the on-screen keyboard and lock scrolling behind them.",
     ],
   },
 ]
