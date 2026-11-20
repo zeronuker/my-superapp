@@ -123,8 +123,8 @@ export default function InterpolationCalculator() {
   const hasLookup = lookupX !== '' && lookupZ !== ''
 
   const handleReset = () => setInterpolation({
-    zValues: ['', ''],
-    rows: [{ x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }],
+    zValues: ['', '', ''],
+    rows: [{ x: '', ys: ['', '', ''] }, { x: '', ys: ['', '', ''] }, { x: '', ys: ['', '', ''] }],
     lookupX: '', lookupZ: '', result: '',
   })
 
@@ -185,10 +185,6 @@ export default function InterpolationCalculator() {
                   </div>
                 ))}
               </div>
-              <div style={{ background: 'var(--cp-bg2)', border: '1px solid var(--cp-border)', borderRadius: 4, padding: '8px 12px', fontSize: 10, color: 'var(--cp-dim)', letterSpacing: '0.1em', lineHeight: 2 }}>
-                EXAMPLE: altitude (rows) × temperature (columns) → fuel burn (Y cells)<br/>
-                Row lookup = 35000, Column lookup = ISA+15 → gives you interpolated fuel burn
-              </div>
             </div>
           </div>
         </Collapse>
@@ -237,13 +233,13 @@ export default function InterpolationCalculator() {
                   <div style={{ color: 'var(--cp-acc)', fontSize: 9, letterSpacing: '0.15em' }}>ROW VAR →</div>
                 </th>
                 {zValues.map((z, ci) => (
-                  <th key={ci} style={{ minWidth: 90, borderLeft: S.colBorder(ci), background: isColActive(ci) ? 'rgba(79,195,247,0.08)' : undefined }}>
+                  <th key={ci} style={{ minWidth: 140, borderLeft: S.colBorder(ci), background: isColActive(ci) ? 'rgba(79,195,247,0.08)' : undefined }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '2px 4px' }}>
                       <input
                         type="number" inputMode="decimal"
                         value={z}
                         onChange={e => updateZ(ci, e.target.value)}
-                        placeholder="Column Header Value"
+                        placeholder="Column Value"
                         style={{
                           ...S.cellInputBox(isColActive(ci)),
                           color: isColActive(ci) ? 'var(--cp-acc)' : 'var(--cp-dim)',

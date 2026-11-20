@@ -125,12 +125,9 @@ export default function App() {
   // Wraps setActiveCalculator to persist the last-used tab
   // Leaving a screen that has a guard (the Duty Log's edit page) asks it first; the same tab never does.
   const handleSelectCalculator = React.useCallback((id) => {
-    const go = () => {
-      setActiveCalculator(id)
-      if (id && settings.rememberLastTab) { try { localStorage.setItem('cb-lasttab', id) } catch (_) {} }
-    }
+    const go = () => setActiveCalculator(id)
     if (id === activeCalculator) go(); else guardLeave(go)
-  }, [setActiveCalculator, settings.rememberLastTab, activeCalculator])
+  }, [setActiveCalculator, activeCalculator])
 
   const [showSplash, setShowSplash] = useState(true)
   const onSplashFinish = React.useCallback(() => setShowSplash(false), [])
@@ -187,17 +184,7 @@ export default function App() {
   React.useEffect(() => {
     if (LEGACY_ID_MAP[activeCalculator]) setActiveCalculator(LEGACY_ID_MAP[activeCalculator])
     if (LEGACY_ID_MAP[settings.defaultTab]) handleSettingsUpdate({ defaultTab: LEGACY_ID_MAP[settings.defaultTab] })
-    const remembered = settings.rememberLastTab
-      ? (() => { try {
-          const last = localStorage.getItem('cb-lasttab')
-          return last && CALCULATORS.find(c => c.id === last) ? last : null
-        } catch (_) { return null } })()
-      : null
-    if (settings.navStyle === 'launcher') {
-      setActiveCalculator(null)
-    } else if (remembered) {
-      setActiveCalculator(remembered)
-    }
+    if (settings.navStyle === 'launcher') setActiveCalculator(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

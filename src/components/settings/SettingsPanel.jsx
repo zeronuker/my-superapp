@@ -19,7 +19,7 @@ const DutyLogBackupSync = lazy(() =>
 const SETTINGS_TABS = [
   { id: 'appearance', label: 'Appearance', hint: 'theme · text · motion',             icon: 'palette' },
   { id: 'navigation', label: 'Navigation', hint: 'layout · widgets · order',          icon: 'nav' },
-  { id: 'tools',      label: 'Tools',      hint: 'weather · NOTAM · currency · prayer', icon: 'tools' },
+  { id: 'tools',      label: 'Modules',    hint: 'weather · NOTAM · currency · prayer', icon: 'tools' },
   { id: 'about',      label: 'About',      hint: 'update · sync · changelog',         icon: 'about' },
 ]
 
@@ -148,6 +148,32 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
                   onChange={v => onUpdate({ tabPosition: v })}
                 />
               </SettingsRow>
+              <SettingsRow label="Tab order" hint="Move a tool up or down">
+                <button type="button" className="cbs-btn" aria-expanded={orderOpen} onClick={() => setOrderOpen(o => !o)}>
+                  {orderOpen ? 'Done ▴' : 'Customise ▾'}
+                </button>
+              </SettingsRow>
+              <Reveal open={orderOpen}>
+                <div className="cbs-list">
+                  {orderedCalcs.map((calc, idx) => {
+                    const move = d => {
+                      const next = orderedCalcs.map(c => c.id)
+                      ;[next[idx], next[idx + d]] = [next[idx + d], next[idx]]
+                      onUpdate({ tabOrder: next })
+                    }
+                    return (
+                      <div key={calc.id}>
+                        <span>
+                          <TabIcon id={calc.id} emoji={calc.icon} size={13} style={{ marginRight: 8, opacity: 0.6 }} />
+                          {calc.name.toUpperCase()}
+                        </span>
+                        <button type="button" disabled={idx === 0} onClick={() => move(-1)} aria-label={`Move ${calc.name} up`}>▲</button>
+                        <button type="button" disabled={idx === orderedCalcs.length - 1} onClick={() => move(1)} aria-label={`Move ${calc.name} down`}>▼</button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Reveal>
             </Reveal>
             <SettingsRow label="Default tab" hint="Opens when the app starts" wide>
               <select className="cbs-select" value={settings.defaultTab} onChange={e => onUpdate({ defaultTab: e.target.value })}>
@@ -155,9 +181,6 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
                   <option key={c.id} value={c.id}>{c.name.toUpperCase()}</option>
                 ))}
               </select>
-            </SettingsRow>
-            <SettingsRow label="Remember last tab">
-              <Switch label="Remember last tab" on={settings.rememberLastTab !== false} onChange={v => onUpdate({ rememberLastTab: v })} />
             </SettingsRow>
           </SettingsSection>
 
@@ -173,34 +196,6 @@ export default function SettingsPanel({ onThemeChange, settings, onUpdate, onClo
             </SettingsRow>
           </SettingsSection>
 
-          <SettingsSection title="Tab order">
-            <SettingsRow label="Order" hint="Move a tool up or down">
-              <button type="button" className="cbs-btn" aria-expanded={orderOpen} onClick={() => setOrderOpen(o => !o)}>
-                {orderOpen ? 'Done ▴' : 'Customise ▾'}
-              </button>
-            </SettingsRow>
-            <Reveal open={orderOpen}>
-              <div className="cbs-list">
-                {orderedCalcs.map((calc, idx) => {
-                  const move = d => {
-                    const next = orderedCalcs.map(c => c.id)
-                    ;[next[idx], next[idx + d]] = [next[idx + d], next[idx]]
-                    onUpdate({ tabOrder: next })
-                  }
-                  return (
-                    <div key={calc.id}>
-                      <span>
-                        <TabIcon id={calc.id} emoji={calc.icon} size={13} style={{ marginRight: 8, opacity: 0.6 }} />
-                        {calc.name.toUpperCase()}
-                      </span>
-                      <button type="button" disabled={idx === 0} onClick={() => move(-1)} aria-label={`Move ${calc.name} up`}>▲</button>
-                      <button type="button" disabled={idx === orderedCalcs.length - 1} onClick={() => move(1)} aria-label={`Move ${calc.name} down`}>▼</button>
-                    </div>
-                  )
-                })}
-              </div>
-            </Reveal>
-          </SettingsSection>
         </>
       )}
 

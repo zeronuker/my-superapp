@@ -30,7 +30,6 @@ export const DEFAULT_SETTINGS = {
   cardStyle:      'elevated', // 'flat' | 'elevated' | 'glass'
   iconSet:        'classic',  // 'classic' (emoji) | image set id from ICON_SETS
   clockFormat:    '24hr',     // '24hr' | '12hr' — global, applies to all clocks
-  rememberLastTab:true,       // reopen last-used tool on app restart
   dashboardWidgets: { utc: true, prayer: true, metar: true },
   animEnabled:    true,       // transitions on/off (off = everything switches instantly)
   animStyle:      'slide',    // 'slide' | 'rise'  (how tool / settings pages appear)
@@ -132,8 +131,8 @@ export const useCalculatorStore = create((set, get) => ({
   },
   currency:      { amount: '', ...loadCurrencyPrefs() },
   interpolation: {
-    zValues: ['', ''],
-    rows: [{ x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }, { x: '', ys: ['', ''] }],
+    zValues: ['', '', ''],
+    rows: [{ x: '', ys: ['', '', ''] }, { x: '', ys: ['', '', ''] }, { x: '', ys: ['', '', ''] }],
     lookupX: '', lookupZ: '', result: '',
   },
   gatefinder: loadGatefinderState(),
