@@ -1183,7 +1183,8 @@ export default function BriefingView() {
                     )}
                     <MenuChip label={ofpBusy ? (ofpBusy === 'reading' ? 'READING…' : 'DRAWING…') : (flightDetails ? 'OFP' : '+ OFP')}
                       empty={!flightDetails && !ofpBusy} disabled={isOffline || !!ofpBusy} items={[
-                        { label: flightDetails ? 'Change OFP — file' : 'Import file', onClick: () => ofpFileRef.current?.click() },
+                        { heading: flightDetails ? 'Replace OFP' : 'Add OFP' },
+                        { label: 'From file', onClick: () => ofpFileRef.current?.click() },
                         { label: 'From CVR', onClick: () => setCvrOpen(true), disabled: !syncCode },
                       ]} />
                   </div>

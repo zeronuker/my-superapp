@@ -300,8 +300,8 @@ when asked. The service worker caches aggressively; users get an update prompt
 - **Add OFP to a saved briefing (`BriefingView.jsx` OFP ▾ chip, `utils/ofpAttach.js`, store `attachOfp`)** — on the info
   row of the pilot's own saved briefings (not cloud copies), beside the DUTY LOG chip (a menu: Go to duty log / Change… /
   Unlink). The OFP chip follows the same rule as the DUTY LOG one (`LinkChips.jsx`): dashed "+ OFP ▾" while the save has no
-  OFP (`MenuChip`'s `empty`), solid "OFP ▾" once it has. Its menu is Import file (Change OFP — file once one is there) and
-  From CVR; disabled offline, since the map picture is redrawn from CARTO. The file is read on the device
+  OFP (`MenuChip`'s `empty`), solid "OFP ▾" once it has. Its menu has a heading (Add OFP / Replace OFP once one is there) over
+  the sources From file and From CVR; disabled offline, since the map picture is redrawn from CARTO. The file is read on the device
   (`readOfpFile`); a different dep/arr asks "Add anyway?". The From CVR picker passes `prefer` to `FromCvr`, which orders
   the rows with `utils/cvrRank.js`: same dep/arr and same date as the save first, then same dep/arr, each newest flight
   first. A CVR label names airports by IATA, so `data/iata.json` (IATA → ICAO, `node scripts/generate-iata.mjs`) maps
