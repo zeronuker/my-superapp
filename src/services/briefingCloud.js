@@ -122,11 +122,14 @@ export async function syncSaves(code, deviceId, saves, api = cloudApi, onProgres
   const total = push.length + remove.length
   let done = 0
   onProgress?.(done, total)
+  // Deletes first: a code holds at most 100 briefings, so at the limit the room for a new one only
+  // exists once the briefing deleted here is gone from the cloud. (What is removed here was removed on
+  // purpose; syncBriefingsNow refuses to run at all if the saved list could not be read.)
+  for (const id of remove) { await api.remove(code, deviceId, id); onProgress?.(++done, total) }
   for (const s of push) {
     await pushOne(api, code, deviceId, s, cloudById.get(s.id))
     onProgress?.(++done, total)
   }
-  for (const id of remove) { await api.remove(code, deviceId, id); onProgress?.(++done, total) }
   return syncedMap(saves)
 }
 

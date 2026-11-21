@@ -105,11 +105,21 @@ describe('splitMap', () => {
 })
 
 describe('syncSaves', () => {
-  it('sends the map pieces, then the briefing without its map, then the deletes', async () => {
+  it('deletes first, then sends the map pieces and the briefing without its map', async () => {
     const api = fakeApi({ items: [{ id: 'old', name: 'Old', mapParts: 0 }] })
     const synced = await syncSaves('CODE', 'dev', [save('a', 'A')], api)
-    expect(api.sent).toEqual([['part', 'a', 0, 'img'], ['put', 'a', 1, null, 'WMKK'], ['remove', 'old']])
+    expect(api.sent).toEqual([['remove', 'old'], ['part', 'a', 0, 'img'], ['put', 'a', 1, null, 'WMKK']])
     expect(synced).toEqual({ a: 'A' })
+  })
+
+  it('at the 100-briefing limit, the one deleted here is removed before the new one is sent (so there is room)', async () => {
+    const cloud = Array.from({ length: 100 }, (_, i) => ({ id: `s${i}`, name: `S${i}`, mapParts: 1, row: {} }))
+    const local = [...cloud.slice(1).map(c => save(c.id, c.name)), save('new', 'New')]   // s0 deleted, 'new' saved
+    const api = fakeApi({ items: cloud })
+    await syncSaves('CODE', 'dev', local, api)
+    const kinds = api.sent.map(s => s[0])
+    expect(api.sent[0]).toEqual(['remove', 's0'])
+    expect(kinds.indexOf('remove')).toBeLessThan(kinds.indexOf('put'))
   })
 
   it('never leaves a map out, however big', async () => {
