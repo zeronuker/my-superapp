@@ -12,6 +12,9 @@ async function fetchOneAWC(icao, type, hours) {
 async function fetchOneSkylinkWeather(icao, type) {
   const r = await fetch(`/api/skylink?resource=${type}&icao=${icao}`)
   if (!r.ok) throw new Error(`SkyLink ${type.toUpperCase()} request failed`)
+  // A page that is not JSON (a proxy or error page) is a failed lookup; only an empty JSON body means "no report".
+  const kind = r.headers?.get?.('content-type')
+  if (kind && !/json/i.test(kind)) throw new Error(`SkyLink ${type.toUpperCase()} reply was not JSON`)
   const raw = await r.json().catch(() => null)
   const shaped = type === 'metar' ? skylinkMetarToAWCShape(raw) : skylinkTafToAWCShape(raw)
   return shaped ? [shaped] : []
@@ -24,23 +27,25 @@ const WEATHER_FETCHERS = { aviationweather: fetchOneAWC, skylink: fetchOneSkylin
 // and TAF retry independently — if only one of the two fails on the primary
 // source, just that one falls back to SkyLink rather than both, and a type
 // that fails on both sources degrades to an empty report instead of failing
-// the whole airport.
+// the whole airport (but is flagged in `failed`: an empty list with `failed` set means
+// "could not load", an empty list without it means the source has no report).
 export async function fetchWeather(icao, hours) {
   const primary = 'aviationweather'
   const backup  = 'skylink'
 
   const fetchType = async (type) => {
     try {
-      return { data: await WEATHER_FETCHERS[primary](icao, type, hours), source: primary }
+      return { data: await WEATHER_FETCHERS[primary](icao, type, hours), source: primary, failed: false }
     } catch (e) {
       try {
-        return { data: await WEATHER_FETCHERS[backup](icao, type, hours), source: backup }
+        return { data: await WEATHER_FETCHERS[backup](icao, type, hours), source: backup, failed: false }
       } catch (e2) {
-        return { data: [], source: primary }
+        // Both sources failed: say so, so the screen does not read it as "no report exists".
+        return { data: [], source: null, failed: true }   // no source answered, so no source chip
       }
     }
   }
 
   const [metarR, tafR] = await Promise.all([fetchType('metar'), fetchType('taf')])
-  return { metar: metarR.data, taf: tafR.data, metarSource: metarR.source, tafSource: tafR.source }
+  return { metar: metarR.data, taf: tafR.data, metarSource: metarR.source, tafSource: tafR.source, failed: { metar: metarR.failed, taf: tafR.failed } }
 }

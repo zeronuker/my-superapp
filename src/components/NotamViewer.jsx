@@ -95,7 +95,7 @@ function RawNotamEntry({ notam, isLast }) {
 }
 
 // ── Role-coloured location section ────────────────────────────────────────────
-function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
+function LocationSection({ target, all, shown, source, failed, collapsed, onToggle }) {
   const r = ROLE_STYLE[target.role] ?? ROLE_STYLE.other
   const activeCount = all.filter(n => n.validity.status === 'ACTIVE').length
   return (
@@ -112,15 +112,19 @@ function LocationSection({ target, all, shown, source, collapsed, onToggle }) {
         {source && <span style={{ marginLeft: 'auto' }}><SourceChip source={source} /></span>}
         <span style={{ marginLeft: source ? 0 : 'auto', fontFamily: T.mono, fontSize: 8, fontWeight: 700,
           letterSpacing: '0.1em', padding: '2px 8px', borderRadius: 3,
-          background: 'rgba(34,197,94,0.12)', color: T.green, border: '1px solid rgba(34,197,94,0.3)' }}>
-          {activeCount} ACTIVE
+          background: failed ? 'rgba(251,146,60,0.12)' : 'rgba(34,197,94,0.12)', color: failed ? T.orange : T.green,
+          border: `1px solid ${failed ? 'rgba(251,146,60,0.3)' : 'rgba(34,197,94,0.3)'}` }}>
+          {failed ? 'NOT LOADED' : `${activeCount} ACTIVE`}
         </span>
         <span style={{ fontFamily: T.mono, fontSize: 11, color: T.dim }}>{collapsed ? '▶' : '▼'}</span>
       </button>
       <Collapse open={!collapsed}>
         <div style={{ marginTop: 8 }}>
           {all.length === 0
-            ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim, padding: '4px 2px' }}>
+            ? failed
+              ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.orange, padding: '4px 2px' }}>
+                  ⚠ Could not load NOTAMs for this location. This is NOT the same as none.</div>
+              : <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim, padding: '4px 2px' }}>
                 No NOTAMs available for this location.</div>
             : shown.length === 0
               ? <div style={{ fontFamily: T.sans, fontSize: 12, color: T.dim, padding: '4px 2px' }}>
@@ -291,7 +295,7 @@ export default function NotamViewer() {
     setActiveTargets(t.map(x => x.icao))
     setManualFetch(true)
     try {
-      const { notams: result, rawPerIcao } = await fetchNotams(t.map(x => x.icao))
+      const { notams: result, rawPerIcao, failedIcaos: failed } = await fetchNotams(t.map(x => x.icao))
 
       const reveal = () => {
         setNotams(result)
@@ -300,8 +304,8 @@ export default function NotamViewer() {
         setFetchedAt(Date.now())
         setLoading(false)
         setManualFetch(false)
-        haptic('medium')
-        showAlert('NOTAMs fetched')
+        haptic(failed.length ? 'heavy' : 'medium')
+        showAlert(failed.length ? 'NOTAMs fetched with errors' : 'NOTAMs fetched')
       }
 
       // The animation always finishes before results are revealed.
@@ -330,6 +334,13 @@ export default function NotamViewer() {
     for (const e of savedRaw ?? []) m[e.icao] = e.source
     return m
   }, [savedRaw])
+
+  // Locations neither API could answer (from a live fetch, or from a saved briefing's snapshot).
+  // Their empty list means "could not load", never "no NOTAMs".
+  const failedIcaos = useMemo(() => [...new Set([
+    ...(savedRaw ?? []).filter(e => e.failed).map(e => e.icao),
+    ...(snapshot?.failed ?? []),
+  ])], [savedRaw, snapshot])
 
   const matches = (n) => {
     const st = n.validity.status
@@ -474,7 +485,13 @@ export default function NotamViewer() {
       {/* ── Results ── */}
       {notams && (
         <div className="cp-reveal-in">
-          {notams.length === 0 && (
+          {failedIcaos.length > 0 && (
+            <div style={{ fontFamily: T.sans, fontSize: 12, color: T.orange, background: 'rgba(251,146,60,0.08)',
+              border: '1px solid rgba(251,146,60,0.25)', borderRadius: 6, padding: '8px 12px', marginBottom: 12 }}>
+              ⚠ Could not load NOTAMs for {failedIcaos.join(', ')}. This is NOT the same as none: press FETCH NOTAMs to try again.
+            </div>
+          )}
+          {notams.length === 0 && failedIcaos.length === 0 && (
             <div style={{ fontFamily: T.sans, fontSize: 13, color: T.dim, textAlign: 'center', padding: '24px 0' }}>
               No NOTAMs found for the selected locations.
             </div>
@@ -502,7 +519,7 @@ export default function NotamViewer() {
 
               {sections.map(({ target, all, shown }) => (
                 <LocationSection key={target.icao} target={target} all={all} shown={shown}
-                  source={sourceByIcao[target.icao]}
+                  source={sourceByIcao[target.icao]} failed={failedIcaos.includes(target.icao)}
                   collapsed={isCollapsed(target.icao)} onToggle={() => toggleSection(target.icao)} />
               ))}
             </>

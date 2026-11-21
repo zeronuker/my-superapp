@@ -9,6 +9,8 @@ export async function fetchAllSigmets(signal) {
     const body = await res.json().catch(() => null)
     throw new Error(body?.error || `HTTP ${res.status}`)
   }
-  const raw = await res.json().catch(() => [])
-  return Array.isArray(raw) ? raw.map(normalizeSigmet) : []
+  // A reply that is not a list is a failure, not "no SIGMETs": let it throw.
+  const raw = await res.json()
+  if (!Array.isArray(raw)) throw new Error('unexpected SIGMET reply')
+  return raw.map(normalizeSigmet)
 }

@@ -196,7 +196,7 @@ export default function METARTAFCalculator() {
       }
     }))
 
-    const hasError = Object.values(out).some(v => v.error)
+    const hasError = Object.values(out).some(v => v.error || v.failed?.metar || v.failed?.taf)
 
     const reveal = () => {
       const ts = Date.now()
@@ -495,7 +495,7 @@ function SeverityLegend() {
 
 // ── Airport result card ─────────────────────────────────────────────────────
 function AirportCard({ data, now }) {
-  const { icao, label, metar, taf, error, metarSource, tafSource } = data
+  const { icao, label, metar, taf, error, metarSource, tafSource, failed } = data
   const [decoded, setDecoded] = useState(false)
   const role         = getRoleStyle(label)
   const stationName  = metar?.[0]?.name || ''
@@ -579,7 +579,9 @@ function AirportCard({ data, now }) {
             </div>
 
             {metar.length === 0
-              ? <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>NO METAR DATA</div>
+              ? failed?.metar
+                ? <div style={{ color: 'var(--cp-orange, #fb923c)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>⚠ COULD NOT LOAD METAR · NOT THE SAME AS NONE</div>
+                : <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>NO METAR DATA</div>
               : metar.map((m, i) => {
                 // Latest report: severity colour coding
                 // Older reports: existing dimmed role colour (no change)
@@ -650,7 +652,9 @@ function AirportCard({ data, now }) {
             </div>
 
             {taf.length === 0
-              ? <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>NO TAF DATA</div>
+              ? failed?.taf
+                ? <div style={{ color: 'var(--cp-orange, #fb923c)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>⚠ COULD NOT LOAD TAF · NOT THE SAME AS NONE</div>
+                : <div style={{ color: 'var(--cp-dim)', fontFamily: 'var(--cb-font-mono)', fontSize: 12 }}>NO TAF DATA</div>
               : taf.map((t, i) => {
                 // Latest TAF: parse into forecast segments and colour each independently
                 // Older TAFs: existing dimmed role colour (no change)

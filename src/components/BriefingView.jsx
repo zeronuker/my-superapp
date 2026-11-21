@@ -208,7 +208,7 @@ function NotamListSection({ notams }) {
 
 // A NOTAM card whose header (`children`: code, name, role) opens and closes it.
 // The count stays visible while it is closed.
-function CollapsibleNotamCard({ accent, notams, defaultOpen, children }) {
+function CollapsibleNotamCard({ accent, notams, defaultOpen, failed, children }) {
   const [open, setOpen] = useState(defaultOpen)
   const active = (notams || []).filter(n => n.validity.status === 'ACTIVE').length
   return (
@@ -219,12 +219,14 @@ function CollapsibleNotamCard({ accent, notams, defaultOpen, children }) {
         borderLeft: `3px solid ${accent}`,
       }}>
         {children}
-        <span style={{ marginLeft: 'auto', flexShrink: 0, fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em', color: 'var(--cp-dim)' }}>{active} ACTIVE</span>
+        <span style={{ marginLeft: 'auto', flexShrink: 0, fontFamily: 'var(--cb-font-mono)', fontSize: 9, letterSpacing: '0.1em', color: failed ? 'var(--cp-orange, #fb923c)' : 'var(--cp-dim)' }}>{failed ? 'NOT LOADED' : `${active} ACTIVE`}</span>
         <span style={{ flexShrink: 0, fontFamily: 'var(--cb-font-mono)', fontSize: 11, color: 'var(--cp-dim)' }}>{open ? '▼' : '▶'}</span>
       </button>
       <Collapse open={open}>
         <div style={{ padding: '12px 14px 14px', borderTop: '1px solid var(--cp-border3)' }}>
-          <NotamListSection notams={notams} />
+          {failed && !(notams || []).length
+            ? <div style={{ fontSize: 12, color: 'var(--cp-orange, #fb923c)' }}>⚠ Could not load NOTAMs here — not the same as none.</div>
+            : <NotamListSection notams={notams} />}
         </div>
       </Collapse>
     </div>
@@ -232,9 +234,9 @@ function CollapsibleNotamCard({ accent, notams, defaultOpen, children }) {
 }
 
 // ── One FIR's NOTAMs — airspace/oceanic notices, not tied to any one airport ──
-function FirNotamCard({ fir, notams }) {
+function FirNotamCard({ fir, notams, failed }) {
   return (
-    <CollapsibleNotamCard accent="var(--cp-acc)" notams={notams} defaultOpen={false}>
+    <CollapsibleNotamCard accent="var(--cp-acc)" notams={notams} defaultOpen={false} failed={failed}>
       <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--cp-txt)' }}>
         {fir.icao}
       </span>
@@ -249,7 +251,7 @@ function FirNotamCard({ fir, notams }) {
 
 // ── One FIR's SIGMETs, in the SIGMETs tab — same header as FirNotamCard plus
 // live / expired counts; a FIR with none says so (it was checked and is clear) ──
-function FirSigmetCard({ fir, sigmets, now, firstNum }) {
+function FirSigmetCard({ fir, sigmets, now, firstNum, failed }) {
   const expired = sigmets.filter(s => s.validTo && s.validTo.getTime() < now).length
   const active = sigmets.length - expired
   const badge = (color) => ({
@@ -270,12 +272,14 @@ function FirSigmetCard({ fir, sigmets, now, firstNum }) {
             {fir.name}
           </span>
         )}
-        <span style={{ marginLeft: 'auto', ...badge(active ? 'var(--cp-green)' : 'var(--cp-dim)') }}>{active} ACTIVE</span>
+        <span style={{ marginLeft: 'auto', ...badge(failed ? 'var(--cp-orange, #fb923c)' : active ? 'var(--cp-green)' : 'var(--cp-dim)') }}>{failed ? 'NOT LOADED' : `${active} ACTIVE`}</span>
         {expired > 0 && <span style={badge('var(--cp-red)')}>{expired} EXPIRED</span>}
       </div>
       <div style={{ padding: '12px 14px 14px' }}>
         {sigmets.length === 0 ? (
-          <div style={{ fontSize: 11, color: 'var(--cp-dim)', fontStyle: 'italic' }}>No active SIGMETs</div>
+          failed
+            ? <div style={{ fontSize: 11, color: 'var(--cp-orange, #fb923c)' }}>⚠ SIGMETs could not be loaded — not the same as none.</div>
+            : <div style={{ fontSize: 11, color: 'var(--cp-dim)', fontStyle: 'italic' }}>No active SIGMETs</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {sigmets.map((s, i) => <SigmetCard key={i} s={s} now={now} num={firstNum + i} />)}
@@ -288,11 +292,11 @@ function FirSigmetCard({ fir, sigmets, now, firstNum }) {
 
 // ── One airport's NOTAMs, in the NOTAMs tab — same header treatment as
 // AirportCard (role-colored, name), without the METAR/TAF fields ──
-function AirportNotamCard({ target, notams, defaultOpen }) {
+function AirportNotamCard({ target, notams, defaultOpen, failed }) {
   const role = getRoleStyle(target.label)
   const airport = lookupAirport(target.icao)
   return (
-    <CollapsibleNotamCard accent={role.color} notams={notams} defaultOpen={defaultOpen}>
+    <CollapsibleNotamCard accent={role.color} notams={notams} defaultOpen={defaultOpen} failed={failed}>
       <span style={{ fontFamily: 'var(--cb-font-mono)', fontSize: 15, fontWeight: 700, color: 'var(--cp-txt)' }}>
         {target.icao}
       </span>
@@ -361,7 +365,9 @@ function AirportCard({ target, weather }) {
           }}>
             {metarTokens
               ? metarTokens.map((t, i) => <span key={i} style={{ color: t.color }}>{t.text}</span>)
-              : <span style={{ color: 'var(--cp-dim)' }}>No METAR data</span>}
+              : weather?.failed?.metar
+                ? <span style={{ color: 'var(--cp-orange, #fb923c)' }}>⚠ Could not load METAR — not the same as none</span>
+                : <span style={{ color: 'var(--cp-dim)' }}>No METAR data</span>}
           </div>
         </div>
 
@@ -377,7 +383,9 @@ function AirportCard({ target, weather }) {
                     {seg.tokens.map((t, i) => <span key={i} style={{ color: t.color }}>{t.text}</span>)}
                   </div>
                 ))
-              : <span style={{ color: 'var(--cp-dim)' }}>No TAF data</span>}
+              : weather?.failed?.taf
+                ? <span style={{ color: 'var(--cp-orange, #fb923c)' }}>⚠ Could not load TAF — not the same as none</span>
+                : <span style={{ color: 'var(--cp-dim)' }}>No TAF data</span>}
           </div>
         </div>
       </div>
@@ -933,10 +941,11 @@ export default function BriefingView() {
         ...resolvedFirs.map(f => f.icao.toUpperCase()),
       ])]
 
+      let sigmetFailed = false   // set when the SIGMET lookup fails: "none found" and "could not load" must stay apart
       const [weatherList, notamResult, allSigmets, routeResult] = await Promise.all([
         Promise.all(targets.map(async (t) => ({ ...t, ...(await fetchWeather(t.icao, BRIEFING_METAR_HOURS)) }))),
         fetchNotams(notamTargetIcaos),
-        fetchAllSigmets(AbortSignal.timeout(15_000)).catch(() => []),
+        fetchAllSigmets(AbortSignal.timeout(15_000)).catch(() => { sigmetFailed = true; return [] }),
         lookupRoute(route),
       ])
       if (cancelled) return
@@ -953,6 +962,8 @@ export default function BriefingView() {
           airports: weatherList,
           notamsByIcao: notamBySource,
           sigmets: scopedSigmets,
+          sigmetFailed,
+          notamFailed: notamResult.failedIcaos || [],
           firsUsed: resolvedFirs,
           ...routeResult,   // { routeFixes } or { routeError } when a route was pasted
           fetchedAt: Date.now(),
@@ -960,7 +971,7 @@ export default function BriefingView() {
         // Push these same, already-fetched results into METAR/TAF, NOTAM
         // and SIGMET's own caches — no extra API calls — so opening one of
         // those tabs directly afterwards shows this route already loaded.
-        syncModuleCaches({ route, weatherList, notamResult, resolvedFirs, scopedSigmets, hours: BRIEFING_METAR_HOURS })
+        syncModuleCaches({ route, weatherList, notamResult, resolvedFirs, scopedSigmets, sigmetFailed, hours: BRIEFING_METAR_HOURS })
         setLoading(false)
       }
 
@@ -978,6 +989,8 @@ export default function BriefingView() {
 
   const airports = data?.airports || []
   const notamsByIcao = data?.notamsByIcao || {}
+  const notamFailed = data?.notamFailed || []   // locations neither NOTAM source answered (older saves have none)
+  const sigmetFailed = !!data?.sigmetFailed
   // Briefings saved before the move to IndexedDB have validFrom/validTo as
   // strings (JSON round-trip) — revive them or SigmetCard throws.
   const firsUsed = data?.firsUsed || []
@@ -1253,7 +1266,7 @@ export default function BriefingView() {
                   ].filter(([, , list]) => list.length > 0).map(([title, color, list, minW, open]) => (
                     <Section key={title} title={title} color={color}>
                       <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(min(${minW}px, 100%), 1fr))`, gap: 12, alignItems: 'start' }}>
-                        {list.map(a => <AirportNotamCard key={a.icao} target={a} notams={notamsByIcao[a.icao]} defaultOpen={open} />)}
+                        {list.map(a => <AirportNotamCard key={a.icao} target={a} notams={notamsByIcao[a.icao]} defaultOpen={open} failed={notamFailed.includes(a.icao)} />)}
                       </div>
                     </Section>
                   ))}
@@ -1263,7 +1276,7 @@ export default function BriefingView() {
                       <div style={{ fontSize: 12, color: 'var(--cp-dim)' }}>No FIRs could be determined from this route.</div>
                     ) : (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 12, alignItems: 'start' }}>
-                        {firsUsed.map(fir => <FirNotamCard key={fir.icao} fir={fir} notams={notamsByIcao[fir.icao]} />)}
+                        {firsUsed.map(fir => <FirNotamCard key={fir.icao} fir={fir} notams={notamsByIcao[fir.icao]} failed={notamFailed.includes(fir.icao)} />)}
                       </div>
                     )}
                   </Section>
@@ -1278,7 +1291,7 @@ export default function BriefingView() {
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {sigmetGroups.map((g, gi) => (
-                        <FirSigmetCard key={g.fir.icao} fir={g.fir} now={now} sigmets={g.list}
+                        <FirSigmetCard key={g.fir.icao} fir={g.fir} now={now} sigmets={g.list} failed={sigmetFailed}
                           firstNum={sigmetGroups.slice(0, gi).reduce((n, p) => n + p.list.length, 1)} />
                       ))}
                     </div>

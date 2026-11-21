@@ -60,4 +60,12 @@ describe('handler', () => {
     expect(fetchMock.mock.calls[0][0]).toContain('aviationweather.gov/api/data/isigmet')
     expect(res.body).toEqual([{ id: 1 }])
   })
+  it('reports a failed SIGMET source as 502 (not 200 with an error body), and 204 as an empty list', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: 'x' }) }))
+    expect((await call({})).code).toBe(502)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 204, json: async () => { throw new SyntaxError('empty') } }))
+    const res = await call({})
+    expect(res.code).toBe(200)
+    expect(res.body).toEqual([])
+  })
 })

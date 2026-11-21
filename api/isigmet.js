@@ -36,9 +36,11 @@ export default async function handler(req, res) {
 
   try {
     const upstream = await fetch(target, { signal: AbortSignal.timeout(gdacs === undefined ? 10_000 : 20_000) })
-    const data = await upstream.json()
     res.setHeader('Cache-Control', 'no-store, no-cache')
-    res.status(gdacs === undefined || upstream.ok ? 200 : 502).json(data)
+    // 204 = nothing active. A failed source must not look like that, so anything else not OK is a 502.
+    if (upstream.status === 204 && gdacs === undefined) return res.status(200).json([])
+    const data = await upstream.json()
+    res.status(upstream.ok ? 200 : 502).json(data)
   } catch (e) {
     const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
     if (!isTimeout) console.error(`[isigmet] ${what} fetch failed:`, e)

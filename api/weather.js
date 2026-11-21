@@ -28,8 +28,10 @@ export default async function handler(req, res) {
 
   try {
     const upstream = await fetch(url, { signal: AbortSignal.timeout(8000) })
-    const data = await upstream.json()
     res.setHeader('Cache-Control', 'no-store, no-cache')
+    // 204 = the source has no report for this station: an answer ("none"), not a failure.
+    if (upstream.status === 204) return res.status(200).json([])
+    const data = await upstream.json()
     // Forward the upstream's real status instead of assuming 200 — the
     // client relies on !r.ok to fall back to the backup weather source.
     res.status(upstream.ok ? 200 : 502).json(data)

@@ -89,3 +89,29 @@ describe('fetchNotams (batched)', () => {
     expect(f).not.toHaveBeenCalled()
   })
 })
+
+describe('fetchNotams (failures are not "no NOTAMs")', () => {
+  it('marks an airport failed when both autorouter and SkyLink fail', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => reply({ error: 'down' }, 503)))
+    const { rawPerIcao, failedIcaos } = await fetchNotams(['WMKK', 'WSSS'])
+    expect(rawPerIcao.every(e => e.failed === true && e.rows.length === 0)).toBe(true)
+    expect(failedIcaos).toEqual(['WMKK', 'WSSS'])
+  })
+
+  it('marks only the airports SkyLink could not answer', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (String(url).startsWith('/api/notam')) return reply({ error: 'down' }, 503)
+      return String(url).endsWith('WSSS') ? reply({ error: 'x' }, 500) : reply({ notams: [] })
+    }))
+    const { rawPerIcao, failedIcaos } = await fetchNotams(['WMKK', 'WSSS'])
+    expect(failedIcaos).toEqual(['WSSS'])
+    expect(rawPerIcao.find(e => e.icao === 'WMKK').failed).toBeUndefined()
+  })
+
+  it('does not mark a real empty answer as failed', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => reply({ total: 0, rows: [] })))
+    const { rawPerIcao, failedIcaos } = await fetchNotams(['WMKK'])
+    expect(failedIcaos).toEqual([])
+    expect(rawPerIcao[0].failed).toBeUndefined()
+  })
+})

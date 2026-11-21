@@ -20,7 +20,7 @@ function safeSet(key, value) {
 // already-parsed notams (a save doesn't keep the raw rows). `fetchedAt` stays
 // "now" either way so the modules' 12 h expiry doesn't wipe an old snapshot
 // the moment it is opened.
-export function syncModuleCaches({ route, weatherList, notamResult, resolvedFirs, scopedSigmets, hours, snapshotAt }) {
+export function syncModuleCaches({ route, weatherList, notamResult, resolvedFirs, scopedSigmets, sigmetFailed, hours, snapshotAt }) {
   const fetchedAt = Date.now()
   const { dep, arr, destAlts, enrouteCount, enrouteAlts } = route
 
@@ -31,6 +31,7 @@ export function syncModuleCaches({ route, weatherList, notamResult, resolvedFirs
       icao: t.icao, label: t.label,
       metar: t.metar, taf: t.taf,
       metarSource: t.metarSource, tafSource: t.tafSource,
+      failed: t.failed,   // a lookup that failed must still read "could not load" in the METAR/TAF tab
       error: null,
     }
   }
@@ -39,16 +40,21 @@ export function syncModuleCaches({ route, weatherList, notamResult, resolvedFirs
   safeSet(NOTAM_CACHE_KEY, {
     dep, arr, destAlts, enrouteCount, enrouteAlts,
     extraChips: resolvedFirs.map(f => ({ icao: f.icao, name: f.name, type: 'fir' })),
-    ...(snapshotAt ? { snapshot: { at: snapshotAt, notams: notamResult.notams } } : { rawPerIcao: notamResult.rawPerIcao }),
+    ...(snapshotAt ? { snapshot: { at: snapshotAt, notams: notamResult.notams, failed: notamResult.failedIcaos || [] } } : { rawPerIcao: notamResult.rawPerIcao }),
     fetchedAt,
   })
 
-  safeSet(SIGMET_CACHE_KEY, {
-    dep, arr, destAlts, enrouteCount, enrouteAlts,
-    chips: resolvedFirs,
-    sigmets: scopedSigmets,
-    fetchedAt, snapshotAt,
-  })
+  // A failed SIGMET lookup must not be stored as "no SIGMETs": leave the SIGMET tab with nothing cached.
+  if (sigmetFailed) {
+    try { localStorage.removeItem(SIGMET_CACHE_KEY) } catch (_) {}
+  } else {
+    safeSet(SIGMET_CACHE_KEY, {
+      dep, arr, destAlts, enrouteCount, enrouteAlts,
+      chips: resolvedFirs,
+      sigmets: scopedSigmets,
+      fetchedAt, snapshotAt,
+    })
+  }
 }
 
 // Same sync, fed from a saved briefing's stored data instead of a live fetch.
@@ -56,9 +62,10 @@ export function syncSnapshotCaches(route, data) {
   syncModuleCaches({
     route,
     weatherList: data.airports || [],
-    notamResult: { notams: Object.values(data.notamsByIcao || {}).flat() },
+    notamResult: { notams: Object.values(data.notamsByIcao || {}).flat(), failedIcaos: data.notamFailed || [] },
     resolvedFirs: data.firsUsed || [],
     scopedSigmets: data.sigmets || [],
+    sigmetFailed: !!data.sigmetFailed,
     hours: BRIEFING_METAR_HOURS,
     snapshotAt: data.fetchedAt || Date.now(),
   })

@@ -342,7 +342,8 @@ async function fetchOneSkylink(icao) {
  * autorouter.aero is always primary — SkyLink (metered, low free-tier quota)
  * is only a fallback. The primary request is batched; if it fails, every
  * location in that batch retries against SkyLink individually.
- * Returns { notams, rawPerIcao } — rawPerIcao is `[{ icao, rows, source }]`,
+ * Returns { notams, rawPerIcao, failedIcaos } — rawPerIcao is `[{ icao, rows, source, failed? }]`
+ * (`failed`: neither API answered, so the empty rows mean "could not load"; failedIcaos lists those),
  * suitable for caching (re-parsed on restore via parseMixedNotams so
  * validity status stays fresh); `source` on each entry is whichever API
  * actually supplied that ICAO's rows.
@@ -373,11 +374,13 @@ export async function fetchNotams(icaoList) {
       const rows = await fetchOneSkylink(icao)
       return { icao, rows, source: backup }
     } catch (_) {
-      return { icao, rows: [], source: primary }
+      // Both sources failed: `failed` keeps that apart from a real "no NOTAMs".
+      return { icao, rows: [], source: primary, failed: true }
     }
   }))
 
-  return { notams: parseMixedNotams(rawPerIcao), rawPerIcao }
+  const failedIcaos = [...new Set(rawPerIcao.filter(e => e.failed).map(e => e.icao))]
+  return { notams: parseMixedNotams(rawPerIcao), rawPerIcao, failedIcaos }
 }
 
 // ── FIR route detection ───────────────────────────────────────────────────────
