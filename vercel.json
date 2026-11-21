@@ -39,6 +39,10 @@
           "value": "strict-origin-when-cross-origin"
         },
         {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://api.windy.com blob:; style-src 'self' 'unsafe-inline' https://api.windy.com; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; report-uri /api/client-error"
+        },
+        {
           "key": "Permissions-Policy",
           "value": "camera=(self), microphone=(), geolocation=(self)"
         }

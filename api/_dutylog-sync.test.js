@@ -13,6 +13,11 @@ const fb = vi.hoisted(() => {
   })
   const collRef = (path) => ({
     doc: (id) => docRef(`${path}/${id}`),
+    count: () => ({
+      get: async () => ({
+        data: () => ({ count: [...docs.keys()].filter(p => p.startsWith(`${path}/`) && !p.slice(path.length + 1).includes('/')).length }),
+      }),
+    }),
     select: (...fields) => ({
       get: async () => ({
         docs: [...docs.entries()]
@@ -260,6 +265,33 @@ describe('duty-log endpoints: ownership writes', () => {
     fb.docs.delete(`dutylogs/${CODE}`)
     await logsCall('PUT', { body: { deviceId: 'dev9', logs: [] } })
     expect(fb.docs.get(`dutylogs/${CODE}`).ownerDeviceId).toBe('dev9')
+  })
+})
+
+describe('limits per code', () => {
+  const fill = (coll, n) => { for (let i = 0; i < n; i++) fb.docs.set(`dutylogs/${CODE}/${coll}/x${i}`, { name: `x${i}`, gz: 'x', sentAt: i }) }
+  beforeEach(() => { fb.docs.set(`dutylogs/${CODE}`, { logs: [], updatedAt: 1, ownerDeviceId: 'dev1' }) })
+
+  it('refuses a 101st briefing (its entry and its pieces), but still updates one that exists', async () => {
+    fill('briefings', 100)
+    const body = { deviceId: 'dev1', entry: entry('new') }
+    expect((await call('PUT', { query: { id: 'new' }, body })).code).toBe(409)
+    expect((await call('PUT', { query: { id: 'new', part: '0' }, body: { deviceId: 'dev1', data: 'abc' } })).code).toBe(409)
+    expect(fb.docs.has(`dutylogs/${CODE}/briefings/new`)).toBe(false)
+
+    expect((await call('PUT', { query: { id: 'x5' }, body: { deviceId: 'dev1', entry: entry('x5') } })).code).toBe(200)
+    expect((await call('PUT', { query: { id: 'x5', part: '0' }, body: { deviceId: 'dev1', data: 'abc' } })).code).toBe(200)
+  })
+
+  it('allows the 100th briefing', async () => {
+    fill('briefings', 99)
+    expect((await call('PUT', { query: { id: 'last' }, body: { deviceId: 'dev1', entry: entry('last') } })).code).toBe(200)
+  })
+
+  it('refuses an OFP inbox item over 200, but a resent one (same id) replaces its entry', async () => {
+    fill('ofps', 200)
+    expect((await call('POST', { query: { kind: 'ofp', id: 'cvr-new', label: 'L' }, body: '<xml>ofp</xml>' })).code).toBe(409)
+    expect((await call('POST', { query: { kind: 'ofp', id: 'x3', label: 'L' }, body: '<xml>ofp</xml>' })).code).toBe(200)
   })
 })
 

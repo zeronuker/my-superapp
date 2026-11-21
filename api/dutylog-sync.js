@@ -46,6 +46,9 @@ import { rateLimited } from './_rateLimit.js'
 const CODE_RE = /^[A-Z0-9]{4,8}(-[A-Z0-9]{4,8}){1,3}$/
 const MAX_PAYLOAD_BYTES = 900_000 // Firestore doc limit is 1 MiB
 const MAX_OFP_BYTES = 4_000_000   // an XmlOFP as sent (Vercel refuses bodies over ~4.5 MB); it is stored gzipped
+// Per code: the same 100 saved briefings the app itself allows, and room for a month or more of CVR OFPs.
+const MAX_BRIEFINGS = 100
+const MAX_OFPS = 200
 const BRIEFING_ID_RE = /^[A-Za-z0-9-]{1,64}$/
 // How many pieces each picture may have, by kind (a piece is up to 700 000 characters).
 const MAX_PIECES = { map: 50, sat: 10, wind: 10 }
@@ -149,6 +152,10 @@ async function handleBriefing(req, res, ref) {
         await briefings.doc(id).delete()
         return res.status(200).json({ ok: true })
       }
+      // A briefing that is not there yet (its pieces come first) needs room: the code may hold only so many.
+      if (!(await briefings.doc(id).get()).exists && (await briefings.count().get()).data().count >= MAX_BRIEFINGS) {
+        return res.status(409).json({ error: `this code already holds ${MAX_BRIEFINGS} saved briefings` })
+      }
       // Briefings can be the first thing synced to a new code; give it an owner (and no logs yet).
       if (!snap.exists) await ref.set({ logs: [], updatedAt: Date.now(), ownerDeviceId: deviceId })
       if (part !== null) {
@@ -202,6 +209,9 @@ async function handleOfp(req, res, ref) {
       if (Buffer.byteLength(text) > MAX_OFP_BYTES) return res.status(413).json({ error: 'OFP too large' })
       const gz = gzipSync(text).toString('base64')
       if (gz.length > MAX_PAYLOAD_BYTES) return res.status(413).json({ error: 'OFP too large' })
+      if (!(await ofps.doc(id).get()).exists && (await ofps.count().get()).data().count >= MAX_OFPS) {
+        return res.status(409).json({ error: `this code already holds ${MAX_OFPS} OFPs: remove some in the app` })
+      }
       await ofps.doc(id).set({ gz, label: String(req.query.label ?? '').slice(0, 60), sentAt: Date.now() })
       return res.status(200).json({ ok: true })
     }

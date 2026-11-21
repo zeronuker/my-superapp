@@ -183,13 +183,14 @@ function makeMarkerEl(m) {
   const size = m.big ? 14 : 10
   const el = document.createElement('div')
   el.style.cssText = 'display:flex; flex-direction:column; align-items:center; pointer-events:none;'
-  el.innerHTML = `
-    <div style="font-family:var(--cb-font-mono); font-size:10px; font-weight:${m.big ? 700 : 500};
-      color:${role.color}; text-shadow:0 0 3px var(--cp-bg3), 0 0 3px var(--cp-bg3); margin-bottom:2px; white-space:nowrap;">
-      ${m.icao}
-    </div>
-    <div style="width:${size}px; height:${size}px; border-radius:50%; background:${role.color}; border:2px solid var(--cp-bg3);"></div>
-  `
+  // Built with the DOM, not an HTML string: the code is text, never markup.
+  const code = document.createElement('div')
+  code.style.cssText = `font-family:var(--cb-font-mono); font-size:10px; font-weight:${m.big ? 700 : 500};
+      color:${role.color}; text-shadow:0 0 3px var(--cp-bg3), 0 0 3px var(--cp-bg3); margin-bottom:2px; white-space:nowrap;`
+  code.textContent = m.icao
+  const dot = document.createElement('div')
+  dot.style.cssText = `width:${size}px; height:${size}px; border-radius:50%; background:${role.color}; border:2px solid var(--cp-bg3);`
+  el.append(code, dot)
   return el
 }
 
