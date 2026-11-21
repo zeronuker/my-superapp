@@ -75,12 +75,13 @@ export default async function handler(req, res) {
   } catch (e) {
     if (/OAuth|env vars|login limit/i.test(e.message)) {
       console.error(`[route] getToken failed: ${e.message}`)
-      return res.status(503).json({ error: `Auth error: ${e.message}` })
+      // The login-limit text helps the pilot; other auth errors can carry the provider's reply, so stay general.
+      return res.status(503).json({ error: /login limit/i.test(e.message) ? `Auth error: ${e.message}` : 'Auth error: could not sign in to the data provider' })
     }
     const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
     console.error(`[route] ${isTimeout ? 'timeout' : 'fetch error'}: ${e}`)
     return res.status(isTimeout ? 504 : 502).json({
-      error: isTimeout ? 'Route lookup timed out' : String(e),
+      error: isTimeout ? 'Route lookup timed out' : 'Upstream request failed',
     })
   }
 }

@@ -37,5 +37,6 @@ export async function handleSkylinkError(e, res) {
     return res.status(500).json({ error: e.message })
   }
   const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
-  return res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'SkyLink API timed out' : String(e) })
+  if (!isTimeout) console.error('[skylink] fetch failed:', e)
+  return res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'SkyLink API timed out' : 'SkyLink service unavailable' })
 }

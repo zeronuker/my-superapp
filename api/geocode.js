@@ -24,7 +24,11 @@ export default async function handler(req, res) {
     url = `${NOMINATIM}/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=8&featuretype=settlement`
   } else if (type === 'reverse') {
     if (!lat || !lng) return res.status(400).json({ error: 'Missing lat/lng' })
-    url = `${NOMINATIM}/reverse?lat=${lat}&lon=${lng}&format=json&zoom=10`
+    // Plain numbers only: they go into the URL as written, so "3&format=xml" must not get through.
+    const nLat = typeof lat === 'string' ? Number(lat) : NaN
+    const nLng = typeof lng === 'string' ? Number(lng) : NaN
+    if (!(Math.abs(nLat) <= 90) || !(Math.abs(nLng) <= 180)) return res.status(400).json({ error: 'lat/lng must be numbers (lat -90..90, lng -180..180)' })
+    url = `${NOMINATIM}/reverse?lat=${nLat}&lon=${nLng}&format=json&zoom=10`
   } else {
     return res.status(400).json({ error: 'type must be search or reverse' })
   }

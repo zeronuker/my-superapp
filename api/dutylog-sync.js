@@ -55,6 +55,12 @@ const CORS_ORIGINS = ['https://www.claudeborne.my', 'http://localhost:5173']
 // The CVR bookmark posts from the company site; it may use the OFP inbox and nothing else.
 const CVR_ORIGIN = 'https://cvr.batikair.com.my'
 
+// The raw error can carry database paths and project details: log it, tell the client little.
+function fail(res, e) {
+  console.error('[dutylog-sync]', e)
+  return res.status(502).json({ error: 'sync service error' })
+}
+
 function getDb() {
   if (!getApps().length) {
     const projectId = process.env.FIREBASE_PROJECT_ID
@@ -162,7 +168,7 @@ async function handleBriefing(req, res, ref) {
       return res.status(200).json({ ok: true })
     }
   } catch (e) {
-    return res.status(502).json({ error: String(e) })
+    return fail(res, e)
   }
 
   res.setHeader('Allow', 'GET, PUT, POST, DELETE')
@@ -203,7 +209,7 @@ async function handleOfp(req, res, ref) {
       return res.status(200).json({ ok: true })
     }
   } catch (e) {
-    return res.status(502).json({ error: String(e) })
+    return fail(res, e)
   }
   res.setHeader('Allow', 'GET, POST, DELETE')
   return res.status(405).json({ error: 'method not allowed' })
@@ -223,8 +229,9 @@ export default async function handler(req, res) {
   // A briefing sync sends one request per changed briefing, so it gets a bigger allowance.
   // The CVR bookmark sends a month of OFPs in one go (a list call, then one POST per flight).
   const isBriefing = req.query.kind === 'briefing'
-  const limit = isBriefing ? 150 : req.query.kind === 'ofp' ? 60 : 20
-  if (rateLimited(req, res, { limit, windowMs: 60_000 })) return
+  const kind = isBriefing ? 'briefing' : req.query.kind === 'ofp' ? 'ofp' : 'logs'
+  const limit = { briefing: 150, ofp: 60, logs: 20 }[kind]
+  if (rateLimited(req, res, { limit, windowMs: 60_000, key: kind })) return
 
   const code = String(req.query.code || '').toUpperCase()
   if (!CODE_RE.test(code)) {
@@ -235,7 +242,8 @@ export default async function handler(req, res) {
   try {
     db = getDb()
   } catch (e) {
-    return res.status(500).json({ error: e.message })
+    console.error('[dutylog-sync] database setup failed:', e)
+    return res.status(500).json({ error: 'sync service is not set up' })
   }
 
   const ref = db.collection('dutylogs').doc(code)
@@ -249,7 +257,7 @@ export default async function handler(req, res) {
       if (!snap.exists) return res.status(404).json({ error: 'no backup found for this code' })
       return res.status(200).json(snap.data())
     } catch (e) {
-      return res.status(502).json({ error: String(e) })
+      return fail(res, e)
     }
   }
 
@@ -274,7 +282,7 @@ export default async function handler(req, res) {
       await ref.set({ logs, updatedAt: Date.now(), ownerDeviceId: existingOwner || deviceId })
       return res.status(200).json({ ok: true })
     } catch (e) {
-      return res.status(502).json({ error: String(e) })
+      return fail(res, e)
     }
   }
 
@@ -290,7 +298,7 @@ export default async function handler(req, res) {
       await ref.set({ ...data, ownerDeviceId: deviceId })
       return res.status(200).json({ logs: data.logs ?? [], updatedAt: data.updatedAt })
     } catch (e) {
-      return res.status(502).json({ error: String(e) })
+      return fail(res, e)
     }
   }
 

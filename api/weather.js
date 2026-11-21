@@ -35,6 +35,7 @@ export default async function handler(req, res) {
     res.status(upstream.ok ? 200 : 502).json(data)
   } catch (e) {
     const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
-    res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'Weather API timed out' : String(e) })
+    if (!isTimeout) console.error('[weather] fetch failed:', e)
+    res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'Weather API timed out' : 'Weather service unavailable' })
   }
 }

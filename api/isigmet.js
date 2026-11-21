@@ -41,6 +41,7 @@ export default async function handler(req, res) {
     res.status(gdacs === undefined || upstream.ok ? 200 : 502).json(data)
   } catch (e) {
     const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
-    res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? `${what} API timed out` : String(e) })
+    if (!isTimeout) console.error(`[isigmet] ${what} fetch failed:`, e)
+    res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? `${what} API timed out` : `${what} service unavailable` })
   }
 }

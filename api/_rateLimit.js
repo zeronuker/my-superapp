@@ -16,8 +16,11 @@ export function callerInfo(req) {
   return `country=${h['x-vercel-ip-country'] || '?'} ua=${String(h['user-agent'] || '?').slice(0, 40)}`
 }
 
-export function rateLimited(req, res, { limit = 60, windowMs = 60_000 } = {}) {
-  const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim()
+// `key` splits one IP's count by kind of request, so a function that gives different kinds
+// different limits (dutylog-sync) does not judge a busy kind against a quiet kind's limit.
+export function rateLimited(req, res, { limit = 60, windowMs = 60_000, key = '' } = {}) {
+  const client = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim()
+  const ip = key ? `${client}|${key}` : client
   const now = Date.now()
 
   // Bound memory: drop expired entries once the map gets large.

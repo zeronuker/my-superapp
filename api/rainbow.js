@@ -44,7 +44,8 @@ export default async function handler(req, res) {
       return res.status(200).json(data)
     } catch (e) {
       const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
-      return res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'Rainbow API timed out' : String(e) })
+      if (!isTimeout) console.error('[rainbow] fetch failed:', e)
+      return res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'Rainbow API timed out' : 'Rainbow service unavailable' })
     }
   }
 
@@ -82,7 +83,8 @@ export default async function handler(req, res) {
       return res.status(200).send(buf)
     } catch (e) {
       const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
-      return res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'Rainbow API timed out' : String(e) })
+      if (!isTimeout) console.error('[rainbow] fetch failed:', e)
+      return res.status(isTimeout ? 504 : 502).json({ error: isTimeout ? 'Rainbow API timed out' : 'Rainbow service unavailable' })
     }
   }
 

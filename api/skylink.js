@@ -64,7 +64,8 @@ export default async function handler(req, res) {
   if (rateLimited(req, res)) return
 
   const { resource, ...query } = req.query
-  const build = RESOURCES[resource]
+  // Own keys only: "constructor" etc. would otherwise resolve to Object.prototype members.
+  const build = typeof resource === 'string' && Object.hasOwn(RESOURCES, resource) ? RESOURCES[resource] : null
   if (!build) {
     return res.status(400).json({ error: `Unknown or missing resource "${resource}" — expected one of ${Object.keys(RESOURCES).join(', ')}` })
   }

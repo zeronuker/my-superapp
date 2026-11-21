@@ -100,12 +100,13 @@ export default async function handler(req, res) {
     }
     if (/OAuth|env vars|login limit/i.test(e.message)) {
       console.error(`[notam] getToken failed: ${e.message}`)
-      return res.status(503).json({ error: `Auth error: ${e.message}` })
+      // The login-limit text helps the pilot; other auth errors can carry the provider's reply, so stay general.
+      return res.status(503).json({ error: /login limit/i.test(e.message) ? `Auth error: ${e.message}` : 'Auth error: could not sign in to the data provider' })
     }
     const isTimeout = e?.name === 'TimeoutError' || e?.name === 'AbortError'
     console.error(`[notam] ${isTimeout ? 'timeout' : 'fetch error'} for ${label}: ${e}`)
     return res.status(isTimeout ? 504 : 502).json({
-      error: isTimeout ? 'NOTAM API timed out' : String(e),
+      error: isTimeout ? 'NOTAM API timed out' : 'Upstream request failed',
     })
   }
 }
