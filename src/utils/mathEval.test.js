@@ -19,6 +19,17 @@ describe('evaluate — arithmetic & precedence', () => {
     expect(evaluate('3 × -2')).toBe(-6)
     expect(evaluate('-(2 + 3)')).toBe(-5)
   })
+  it('a minus in front of a power applies after the power, as on a calculator', () => {
+    expect(evaluate('-2^2')).toBe(-4)
+    expect(evaluate('-2 ^ 2 + 10')).toBe(6)
+    expect(evaluate('3 - 2^2')).toBe(-1)
+    expect(evaluate('-3 × 2')).toBe(-6)      // times still binds looser than the minus
+    expect(evaluate('2 ^ -3')).toBe(0.125)   // a minus inside the exponent
+    expect(evaluate('-2 ^ -2')).toBe(-0.25)
+    expect(evaluate('(-2)^2')).toBe(4)
+    expect(evaluate('-sin(30)')).toBeCloseTo(-0.5, 9)
+    expect(evaluate('5 - -2')).toBe(7)
+  })
 })
 
 describe('evaluate — functions & constants', () => {
@@ -54,3 +65,29 @@ describe('evaluate — errors', () => {
     expect(() => evaluate('1 ÷ 0')).toThrow()    // Infinity rejected
   })
 })
+
+describe('evaluate — exact trig values', () => {
+  it('gives exactly 0 where the answer is 0 (no 1.2e-16 left over)', () => {
+    expect(evaluate('sin(180)')).toBe(0)
+    expect(evaluate('sin(360)')).toBe(0)
+    expect(evaluate('cos(90)')).toBe(0)
+    expect(evaluate('cos(270)')).toBe(0)
+    expect(evaluate('tan(180)')).toBe(0)
+    expect(evaluate('sin(pi)', 'rad')).toBe(0)
+    expect(evaluate('cos(pi ÷ 2)', 'rad')).toBe(0)
+  })
+  it('keeps ordinary values', () => {
+    expect(evaluate('sin(90)')).toBe(1)
+    expect(evaluate('cos(0)')).toBe(1)
+    expect(evaluate('tan(45)')).toBeCloseTo(1, 12)
+    expect(evaluate('sin(0.000001)', 'rad')).toBeCloseTo(0.000001, 12)   // small but real: not snapped
+  })
+  it('tan at 90° (and 270°, -90°) is an error, not 16 quadrillion', () => {
+    expect(() => evaluate('tan(90)')).toThrow()
+    expect(() => evaluate('tan(270)')).toThrow()
+    expect(() => evaluate('tan(-90)')).toThrow()
+    expect(() => evaluate('tan(pi ÷ 2)', 'rad')).toThrow()
+    expect(evaluate('tan(89.9)')).toBeGreaterThan(500)
+  })
+})
+

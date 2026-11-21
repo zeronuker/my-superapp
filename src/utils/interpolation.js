@@ -26,6 +26,11 @@ export function interpolateAltitude(weight, weights, altitudes) {
       const h1 = altitudes[i]
       const h2 = altitudes[i + 1]
 
+      // Exactly on a table weight: that cell alone decides. (A gap in the neighbouring cell must not
+      // blank it out: at 50 t the 45 t cell is irrelevant.)
+      if (w === w1) return h1 === null ? null : Math.round(h1)
+      if (w === w2) return h2 === null ? null : Math.round(h2)
+
       if (h1 === null || h2 === null) return null
 
       // Linear interpolation formula: y = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
@@ -61,6 +66,9 @@ export function linearInterpolate(x1, y1, x2, y2, x) {
   const result = y1n + (xn - x1n) * (y2n - y1n) / (x2n - x1n)
   return parseFloat(result.toFixed(4))
 }
+
+// An altitude with an anti-ice penalty (negative feet) added; "no value" (null) stays no value.
+export const withPenalty = (alt, penalty) => (alt === null ? null : alt + penalty)
 
 function extractTempValue(tempStr) {
   if (tempStr === 'ISA') return 0
@@ -110,7 +118,9 @@ export function interpolateAltitude2D(weight, isaDeviation, weights, temperature
 
   const upperAlt = interpolateAltitude(w, weights, data[upperCol])
   if (upperAlt === null) {
-    return { altitude: lowerAlt, lowerCol, upperCol, lowerAlt, upperAlt: null, clamped }
+    // The manual has no value in the hotter column here, so there is nothing to interpolate to. The
+    // cooler column's altitude would be too high (altitude falls as it gets hotter): give no value.
+    return { altitude: null, lowerCol, upperCol, lowerAlt, upperAlt: null, clamped }
   }
 
   const t1 = tempValues[lowerIdx]

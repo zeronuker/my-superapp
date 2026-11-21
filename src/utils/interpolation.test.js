@@ -3,6 +3,7 @@ import {
   linearInterpolate,
   interpolateAltitude,
   interpolateAltitude2D,
+  withPenalty,
 } from './interpolation'
 
 describe('linearInterpolate', () => {
@@ -100,3 +101,34 @@ describe('interpolateAltitude2D', () => {
     expect(interpolateAltitude2D('x', 0, weights, temperatures, data)).toBeNull()
   })
 })
+
+describe('interpolateAltitude2D — a table cell with no value', () => {
+  // The B737-8 LEAP-1B25 310 KIAS table at 45 t: ISA+10 16300, ISA+15 14700, ISA+20 (no value).
+  const weights = [45, 50]
+  const temperatures = ['ISA+10', 'ISA+15', 'ISA+20']
+  const data = { 'ISA+10': [16300, 15900], 'ISA+15': [14700, 14200], 'ISA+20': [null, 11600] }
+
+  it('gives no value between the last column that has one and the empty one (it used to give the cooler column altitude)', () => {
+    expect(interpolateAltitude2D(45, 17, weights, temperatures, data).altitude).toBeNull()
+    expect(interpolateAltitude2D(45, 19.9, weights, temperatures, data).altitude).toBeNull()
+    expect(interpolateAltitude2D(45, 20, weights, temperatures, data).altitude).toBeNull()
+  })
+
+  it('still interpolates below that, and at ISA+15 itself', () => {
+    expect(interpolateAltitude2D(45, 15, weights, temperatures, data).altitude).toBe(14700)
+    expect(interpolateAltitude2D(45, 12.5, weights, temperatures, data).altitude).toBe(15500)   // halfway 16300..14700
+  })
+
+  it('other weights in the same table are unaffected', () => {
+    expect(interpolateAltitude2D(50, 17, weights, temperatures, data).altitude).toBe(Math.round(14200 + 2 * (11600 - 14200) / 5))
+  })
+})
+
+describe('withPenalty', () => {
+  it('adds the penalty to an altitude and passes "no value" through', () => {
+    expect(withPenalty(15000, -1600)).toBe(13400)
+    expect(withPenalty(15000, 0)).toBe(15000)
+    expect(withPenalty(null, -1600)).toBeNull()
+  })
+})
+

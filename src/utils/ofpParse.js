@@ -61,7 +61,9 @@ const round4 = n => Math.round(n * 1e4) / 1e4
 // in arc-seconds (south and west negative). Alternate legs come after <AlternateRoutes>.
 function xmlPoints(text) {
   const main = text.split('<AlternateRoutes>')[0]
-  const re = /<Waypoint\s+waypointName="([^"]+)"[\s\S]*?<Coordinates\s+latitude="(-?[\d.]+)"\s+longitude="(-?[\d.]+)"/g
+  // The text between the name and its coordinates may not run into the next <Waypoint: a waypoint
+  // with no coordinates would otherwise take the next one's, and swallow it.
+  const re = /<Waypoint\s+waypointName="([^"]+)"(?:(?!<Waypoint[\s>])[\s\S])*?<Coordinates\s+latitude="(-?[\d.]+)"\s+longitude="(-?[\d.]+)"/g
   return [...main.matchAll(re)].map(m => ({ name: m[1], lat: round4(m[2] / 3600), lon: round4(m[3] / 3600) }))
 }
 

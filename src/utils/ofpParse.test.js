@@ -402,3 +402,14 @@ describe('pasteFill (what the paste box sets)', () => {
     expect(pasteFill('')).toEqual({})
   })
 })
+
+describe('parseOfpXml — a waypoint with no coordinates', () => {
+  it('is left out; it does not take the next waypoint coordinates (and swallow that waypoint)', () => {
+    const noCoords = XML.replace('<Coordinates latitude="-408" longitude="387822"/>', '')
+    const r = parseOfpXml(noCoords)
+    expect(r.ok).toBe(true)
+    expect(r.points.find(p => p.name === 'KADAR')).toBeUndefined()
+    expect(r.points.map(p => p.name)).toEqual(['KK701'])
+  })
+})
+

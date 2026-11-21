@@ -1,7 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useCalculatorStore } from '../store/calculatorStore'
-import { interpolateAltitude2D } from '../utils/interpolation'
+import { interpolateAltitude2D, withPenalty } from '../utils/interpolation'
 import lookupTables from '../data/lookupTables.json'
 import { SectionHeader, ChoiceBtn } from './B737Parts'
 
@@ -126,8 +126,7 @@ const EDTOCalculator = forwardRef(function EDTOCalculator(props, ref) {
       kiasPenalty = kiasTable ? kiasTable.antiIcePenalty.engineAndWing : 0
     }
 
-    const kiasResult = kiasAltRaw !== null ? kiasAltRaw + kiasPenalty : null
-    setEDTOResults(lrcAltRaw + lrcPenalty, kiasResult)
+    setEDTOResults(withPenalty(lrcAltRaw, lrcPenalty), withPenalty(kiasAltRaw, kiasPenalty))
     setCalcDetails({ lrcAltRaw, lrcPenalty, lrcInterp, kiasAltRaw, kiasPenalty, kiasInterp, kiasAvailable: !!kiasTable })
   }, [edto.weight, edto.isaDeviation, edto.variant, edto.antiIce, currentVariant])
 

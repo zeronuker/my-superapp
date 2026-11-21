@@ -109,7 +109,8 @@ function pdfFuel(text) {
   const fuel = finishFuel({
     trip: pair(text, /\bTRIP\s+(\d+)\s+(\d{1,2}:\d{2})/),
     contingency: pair(text, /\bCONT\s+FUEL\s+(\d+)\s+(\d{1,2}:\d{2})/),
-    alternate: { icao: alt?.[1] ?? null, kg: +alt?.[2], min: hm(alt?.[3]) },
+    // No "ALTN 1" line = no alternate fuel on the plan: 0, not NaN (+undefined) leaking into the bar and the sums.
+    alternate: { icao: alt?.[1] ?? null, kg: alt ? +alt[2] : 0, min: alt ? hm(alt[3]) : 0 },
     finalReserve: pair(text, /\bFINAL\s+RES\s+(\d+)\s+(\d{1,2}:\d{2})/),
     tankering: pair(text, /\bECO\s+TANKERING\s+(\d+)\s+(\d{1,2}:\d{2})/),
     takeoff: pair(text, /\bEST\s+T\/OFF\s+FUEL\s+(\d+)\s+(\d{1,2}:\d{2})/),

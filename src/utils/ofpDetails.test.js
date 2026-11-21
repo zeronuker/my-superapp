@@ -181,3 +181,18 @@ describe('fuel the named lines do not cover', () => {
     expect(d.fuel.extra).toEqual({ kg: 300, min: 15 })
   })
 })
+
+describe('a PFP with no ALTN 1 line', () => {
+  const noAlt = pdfDetails(PDF.replace('|ALTN 1 UZFN 1371 00:33 _________|CARGO 0 |', '|CARGO 0 |'))
+  const numbers = (o) => Object.values(o ?? {}).flatMap(v => (v && typeof v === 'object' ? numbers(v) : typeof v === 'number' ? [v] : []))
+
+  it('has no alternate fuel rather than NaN, and no NaN anywhere in the fuel', () => {
+    expect(noAlt.fuel.alternate).toEqual({ icao: null, kg: 0, min: 0 })
+    expect(numbers(noAlt.fuel).every(Number.isFinite)).toBe(true)
+  })
+
+  it('minimum diversion fuel is just the final reserve', () => {
+    expect(noAlt.fuel.minDiversion).toEqual({ kg: 1052, min: 30 })
+  })
+})
+

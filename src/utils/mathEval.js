@@ -16,7 +16,7 @@ const OPS = {
   '+': { p: 2, r: false }, '-': { p: 2, r: false },
   '*': { p: 3, r: false }, '/': { p: 3, r: false },
   '^': { p: 4, r: true },
-  'u-': { p: 5, r: true },          // unary minus
+  'u-': { p: 3.5, r: true },        // unary minus: tighter than × ÷, looser than ^, so -2^2 = -(2^2)
 }
 
 function tokenize(src) {
@@ -76,7 +76,8 @@ function toRpn(tokens) {
       if (op === '-' && (prev === null || (prev.t === 'op' && prev.v !== ')'))) op = 'u-'
       const o1 = OPS[op]
       if (!o1) throw new Error(`bad op ${op}`)
-      while (stack.length) {
+      // A prefix minus has no left operand, so it must not pop anything off the stack.
+      while (stack.length && op !== 'u-') {
         const top = stack[stack.length - 1]
         if (top.t === 'func') { out.push(stack.pop()); continue }
         const o2 = OPS[top.v]
@@ -95,13 +96,19 @@ function toRpn(tokens) {
   return out
 }
 
+// sin(180°) is 1.2e-16 in floating point, not 0. Anything this close to 0 is 0 (a real sin of a
+// value this small only happens for an input of about 1e-12, far below what a pilot types).
+const snapZero = (v) => (Math.abs(v) < 1e-12 ? 0 : v)
+
 function applyFunc(name, x, angleMode) {
   const toRad = angleMode === 'deg' ? x * Math.PI / 180 : x
   const fromRad = (r) => angleMode === 'deg' ? r * 180 / Math.PI : r
   switch (name) {
-    case 'sin': return Math.sin(toRad)
-    case 'cos': return Math.cos(toRad)
-    case 'tan': return Math.tan(toRad)
+    case 'sin': return snapZero(Math.sin(toRad))
+    case 'cos': return snapZero(Math.cos(toRad))
+    case 'tan':
+      if (Math.abs(Math.cos(toRad)) < 1e-12) throw new Error('math error')   // 90°, 270° ...: undefined
+      return snapZero(Math.tan(toRad))
     case 'asin': return fromRad(Math.asin(x))
     case 'acos': return fromRad(Math.acos(x))
     case 'atan': return fromRad(Math.atan(x))
