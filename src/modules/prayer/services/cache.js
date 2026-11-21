@@ -2,6 +2,8 @@
 // v2: previous versions keyed by UTC date, which day-shifted entries in
 // non-UTC timezones. Bumping the key abandons any poisoned v1 cache.
 // v3: entries now carry the location's time zone and method; v2 ones were built in the device's zone.
+import { dayInZone } from './zonedTime'
+
 const CACHE_KEY = 'prayer-module-cache-v3'
 
 function read() {
@@ -38,12 +40,16 @@ export function getCached(lat, lng, date, method, madhab, timeFormat) {
 
   // Sanity guard: never return times whose calendar day doesn't match the
   // requested day (defends against any key collision / stale entry). Forces a
-  // fresh fetch instead of showing day-shifted times. Skipped for entries with
-  // a location time zone: their day is the location's, which the device's
-  // calendar can't be compared against.
-  if (!result.timeZone && result.fajrDate instanceof Date &&
-      localDateStr(result.fajrDate) !== localDateStr(date)) {
-    return null
+  // fresh fetch instead of showing day-shifted times. An entry with a location
+  // time zone holds the LOCATION's day, so it is compared with the requested
+  // moment's day in that zone (the key is the device's day, which can differ
+  // from the place's for part of every day).
+  if (result.fajrDate instanceof Date) {
+    const tz = result.timeZone
+    const sameDay = tz
+      ? dayInZone(result.fajrDate, tz) === dayInZone(date, tz)
+      : localDateStr(result.fajrDate) === localDateStr(date)
+    if (!sameDay) return null
   }
   return result
 }

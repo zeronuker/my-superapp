@@ -4,6 +4,7 @@ import {
   interpolateGreatCircle,
   altitudeCorrectionMinutes,
   cabinRelativeQibla,
+  buildPrayerTimeline,
 } from './flightCalc'
 
 describe('greatCircleNm', () => {
@@ -71,3 +72,42 @@ describe('cabinRelativeQibla', () => {
     expect(cabinRelativeQibla(10, 350)).toEqual({ angle: 20, side: 'RIGHT' })
   })
 })
+
+describe('buildPrayerTimeline across the date line', () => {
+  const SIN = { lat: 1.3644, lng: 103.9915 }
+  const SFO = { lat: 37.6213, lng: -122.379 }
+  const KUL = { lat: 2.7456, lng: 101.7099 }
+  const LAX = { lat: 33.9416, lng: -118.4085 }
+  const settings = { calculationMethod: 'jakim', madhab: 'shafi', timeFormat: '24hr' }
+
+  // Two real prayers are never at the same instant (Imsak and Fajr come about 6 minutes apart in a fast
+  // westbound frame). Seven prayers "happening" at one moment is the calendar's day-wrap showing up as a
+  // crossing: not real.
+  const noPileUp = (events) => {
+    for (let i = 1; i < events.length; i++) expect(events[i].elapsedHours - events[i - 1].elapsedHours).toBeGreaterThan(0.02)
+  }
+
+  it.each([
+    ['SIN-SFO', SIN, SFO, 16.5],
+    ['KUL-LAX', KUL, LAX, 14.5],
+  ])('%s: no prayers pile up at one moment, at departures that reach the date line', (_n, dep, dest, hours) => {
+    for (const h of [0, 9, 15]) {
+      const depInstantMs = Date.UTC(2026, 10, 21, h, 0)
+      const events = buildPrayerTimeline({ depPos: dep, destPos: dest, depInstantMs, totalHours: hours, altitudeFt: 38000, settings })
+      noPileUp(events)
+    }
+  }, 30_000)
+
+  it('still finds real prayers on an ordinary flight (KUL-SIN, no date line)', () => {
+    const events = buildPrayerTimeline({ depPos: KUL, destPos: SIN, depInstantMs: Date.UTC(2026, 10, 21, 3, 0), totalHours: 1, altitudeFt: 30000, settings })
+    expect(Array.isArray(events)).toBe(true)
+    noPileUp(events)
+  })
+
+  it('a long westbound flight still finds its prayers (LHR-like: not emptied by the filter)', () => {
+    const events = buildPrayerTimeline({ depPos: { lat: 51.47, lng: -0.45 }, destPos: SIN, depInstantMs: Date.UTC(2026, 10, 21, 20, 0), totalHours: 13, altitudeFt: 38000, settings })
+    expect(events.length).toBeGreaterThan(3)
+    noPileUp(events)
+  })
+})
+

@@ -179,7 +179,9 @@ function findCrossingsForCycle(key, depPos, destPos, depInstantMs, totalHours, a
         if (Math.sign(mid.offset) === loSign) lo = midT
         else hi = midT
       }
-      crossings.push({ key, elapsedHours: (lo + hi) / 2, position: mid.pos, date: mid.date })
+      // A real crossing converges on offset ~ 0. When the sign change was a jump instead (the calendar
+      // day wrapping near the date line), the bisection ends where the offset is still hours away: skip it.
+      if (Math.abs(mid?.offset ?? Infinity) <= 0.05) crossings.push({ key, elapsedHours: (lo + hi) / 2, position: mid.pos, date: mid.date })
     }
     prev = cur
   }

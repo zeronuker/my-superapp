@@ -20,9 +20,10 @@ function rememberLocation(lat, lng, method, times) {
  * `method` is the Settings value; 'auto' lets Aladhan pick the local authority's.
  */
 export async function getPrayerTimes(lat, lng, date, method, madhab, timeFormat) {
-  // 1. Cache first
+  // 1. Cache first. A locally calculated entry (made offline, or when the lookup failed) is only a
+  // stand-in: while online, ask for the real times instead of serving it for the rest of the day.
   const cached = getCached(lat, lng, date, method, madhab, timeFormat)
-  if (cached) return cached
+  if (cached && !(cached.source === 'local' && navigator.onLine)) return cached
 
   // 2. API (with fallback)
   if (navigator.onLine) {

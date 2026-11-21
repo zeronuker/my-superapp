@@ -24,12 +24,14 @@ export function usePrayerTimes(location, settings) {
   settRef.current   = settings
 
   const midnightTimer = useRef(null)
+  const latestRequest = useRef(0)   // only the newest lookup may show its answer (a slow older one must not overwrite it)
 
   const fetchTimes = useCallback(async (date = new Date()) => {
     const loc  = locRef.current
     const sett = settRef.current
     if (!loc?.lat || !loc?.lng) return
 
+    const mine = ++latestRequest.current
     setLoading(true)
     setError(null)
     try {
@@ -37,13 +39,15 @@ export function usePrayerTimes(location, settings) {
         loc.lat, loc.lng, date,
         sett.calculationMethod, sett.madhab, sett.timeFormat
       )
+      if (mine !== latestRequest.current) return
       setTimes(result)
       timesRef.current = result
       usePrayerStore.getState().setPrayerTimes(result, result.source)
     } catch (err) {
+      if (mine !== latestRequest.current) return
       setError(err.message ?? 'Failed to load prayer times')
     } finally {
-      setLoading(false)
+      if (mine === latestRequest.current) setLoading(false)
     }
   }, []) // stable — uses refs internally
 
