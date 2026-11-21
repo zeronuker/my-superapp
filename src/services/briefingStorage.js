@@ -86,10 +86,16 @@ function mergeById(primary, extra) {
 // the next launch, and the old entries are still returned so nothing vanishes
 // from the list meanwhile.
 export async function loadSaves(backend = idbBackend, storage = globalThis.localStorage) {
+  return (await loadSavesChecked(backend, storage)).saves
+}
+
+// Same, but also says when IndexedDB could not be read (`failed`): an empty list then means
+// "could not read", not "nothing saved". The cloud SYNC must not treat it as the latter.
+export async function loadSavesChecked(backend = idbBackend, storage = globalThis.localStorage) {
   const legacy = storage ? readLegacy(storage) : []
   let stored
-  try { stored = await backend.getAll() } catch (_) { return legacy }
-  if (!legacy.length) return stored
+  try { stored = await backend.getAll() } catch (_) { return { saves: legacy, failed: true } }
+  if (!legacy.length) return { saves: stored, failed: false }
 
   const have = new Set(stored.map(b => b.id))
   try {
@@ -99,8 +105,8 @@ export async function loadSaves(backend = idbBackend, storage = globalThis.local
       stored.push(entry)
     }
     try { storage.removeItem(LEGACY_KEY) } catch (_) {}
-    return stored
+    return { saves: stored, failed: false }
   } catch (_) {
-    return mergeById(stored, legacy)
+    return { saves: mergeById(stored, legacy), failed: false }
   }
 }

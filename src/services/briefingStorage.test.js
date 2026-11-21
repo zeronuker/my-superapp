@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { loadSaves, isQuotaError } from './briefingStorage'
+import { loadSaves, loadSavesChecked, isQuotaError } from './briefingStorage'
 
 const LEGACY_KEY = 'cb-briefing-saves'
 
@@ -85,3 +85,16 @@ describe('isQuotaError', () => {
     expect(isQuotaError(undefined)).toBe(false)
   })
 })
+
+describe('loadSavesChecked', () => {
+  it('says failed when IndexedDB cannot be read, with what the old localStorage list held', async () => {
+    const backend = { getAll: async () => { throw new Error('idb down') } }
+    expect(await loadSavesChecked(backend, fakeStorage())).toEqual({ saves: [], failed: true })
+    expect(await loadSavesChecked(backend, fakeStorage([{ id: 'a' }]))).toEqual({ saves: [{ id: 'a' }], failed: true })
+  })
+
+  it('says not failed for an empty but readable IndexedDB', async () => {
+    expect(await loadSavesChecked(fakeBackend(), fakeStorage())).toEqual({ saves: [], failed: false })
+  })
+})
+

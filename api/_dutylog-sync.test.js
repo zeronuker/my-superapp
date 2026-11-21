@@ -3,9 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // A stand-in for Firestore: every document in one Map, keyed by its full path.
 const fb = vi.hoisted(() => {
   const docs = new Map()
+  const writes = []   // every write, so a test can check HOW a document was written
   const docRef = (path) => ({
     get: async () => { const d = docs.get(path); return { exists: d !== undefined, id: path.split('/').pop(), data: () => d } },
-    set: async (v) => { docs.set(path, v) },
+    set: async (v, opts) => { writes.push(['set', path, opts?.merge ? 'merge' : 'replace']); docs.set(path, opts?.merge ? { ...docs.get(path), ...v } : v) },
+    update: async (v) => { writes.push(['update', path, Object.keys(v)]); if (!docs.has(path)) throw new Error('NOT_FOUND'); docs.set(path, { ...docs.get(path), ...v }) },
     delete: async () => { docs.delete(path) },
     collection: (name) => collRef(`${path}/${name}`),
   })
@@ -19,7 +21,7 @@ const fb = vi.hoisted(() => {
       }),
     }),
   })
-  return { docs, db: { collection: (name) => collRef(name) } }
+  return { docs, writes, db: { collection: (name) => collRef(name) } }
 })
 vi.mock('firebase-admin/app', () => ({ getApps: () => [{}], initializeApp: () => ({}), cert: (c) => c }))
 vi.mock('firebase-admin/firestore', () => ({ getFirestore: () => fb.db }))
@@ -35,7 +37,7 @@ function call(method, { query = {}, body, origin } = {}) {
   return handler(req, res).then(() => res)
 }
 
-beforeEach(() => { fb.docs.clear() })
+beforeEach(() => { fb.docs.clear(); fb.writes.length = 0 })
 
 describe('briefing endpoints', () => {
   it('PUT creates the code with an owner, GET lists and fetches (nested arrays survive)', async () => {
@@ -225,3 +227,39 @@ describe('picture pieces: map, cloud (sat) and winds (wind)', () => {
     expect(got.entry.id).toBe('old')
   })
 })
+
+describe('duty-log endpoints: ownership writes', () => {
+  const logsCall = (method, extra = {}) => call(method, { query: { kind: undefined }, ...extra })
+  beforeEach(() => { fb.docs.set(`dutylogs/${CODE}`, { logs: [{ id: 'L' }], updatedAt: 1, ownerDeviceId: 'dev1' }) })
+
+  it('GET does not hand out the owner tag', async () => {
+    const res = await logsCall('GET')
+    expect(res.code).toBe(200)
+    expect(res.body).toEqual({ logs: [{ id: 'L' }], updatedAt: 1 })
+  })
+
+  it('a claim changes only the owner field, so it cannot write back an older copy of the logs', async () => {
+    const res = await logsCall('POST', { body: { deviceId: 'dev2' } })
+    expect(res.code).toBe(200)
+    expect(res.body.logs).toEqual([{ id: 'L' }])
+    expect(fb.writes.filter(([, p]) => p === `dutylogs/${CODE}`)).toEqual([['update', `dutylogs/${CODE}`, ['ownerDeviceId']]])
+    expect(fb.docs.get(`dutylogs/${CODE}`).ownerDeviceId).toBe('dev2')
+  })
+
+  it('a briefing-side claim also changes only the owner field', async () => {
+    const res = await call('POST', { body: { deviceId: 'dev2' } })
+    expect(res.code).toBe(200)
+    expect(fb.writes.filter(([, p]) => p === `dutylogs/${CODE}`)).toEqual([['update', `dutylogs/${CODE}`, ['ownerDeviceId']]])
+  })
+
+  it("the owner's push leaves the owner field alone (merge), and a first push sets it", async () => {
+    await logsCall('PUT', { body: { deviceId: 'dev1', logs: [{ id: 'N' }] } })
+    expect(fb.writes.at(-1)).toEqual(['set', `dutylogs/${CODE}`, 'merge'])
+    expect(fb.docs.get(`dutylogs/${CODE}`)).toMatchObject({ logs: [{ id: 'N' }], ownerDeviceId: 'dev1' })
+
+    fb.docs.delete(`dutylogs/${CODE}`)
+    await logsCall('PUT', { body: { deviceId: 'dev9', logs: [] } })
+    expect(fb.docs.get(`dutylogs/${CODE}`).ownerDeviceId).toBe('dev9')
+  })
+})
+

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { makeBriefingId, autoBriefingName, sortByNewest, pickNextAfterDelete } from '../utils/savedBriefings'
-import { loadSaves, idbBackend, isQuotaError, loadCloudState, saveCloudState } from '../services/briefingStorage'
+import { loadSavesChecked, idbBackend, isQuotaError, loadCloudState, saveCloudState } from '../services/briefingStorage'
 import { syncSnapshotCaches } from '../services/briefingSync'
 import { showAlert } from '../alertBus'
 
@@ -185,6 +185,7 @@ export const useCalculatorStore = create((set, get) => ({
     open: false, route: null, data: null, savedId: null,
     viewed: null,   // a cloud briefing open read-only (openViewedBriefing), not one of `saves`
     saves: [],
+    savesReadFailed: false,   // IndexedDB could not be read at start: `saves` is then not the whole truth (SYNC refuses)
     // Cloud backup state { at, synced: { [id]: name } } — see briefingCloud.js.
     cloud: loadCloudState(),
   },
@@ -273,11 +274,11 @@ export const useCalculatorStore = create((set, get) => ({
   // on first run). Merges rather than replaces, so a save made before the
   // load finished is never dropped.
   initSavedBriefings: async () => {
-    const loaded = await loadSaves()
+    const { saves: loaded, failed } = await loadSavesChecked()
     set(s => {
       const have = new Set(loaded.map(b => b.id))
       const extra = s.briefing.saves.filter(b => !have.has(b.id))
-      return { briefing: { ...s.briefing, saves: sortByNewest([...loaded, ...extra]) } }
+      return { briefing: { ...s.briefing, savesReadFailed: failed, saves: sortByNewest([...loaded, ...extra]) } }
     })
   },
   // Instant save, no dialog — `name` optional (defaults to route + date +

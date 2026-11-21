@@ -2,11 +2,12 @@ import { describe, it, expect, vi } from 'vitest'
 
 // The two stores are only used by the UI-facing calls; these tests cover the pure parts.
 const duty = vi.hoisted(() => ({ state: {}, pushLogs: vi.fn() }))
-vi.mock('../store/calculatorStore', () => ({ useCalculatorStore: { getState: () => ({}) } }))
+const cal = vi.hoisted(() => ({ state: {} }))
+vi.mock('../store/calculatorStore', () => ({ useCalculatorStore: { getState: () => cal.state } }))
 vi.mock('../modules/dutylog/store/dutylogStore', () => ({ default: { getState: () => duty.state } }))
 vi.mock('../modules/dutylog/services/sync', () => ({ pushLogs: duty.pushLogs }))
 
-import { planSync, splitMap, syncSaves, pushSaves, syncLogsNow, fetchOne, fetchAll, MAP_PIECE_CHARS } from './briefingCloud'
+import { planSync, splitMap, syncSaves, pushSaves, syncLogsNow, syncBriefingsNow, fetchOne, fetchAll, MAP_PIECE_CHARS } from './briefingCloud'
 
 const save = (id, name, mapSnapshot = 'img') => ({ id, name, savedAt: 1, route: { dep: 'WMKK', arr: 'WSSS' }, data: {}, mapSnapshot })
 
@@ -307,3 +308,16 @@ describe('fetchAll', () => {
     expect(out.map(e => [e.id, e.mapSnapshot])).toEqual([['a', 'one-two'], ['b', null]])
   })
 })
+
+describe('syncBriefingsNow', () => {
+  it('refuses, before any request, when the saved list could not be read on this device', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    duty.state = { syncCode: 'AAAA-BBBB-CCCC', ensureDeviceId: () => 'dev' }
+    cal.state = { briefing: { saves: [], savesReadFailed: true, cloud: { synced: { a: 'A' } } }, setBriefingCloud: vi.fn() }
+    await expect(syncBriefingsNow()).rejects.toThrow(/could not be read/)
+    expect(fetchMock).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+})
+

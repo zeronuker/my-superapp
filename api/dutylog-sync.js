@@ -115,7 +115,8 @@ async function handleBriefing(req, res, ref) {
       if (!deviceId) return res.status(400).json({ error: 'deviceId required' })
       const snap = await ref.get()
       if (!snap.exists) return res.status(404).json({ error: 'no backup found for this code' })
-      await ref.set({ ...snap.data(), ownerDeviceId: deviceId })
+      // Only the owner field: rewriting the whole document could put back an older copy of the logs.
+      await ref.update({ ownerDeviceId: deviceId })
       return res.status(200).json({ items: await listItems() })
     }
 
@@ -255,7 +256,9 @@ export default async function handler(req, res) {
     try {
       const snap = await ref.get()
       if (!snap.exists) return res.status(404).json({ error: 'no backup found for this code' })
-      return res.status(200).json(snap.data())
+      // The owner tag is what a push is checked against: no reason to show it to a viewer.
+      const { ownerDeviceId: _owner, ...visible } = snap.data()
+      return res.status(200).json(visible)
     } catch (e) {
       return fail(res, e)
     }
@@ -279,7 +282,8 @@ export default async function handler(req, res) {
       if (existingOwner && existingOwner !== deviceId) {
         return res.status(403).json({ error: 'this code is owned by another device' })
       }
-      await ref.set({ logs, updatedAt: Date.now(), ownerDeviceId: existingOwner || deviceId })
+      // Merge, and leave the owner alone when there is one: a claim made a moment ago must not be undone.
+      await ref.set(existingOwner ? { logs, updatedAt: Date.now() } : { logs, updatedAt: Date.now(), ownerDeviceId: deviceId }, { merge: true })
       return res.status(200).json({ ok: true })
     } catch (e) {
       return fail(res, e)
@@ -295,7 +299,7 @@ export default async function handler(req, res) {
       const snap = await ref.get()
       if (!snap.exists) return res.status(404).json({ error: 'no backup found for this code' })
       const data = snap.data()
-      await ref.set({ ...data, ownerDeviceId: deviceId })
+      await ref.update({ ownerDeviceId: deviceId })   // the owner field only, see the briefing claim above
       return res.status(200).json({ logs: data.logs ?? [], updatedAt: data.updatedAt })
     } catch (e) {
       return fail(res, e)

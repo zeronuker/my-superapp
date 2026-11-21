@@ -12,6 +12,7 @@ import { briefingRow } from '../utils/savedBriefings'
 import { useCalculatorStore } from '../store/calculatorStore'
 import useDutyLogStore from '../modules/dutylog/store/dutylogStore'
 import { pushLogs } from '../modules/dutylog/services/sync'
+import { fetchTimeout } from '../utils/fetchTimeout'
 
 // The server refuses a document over 900 000 bytes; a data URL is plain ASCII.
 export const MAP_PIECE_CHARS = 700_000
@@ -26,7 +27,7 @@ async function call(code, method, { id, part, what, deviceId, body } = {}) {
   if (part !== undefined) params.set('part', part)
   if (what && what !== 'map') params.set('what', what)
   if (method === 'DELETE') params.set('deviceId', deviceId)
-  const send = () => fetch(`/api/dutylog-sync?${params}`, {
+  const send = () => fetchTimeout(`/api/dutylog-sync?${params}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
@@ -169,6 +170,8 @@ export async function syncBriefingsNow(onProgress) {
   const { syncCode, ensureDeviceId } = useDutyLogStore.getState()
   if (!syncCode) throw new Error('Create a cloud sync code in Settings first.')
   const { briefing, setBriefingCloud } = useCalculatorStore.getState()
+  // SYNC deletes cloud copies of saves missing here. If the saved list could not be read, "missing" is wrong.
+  if (briefing.savesReadFailed) throw new Error('Saved briefings could not be read on this device, so SYNC is paused to protect your cloud backup. Close and reopen the app, then try again.')
   const synced = await syncSaves(syncCode, ensureDeviceId(), briefing.saves, cloudApi, onProgress)
   setBriefingCloud({ at: Date.now(), synced })
 }
