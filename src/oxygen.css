@@ -192,7 +192,18 @@
 @keyframes oxy-flash { 0% { text-shadow: 0 0 16px currentColor; } 100% { text-shadow: 0 0 0 transparent; } }
 .cp-result-value.oxy-flash { animation: oxy-flash calc(var(--oxy-d) * 3.5) var(--oxy-ease); }
 
+/* ── 13. Duty Log textareas ease to their new height; the Flight plane fades in and glides; link chips squish on tap ── */
+.cp-input.oxy-grow { transition: border-color .15s, box-shadow calc(var(--oxy-d) * 1.4) var(--oxy-ease), height calc(var(--oxy-d) * 1.4) var(--oxy-ease); }
+@keyframes oxy-plane-in { from { opacity: 0; } }
+.oxy-plane {
+  transition: left calc(var(--oxy-d) * 2.2) var(--oxy-spring), top calc(var(--oxy-d) * 2.2) var(--oxy-spring);
+  animation: oxy-plane-in calc(var(--oxy-d) * 2.4) var(--oxy-ease) backwards;
+}
+.oxy-chip { transition: color .15s, background .15s, border-color .15s, opacity .2s, transform calc(var(--oxy-d) * 1.6) var(--oxy-spring); }
+.oxy-chip:active:not(:disabled) { transform: scale(.94); }
+
 /* Animations off or Reduce Motion: stop the keyframes and endless loops added above */
+html[data-reduce-motion="true"] .oxy-plane,
 html[data-reduce-motion="true"] .cp-pane,
 html[data-reduce-motion="true"] .cb-top-chrome > nav,
 html[data-reduce-motion="true"] .oxy-dg-in,

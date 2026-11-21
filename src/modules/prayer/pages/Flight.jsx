@@ -52,7 +52,7 @@ function PlaneShape() {
 // The plane on a timeline: `rotate` 90 = nose right (horizontal bar), 180 = nose down (vertical line).
 function TimelinePlane({ rotate, style }) {
   return (
-    <svg width={26} height={24} viewBox="-40 -36 80 72" aria-hidden="true"
+    <svg className="oxy-plane" width={26} height={24} viewBox="-40 -36 80 72" aria-hidden="true"
       style={{ position: 'absolute', transform: `translate(-50%, -50%) rotate(${rotate}deg)`, pointerEvents: 'none', zIndex: 2, ...style }}>
       <g fill="var(--cp-acc)" stroke={T.bg1} strokeWidth={5} paintOrder="stroke"><PlaneShape /></g>
     </svg>

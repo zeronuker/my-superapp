@@ -13,7 +13,7 @@ const CHIP_DISABLED = { opacity: 0.4, cursor: 'not-allowed' }
 // `set` = solid (something is there already) instead of dashed, for a chip that opens straight away rather than a menu.
 export function AddChip({ label, onClick, disabled, set }) {
   return (
-    <button onClick={onClick} disabled={disabled} style={{ ...chipBase, ...(set ? CHIP_ON : CHIP_OFF), ...(disabled ? CHIP_DISABLED : {}) }}>{label}</button>
+    <button className="oxy-chip" onClick={onClick} disabled={disabled} style={{ ...chipBase, ...(set ? CHIP_ON : CHIP_OFF), ...(disabled ? CHIP_DISABLED : {}) }}>{label}</button>
   )
 }
 
@@ -24,7 +24,7 @@ export function MenuChip({ label, items, disabled, align = 'right', empty }) {
   const presence = usePresence(open)
   return (
     <div style={{ position: 'relative' }}>
-      <button onClick={() => !disabled && setOpen(o => !o)} disabled={disabled} aria-haspopup="menu" aria-expanded={open}
+      <button className="oxy-chip" onClick={() => !disabled && setOpen(o => !o)} disabled={disabled} aria-haspopup="menu" aria-expanded={open}
         style={{ ...chipBase, ...(empty ? CHIP_OFF : CHIP_ON), ...(disabled ? CHIP_DISABLED : {}) }}>{label} ▾</button>
       {presence.mounted && (
         <>
